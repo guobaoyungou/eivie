@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "我的收益",
+  "pullRefresh": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

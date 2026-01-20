@@ -1,0 +1,1 @@
+<view class="dp-channelslive" style="{{'background-color:'+(params.bgcolor)+';'+('margin:'+(params.margin_y*2.2+'rpx '+params.margin_x*2.2+'rpx 0')+';')+('padding:'+(params.padding_y*2.2+'rpx '+params.padding_x*2.2+'rpx')+';')}}"></view>

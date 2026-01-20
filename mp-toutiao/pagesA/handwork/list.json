@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "总回寄订单",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

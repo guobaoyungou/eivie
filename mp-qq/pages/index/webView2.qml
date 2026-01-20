@@ -1,0 +1,1 @@
+<view><block qq:if="{{url!=''}}"><web-view src="{{url}}"></web-view></block><block qq:if="{{showBrowserOpen}}"><view style="width:100%;height:100vh;overflow:hidden;"><image style="width:100%;" src="{{pre_url+'/static/img/showBrowserOpen.jpg'}}" mode="widthFix"></image></view></block></view>

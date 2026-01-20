@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "商家列表",
+  "usingComponents": {
+    "uni-drawer": "/components/uni-drawer/uni-drawer",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

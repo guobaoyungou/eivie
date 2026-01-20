@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "余额转账",
+  "pullRefresh": false,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

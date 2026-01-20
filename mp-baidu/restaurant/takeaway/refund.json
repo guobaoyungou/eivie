@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "申请退款",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

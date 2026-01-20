@@ -1,0 +1,23 @@
+{
+  "navigationBarTitleText": "档案列表",
+  "enablePullDownRefresh": true,
+  "titleNView": {
+    "searchInput": {
+      "placeholder": "输入关键字搜索",
+      "borderRadius": "15px"
+    },
+    "buttons": [
+      {
+        "type": "home"
+      }
+    ]
+  },
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

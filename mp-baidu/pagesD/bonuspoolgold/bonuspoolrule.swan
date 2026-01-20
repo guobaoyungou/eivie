@@ -1,0 +1,1 @@
+<view><block s-if="{{isload}}"><block><view style="padding:20rpx;"><parse vue-id="763a8c55-1" content="{{set.desc}}"></parse></view></block></block><block s-if="{{loading}}"><loading vue-id="763a8c55-2"></loading></block><dp-tabbar vue-id="763a8c55-3" opt="{{opt}}"></dp-tabbar><popmsg class="vue-ref" vue-id="763a8c55-4" data-ref="popmsg"></popmsg></view>

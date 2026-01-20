@@ -1,0 +1,136 @@
+.alert{
+    position: fixed;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    z-index: 5;
+    display: none;
+    background: rgba(0, 0, 0, 0.7);
+}
+.alert_container{
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.alert_module{
+    padding: 15px;
+    border-radius: 5px;
+    background: #fff;
+}
+.alert_title{
+    font-size: 18px;
+    color: #303133;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.alert_content{
+    width: 650px;
+    padding: 15px 0;
+    display: flex;
+}
+.alert_area{
+    flex: 1;
+    height: 400px;
+    overflow-y: scroll;
+}
+.alert_item{
+    font-size: 14px;
+    color: #333;
+    padding: 0 15px;
+    display: flex;
+    cursor: pointer;
+    min-width: 0;
+    align-items: center;
+}
+.alert_icon{
+    height: 18px;
+    width: 18px;
+    box-sizing: border-box;
+    border-radius: 4px;
+    border: 1px solid;
+    background: #fff;
+    border-color: #c9c9c9;
+}
+.alert_active{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1e9fff;
+    border-color: #1e9fff;
+}
+.alert_text{
+    flex: 1;
+    padding: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+.alert_item:hover{
+    background: #ebf5ff;
+}
+.alert_close{
+    cursor: pointer;
+}
+.alert_close:hover{
+    color: #1e9fff;
+}
+.alert_opt{
+    position: relative;
+    display: flex;
+    justify-content: flex-end;
+}
+.alert_opt button{
+    margin-left: 10px;
+}
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    background-color: #fff;
+    border-radius: 5px;
+}
+::-webkit-scrollbar-thumb {
+    background-color: silver;
+    border-radius: 5px;
+}
+::-webkit-scrollbar-track {
+    background-color: #fff;
+}
+
+.area{
+    position: relative;
+    display: flex;
+}
+.area_module{
+    padding: 5px 10px;
+    border-width: 1px;
+    border-style: solid;
+    border-color: #e6e6e6;
+    background-color: #fff;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    cursor: pointer;
+}
+.area_content{
+    min-width: 150px;
+    display: flex;
+    color: #c9c9c9;
+    flex-wrap: wrap;
+}
+.area_item{
+    padding: 2px 10px;
+    background: #009688;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    border-radius: 2px;
+    font-size: 14px;
+    margin: 2.5px;
+}

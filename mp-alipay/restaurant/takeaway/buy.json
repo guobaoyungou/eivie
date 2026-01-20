@@ -1,0 +1,10 @@
+{
+  "defaultTitle": "订单确认",
+  "usingComponents": {
+    "couponlist": "/components/couponlist/couponlist",
+    "parse": "/components/parse/parse",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

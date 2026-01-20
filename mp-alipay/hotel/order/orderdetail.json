@@ -1,0 +1,12 @@
+{
+  "defaultTitle": "订单详情",
+  "pullRefresh": false,
+  "usingComponents": {
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "parse": "/components/parse/parse",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "管理中心",
+  "navigationStyle": "custom",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "量表记录",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

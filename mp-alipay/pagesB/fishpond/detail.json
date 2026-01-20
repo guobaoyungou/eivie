@@ -1,0 +1,9 @@
+{
+  "defaultTitle": "鱼塘详情",
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

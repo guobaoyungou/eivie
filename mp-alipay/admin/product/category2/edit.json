@@ -1,0 +1,6 @@
+{
+  "defaultTitle": "添加商家商品分类",
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "buydialog-tuangou": "/components/buydialog-tuangou/buydialog-tuangou"
+  }
+}

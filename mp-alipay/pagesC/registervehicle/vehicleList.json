@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "",
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

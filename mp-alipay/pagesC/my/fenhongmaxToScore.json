@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "分红额度转积分",
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

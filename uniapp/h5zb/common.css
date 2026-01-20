@@ -1,0 +1,108 @@
+.content{position: fixed;top: 510rpx;width: 100%;height: calc(100vh - 550rpx);}
+/* .live-box{width:100%;height:700rpx;display:flex;align-items:center;justify-content:center;border: 1px solid red;} */
+
+.bottom{position: fixed;width: 100%; padding: 20rpx;background: #fff;display: flex;justify-content: center;bottom: 0;height: 120rpx;}
+.bottom .btn{min-width: 120rpx;border-radius: 50rpx;flex: 1;text-align: center;height: 80rpx;line-height: 80rpx;color: #fff;margin: 0 6rpx;}
+	
+.fixbox{height: 520rpx;position: fixed;top: 0;width: 100%;background: #fff;z-index: 777;}
+.watch_num{position: fixed;right: 6rpx;top:6rpx;border-radius: 10rpx;height: 50rpx;min-width: 100rpx;z-index: 3000;
+display: flex;justify-content: center;align-items: center;padding: 0 10rpx;font-size: 24rpx;background: #00000073;color: #fff;}
+.watch_num .eye{width: 34rpx;height: 34rpx;margin-right: 6rpx;}
+.zb-dd-tab{margin-top: -16rpx;height: 100rpx;}
+.video_main{position: relative;height: 426rpx;width: 100%;}
+.videoBox{width: 100%;height: 426rpx;position: relative;top: 0;left: 0;display: flex;justify-content: center;align-items: center;}
+.videoBoxUn{width: 100%;height: 426rpx;position: relative;top: 0;left: 0;}
+.videoBox .playerVideo{max-width: 100%;max-height: 100%;}
+.videoBox .poster{max-height: 426rpx;}
+.live-box{width:100%;height:100%;background: #00000073;}
+
+.nostartTag{position: relative;top: 0; left: 0; width: 130rpx; height: 70rpx;z-index: 800;line-height: 70rpx;text-align: center;border-radius: 0 0 40rpx 0;background: #00000038;}
+.videoPoster{position: relative;width: 100%;height: 426rpx;}
+.countdown{position: relative;top: -64rpx;background: #00000047;z-index: 500;color: #fff;padding: 10rpx 20rpx;text-align: center;}
+.tabbar{height: 100rpx;}
+
+.hide{opacity: 0;}
+
+.poster{width: 100%;}
+.poster .posterimg{width: 100%;}
+.poster-close{position: fixed;right: 0;top: 0;width: 50rpx;height: 50rpx;z-index: 1999;background: #2323233d;border-radius: 50%;display: flex;align-items: center;justify-content: center;}
+.poster .icon{width: 30rpx;height: 30rpx;}
+.probox{width: 94%;margin: 30rpx 3%;}
+.prolist{display: flex;background: #fff;padding: 20rpx;margin-bottom: 20rpx;border-radius: 16rpx;}
+.prolist .proimg{width: 130rpx;height: 130rpx;}
+.prolist .proinfo{padding-left: 20rpx;flex: 1;}
+.prolist .proinfo .title{height: 50rpx;white-space: nowrap;text-overflow: ellipsis;overflow: hidden;max-width: 540rpx;}
+.prolist .proinfo .tag{}
+.prolist .proinfo .status1{color:#18be6c;}
+.prolist .proinfo .t1{display: flex;justify-content: space-between;align-items: center;font-size: 24rpx;color: #999;}
+.prolist .proinfo .t2{display: flex;justify-content: space-between;align-items: center;margin-top: 20rpx;}
+.prolist .proinfo .buyopt{display: flex;}
+.proinfo .btn{min-width: 100rpx;height: 46rpx;padding: 0 20rpx;border-radius: 30rpx;margin-left: 10rpx;border: 1px solid #dfdfdf;font-size: 24rpx;
+display: flex;justify-content: center;align-items: center;color: #666;}
+.prolist .proinfo .price{font-size: 32rpx;font-weight: bold;}
+.toppro{display: flex;padding: 20rpx;margin-top: 40rpx;}
+.toppro .title{display: flex;justify-content: space-between;}
+.toppro .title .close{width: 26rpx;height: 26rpx;flex-shrink: 0;}
+.toppro .proinfo{margin-left: 20rpx;flex: 1;}
+.toppro .proinfo .title{height: 60rpx;}
+.toppro .proinfo .t1{color: #999;font-size: 24rpx;margin-top: 20rpx;}
+.toppro .proinfo .t2{display: flex;justify-content: space-between;align-items: center;margin-top: 6rpx;}
+.toppro .proimg{width: 150rpx; height: 150rpx;border-radius: 16rpx;}
+
+/* 聊天 */
+	.chat{min-height: 650rpx;z-index: 2000;}
+	.message-list {padding-bottom: 20rpx;padding-bottom:30rpx;}
+	.message-item {display:flex;align-items: center;padding: 10rpx 10rpx 0 10rpx;margin:0;border-radius: 10rpx;font-size: 24rpx;}
+	.message-time {	width:100%;padding-top: 20rpx;	padding-bottom: 10rpx;	text-align: center;display: inline-block;	color: #999;	font-size: 22rpx;}
+	.message-avatar {	width: 60rpx;	height: 60rpx;	border-radius: 50%;flex-shrink: 0;}
+	.message-text {	flex: 1;word-break:break-all;margin-left: 10rpx;}
+	.message-tag{background: #555; border-radius: 10rpx;padding:2rpx 6rpx;font-size: 24rpx;margin-right: 4rpx;}
+
+	
+	.nosay {	position: fixed;	z-index: 100;	bottom: 0;	width: 96%;	height: 60rpx;line-height:60px;	padding: 15rpx 2%;	background-color: #ededed;box-sizing:content-box;display: flex;align-items: center;justify-content: center;color: #999;}
+	.input-box {	position: fixed;	z-index: 2000000;	bottom: 0;	width: 96%;	min-height: 80rpx;	padding: 15rpx 2%;	background-color: #fff;box-sizing:content-box}
+	.input-form {	width: 100%;	height: 100%;	display: flex;	flex-direction: row;	align-items: center;}
+	.input { flex: 1;	height: 66rpx;	border: 1rpx solid #ddd;	padding: 5rpx 10rpx;	background-color: #fff;	font-size: 30rpx;	border-radius: 12rpx;}
+	.textarea {	flex: 1;	border: 1rpx solid #ddd;	padding: 15rpx 10rpx;	background-color: #fff;	font-size: 30rpx;	border-radius: 12rpx; height: 65rpx;box-sizing: border-box !important; display: block !important;}
+	.pic-icon {	width: 54rpx;	height: 54rpx;	margin-right: 18rpx;}
+	.face-icon {	width: 60rpx;	height: 60rpx;	margin-left: 18rpx;}
+	.cart-icon{max-width: 60rpx;	max-height: 60rpx;margin-top: -8rpx;}
+	.faces-box {	width: 100%;	height: 500rpx;}
+	.single-face {	width: 48rpx;	height: 48rpx;	margin: 10rpx;}
+	.send-button {	width: 100rpx;	height: 62rpx;	margin-left: 18rpx;	border-radius: 8rpx;	text-align: center;	line-height: 62rpx;	font-size: 28rpx;	border: 1rpx solid #dddddd;	color: #fff;}
+	.send-button-active {	width: 100rpx;	height: 62rpx;	margin-left: 20rpx;	border-radius: 8rpx;	text-align: center;	line-height: 62rpx;	font-size: 28rpx;	border: 1rpx solid #dddddd;	color: #fff;}
+	.send-icon {	width: 56rpx;	height: 56rpx;}
+	
+	.anit{width: 100%;height: 70rpx;background:#555;position: absolute;color:#fff;font-size: 30rpx;line-height: 70rpx;top: -70rpx;text-align: left;padding:0 20rpx;overflow:hidden}
+	.show{top: 0rpx;animation: show 0.2s;animation-timing-function:ease;}
+	@keyframes show{from {top:-70rpx;}to {top:0rpx;}}
+	.hide{top: -70rpx;animation: hide 0.2s;animation-timing-function:ease;}
+	@keyframes hide{from {top:0rpx;}to {top:-70rpx;}}
+	
+	.alert_popup_content{width: 60%; margin: auto 20%;display: flex;flex-direction: column;align-items: center;justify-content: center;border-radius: 16rpx;}
+	.alert_popup_content .gift{width: 300rpx;height: 300rpx;}
+	.alert_popup_content .gobtn{width: 90%;color:#fff;border-radius:90rpx}
+	
+	.bonus{width: 70%;
+    margin: 16rpx auto;
+    background: #fde4dc;
+    border-radius: 10rpx;
+    display: flex;
+    justify-content: center;
+    padding: 10rpx;
+    color: #ec0000;
+    font-size: 24rpx;}
+
+.alert_bg{display: flex;background: #000000d1;align-items: center;justify-content: center;padding: 30rpx;position: absolute;top: 0;height: 100vh;width: 100%;z-index: 99;}
+.alert_content{background: #fff;border-radius: 16rpx;padding: 20rpx;width: 85%;min-height: 400rpx;}
+.alert_main{min-height: 300rpx;}
+.alert_title{display: flex;justify-content: space-between;}
+.alert_close{width: 30rpx;height: 30rpx;}
+.flex-row{display: flex;align-items: center;margin-bottom: 20rpx;}
+.flex-lable{width: 150rpx;text-align: right;flex-shrink: 0;color: #777;}
+.flex-value{flex:1; margin-left: 10rpx;}
+.flex-value .headimg{height: 50rpx;width: 50rpx;border-radius: 50%;}
+.alert_bottom{display: flex;justify-content: flex-end;}
+.alert_bottom .btn{min-width: 120rpx;border: 1px solid #ccc;border-radius: 50rpx;text-align: center;padding: 6rpx 20rpx;margin-left: 10rpx;}
+.eventbox{background: #fff;width: 94%;margin: 30rpx 3%;border-radius: 16rpx;padding: 30rpx;}
+.chat-bottom{width: 100%;position: fixed;bottom: 0;left: 0;height: 60px;}

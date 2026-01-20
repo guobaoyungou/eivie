@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>系统设置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header"><i class="fa fa-cog"></i> 系统设置</div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w6" lay-filter="">
+						
+						<div class="layui-form-item">
+							<label class="layui-form-label">自动收货天数：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[autoshdays]" lay-verify="required" lay-verType="tips" class="layui-input" value="{$info.autoshdays}">
+							</div>
+							<div class="layui-form-mid">天</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">发货后多少天用户未确认收货自动完成收货（最小值为1）</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">自动关闭订单：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[autoclose]" lay-verify="required" lay-verType="tips" class="layui-input" value="{$info.autoclose}">
+							</div>
+							<div class="layui-form-mid">分钟</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">下单后多久不支付自动关闭订单，释放占用的库存</div>
+						</div>
+						{if getcustom('scoreshop_wx_hongbao')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">每人每天限兑：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[buymax]" lay-verify="required" lay-verType="tips" class="layui-input" value="{$info.buymax}">
+							</div>
+							<div class="layui-form-mid">次</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">每人每天兑换红包的次数，0不限制</div>
+						</div>
+						{/if}
+						{if getcustom('scoreshop_background')}
+							<div class="layui-form-item">
+								<label class="layui-form-label">{:t('积分')}商城背景：</label>
+								<input type="hidden" name="info[background_pic]" id="pic" class="layui-input" value="{$info.background_pic}">
+								<button style="float:left;" type="button" class="layui-btn layui-btn-primary" upload-input="pic" upload-preview="picPreview" onclick="uploader(this)">上传图片</button>
+								<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">建议尺寸：720×360像素</div>
+								<div id="picPreview" style="float:left;padding-top:10px;margin-left:130px;clear: both;">
+									<div class="layui-imgbox" style="width:240px;height: 120px;"><div class="layui-imgbox-img"><img src="{$info.background_pic}"/></div></div>
+								</div>
+							</div>
+						{/if}						
+						<div class="layui-form-item">
+							<label class="layui-form-label">店铺信息：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[showjd]" value="1" {if $info['showjd']==1}checked{/if} title="显示"/>
+								<input type="radio" name="info[showjd]" value="0" {if $info['showjd']==0}checked{/if} title="不显示"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">商品详情页是否显示店铺信息</div>
+						</div>
+					<div class="layui-form-item">
+						<label class="layui-form-label">是否显示{:t('佣金')}：</label>
+						<div class="layui-input-inline">
+							<input type="radio" name="info[showcommission]" value="1" {if $info['showcommission']==1}checked{/if} title="显示"/>
+							<input type="radio" name="info[showcommission]" value="0" {if $info['showcommission']==0}checked{/if} title="不显示"/>
+						</div>
+						<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">开启后商品详情页显示分销{:t('佣金')}</div>
+					</div>
+					{if getcustom('score_product_membergive')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">收益是否发放：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[membergive_isfafang]" value="1" {if $info['membergive_isfafang'] || $info['membergive_isfafang']==1}checked{/if} title="是"/>
+								<input type="radio" name="info[membergive_isfafang]" value="0" {if $info['membergive_isfafang']==0}checked{/if} title="否"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">开启后会根据{:t('积分')}兑换中的商品管理设置的产品会员ID赠送相应的{:t('佣金')}{:t('积分')}和{:t('余额')}</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">收益发放时间：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[membergive_fafangtime]" value="1" {if $info['membergive_fafangtime'] || $info['membergive_fafangtime']==1}checked{/if} title="确认收货后"/>
+								<input type="radio" name="info[membergive_fafangtime]" value="2" {if $info['membergive_fafangtime']==2}checked{/if} title="付款后"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">{:t('积分')}兑换商品管理中设置的产品{:t('会员')}ID获得的收益发放时间</div>
+						</div>
+					{/if}
+						<div class="layui-form-item">
+							<label class="layui-form-label">进入条件：</label>
+							<div class="layui-input-inline" style="width:800px">
+								<input type="checkbox" name="info[gettj][]" value="-1" title="所有人" lay-skin="primary" {if !$info['id'] || in_array('-1',$info['gettj'])}checked{/if} lay-filter="gettjset"/>
+								<!-- <input type="checkbox" name="info[gettj][]" value="0" title="关注用户" lay-skin="primary" {if in_array('0',$info['gettj'])}checked{/if}/> -->
+								{foreach $levellist as $v}
+								<input type="checkbox" name="info[gettj][]" value="{$v.id}" title="{$v.name}" lay-skin="primary" {if in_array($v['id'],$info['gettj'])}checked{/if}/>
+								{/foreach}
+							</div>
+						</div>
+						<div id="gettjset" {if !$info['id'] || in_array('-1',$info['gettj'])}style="display:none"{/if}>
+							<div class="layui-form-item">
+								<div class="layui-form-label">无权限提示：</div>
+								<div class="layui-input-inline">
+									<input class="layui-input" name="info[gettjtip]" value="{if !$info['id']}您没有权限进入{else}{$info.gettjtip}{/if}"/>
+								</div>
+								<div class="layui-form-mid"></div>
+							</div>
+							<div class="layui-form-item">
+								<div class="layui-form-label">无权限跳转：</div>
+								<div class="layui-input-inline">
+									<input class="layui-input" name="info[gettjurl]" value="{$info.gettjurl}"/>
+								</div>
+								<div class="layui-btn layui-btn-primary" style="float:left" onclick="chooseUrl()">选择链接</div>
+							</div>
+						</div>
+					{if getcustom('scoreshop_lvprice_show')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">详情页显示等级价格：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[lvprice_show]" value="1" {if $info['lvprice_show']==1}checked{/if} title="显示"/>
+								<input type="radio" name="info[lvprice_show]" value="0" {if $info['lvprice_show']==0}checked{/if} title="不显示"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">商品详情页是否显示各等级价格</div>
+						</div>
+					{/if}
+					{if getcustom('ad_adset')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">adset全屏视频广告开关：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[adset_show]" value="1" {if $info['adset_show']==1}checked{/if} title="开启" lay-filter="adsetshow"/>
+								<input type="radio" name="info[adset_show]" value="0" {if $info['adset_show']==0}checked{/if} title="关闭" lay-filter="adsetshow"/>
+							</div>
+						</div>
+
+						<div class="layui-form-item" id="adsetshow_adpid" style="{if !$info['adset_show'] || $info['adset_show']!=1}display:none{/if}">
+							<label class="layui-form-label">全屏视频广告标识adpid：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[adpid]" lay-verType="tips" class="layui-input" value="{$info.adpid}">
+							</div>
+						</div>
+
+						<div class="layui-form-item" id="adsetshow_bonus" style="{if !$info['adset_show'] || $info['adset_show']!=1}display:none{/if}">
+							<label class="layui-form-label">全屏视频广告看完奖励：</label>
+							<div class="layui-input-block" style="width:1000px;">
+								<table class="layui-table object_table" style="width:700px" id="object_table">
+									<thead>
+									<tr>
+										<th>等级</th>
+										<th>奖励积分</th>
+										<th>每人每日积分上限</th>
+										<th>操作</th>
+									</tr>
+									</thead>
+									{if $info['config_data']}
+									{foreach $info['config_data'] as $k=>$item}
+									<tr class="choose-tr-list">
+										<td class="xuhao">
+											<select name="levelid[]" class="layui-form-select">
+												{foreach $memberlevel as $level}
+												<option value="{$level.id}" {if $item.levelid == $level.id}selected{/if}>{$level.name}</option>
+												{/foreach}
+											</select>
+										</td>
+										<td>
+											<input type="text" name="config_data[score][]" placeholder="奖励积分" value="{$item.score}" class="layui-input"/>
+										</td>
+										<td>
+											<input type="text" name="config_data[scoremax][]" placeholder="每人每日积分上限" value="{$item.scoremax}" class="layui-input w150"/>
+										</td>
+		
+										<td><input type="hidden" name="" value=""><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="delInviteCashbak(this)">删除</button></td>
+									</tr>
+									{/foreach}
+									{else}
+									<tr class="choose-tr-list">
+										<td class="xuhao">
+											<select name="levelid[]" class="layui-form-select">
+												{foreach $memberlevel as $level}
+												<option value="{$level.id}">{$level.name}</option>
+												{/foreach}
+											</select>
+										</td>
+										<td>
+											<input type="text" name="config_data[score][]" placeholder="奖励积分" class="layui-input"/>
+										</td>
+										<td>
+											<input type="text" name="config_data[scoremax][]" placeholder="每人每日积分上限" class="layui-input w150"/>
+										</td>
+		
+										<td><input type="hidden" name="" value=""><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="delInviteCashbak(this)">删除</button></td>
+									</tr>
+									{/if}
+									<tr class="choose-tr-add">
+										<td colspan="7" align="center"><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="addInviteCashbak()">添加</button></td>
+									</tr>
+								</table>
+								<script>
+
+									function addInviteCashbak(){
+										var tr = '<tr class="choose-tr-list">\n' +
+												'\t\t\t\t\t\t\t\t\t\t<td class="xuhao">\n' +
+												'\t\t\t\t\t\t\t\t\t\t\t<select name="levelid[]">\n';
+												{foreach $memberlevel as $level}
+												tr += '\t\t\t\t\t\t\t\t\t\t\t\t<option value="{$level.id}">{$level.name}</option>\n';
+												{/foreach}
+													tr += '\t\t\t\t\t\t\t\t\t\t\t</select>\n' +
+												'\t\t\t\t\t\t\t\t\t\t</td>\n' +
+												'<td>\n' +
+															'\t\t\t\t\t\t\t\t\t\t\t<input type="text" name="config_data[score][]" placeholder="奖励积分" class="layui-input"/>\n' +
+															'\t\t\t\t\t\t\t\t\t\t</td>\n' +
+															'\t\t\t\t\t\t\t\t\t\t<td>\n' +
+															'\t\t\t\t\t\t\t\t\t\t\t<input type="text" name="config_data[scoremax][]" placeholder="每人每日积分上限" class="layui-input w150"/>\n' +
+															'\t\t\t\t\t\t\t\t\t\t</td>\n' +
+															
+												'<td><input type="hidden" name="" value=""><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="delInviteCashbak(this)">删除</button></td></tr>';
+										$('#object_table').find('.choose-tr-add').before(tr);
+										layui.form.render();
+									}
+									function delInviteCashbak(obj){
+										$(obj).closest('.choose-tr-list').remove();
+									}
+								</script>
+							</div>
+						</div>
+					{/if}
+						{if getcustom('scoreshop_hide_refund')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">退款入口：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[show_refund]" value="1" {if $info['show_refund']==1}checked{/if} title="显示"/>
+								<input type="radio" name="info[show_refund]" value="0" {if $info['show_refund']==0}checked{/if} title="不显示"/>
+							</div>
+						</div>
+						{/if}
+						{if getcustom('scoreshop_teamyeji')}
+							<div class="layui-form-item">
+								<label class="layui-form-label">参与团队业绩：</label>
+								<div class="layui-input-inline">
+									<input type="radio" name="info[jointeamyeji]" value="1" {if $info['jointeamyeji']==1}checked{/if} title="开启"/>
+									<input type="radio" name="info[jointeamyeji]" value="0" {if $info['jointeamyeji']==0}checked{/if} title="关闭"/>
+								</div>
+								<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">开启，则积分商城的订单支付金额参与团队业绩</div>
+							</div>
+						{/if}
+						<div class="layui-form-item">
+							<div class="layui-form-label"></div>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+	layui.form.on('radio(freightfree)', function(data){
+		if(data.value == '1'){
+			$('#freightfreemoneyset').show();
+		}else{
+			$('#freightfreemoneyset').hide();
+		}
+	})
+	layui.form.on('radio(comment)', function(data){
+		if(data.value == '1'){
+			$('#commentset').show();
+		}else{
+			$('#commentset').hide();
+		}
+	})
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		if(field['info[logo]'] == ''){
+			dialog('请上传商家LOGO',0);return;
+		}
+		$.post("{:url('save')}",field,function(data){
+			dialog(data.msg,data.status,data.url);
+		})
+	})
+	
+	layui.form.on('checkbox(gettjset)', function(data){
+		console.log(data)
+		if(data.elem.checked){
+			$('#gettjset').hide();
+		}else{
+			$('#gettjset').show();
+		}
+	})
+	layui.form.on('radio(adsetshow)', function(data){
+		if(data.value=='1'){
+			$('#adsetshow_adpid').show();
+			$('#adsetshow_bonus').show();
+		}else{
+			$('#adsetshow_adpid').hide();
+			$('#adsetshow_bonus').hide();
+		}
+	})
+	
+	function chooseUrl(){
+		layer.open({type:2,shadeClose:true,area:['1200px', '650px'],'title':'选择链接',content:"{:url('DesignerPage/chooseurl')}"})
+	}
+	function chooseLink(urlname,url){
+		$("input[name='info[gettjurl]']").val(url);
+	}
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

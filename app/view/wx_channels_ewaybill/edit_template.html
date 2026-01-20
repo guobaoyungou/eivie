@@ -1,0 +1,141 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>电子面单模板</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					面单模板<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+				</div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w6" lay-filter="">
+						<input type="hidden" name="id" value="{$info['id']}">
+						<div class="layui-form-item">
+							<label class="layui-form-label">模板名称：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[template_name]" value="{$info.template_name}" class="layui-input" />
+							</div>
+							<div class="layui-form-mid">同一快递公司下不可重复</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">模板描述：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[template_desc]" value="{$info.template_desc}" class="layui-input" />
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">模板类型：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[template_type]" value="single" {if !$info || $info['template_type']=='single'}checked{/if} title="单联" lay-filter="">
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">快递公司：</label>
+							<div class="layui-input-inline">
+								<select name="info[delivery_id]">
+									{foreach $delivery_lists as $delivery}
+									<option {if $info['delivery_id']==$delivery['delivery_id']}selected{/if} value="{$delivery['delivery_id']}">{$delivery['delivery_name']}</option>
+									{/foreach}
+								</select>
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">是否默认模板：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[is_default]" value="0" {if !$info || $info['is_default']=='0'}checked{/if} title="否" lay-filter="">
+								<input type="radio" name="info[is_default]" value="1" {if !$info || $info['is_default']=='1'}checked{/if} title="是" lay-filter="">
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						{foreach $option_ids as $option_id=>$option_name}
+						<fieldset class="layui-elem-field layui-field-title"  style="margin-top: 30px;">
+							<legend>{$option_name}</legend>
+						</fieldset>
+						<div class="layui-form-item">
+							<label class="layui-form-label">打印字号：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="option[{$option_id}][font_size]" value="0" {if !$info || $options[$option_id]['font_size']=='0'}checked{/if} title="默认" lay-filter="">
+								<input type="radio" name="option[{$option_id}][font_size]" value="1" {if $options[$option_id]['font_size']=='1'}checked{/if} title="加大" lay-filter="">
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">字体是否加粗：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="option[{$option_id}][is_bold]" value="0" {if !$info || $options[$option_id]['is_bold']=='0'}checked{/if} title="否" lay-filter="">
+								<input type="radio" name="option[{$option_id}][is_bold]" value="1" {if $options[$option_id]['is_bold']=='1'}checked{/if} title="是" lay-filter="">
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">是否选用：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="option[{$option_id}][is_open]" value="0" {if !$info || $options[$option_id]['is_open']=='0'}checked{/if} title="否" lay-filter="">
+								<input type="radio" name="option[{$option_id}][is_open]" value="1" {if $options[$option_id]['is_open']=='1'}checked{/if} title="是" lay-filter="">
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						{/foreach}
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">确定修改</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		var index = layer.load();
+		$.post("{:url('edit_template')}",field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status==1){
+				setTimeout(function(){
+					parent.layer.closeAll();
+					parent.tableIns.reload();
+				},1000)
+			}
+		})
+	})
+		layui.form.on('radio(change_valid_type)', function(data){
+			if(data.value == '1'){
+				$('#valid_type_1').show();
+				$('#valid_type_2').hide();
+			}else{
+				$('#valid_type_1').hide();
+				$('#valid_type_2').show();
+			}
+		})
+	layui.laydate.render({
+		elem: '#receive_info_time',
+		trigger: 'click',
+		type: 'datetime',
+		range: '~' //或 range: '~' 来自定义分割字符
+	});
+	layui.laydate.render({
+		elem: '#valid_time',
+		trigger: 'click',
+		type: 'datetime',
+		range: '~' //或 range: '~' 来自定义分割字符
+	});
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

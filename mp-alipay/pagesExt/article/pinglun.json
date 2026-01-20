@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "",
+  "pullRefresh": true,
+  "usingComponents": {
+    "wxface": "/components/wxface/wxface"
+  }
+}

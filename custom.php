@@ -1,0 +1,1 @@
+<?php return ['wx_channels','aivideo'];

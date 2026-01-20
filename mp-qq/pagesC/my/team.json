@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "团队统计",
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

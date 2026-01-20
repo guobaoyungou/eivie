@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "单位信息收资表",
+  "component": true,
+  "usingComponents": {
+    "uni-data-picker": "/components/uni-data-picker/uni-data-picker",
+    "loading": "/components/loading/loading"
+  }
+}

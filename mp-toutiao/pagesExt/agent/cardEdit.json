@@ -1,0 +1,13 @@
+{
+  "navigationBarTitleText": "代理卡片设置",
+  "usingComponents": {
+    "dp-text": "/components/dp-text/dp-text",
+    "dp-picture": "/components/dp-picture/dp-picture",
+    "dp-richtext": "/components/dp-richtext/dp-richtext",
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

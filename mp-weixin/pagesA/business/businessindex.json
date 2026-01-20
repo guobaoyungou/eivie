@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "商家详情",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "dp-product-itemlist": "/components/dp-product-itemlist/dp-product-itemlist",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata"
+  }
+}

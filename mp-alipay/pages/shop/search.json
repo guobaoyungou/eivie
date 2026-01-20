@@ -1,0 +1,15 @@
+{
+  "defaultTitle": "商品搜索",
+  "pullRefresh": false,
+  "usingComponents": {
+    "uni-drawer": "/components/uni-drawer/uni-drawer",
+    "dp-product-item": "/components/dp-product-item/dp-product-item",
+    "dp-product-itemlist": "/components/dp-product-itemlist/dp-product-itemlist",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

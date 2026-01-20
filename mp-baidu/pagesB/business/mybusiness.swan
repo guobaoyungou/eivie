@@ -1,0 +1,1 @@
+<view class="container"><block s-if="{{loading}}"><loading vue-id="af301c82-1"></loading></block><dp-tabbar vue-id="af301c82-2" opt="{{opt}}"></dp-tabbar><popmsg class="vue-ref" vue-id="af301c82-3" data-ref="popmsg"></popmsg><wxxieyi vue-id="af301c82-4"></wxxieyi></view>

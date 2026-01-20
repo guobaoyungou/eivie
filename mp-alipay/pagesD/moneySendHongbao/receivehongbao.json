@@ -1,0 +1,6 @@
+{
+  "defaultTitle": "发红包领取",
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

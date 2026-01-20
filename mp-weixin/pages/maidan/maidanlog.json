@@ -1,0 +1,16 @@
+{
+  "navigationBarTitleText": "买单付款记录",
+  "enablePullDownRefresh": true,
+  "titleNView": {
+    "searchInput": {
+      "placeholder": "输入订单号搜索",
+      "borderRadius": "15px"
+    },
+    "buttons": [
+      {
+        "type": "home"
+      }
+    ]
+  },
+  "usingComponents": {}
+}

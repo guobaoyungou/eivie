@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "土地详情",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "loading": "/components/loading/loading"
+  }
+}

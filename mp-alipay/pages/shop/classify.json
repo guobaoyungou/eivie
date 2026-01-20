@@ -1,0 +1,15 @@
+{
+  "defaultTitle": "分类商品",
+  "pullRefresh": false,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "buydialog-pifa": "/components/buydialog-pifa/buydialog-pifa",
+    "buydialog-pifa2": "/components/buydialog-pifa2/buydialog-pifa2",
+    "buydialog": "/components/buydialog/buydialog",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

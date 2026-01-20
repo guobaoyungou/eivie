@@ -1,0 +1,12 @@
+{
+  "defaultTitle": "发票信息",
+  "pullRefresh": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

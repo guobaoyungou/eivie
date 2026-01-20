@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "外卖",
+  "component": true,
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "nodata": "/components/nodata/nodata",
+    "buydialog-restaurant": "/components/buydialog-restaurant/buydialog-restaurant",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

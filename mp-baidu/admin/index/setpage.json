@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "配置",
+  "component": true,
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

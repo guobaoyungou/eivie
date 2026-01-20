@@ -1,0 +1,1 @@
+.topsearch{padding:16rpx 3% 8rpx;width:100%;top:0;z-index:11}.topsearch .f1{height:60rpx;border-radius:30rpx;border:0;flex:1}.topsearch .f1 .img{width:24rpx;height:24rpx;margin-left:10px}.topsearch .f1 input{height:100%;flex:1;padding:0 20rpx;font-size:28rpx;color:#333}

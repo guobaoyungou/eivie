@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "设置收款码",
+  "pullRefresh": false,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

@@ -1,0 +1,183 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>分享员订单</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-card layui-col-md12">
+          <div class="layui-card-header">
+			  <div class="layui-tab layui-tab-brief">
+				  <ul class="layui-tab-title">
+					  {foreach $childmenu as $child}
+					  <li {if $child['path'] == $thispath}class="layui-this"{/if} onclick="location.href='{:url($child['path'])}'">{$child['name']}</li>
+					  {/foreach}
+				  </ul>
+			  </div>
+		  </div>
+          <div class="layui-card-body" pad15>
+						<div class="layui-col-md4" style="padding-bottom:10px">
+							<button class="layui-btn layui-btn-primary layuiadmin-btn-list" data-form-export="{:url('orders')}">导出</button>
+							<button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="asyncSharerOrders(0)">同步订单</button>
+						</div>
+						<div class="layui-form layui-col-md8 layui-form-search">
+							<div class="layui-inline">
+								<label class="layui-form-label">订单ID</label>
+								<div class="layui-input-inline">
+									<input type="text" class="layui-input" name="order_id" />
+								</div>
+							</div>
+							<div class="layui-inline">
+								<button class="layui-btn layuiadmin-btn-replys" lay-submit="" lay-filter="LAY-app-forumreply-search">
+									<i class="layui-icon layui-icon-search layuiadmin-button-btn"></i>
+								</button>
+							</div>
+						</div>
+						<div class="layui-col-md12">
+							<table id="tabledata" lay-filter="tabledata"></table>
+						</div>
+          </div>
+        </div>
+    </div>
+  </div>
+
+  <div class="layui-form" lay-filter="" style="margin-top:20px; display: none" id="shareorders">
+	  <div class="layui-form-item">
+		  <label class="layui-form-label" style="width: 100px;">分享员openid：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline" style="width:300px;margin-left:0px">
+				  <input type="text" name="sharer_openid" class="layui-input" />
+			  </div>
+		  </div>
+	  </div>
+  </div>
+
+	{include file="public/js"/}
+	<script>
+  var table = layui.table;
+	var datawhere = {};
+  //数据表
+  var tableIns = table.render({
+    elem: '#tabledata'
+    ,url: "{$Request.url}" //数据接口
+    ,page: true //开启分页
+    ,cols: [[ //表头
+			{type:"checkbox"},
+      {field: 'id', title: 'ID',  sort: true,width:70},
+			{field: 'order_id', title: '订单id'},
+		  {field: 'sharer_openid', title: '分享员openid'},
+		  {field: 'product_id', title: '商品唯一id'},
+		  {field: 'sku_id', title: '商品sku_id'},
+
+      // {field: 'operation', title: '操作',templet:function(d){
+		// 		var html = '';
+	  //
+		// 		return html;
+      // }}
+    ]]
+  });
+	//排序
+	table.on('sort(tabledata)', function(obj){
+		datawhere.field = obj.field;
+		datawhere.order = obj.type;
+		tableIns.reload({
+			initSort: obj,
+			where: datawhere
+		});
+	});
+	//检索
+	layui.form.on('submit(LAY-app-forumreply-search)', function(obj){
+		var field = obj.field
+		var olddatawhere = datawhere
+		datawhere = field
+		datawhere.field = olddatawhere.field
+		datawhere.order = olddatawhere.order
+		tableIns.reload({
+			where: datawhere,
+			page: {curr: 1}
+		});
+	});
+
+	</script>
+  <script>
+	  //日期范围选择
+	  layui.laydate.render({
+		  elem: '#create_time_range',
+		  trigger: 'click',
+		  type:'datetime',
+		  range: '~' //或 range: '~' 来自定义分割字符
+	  });
+	  //同步品牌库
+	  var $ = layui.jquery
+	  var next_key = 0;
+	  var percent = 0;
+	  var field = {};
+	  var pagenum = 0;
+	  function asyncSharerOrders(type){
+		  var couponLayer = layer.open({type:1,area:['600px','400px'],title:'同步分享员订单',content:$("#shareorders"),shadeClose:true,btn: ['确定', '取消'],
+			  yes:function(){
+				  pagenum = 0;
+				  var sharer_openid = $('input[name="sharer_openid"]').val();
+				  field.sharer_openid = sharer_openid;
+				  layer.msg('同步中，请勿刷新或关闭页面', {
+					  icon: 16,
+					  shade: 0.01,
+					  time:false
+				  });
+				  _tplsend(field);
+			  }
+		  });
+	  }
+	  function _tplsend(field){
+		  pagenum++;
+		  field.pagenum = pagenum;
+		  $.ajax({
+			  type:'POST',
+			  url:"{:url('asyncAllOrders')}/next_key/"+next_key,
+			  dataType:'json',
+			  data:field,
+			  success:function(data){
+				  console.log(data);
+
+				  if(data.status==1){
+					  next_key = data.next_key;
+					  field.pagenum = pagenum;
+					  layer.msg('正在同步第'+pagenum+'页，请勿刷新或关闭页面', {
+						  icon: 16,
+						  shade: 0.01,
+						  time:false
+					  });
+					  tableIns.reload();
+				  }
+				  // return false;
+				  if(data.status==1 && data.next_key){
+					  field.pagenum = pagenum;
+					  _tplsend(field);
+				  }else{
+					  if(data.status==1){
+						  dialog(data.msg,1);
+					  }else{
+						  dialog(data.msg,data.status);
+					  }
+					  setTimeout(function(){
+						  parent.layer.closeAll();
+						  parent.tableIns.reload()
+					  },2000);
+				  }
+			  },
+			  error:function(){
+				  layer.close(index);
+				  dialog('未知错误',0);
+			  }
+		  })
+	  }
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "地图标注信息",
+  "component": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

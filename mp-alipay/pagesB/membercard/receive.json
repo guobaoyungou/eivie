@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "会员卡领取",
+  "pullRefresh": false,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

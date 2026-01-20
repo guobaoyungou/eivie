@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "工单进度",
+  "pullRefresh": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse"
+  }
+}

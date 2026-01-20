@@ -1,0 +1,6 @@
+{
+  "defaultTitle": "转入积分",
+  "usingComponents": {
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

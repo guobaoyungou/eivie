@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "签字",
+  "custom_file": "hotel",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {}
+}

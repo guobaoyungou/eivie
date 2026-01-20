@@ -1,0 +1,241 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>网点账号</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-card layui-col-md12">
+          <div class="layui-card-header">
+			  <div class="layui-tab layui-tab-brief">
+				  <ul class="layui-tab-title">
+					  {foreach $childmenu as $child}
+					  <li {if $child['path'] == $thispath}class="layui-this"{/if} onclick="location.href='{:url($child['path'])}'">{$child['name']}</li>
+					  {/foreach}
+				  </ul>
+			  </div>
+			  {if input('param.isopen')==1}<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>{/if}
+		  </div>
+          <div class="layui-card-body" pad15>
+						<div class="layui-col-md4" style="padding-bottom:10px">
+							<button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="asyncAllAccount(0)">同步网点账号</button>
+						</div>
+						<div class="layui-form layui-col-md8 layui-form-search">
+							<div class="layui-inline">
+								<label class="layui-form-label">面单账号状态</label>
+								<div class="layui-input-inline">
+									<select name="status">
+										<option value="">全部</option>
+										{foreach $status_arr as $status_k=>$status_v}
+										<option value="{$status_k}">{$status_v}</option>
+										{/foreach}
+									</select>
+								</div>
+							</div>
+							<div class="layui-inline">
+								<button class="layui-btn layuiadmin-btn-replys" lay-submit="" lay-filter="LAY-app-forumreply-search">
+									<i class="layui-icon layui-icon-search layuiadmin-button-btn"></i>
+								</button>
+							</div>
+						</div>
+						<div class="layui-col-md12">
+							<table id="tabledata" lay-filter="tabledata"></table>
+						</div>
+          </div>
+        </div>
+    </div>
+  </div>
+  <div class="layui-form" lay-filter="" style="margin-top:20px; display: none" id="notcelayer">
+	  <input type="hidden" id="notice_id" />
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">订单编号：</label>
+		  <div class="layui-form-mid" id="notice_order_id">
+
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">备注：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline">
+				  <input type="text" id="notice" class="layui-input">
+			  </div>
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <div class="layui-input-block">
+			  <button class="layui-btn layui-btn-normal" lay-submit lay-filter="formNotice">确定</button>
+		  </div>
+	  </div>
+  </div>
+  <div class="layui-form" lay-filter="" style="margin-top:20px; display: none" id="stock">
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">查询时间：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline" style="width:300px;margin-left:0px">
+				  <input type="text" id="create_time_range" autocomplete="off" class="layui-input">
+			  </div>
+			  <div class="layui-form-mid layui-word-aux" style="margin-left:10px;"></div>
+		  </div>
+	  </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+  var table = layui.table;
+	var datawhere = {};
+  //数据表
+  var tableIns = table.render({
+    elem: '#tabledata'
+    ,url: "{$Request.url}" //数据接口
+    ,page: true //开启分页
+    ,cols: [[ //表头
+			{type:"checkbox"},
+		  { field: 'shop_id', title: '小店ID' },
+		  { field: 'site_name', title: '网点名称' },
+		  { field: 'delivery_id', title: '快递公司 ID' },
+		  { field: 'company_type', title: '快递公司类型', templet:function (d) {
+			  if(d.company_type==1){
+				  return '加盟型';
+			  }else{
+				  return '直营型';
+			  }
+		  }},
+		  { field: 'acct_id', title: '电子面单账号ID' },
+		  { field: 'acct_type', title: '面单账号类型' ,templet:function (d) {
+				  if(d.acct_type==0){
+				  	return '普通账号';
+				  }else{
+				  	return '共享账号';
+				  }
+			  }},
+		  { field: 'status_str', title: '面单账号状态' },
+		  { field: 'available', title: '面单余额' },
+		  { field: 'allocated', title: '累积已取单' },
+		  { field: 'recycled', title: '累积已回收' },
+		  { field: 'cancel', title: '累计已取消' },
+		  // , { field: 'site_info', title: '网点信息' },
+		  { field: 'monthly_card', title: '月结账号' },
+		  // , { field: 'sender_address', title: '绑定的发货地址信息' }
+		  { field: 'share', title: '共享账号发起方信息' },
+      {field: 'operation', title: '操作',templet:function(d){
+				var html = '';
+				// html += '<button class="table-btn" onclick="openmax(\'{:url('edit_price')}/id/'+d.id+'\')">修改价格</button>';
+				// html += '<button class="table-btn" onclick="rejectsale('+d.id+','+d.order_id+')">拒绝售后</button>';
+			  // html += '<button class="table-btn" onclick="acceptsale('+d.id+','+d.order_id+')">同意售后</button>';
+			  // html += '<button class="table-btn" onclick="uploadrefund('+d.id+','+d.order_id+')">上传退款凭证</button>';
+				return html;
+      }}
+    ]]
+  });
+	//排序
+	table.on('sort(tabledata)', function(obj){
+		datawhere.field = obj.field;
+		datawhere.order = obj.type;
+		tableIns.reload({
+			initSort: obj,
+			where: datawhere
+		});
+	});
+	//检索
+	layui.form.on('submit(LAY-app-forumreply-search)', function(obj){
+		var field = obj.field
+		var olddatawhere = datawhere
+		datawhere = field
+		datawhere.field = olddatawhere.field
+		datawhere.order = olddatawhere.order
+		tableIns.reload({
+			where: datawhere,
+			page: {curr: 1}
+		});
+	});
+
+	</script>
+  <script>
+	  //日期范围选择
+	  layui.laydate.render({
+		  elem: '#create_time_range',
+		  trigger: 'click',
+		  type:'datetime',
+		  range: '~' //或 range: '~' 来自定义分割字符
+	  });
+	  //同步品牌库
+	  var $ = layui.jquery
+			  ,element = layui.element; //Tab的切换功能，切换事件监听等，需要依赖element模块
+	  var next_key = 0;
+	  var percent = 0;
+	  function asyncAllAccount(type){
+		  layer.confirm('确认同步全部网点账户?',{icon: 7, title:'操作确认'}, function(index){
+			  pagenum = 0;
+			  var status = $('#query_status').val();
+			  var create_time_range = $('#create_time_range').val();
+			  var field = {};
+			  field.status = status;
+			  field.create_time_range = create_time_range;
+			  layer.msg('同步中，请勿刷新或关闭页面', {
+				  icon: 16,
+				  shade: 0.01,
+				  time:false
+			  });
+			  _tplsend(field);
+		  })
+	  }
+	  function _tplsend(field){
+		  pagenum++;
+		  $.ajax({
+			  type:'POST',
+			  url:"{:url('asyncAllAccount')}/next_key/"+next_key,
+			  dataType:'json',
+			  data:field,
+			  success:function(data){
+				  console.log(data);
+
+				  if(data.status==1){
+					  next_key = data.next_key;
+					  //layer.msg('成功同步'+next_key+'',{offset:'100px'});
+					  layer.msg('正在同步'+next_key+'，请勿刷新或关闭页面', {
+						  icon: 16,
+						  shade: 0.01,
+						  time:false
+					  });
+					  tableIns.reload();
+				  }
+				  // return false;
+				  if(data.status==1 && data.continue_flag){
+					  _tplsend(field);
+				  }else{
+					  if(data.status==1){
+						  dialog(data.msg,1);
+					  }else{
+						  dialog(data.msg,data.status);
+					  }
+					  setTimeout(function(){
+						  parent.layer.closeAll();
+						  parent.tableIns.reload()
+					  },2000);
+				  }
+			  },
+			  error:function(){
+				  layer.close(index);
+				  dialog('未知错误',0);
+			  }
+		  })
+	  }
+
+	  function chooseadrShow(){
+		  layer.open({type:2,title:'选择地址',content:"{:url('WxChannelsAddress/choosechanelsaddress')}",area:['900px','600px'],shadeClose:true});
+	  }
+	  function choosechannelsaddress (data) {
+		  console.log(data);
+		  $("input[name='address_id']").val(data.address_id);
+		  $("#address_name").text(data.address_id+'-'+data.name);
+
+	  }
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

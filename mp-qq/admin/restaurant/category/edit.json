@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "菜品分类设置",
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

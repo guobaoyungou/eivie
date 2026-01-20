@@ -1,0 +1,20 @@
+{
+  "titleNView": {
+    "searchInput": {
+      "placeholder": "输入关键字搜索",
+      "borderRadius": "15px"
+    },
+    "buttons": [
+      {
+        "type": "home"
+      }
+    ]
+  },
+  "component": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "wxface": "/components/wxface/wxface",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

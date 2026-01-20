@@ -1,0 +1,1 @@
+<?php return ['hostname'=> 'localhost','username'=>'guobaoyungou_cn','password'=>'5ArfhRr9xzyScrF5','hostport'=>'3306','database'=>'guobaoyungou_cn','prefix'=>'ddwx_','authkey'=>'TZJcxBSGGdtDBIxFerKVJo','authtoken'=>'yWZZTLwSZW','kfport'=>6228];

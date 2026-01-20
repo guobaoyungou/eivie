@@ -1,0 +1,2247 @@
+<template>
+	<view class="page" v-if="isload" :style="{height:pageHeight+'px'}">
+		<swiper class="swiper" :style="{height:pageHeight+'px'}" :circular="circular" :vertical="true" @change="onSwiperChange">
+			<swiper-item v-for="item in videoList" :key="item.id">
+				<video class="video" :style="{height:pageHeight+'px'}" :id="item.id" :ref="item.id" :src="item.src" :controls="false" :loop="true"
+					:show-center-play-btn="false" @tap="playpause" @play="onplay" @ended="playend" @timeupdate="timeupdate" @error="changeBid" :enable-progress-gesture='videoGesture'></video>
+			</swiper-item>
+		</swiper>
+		<view v-if="!isalipay" class="goback" @tap="goback" :style="{top:gobacktopHeight+'px'}">
+			<image class="goback-img" :src="pre_url+'/static/img/goback.png'" />
+		</view>
+		<view v-if="!isplayst" class="playbox" @tap.stop="playClick">
+			<image :src="pre_url+'/static/img/shortvideo_playnum.png'" class="playbox-img" />
+		</view>
+		<block v-if="!shortvideoStyle">
+			<view class="video-right-pos flex">
+				<view class="logo" @tap="gotourl"
+					:data-url="videoDataList[_videoDataIndex].bid==0?'/pages/index/index':'/pages/business/index?id='+videoDataList[_videoDataIndex].bid">
+					<image :src="videoDataList[_videoDataIndex].logo" class="logo-img" />
+				</view>
+				<view class="video-right-pos-options" >
+					<image :src="pre_url+'/static/img/shortvideo_view.png'" class="viewnum-img" /><text	class="viewnum-txt">{{videoDataList[_videoDataIndex].view_num}}</text>
+				</view>
+				<view class="video-right-pos-options" @tap="dozan">
+					<image :src="videoDataList[_videoDataIndex].iszan ? pre_url+'/static/img/shortvideo_like2.png':pre_url+'/static/img/shortvideo_like.png'"
+						class="likenum-img" /><text class="likenum-txt">{{videoDataList[_videoDataIndex].zan_num}}</text>
+				</view>
+				<view class="video-right-pos-options" @tap="commentClick" v-if="videoDataList[_videoDataIndex].comment==1">
+					<image :src="pre_url+'/static/img/shortvideo_comment.png'" class="commentnum-img" /><text
+						class="commentnum-txt">{{videoDataList[_videoDataIndex].commentnum}}</text>
+				</view>
+				<view class="video-right-pos-options" @tap="shareClick">
+					<image :src="pre_url+'/static/img/shortvideo_share.png'" class="sharenum-img" />
+				</view>
+			</view>
+		</block>
+		<block v-if="shortvideoStyle">
+			<view class="video-right-pos flex">
+				<view class="logo" @tap="gotourl"
+					:data-url="videoDataList[_videoDataIndex].bid==0?'/pages/index/index':'/pages/business/index?id='+videoDataList[_videoDataIndex].bid">
+					<image :src="videoDataList[_videoDataIndex].logo" class="logo-img" />
+				</view>
+				<view class="video-right-pos-options" @tap="dozan">
+					<image :src="videoDataList[_videoDataIndex].iszan ? `${pre_url}/static/img/shortvideo/dianzanactive.png`:`${pre_url}/static/img/shortvideo/dianzan.png`"	class="likenum-img" />
+					<text class="likenum-txt">{{videoDataList[_videoDataIndex].zan_num}}</text>
+				</view>
+				<view class="video-right-pos-options" @tap="commentClick" v-if="videoDataList[_videoDataIndex].comment==1">
+					<image :src="pre_url+'/static/img/shortvideo/pinglun.png'" class="commentnum-img" />
+					<text class="commentnum-txt">{{videoDataList[_videoDataIndex].commentnum}}</text>
+				</view>
+				<view class="video-right-pos-options" @tap="shareClick">
+					<image :src="pre_url+'/static/img/shortvideo_share.png'" class="sharenum-img" />
+					<text class="sharenum-txt">{{videoDataList[_videoDataIndex].share_num}}</text>
+				</view>
+			</view>
+		</block>
+		<view class="linkurl" @tap="gotourl" :data-url="videoDataList[_videoDataIndex].linkurl"
+			v-if="videoDataList[_videoDataIndex].linkurl && !shortvideoStyle">
+			<text class="linkurl-txt">{{videoDataList[_videoDataIndex].linkname}}</text>
+			<image :src="pre_url+'/static/img/shortvideo_arrowright.png'" class="linkurl-img" />
+		</view>
+		<!-- <view class="bottomshadow" :style="menuindex > -1 ? 'bottom:110rpx':''"></view> -->
+		<view class="cart" :style="menuindex > -1 || bottomshare_status == 2 ? 'bottom:150rpx':''" v-if="videoDataList[_videoDataIndex].pronum > 0 && !shortvideoStyle"
+			@tap="proboxClick">
+			<image :src="pre_url+'/static/img/shortvideo_cart.png'" class="cart-img" /><text
+				class="cart-txt">{{videoDataList[_videoDataIndex].pronum}}</text>
+		</view>
+		<!-- 商品信息框 -->
+		<view class="prodialog" :style="menuindex > -1 || bottomshare_status == 2 ? 'bottom:230rpx':''"
+			v-if="!videoDataList[_videoDataIndex].linkurl && prodialogshow && videoDataList[_videoDataIndex].proid > 0">
+      <view v-if="videoDataList[_videoDataIndex].protype == 'shop'" @tap="gotourl" :data-url="'/pages/shop/product?id='+videoDataList[_videoDataIndex].proid">
+        <image :src="pre_url+'/static/img/shortvideo_probg.png'" class="prodialog-bgimg" />
+        <view class="prodialog-content">
+          <image :src="videoDataList[_videoDataIndex].propic" class="prodialog-content-img" />
+          <view class="prodialog-content-info">
+            <text class="prodialog-content-name">{{videoDataList[_videoDataIndex].proname}}</text>
+            <text class="prodialog-content-sales">{{videoDataList[_videoDataIndex].prosales}}人购买</text>
+            <text class="prodialog-content-price">￥{{videoDataList[_videoDataIndex].prosell_price}}</text>
+          </view>
+        </view>
+        <image :src="pre_url+'/static/img/close.png'" class="prodialog-close" @tap.stop="prodialogClose" />
+      </view>
+      <view v-if="videoDataList[_videoDataIndex].protype == 'gift_bag'" @tap="gotourl" :data-url="'/pagesA/giftbag/list?gbid=' + videoDataList[_videoDataIndex].proid+'&bid='+videoDataList[_videoDataIndex].probid" >
+        <image :src="pre_url+'/static/img/shortvideo_probg.png'" class="prodialog-bgimg" />
+        <view class="prodialog-content">
+          <image :src="videoDataList[_videoDataIndex].propic" class="prodialog-content-img" />
+          <view class="prodialog-content-info">
+            <text class="prodialog-content-name">{{videoDataList[_videoDataIndex].proname}}</text>
+            <text class="prodialog-content-sales"></text>
+            <text class="prodialog-content-price">￥{{videoDataList[_videoDataIndex].prosell_price}}</text>
+          </view>
+        </view>
+        <image :src="pre_url+'/static/img/close.png'" class="prodialog-close" @tap.stop="prodialogClose" />
+      </view>
+		</view>
+
+		<view class="title" :style="menuindex > -1 || bottomshare_status == 2 ? 'bottom:300rpx':''" v-if='!shortvideoStyle'><text
+				class="title-txt">{{videoDataList[_videoDataIndex].name}}</text></view>
+		<view class="description" :style="menuindex > -1  || bottomshare_status == 2? 'bottom:200rpx':''"><text
+				class="description-txt">{{videoDataList[_videoDataIndex].description}}</text></view>
+        
+    <view v-if="bottomshare_status == 2" class="bottomshare">
+      <view style="width: 720rpx;margin: 0 auto;display: flex;flex-direction: unset;">
+        <view v-if="shareinfor" class="nocss bottomshare_item ">
+          <view class="nocss" style="justify-content: center;">
+            <image :src="shareinfor.headimg" class="bottomshare_headimg" style="background-color:#ccc"></image>
+          </view>
+          <view class="nocss bottomshare_title">
+            {{shareinfor.nickname}}
+          </view>
+        </view>
+        <view class="nocss bottomshare_item" @tap="shareClick">
+          <view class="nocss" style="justify-content: center;">
+            <image :src="pre_url+'/static/img/shortvideo_share.png'" class="bottomshare_headimg" style="border-radius: 0;border: 0;"></image>
+          </view>
+          <view class="nocss bottomshare_title">
+           分享
+          </view>
+        </view>
+        <view  v-if="videoDataList[_videoDataIndex].pronum > 0" @tap="proboxClick" class="nocss bottomshare_item">
+          <view class="nocss" style="justify-content: center;">
+            <image :src="pre_url+'/static/img/cart_64.png'" class="bottomshare_headimg" style="border-radius: 0;border: 0;"></image>
+          </view>
+          <view class="nocss bottomshare_title">
+           <text  v-if="videoDataList[_videoDataIndex].protype == 'shop'">立即购买</text>
+           <text  v-if="videoDataList[_videoDataIndex].protype == 'gift_bag'">立即领取</text>
+          </view>
+          
+        </view>
+        <view v-if="binfo && binfo.bid>0" @tap="openLocation" :data-latitude="binfo.latitude" :data-longitude="binfo.longitude" :data-company="binfo.name" :data-address="binfo.address" class="nocss bottomshare_item">
+          <view class="nocss" style="justify-content: center;">
+            <image :src="pre_url+'/static/img/daohang.png'" class="bottomshare_headimg" style="border-radius: 0;border: 0;"></image>
+          </view>
+          <view class="nocss bottomshare_title">
+           {{binfo.name}}
+          </view>
+        </view>
+      </view>
+    </view>
+		<loading v-if="loading"></loading>
+		<dp-tabbar :opt="opt" @getmenuindex="getmenuindex"></dp-tabbar>
+		<popmsg ref="popmsg"></popmsg>
+
+		<view class="popupshare__content" v-if="sharetypevisible" :style="menuindex > -1 ? 'bottom:110rpx':''">
+			<image :src="pre_url+'/static/img/close.png'" class="popupshare__close2" @tap.stop="handleClickMask" />
+			<view class="sharetypecontent">
+				<!-- #ifdef APP -->
+				<view class="sharetypecontent-f1" @tap="shareapp" v-if="platform == 'app'">
+					<image class="sharetypecontent-f1-img" :src="pre_url+'/static/img/sharefriends.png'" />
+					<text class="sharetypecontent-f1-t1">分享给好友</text>
+				</view>
+				<!-- #endif -->
+				<!-- #ifdef H5 -->
+				<view class="sharetypecontent-f1" @tap="sharemp" v-if="platform == 'mp'">
+					<image class="sharetypecontent-f1-img" :src="pre_url+'/static/img/sharefriends.png'" />
+					<text class="sharetypecontent-f1-t1">分享给好友</text>
+				</view>
+				<!-- #endif -->
+				<button class="sharetypecontent-f1" open-type="share" v-if="platform != 'h5' && platform != 'mp'">
+					<image class="sharetypecontent-f1-img" :src="pre_url+'/static/img/sharefriends.png'" />
+					<text class="sharetypecontent-f1-t1">分享给好友</text>
+				</button>
+				<view class="sharetypecontent-f2" @tap="showPoster">
+					<image class="sharetypecontent-f2-img" :src="pre_url+'/static/img/sharepic.png'" />
+					<text class="sharetypecontent-f2-t1">生成分享图片</text>
+				</view>
+			</view>
+		</view>
+		<view class="posterDialog" v-if="showposter">
+			<view class="posterDialog-main">
+				<view class="posterDialog-close" @tap="posterDialogClose">
+					<image class="posterDialog-img" :src="pre_url+'/static/img/close.png'" />
+				</view>
+				<view class="posterDialog-content">
+					<image class="posterDialog-content-img" :src="posterpic" mode="aspectFit" @tap="previewImage"
+						:data-url="posterpic"></image>
+				</view>
+			</view>
+		</view>
+
+		<!--评论-->
+		<view class="plbox" v-if="showcomment" :style="menuindex > -1 ? 'bottom:110rpx':'bottom:0rpx'">
+			<view :class="[commentScrollTop > 1 ? 'plbox_titleTop':'','plbox_title']"><text class="plbox_title-t1">评论</text><text
+					class="plbox_title-t2">({{videoDataList[_videoDataIndex].commentnum}})</text></view>
+			<image :src="pre_url+'/static/img/close.png'" class="plbox-close" @tap.stop="commentClick" />
+			<scroll-view class="plbox_content" scroll-y="true" @scrolltolower="getmorecomment" @scroll='commentScroll' @scrolltoupper='commentScrolltoupper'>
+				<block v-for="(item, idx) in commentlist" :key="item.id">
+					<view class="plbox_content-item">
+						<view class="plbox_content-item-f1 flex0">
+							<image :src="item.headimg" class="plbox_content-item-f1-img"></image>
+						</view>
+						<view class="plbox_content-item-f2 flex-col">
+							<text class="plbox_content-item-f2-t1">{{item.nickname}}</text>
+							<view class="plbox_content-item-f2-t2 plbox_content-plcontent">
+								<block v-for="con in item.content">
+									<text v-if="con.type=='text'"
+										class="plbox_content-plcontent-text">{{con.content}}</text>
+									<image v-if="con.type=='image'" :src="con.content"
+										class="plbox_content-plcontent-image"></image>
+								</block>
+							</view>
+							<block v-if="item.replylist.length>0">
+								<view class="plbox_content-relist">
+									<block v-for="(hfitem, index) in item.replylist" :key="index">
+										<view class="plbox_content-relist-item2">
+											<view class="flex-row flex-y-center">
+												<image :src="hfitem.headimg" class="plbox_content-relist-headimg" />
+												<text class="plbox_content-relist-nickname">{{hfitem.nickname}}</text>
+											</view>
+											<view class="plbox_content-relist-f2 plbox_content-plcontent">
+												<block v-for="con in hfitem.content">
+													<text v-if="con.type=='text'"
+														class="plbox_content-plcontent-text">{{con.content}}</text>
+													<image v-if="con.type=='image'" :src="con.content"
+														class="plbox_content-plcontent-image"></image>
+												</block>
+											</view>
+										</view>
+									</block>
+								</view>
+							</block>
+							<view class="plbox_content-item-f2-t3">
+								<text class="plbox_content-item-f2-t3-x1">{{item.createtime}}</text>
+								<view class="plbox_content-item-f2-t3-x2"><text class="plbox_content-item-f2-phuifu"
+										@tap="replyClick" :data-id="item.id" :data-nickname="item.nickname">回复</text>
+								</view>
+								<view class="plbox_content-item-f2-pzan" @tap="pzan" :data-id="item.id"
+									:data-index="idx">
+									<image :src="pre_url+'/static/img/zan-' + (item.iszan==1?'2':'1') + '.png'"
+										class="plbox_content-item-f2-pzan-img" /><text
+										class="plbox_content-item-f2-pzan-txt">{{item.zan}}</text>
+								</view>
+							</view>
+						</view>
+					</view>
+				</block>
+				<view v-if="nomore"><text class="comment-nomore">没有更多数据了</text></view>
+				<view v-if="nodata" class="flex flex-x-center flex-y-center" style="width: 100%;height: 100%;"><text class="comment-nodata">暂无评论!</text></view>
+			</scroll-view>
+			<loading v-if="loading"></loading>
+			<view style="height:160rpx"></view>
+			<view class="plbox-replyshadow" v-if="hfid!=0" @tap.stop="replyshadowClick"></view>
+			<view class="pinglun">
+				<image @tap="toggleFaceBox" class="pinglun-faceicon" :src="pre_url+'/static/img/face-icon.png'"></image>
+				<input @confirm="sendMessage" @focus="onInputFocus" @input="messageChange" class="pinglun-input"
+					confirmHold="true" confirmType="send" cursorSpacing="20" type="text" :value="message"
+					:placeholder="messageholder" />
+				<view class="pinglun-buybtn" @tap="sendcomment"><text class="pinglun-buybtn-txt">发表</text></view>
+			</view>
+			<wxface v-if="faceshow" @selectface="selectface"></wxface>
+		</view>
+
+		<!--商品-->
+		<view class="probox" v-if="showproduct" :style="menuindex > -1 ? 'bottom:110rpx':'bottom:0rpx'">
+      <block v-if="prolist && prolist[0] && prolist[0]['type'] == 'gift_bag'">
+        <view class="probox_title">
+          <text class="probox_title-t1">礼包详情</text>
+          <text class="plbox_title-t2">({{prolist.length}})</text>
+        </view>
+      </block>
+      <block v-else>
+        <view class="probox_title">
+          <text class="probox_title-t1">全部商品</text>
+          <text class="plbox_title-t2">({{videoDataList[_videoDataIndex].pronum}})</text>
+        </view>
+      </block>
+			<image :src="pre_url+'/static/img/close.png'" class="plbox-close" @tap.stop="proboxClickClose" />
+			<scroll-view class="probox_content" scroll-y="true">
+				<block v-for="(item, idx) in prolist" :key="item.id">
+					<view v-if="item.type == 'shop'" class="probox_content-item" @tap="gotourl" :data-url="'/pages/shop/product?id='+item.id">
+						<image :src="item.pic" class="probox_content-item-img" />
+						<view class="probox_content-item-info">
+							<text class="probox_content-item-name">{{item.name}}</text>
+							<text class="probox_content-item-sales">{{item.sales}}人购买</text>
+							<text class="probox_content-item-price">￥{{item.sell_price}}</text>
+						</view>
+						<view class="probox_content-item-btn"><text class="probox_content-item-btn-txt">立即抢购</text>
+						</view>
+					</view>
+          <view v-if="item.type == 'gift_bag'" class="probox_content-item" @tap.stop="gotourl" :data-url="'/pagesA/giftbag/detail?id=' + item.id+'&gbid=' + item.gbid+'&bid='+item.bid">
+          	<image :src="item.pic" class="probox_content-item-img" />
+          	<view class="probox_content-item-info" style="overflow: hidden;display: block;">
+          		<text class="probox_content-item-name">{{idx+1}}、 {{item.name}}</text>
+          		<view class="probox_content-item-price" style="flex-direction: unset;display:block;line-height: 60rpx;height: 60rpx;overflow: hidden;">
+                ￥{{item.sell_price}}
+                <view class="gbdesc">详情</view>
+              </view>
+              <text class="gbshortdesc" v-if="item.shortdesc" >{{item.shortdesc}}</text>
+          	</view>
+          </view>
+				</block>
+        <block v-if="prolist && prolist[0] && prolist[0]['type'] == 'gift_bag'">
+          <view style="width:100%;height:110rpx;box-sizing:content-box" class="notabbarbot"></view>
+          <view class="bottombar flex-row" :class="menuindex>-1?'tabbarbot':'notabbarbot'">
+          	<view style="text-align: center;line-height: 100%;width: 50%;">
+              <text v-if="prolist[0]['pirce']>0">价格：￥{{prolist[0]['pirce']}}</text>
+              <text v-else>价格：免费</text>
+            </view>
+          	<view class="tobuy" :style="{margin:'0 auto'}" @tap.stop="goto" :data-url="'/pagesA/giftbag/buy?gbid=' + prolist[0]['gbid'] + '&num=1&bid='+prolist[0]['bid']" ><text>立即领取</text></view>
+          </view>
+        </block>
+			</scroll-view>
+		</view>
+		<!-- 倒计时 -->
+		<view class="count-main" v-if="countMmainStatus" @click="openPopupShow">
+			<view class="postions-view">
+				<view class="class1" :style="{ background: `conic-gradient(#f06e34 ${currentValue}%, ${inactiveColor} ${currentValue}% 100%)` }"></view>
+				<view class="circle">
+					<block v-if="countTimeShow">
+						<view v-if="countTextShow" class="time-num-view">
+							<image :src="pre_url+'/static/img/gift.png'" style="width: 76rpx; height: 76rpx;"></image>
+						</view>
+						<view class="text-tips" v-else>
+							<view>奖励</view>
+							<view>已获得</view>
+						</view>
+					</block>
+				</view>
+<!-- 				<view class="reward-text" :style="{width:  awardMsgShow ? '260%':'100%'}">
+					<view class="text-view" v-if="awardMsgTxtShow">{{awardMsgTxt}}</view>
+				</view> -->
+				<view class="circle1" :style="{background:t('color1')}"></view>
+				<view class="circle2" :style="{ transform: `translateX(-50%) rotate(${currentValue * 3.6}deg)`}">
+					<view class="circle2-r" :style="{background:t('color1') }"></view>
+				</view>
+			</view>
+		</view>
+		<!-- 获得奖励 -->
+		<block v-if="popupShow">
+			<view class="give-coupon flex-x-center flex-y-center">
+				<view class='coupon-block'>
+					<image :src="pre_url+(only_show==1?'/static/img/coupon-top2.png':'/static/img/coupon-top.png')" style="width:630rpx;height:330rpx;"></image>
+					<view @tap="give_coupon_close" :data-url="give_coupon_close_url" class="coupon-del flex-x-center flex-y-center">
+						<image :src="pre_url+'/static/img/coupon-del.png'"></image>
+					</view>
+					<view class="flex flex-x-center flex-y-center">
+						<view class="coupon-info">
+							<view class="flex-x-center coupon-get" style="text-align: center;">
+								{{tispTextReward}}
+							</view>
+							<view style="background:#f5f5f5;padding:10rpx 0; max-height: 600rpx; overflow-y: scroll;">
+							<block v-for="(item,index) in give_reward_list" :key="item.id">
+								<view class="coupon-coupon">
+									<view :class="item.type==1?'pt_img1':'pt_img2'"></view>
+									<view class="pt_left" :class="item.type==1?'':'bg2'">
+										<view class="f1">{{item.value}}</view>
+									</view>
+									<view class="pt_right">
+										<view class="f1">
+											<view class="t1">{{item.title}}</view>
+											<view class="t2" v-if="item.sec_title">{{item.sec_title}}</view>
+										</view>
+									</view>
+								</view>
+							</block>
+							</view>
+							<view v-if="only_show==0" @tap="goto" data-url="/pages/my/usercenter" style="text-align: center;" class="flex-x-center coupon-btn">前往查看</view>
+						</view>
+					</view>
+				</view>
+			</view>
+		</block>
+		<!-- 信息 -->
+		<view class="count-main-info flex flex-y-center flex-row" :style="{top:gobacktopHeight+38+'px'}" v-if="shortvideoStyle"
+		@tap="gotourl" :data-url="videoDataList[_videoDataIndex].bid==0?'/pages/index/index':'/pages/business/index?id='+videoDataList[_videoDataIndex].bid">
+			<view class="head-portrait">
+				<image :src="videoDataList[_videoDataIndex].logo"></image>
+			</view>
+			<view class="info-view flex flex-col">
+				<view class="info-view-title">{{binfo.name}}</view>
+				<view class="info-view-zan">{{videoDataList[_videoDataIndex].zan_num}}人点赞</view>
+			</view>
+		</view>
+		<!-- 评论轮播 -->
+		<view class="comment-rotation-view" v-if="shortvideoStyle">
+			<swiper :autoplay="true" :interval="5000" :vertical="true" :display-multiple-items='2' circular style="height: 120rpx;">
+				<swiper-item v-for="(item,index) in commentlist" class="comment-swiper-item" @tap="commentClick">
+					<view class="comment-options flex flex-y-center flex-row">
+						<view class="nick-text">{{item.nickname.replace(/^.{2}/, '***')}}：</view>
+						<view class="comment-text">
+							<block v-for="con in item.content">
+								<view v-if="con.type=='text'"	class="comment-text-view">{{con.content}}</view>
+								<image v-if="con.type=='image'" :src="con.content" class="plcontent-image"></image>
+							</block>
+						</view>
+					</view>
+				</swiper-item>
+			</swiper>
+		</view>
+		<!-- 底部按钮，立即抢购-邀请好友 -->
+		<view class="page-but-view flex" v-if="shortvideoStyle">
+			<view class="but-options-top flex">
+				<view class="flex but-top" @click="gobackhome">
+					<image :src="pre_url+'/static/img/shortvideo/shouye.png'"></image>
+					首页
+				</view>
+				<view class="flex but-top" @tap="goto" :data-url="'tel::'+videoDataList[_videoDataIndex].tel">
+					<image :src="pre_url+'/static/img/shortvideo/dianhua.png'"></image>
+					客服
+				</view>
+			</view>
+			<view class="but-options-view flex flex-y-center invitation-class" @tap="shareClick" :style="{width:videoDataList[_videoDataIndex].pronum > 0 ? '':'470rpx'}">
+				<image :src="pre_url+'/static/img/shortvideo/fenxianglianjie.png'"></image>
+				邀请好友
+			</view>
+			<view class="but-options-view flex flex-y-center flash-sale-class" @tap="proboxClick" v-if="videoDataList[_videoDataIndex].pronum > 0">
+				<image :src="pre_url+'/static/img/shortvideo/gouwuche.png'"></image>
+				立即抢购
+			</view>
+		</view>
+	</view>
+</template>
+<script>
+	var app = getApp();
+  var interval = null;
+	export default {
+		data() {
+			return {
+				opt: {},
+				loading: false,
+				isload: false,
+				menuindex: -1,
+				nomore: false,
+				nodata: false,
+				platform: app.globalData.platform,
+				pre_url: app.globalData.pre_url,
+				gobacktopHeight: 40,
+				only_show: 0,
+				playst: true,
+				circular: true,
+				videoList: [{
+					id: "video0",
+					src: "",
+					img: ""
+				}, {
+					id: "video1",
+					src: "",
+					img: ""
+				}, {
+					id: "video2",
+					src: "",
+					img: ""
+				}],
+				_videoDataIndex: 0,
+				videoDataList: [],
+				prodialogshow: true,
+				sharetypevisible: false,
+				showposter: false,
+				posterpic: "",
+				showcomment: false,
+				commentlist: [],
+				pagenum: 1,
+				message: "",
+				trimMessage: "",
+				faceshow: false,
+				hfid: 0,
+				messageholder: '发表评论',
+				showproduct: false,
+				prolist: [],
+				isplay: false,
+				isplayst: true,
+				isalipay:false,
+				pageHeight:"",
+        bottomshare_status:0,//底部分享信息
+        islooklog:false,//是否记录
+        currentTime: 0,  //当前进度
+        duration: '', // 总进度
+        playJd:0,
+        nowtime:'',
+        jindu:'',//当前视频进度
+        shareinfor:'',
+        binfo:'',
+				pageshow:true,
+				currentValue: 0,
+				inactiveColor:'#ececec',
+				countdownGetType:false,
+				countTextShow:true,
+				djsmin:'00',
+				djssec:'00',
+				countTimeShow:false,
+				awardMsgShow:false,
+				awardMsgTxt:'',
+				awardMsgTxtShow:false,
+				hasMoreStatus:false,
+				hasMoreStatusH5:true,
+				countMmainStatus:false,
+				popupShow:false,
+				give_reward_list:[],
+				default_award_list:[],
+				tispTextReward:'观看完整视频获得以下奖励',
+				videoGesture:true,// 视频快进手势
+				shortvideoStyle:false,
+				commentScrollTop:0,
+				watchedVideos: {}, // 记录已观看过的视频
+				watchedSeconds: 0, // 当前视频已观看的秒数
+				rewardGiven: false, // 是否已经给予奖励
+				timer: null // 计时器
+			}
+		},
+		onLoad: function(opt) {
+      var that = this;
+			var opt = app.getopts(opt);
+      that.opt = opt;
+		},
+		onReady() {
+			this.init();
+			this.getdata();
+			var sysinfo = uni.getSystemInfoSync();
+			this.pageHeight = sysinfo.windowHeight;
+			if (sysinfo && sysinfo.statusBarHeight) {
+				this.gobacktopHeight = sysinfo.statusBarHeight;
+			}
+			// #ifdef H5
+			this.gobacktopHeight = 20;
+			// #endif
+			if(uni.getSystemInfoSync().uniPlatform=='mp-alipay'||uni.getSystemInfoSync().uniPlatform=='mp-baidu'){
+				this.isalipay = true;
+			}
+		},
+		onShareAppMessage: function() {
+			this.getshareNum();
+			return this._sharewx({
+				title: this.videoDataList[this._videoDataIndex].name,
+				pic: this.videoDataList[this._videoDataIndex].coverimg,
+				link:`/activity/shortvideo/detail?id=${this.videoDataList[this._videoDataIndex].id}`
+			});
+		},
+		onShareTimeline: function() {
+			this.getshareNum();
+			var sharewxdata = this._sharewx({
+				title: this.videoDataList[this._videoDataIndex].name,
+				pic: this.videoDataList[this._videoDataIndex].coverimg
+			});
+			var query = (sharewxdata.path).split('?')[1]+'&seetype=circle';
+			return {
+				title: sharewxdata.title,
+				imageUrl: sharewxdata.imageUrl,
+				query: query
+			}
+		},
+    onUnload: function () {
+      clearInterval(interval);
+      if(this.islooklog){
+        this.upjindu();//更新进度
+      }
+    },
+		methods: {
+			gobackhome(){
+				uni.reLaunch({
+					url:"/pages/index/index"
+				})
+			},
+			changeBid(e){
+				// 清除计时器
+				if (this.timer) {
+					clearInterval(this.timer);
+				}
+				this.$set(this.videoDataList[this._videoDataIndex], 'bid', 1);
+			},
+			// 页面卸载时清除计时器
+			beforeDestroy() {
+				if (this.timer) {
+					clearInterval(this.timer);
+				}
+			},
+			openPopupShow(){
+				this.give_reward_list = this.default_award_list;
+				this.only_show = 1;
+				this.tispTextReward = "观看完整视频获得以下奖励";
+				this.popupShow = true;
+			},
+			give_coupon_close:function(){
+				this.popupShow = false;
+			},
+			convertSecondsToHMS(seconds) {
+				var minutes = Math.floor((seconds % 3600) / 60);
+				var remainingSeconds = seconds % 60;
+				this.djsmin = (minutes < 10 ? '0':'') + minutes;
+				this.djssec = (remainingSeconds < 10 ? '0':'') + remainingSeconds;
+				this.countTimeShow = true;
+			}, 
+			reset() {
+				let that = this;
+				app.post('ApiShortvideo/playEndAward', {video_id: this.videoDataList[this._videoDataIndex].id},
+				function(res){
+					that.default_award_list = res.data;
+					if(res.data.length > 0){
+						that.tispTextReward = '观看完整视频获得以下奖励';
+						that.countMmainStatus = true;
+						that.currentValue = 0;
+						that.countTextShow = true;
+						that.countTimeShow = false;
+						that.awardMsgShow = false;
+						that.awardMsgTxtShow = false;
+						that.hasMoreStatus = false;
+						that.hasMoreStatusH5 = true;
+					}
+				})
+			}, 
+			init() {
+				this._videoIndex = 0;
+				this._videoContextList = [];
+				for (var i = 0; i < this.videoList.length; i++) {
+					this._videoContextList.push(uni.createVideoContext('video' + i, this));
+				}
+				this._videoDataIndex = 0;
+			},
+			getdata(e) {
+				var that = this;
+				that.nomore = false;
+				that.loading = true;
+				app.post('ApiShortvideo/detail', {
+					id: that.opt.id,
+					cid: that.opt.cid
+				}, function(res) {
+					that.loading = false;
+					that.videoDataList = res.videoList;
+					if(res.shortvideo_style){
+						that.shortvideoStyle = true;
+						that.getcommentlist();
+						that.getprolist();
+					}
+					if(res.video_gesture==1){
+						that.videoGesture = true;
+					}else{
+						that.videoGesture = false;
+					}
+          if(res.binfo){
+            that.binfo=res.binfo
+          }
+          if(res.bottomshare_status){
+            that.bottomshare_status = res.bottomshare_status;
+            if(that.opt && that.opt.pid ){
+              that.getshare();
+            }
+          }
+          if(res.islooklog){
+            that.islooklog = res.islooklog;
+            interval = setInterval(function () {
+              //更新进度
+            	that.upjindu();
+            }, 7000);
+          }
+					that.isload = true;
+					// #ifndef APP-PLUS
+					that.loaded({
+						title: that.videoDataList[that._videoDataIndex].name,
+						desc: that.videoDataList[that._videoDataIndex].description,
+						pic: that.videoDataList[that._videoDataIndex].coverimg,
+						link:`/activity/shortvideo/detail?id=${that.videoDataList[that._videoDataIndex].id}`
+					});
+					// #endif
+					setTimeout(() => {
+						that.updateVideo(true);
+					}, 200)
+				});
+			},
+			onSwiperChange(e) {
+				let currentIndex = e.detail.current;
+				if (currentIndex === this._videoIndex) {
+					return;
+				}
+				let isNext = false;
+				if (currentIndex === 0 && this._videoIndex === this.videoList.length - 1) {
+					isNext = true;
+				} else if (currentIndex === this.videoList.length - 1 && this._videoIndex === 0) {
+					isNext = false;
+				} else if (currentIndex > this._videoIndex) {
+					isNext = true;
+				}
+
+        
+        var that = this;
+        if(that.islooklog){
+          clearInterval(interval);
+          interval = setInterval(function () {
+            //更新进度
+          	that.upjindu();
+          }, 7000);
+        }
+        var oldid    = this.videoDataList[this._videoDataIndex].id;//之前的视频id
+        var oldjindu = this.jindu;//之前视频进度
+        this.jindu   = 0;//重置
+        
+				if (isNext) {
+					this._videoDataIndex++;
+				} else {
+					this._videoDataIndex--;
+				}
+      
+				if (this._videoDataIndex < 0) {
+					this._videoDataIndex = this.videoDataList.length - 1;
+				} else if (this._videoDataIndex >= this.videoDataList.length) {
+					this._videoDataIndex = 0;
+				}
+
+				this.circular = (this._videoDataIndex != 0);
+
+				if (this._videoIndex >= 0) {
+					uni.createVideoContext(`video` + this._videoIndex).pause();
+					uni.createVideoContext(`video` + this._videoIndex).seek(0);
+				}
+
+				this._videoIndex = currentIndex;
+				setTimeout(() => {
+					this.updateVideo(isNext);
+				}, 200);
+        
+				this.showcomment = false;
+				this.prodialogshow = true;
+				app.post('ApiShortvideo/updateviewnum', {
+					id: this.videoDataList[this._videoDataIndex].id,
+          oldid:oldid,
+          oldjindu:oldjindu
+				}, function() {});
+				// #ifndef APP-PLUS
+				that.loaded({
+					title: that.videoDataList[that._videoDataIndex].name,
+					desc: that.videoDataList[that._videoDataIndex].description,
+					pic: that.videoDataList[that._videoDataIndex].coverimg,
+					link:`/activity/shortvideo/detail?id=${that.videoDataList[that._videoDataIndex].id}`
+				});
+				// #endif
+			},
+			getNextIndex(isNext) {
+				let index = this._videoIndex + (isNext ? 1 : -1);
+				if (index < 0) {
+					return this.videoList.length - 1;
+				} else if (index >= this.videoList.length) {
+					return 0;
+				}
+				return index;
+			},
+			getNextDataIndex(isNext) {
+				let index = this._videoDataIndex + (isNext ? 1 : -1);
+				if (index < 0) {
+					return this.videoDataList.length - 1;
+				} else if (index >= this.videoDataList.length) {
+					return 0;
+				}
+				return index;
+			},
+			onplay: function() {
+				this.isplay = true;
+				this.isplayst = true;
+				this.rewardGiven = false;
+				this.watchedSeconds = 0;
+				const videoId = this.videoDataList[this._videoDataIndex].id;
+				this.giveRewardTime(videoId);
+			},
+			playClick: function() {
+				uni.createVideoContext(`video` + this._videoIndex).play();
+				this.isplayst = true;
+				
+				const videoId = this.videoDataList[this._videoDataIndex].id;
+				this.giveRewardTime(videoId);
+				
+			},
+			playpause: function() {
+				
+				if (this.playst) {
+					uni.createVideoContext(`video` + this._videoIndex).pause();
+					if (this.timer) {
+						clearInterval(this.timer);
+					}
+				} else {
+					uni.createVideoContext(`video` + this._videoIndex).play();
+					
+					const videoId = this.videoDataList[this._videoDataIndex].id;
+					this.giveRewardTime(videoId);
+				}
+				this.playst = !this.playst;
+				
+			},
+			// 奖励计时
+			giveRewardTime(videoId) {
+				this.rewardGiven = false;
+				this.watchedSeconds = 0;
+				
+				// 清除旧的计时器
+				if (this.timer) {
+					clearInterval(this.timer);
+				}
+				// 设置新的计时器
+				this.timer = setInterval(() => {
+					this.watchedSeconds++;
+					
+					// 检查是否观看满10秒且未给予奖励
+					var shareplay_time = this.videoDataList[this._videoDataIndex].shareplay_time || 0
+					if (this.watchedSeconds >= shareplay_time && !this.rewardGiven) {
+						this.giveReward(videoId);
+					}
+				}, 1000);
+			},
+			// 给予奖励
+			giveReward(videoId) {
+				
+				// 检查是否已经给过这个视频的奖励
+				if (this.watchedVideos[videoId]) {
+					return;
+				}
+				
+				// 标记为已给予奖励
+				this.rewardGiven = true;
+				this.watchedVideos[videoId] = true;
+				
+				// 清除计时器
+				if (this.timer) {
+					clearInterval(this.timer);
+				}
+				
+				// 调用API给予奖励
+				var that = this
+				app.post('ApiShortvideo/getAward', {
+					id: videoId,pid: app.globalData.pid,
+				}, function(res) {
+					if(res.status == 1){
+						// app.success('奖励发放')
+					}
+				});
+			},
+			
+			updateVideo(isNext) {
+				if(this.videoDataList.length == 1){
+					this.videoList.length = 1;
+					this.$set(this.videoList[0], 'src', this.videoDataList[0].src);
+				}else{
+					this.$set(this.videoList[this._videoIndex], 'src', this.videoDataList[this._videoDataIndex].src);
+					this.$set(this.videoList[this.getNextIndex(isNext)], 'src', this.videoDataList[this.getNextDataIndex(isNext)].src);
+				}
+				this.isplay = false;
+				this.isplayst = true;
+				setTimeout(() => {
+					uni.createVideoContext(`video` + this._videoIndex).play();
+					this.countdownGetType = true;
+				}, 200);
+				setTimeout(() => {
+					if (this.isplay == false) this.isplayst = false;
+				}, 400)
+				console.log("v:" + this._videoIndex + " d:" + this._videoDataIndex + "; next v:" + this.getNextIndex(
+					isNext) + " next d:" + this.getNextDataIndex(isNext));
+			},
+			prodialogClose: function() {
+				this.prodialogshow = false
+			},
+			dozan: function() {
+				var that = this
+				app.post('ApiShortvideo/zan', {
+					id: this.videoDataList[this._videoDataIndex].id
+				}, function(res) {
+					that.videoDataList[that._videoDataIndex].iszan = res.iszan;
+					that.videoDataList[that._videoDataIndex].zan_num = res.zan_num;
+				});
+			},
+			// 全部商品列表关闭
+			proboxClickClose(){
+				this.showproduct = !this.showproduct;
+				if (this.showproduct) {
+					this.getprolist();
+				}
+			},
+			proboxClick: function() {
+				var that = this;
+				// 单个商品打开商品详情 多个打开商品列表
+				if(that.prolist.length == 1){
+					uni.navigateTo({
+						url:'/pages/shop/product?id='+ that.prolist[0].id
+					})
+				}else{
+					this.showproduct = !this.showproduct;
+					if (this.showproduct) {
+						this.getprolist();
+					}
+				}
+			},
+			playend:function(e){
+				// 清除计时器
+				if (this.timer) {
+					clearInterval(this.timer);
+				}
+        console.log('playend')
+				let that = this;
+				that.currentValue = 100;
+				app.post('ApiShortvideo/playEnd', {
+					id: this.videoDataList[this._videoDataIndex].id
+				}, function(res) {
+						if(!res.award_data.length) return;
+						if(res.status == 1){
+							that.countTextShow = false;
+							that.only_show = 0;
+							that.give_reward_list = res.award_data;
+							that.popupShow = true;
+							that.tispTextReward = '获得以下奖励';
+							that.coupon_top_url = that.coupon_top;
+							if(res.award_msg){
+								that.awardMsgShow = true;
+								that.awardMsgTxt = res.award_msg;
+								setTimeout(() => {
+									that.awardMsgTxtShow = true;
+								},400)
+							}
+							if(res.has_more == 1){
+								that.hasMoreStatus = true;
+								that.hasMoreStatusH5 = true;
+								setTimeout(() => {
+									that.awardMsgShow = false;
+									that.awardMsgTxt = '';
+									that.awardMsgTxtShow = false;
+									that.countTextShow = true;
+								},2000)
+							}else {
+								that.hasMoreStatusH5 = false;
+								that.hasMoreStatus = false;
+							}
+							 
+						}
+					console.log(res)
+				});
+			},
+			getprolist: function(loadmore) {
+				var that = this;
+				if (!loadmore) {
+					this.pagenum = 1;
+					this.prolist = [];
+				}
+				that.nodata = false;
+				that.nomore = false;
+				app.post('ApiShortvideo/getprolist', {
+					id: this.videoDataList[this._videoDataIndex].id,
+					pagenum: this.pagenum
+				}, function(res) {
+					var data = res.data;
+					if (that.pagenum == 1) {
+						that.prolist = data;
+						if (data.length == 0) {
+							that.nodata = true;
+						}
+					} else {
+						if (data.length == 0) {
+							that.nomore = true;
+						} else {
+							var prolist = that.prolist;
+							var newdata = prolist.concat(data);
+							that.prolist = newdata;
+						}
+					}
+				});
+			},
+			gotourl: function(e) {
+				getApp().goto(e.currentTarget.dataset.url, e.currentTarget.dataset.opentype)
+			},
+			getmoreprolist: function() {
+				this.pagenum = this.pagenum + 1;
+				if (!this.nomore && !this.nodata) {
+					this.getprolist(true);
+				}
+			},
+			commentClick: function() {
+				var that = this;
+				this.showcomment = !this.showcomment;
+				if (this.showcomment) {
+					this.getcommentlist();
+				}
+			},
+			getcommentlist: function(loadmore) {
+				var that = this;
+				if (!loadmore) {
+					this.pagenum = 1;
+					this.commentlist = [];
+				}
+				that.nodata = false;
+				that.nomore = false;
+				app.post('ApiShortvideo/getcommentlist', {
+					id: this.videoDataList[this._videoDataIndex].id,
+					pagenum: this.pagenum
+				}, function(res) {
+					var data = res.data;
+					if (that.pagenum == 1) {
+						that.commentlist = data;
+						if (data.length == 0) {
+							that.nodata = true;
+						}
+					} else {
+						if (data.length == 0) {
+							that.nomore = true;
+						} else {
+							var commentlist = that.commentlist;
+							var newdata = commentlist.concat(data);
+							that.commentlist = newdata;
+						}
+					}
+				});
+			},
+			commentScrolltoupper(){
+				this.commentScrollTop = 0;
+			},
+			commentScroll(e){
+				this.commentScrollTop = e.detail.scrollTop;
+			},
+			getmorecomment: function() {
+				this.pagenum = this.pagenum + 1;
+				if (!this.nomore && !this.nodata) {
+					this.getcommentlist(true);
+				}
+			},
+			replyClick: function(e) {
+				var id = e.currentTarget.dataset.id
+				this.message = '';
+				this.hfid = e.currentTarget.dataset.id;
+				this.messageholder = '回复 ' + e.currentTarget.dataset.nickname + '：';
+			},
+			replyshadowClick: function() {
+				this.hfid = 0;
+				this.message = '';
+				this.messageholder = '发表评论';
+			},
+			sendcomment: function() {
+				var that = this;
+				var message = this.message;
+				var hfid = this.hfid;
+				app.showLoading('提交中');
+				app.post('ApiShortvideo/subpinglun', {
+					id: this.videoDataList[this._videoDataIndex].id,
+					hfid: hfid,
+					content: message
+				}, function(res) {
+					app.showLoading(false);
+					if (res.status == 0) {
+						app.error(res.msg);
+					} else {
+						app.error(res.msg);
+						that.videoDataList[that._videoDataIndex].commentnum = res.commentnum;
+						that.getcommentlist();
+						that.message = '';
+						that.hfid = 0;
+						that.messageholder = '发表评论';
+						that.faceshow = false;
+					}
+				});
+
+			},
+			pzan: function(e) {
+				var that = this;
+				var id = e.currentTarget.dataset.id;
+				var index = e.currentTarget.dataset.index;
+				var commentlist = that.commentlist;
+				app.post("ApiShortvideo/pzan", {
+					id: id
+				}, function(res) {
+					if (res.type == 0) {
+						//取消点赞
+						var iszan = 0;
+					} else {
+						var iszan = 1;
+					}
+					commentlist[index].iszan = iszan;
+					commentlist[index].zan = res.zancount;
+					that.commentlist = commentlist;
+				});
+			},
+			shareClick: function() {
+				this.sharetypevisible = !this.sharetypevisible;
+			},
+			handleClickMask: function() {
+				this.sharetypevisible = false
+			},
+			showPoster: function() {
+				var that = this;
+				that.showposter = true;
+				that.sharetypevisible = false;
+				app.showLoading('生成海报中');
+				app.post('ApiShortvideo/getposter', {
+					id: this.videoDataList[this._videoDataIndex].id
+				}, function(data) {
+					app.showLoading(false);
+					if (data.status == 0) {
+						app.alert(data.msg);
+					} else {
+						that.posterpic = data.poster;
+						that.videoDataList[that._videoDataIndex].share_num = that.videoDataList[that._videoDataIndex].share_num+1;
+					}
+				});
+			},
+			posterDialogClose: function() {
+				this.showposter = false;
+			},
+			toggleFaceBox: function() {
+				this.faceshow = !this.faceshow
+			},
+			onInputFocus: function(e) {
+				this.faceshow = false
+			},
+			messageChange: function(e) {
+				this.message = e.detail.value;
+				this.trimMessage = e.detail.value.trim();
+			},
+			transformMsgHtml: function(msgtype, content) {
+				if (msgtype == 'miniprogrampage') {
+					var contentdata = JSON.parse(content);
+					content = '<div style="font-size:16px;font-weight:bold;height:25px;line-height:25px">' +
+						contentdata.Title + '</div><img src="' + contentdata.ThumbUrl + '" width="200"/>';
+				}
+				if (msgtype == 'image') {
+					content = '<img src="' + content + '" width="200"/>';
+				}
+				return content;
+			},
+			selectface: function(face) {
+				this.message = "" + this.message + face;
+				this.trimMessage = this.message.trim();
+			},
+			goback: function() {
+        var that = this;
+        if(that.islooklog){
+          clearInterval(interval);
+          that.upjindu();//更新进度
+        }
+				getApp().goback();
+			},
+			getshareNum(){
+				let that = this;
+				app.post('ApiShortvideo/addsharenum',{id:that.videoDataList[that._videoDataIndex].id},function(e){
+					if(e.status == 1){
+						that.videoDataList[that._videoDataIndex].share_num = that.videoDataList[that._videoDataIndex].share_num+1;
+					}
+				})
+			},
+			sharemp: function() {
+				app.error('点击右上角发送给好友或分享到朋友圈');
+				this.sharetypevisible = false
+			},
+			shareapp: function() {
+				var that = this;
+				var videoinfo = that.videoDataList[that._videoDataIndex]
+				uni.showActionSheet({
+					itemList: ['发送给微信好友', '分享到微信朋友圈'],
+					success: function(res) {
+						this.getshareNum();
+						if (res.tapIndex >= 0) {
+							var scene = 'WXSceneSession';
+							if (res.tapIndex == 1) {
+								scene = 'WXSenceTimeline';
+							}
+							var sharedata = {};
+							sharedata.provider = 'weixin';
+							sharedata.type = 0;
+							sharedata.scene = scene;
+							sharedata.title = videoinfo.name;
+							sharedata.summary = videoinfo.description;
+							sharedata.href = app.globalData.pre_url + '/h5/' + app.globalData.aid +
+								'.html#/activity/shortvideo/detail?scene=id_' + videoinfo.id + '-pid_' +
+								app.globalData.mid;
+							sharedata.imageUrl = videoinfo.coverimg;
+							var sharelist = app.globalData.initdata.sharelist;
+							if (sharelist) {
+								for (var i = 0; i < sharelist.length; i++) {
+									if (sharelist[i]['indexurl'] == '/activity/shortvideo/detail') {
+										sharedata.title = sharelist[i].title;
+										sharedata.summary = sharelist[i].desc;
+										sharedata.imageUrl = sharelist[i].pic;
+										if (sharelist[i].url) {
+											var sharelink = sharelist[i].url;
+											if (sharelink.indexOf('/') === 0) {
+												sharelink = app.globalData.pre_url + '/h5/' + app
+													.globalData.aid + '.html#' + sharelink;
+											}
+											if (app.globalData.mid > 0) {
+												sharelink += (sharelink.indexOf('?') === -1 ? '?' : '&') +
+													'pid=' + app.globalData.mid;
+											}
+											sharedata.href = sharelink;
+										}
+									}
+								}
+							}
+							uni.share(sharedata);
+						}
+					}
+				});
+			},
+			// 倒计时组件圆环进度
+			async updateValueW(timestamp){
+				if (timestamp >= 99 && this.hasMoreStatusH5) {
+					// #ifdef H5
+						this.playend();
+					// #endif
+					return;
+				};
+				this.currentValue = timestamp;
+			},
+      timeupdate:function(e){
+      	//跳转到指定播放位置 initial-time 时间为秒
+      	let that = this;
+      	//播放的总时长
+      	var duration = e.detail.duration;
+        if(isNaN(duration)){
+          return
+        }
+				// that.videoDataList[that._videoDataIndex].award_show && 
+				// 视频播放 倒计时重置
+				if(that.countdownGetType){
+					that.reset();
+					that.countdownGetType = false;
+				}
+				if(that.currentValue < 100 || that.hasMoreStatus){
+					that.updateValueW((e.detail.currentTime / e.detail.duration)*100);
+					that.convertSecondsToHMS(Math.round(e.detail.duration - e.detail.currentTime));
+				}
+      	//实时播放进度 秒数
+      	var currentTime = e.detail.currentTime;
+      	//当前视频进度
+      	that.currentTime  = currentTime; //实时播放进度
+      	var min = Math.floor(currentTime/60)
+      	var second = currentTime%60
+      	that.nowtime = (min>=10?min:'0'+min)+':'+(second>=10?second:'0'+second)
+      	  //计算进度
+      	if(that.playJd < 100){
+      		that.playJd = (that.currentTime/(duration-1)).toFixed(2)*100;
+      		if(that.playJd>100) that.playJd=100
+      	}
+        var jindu    = that.playJd.toFixed(1);
+        var oldjindu = that.jindu;
+        that.jindu   = jindu;
+        if(that.islooklog && jindu == 100 && jindu >oldjindu){
+          //更新进度
+          that.upjindu();
+        }
+      },
+      upjindu:function(){
+        var that = this;
+        if(!that.islooklog){
+          return
+        }
+        var id    = that.videoDataList[that._videoDataIndex].id;//之前的视频id
+        var jindu = that.jindu;//之前视频进度
+        app.post('ApiShortvideo/addlook', {id:id,jindu:jindu}, function(res) {});
+      },
+      getshare:function(){
+      	var that = this;
+      	app.post('ApiShortvideo/getshareinfor', {
+          id: that.opt.id,
+      		pid: that.opt.pid,
+      	}, function(res) {
+            if(res.status == 1){
+              that.bottomshare_status = 2;
+              that.shareinfor = res.data.shareinfor
+            }
+      	});
+      },
+      openLocation:function(e){
+      	//console.log(e)
+      	var latitude = parseFloat(e.currentTarget.dataset.latitude)
+      	var longitude = parseFloat(e.currentTarget.dataset.longitude)
+      	var address = e.currentTarget.dataset.address
+      	uni.openLocation({
+      	 latitude:latitude,
+      	 longitude:longitude,
+      	 name:address,
+      	 scale: 13
+       })		
+      },
+      onprogress:function(e){
+        var that = this;
+        if(e && e.detail && e.detail.buffered){
+          var jindu    = e.detail.buffered;
+          var oldjindu = that.jindu;
+          if(isNaN(jindu)){
+            return
+          }
+          that.jindu = jindu;
+          if(that.islooklog && jindu == 100 && jindu >oldjindu){
+            //更新进度
+            that.upjindu();
+          }
+        }
+      }
+		}
+	}
+</script>
+
+<style>
+	.give-coupon .coupon-coupon{display: flex; flex-direction: row;}
+	.give-coupon .coupon-coupon .pt_right{padding: 20rpx;}
+	.give-coupon .coupon-coupon .pt_right .f1 .t2{height: unset;line-height: unset;}
+	.give-coupon .coupon-coupon .pt_right .f1 .t4{ max-width: 310rpx; overflow: hidden;  text-overflow: ellipsis; white-space: nowrap;}
+	/* 页面底部功能按钮 */
+	.page-but-view{width: 100%;height: 145rpx;position: fixed;bottom: 0;align-items: flex-start;justify-content: space-between;flex-direction: row;padding: 10rpx 10rpx 0rpx 10rpx;z-index: 5;}
+	.page-but-view .but-options-top{width: 225rpx;height: 80rpx;flex-direction: row;align-items: center;justify-content: center;}
+	.page-but-view .but-options-top .but-top{align-items: center;justify-content: center;font-size: 20rpx;color: #dcdad2;padding: 0rpx 28rpx;}
+	.page-but-view .but-options-top .but-top image{width: 40rpx;height: 40rpx;margin-bottom: 5rpx;}
+	
+	.page-but-view .but-options-view{width: 240rpx;height: 80rpx;border-radius: 10rpx;box-sizing: border-box;font-size: 28rpx;color: #fff;
+	flex-direction: row;align-items: center;justify-content: center;}
+	.page-but-view .but-options-view image{width: 35rpx;height: 35rpx;margin-right: 7rpx;}
+	.page-but-view .invitation-class{background-image: linear-gradient(to right,#feb123,#f9b321);}
+	.page-but-view .flash-sale-class{background-image: linear-gradient(to right,#f6568e,#fd2d56);}
+	/* 评论 轮播 */
+	.comment-rotation-view {position: absolute;z-index: 4;bottom: 160rpx;left: 18rpx;width: 380rpx;height: 120rpx !important;}
+	.comment-rotation-view .comment-swiper-item{}
+	.comment-rotation-view .comment-options{width: 100%;background: rgba(0, 0, 0, 0.3);border-radius: 30rpx;align-items: center;padding: 5rpx;}
+	.comment-rotation-view .comment-options .nick-text{color: #d9bd51;font-size: 24rpx;padding-left: 9rpx;}
+	.comment-rotation-view .comment-options .comment-text{flex-direction: row;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;}
+	.comment-options .comment-text .plcontent-image{width: 20rpx;height: 20rpx;}
+	.comment-options .comment-text .comment-text-view{color: #f1f1f1;font-size: 24rpx;width: 236rpx;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;display: block;}
+	
+	/* 信息 */
+	.count-main-info{position: fixed;left: 18rpx;top:18rpx;z-index: 9999;width: 230rpx;height: 80rpx;border-radius:40rpx;box-sizing: border-box;background: rgba(0, 0, 0, 0.5);}
+	.count-main-info .head-portrait{height: 72rpx;width: 72rpx;border-radius: 50%;overflow: hidden;margin-left: 5rpx;}
+	.count-main-info .head-portrait image{width: 100%;height: 100%;}
+	.count-main-info .info-view{padding-left: 8rpx;width: 132rpx;}
+	.count-main-info .info-view .info-view-title{font-size: 22rpx;color: #eeeeee;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;width: 132rpx;display: block;}
+	.count-main-info .info-view .info-view-zan{font-size: 18rpx;color: #c1c1c1;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;width: 120rpx;display: block;margin-top: 5rpx;}
+	/* 倒计时 */
+	.count-main{
+		position: fixed;
+		left: 18rpx;
+		top:260rpx;
+		z-index: 9999;
+		width: 100rpx;
+		height: 100rpx;
+		options:0.8;
+	}
+	.count-main .postions-view{
+		width: 100%;
+		height: 100%;
+		position: relative;
+		border-radius: 50%;
+		options:0.8;
+	}
+	.count-main .class1{
+		width: 100%;
+		height: 100%;
+		border-radius: 50%;
+		background-size: contain;
+		background-origin: border-box;
+		background-clip: content-box;
+		options:0.8;
+		z-index: 2;
+	}
+	.count-main .circle {
+		position: absolute;
+		width: 90%;
+		height: 90%;
+		left: 50%;
+		top: 50%;
+		background: #5e5e5e;
+		transform: translateX(-50%) translateY(-50%);
+		border-radius: 50%;
+		z-index: 99;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 22rpx;
+		color: #fff;
+	}
+	.count-main .reward-text{
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		border-radius: 50rpx; 
+		background: #5e5e5e;
+		transition: width .6s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.count-main .reward-text .text-view{
+		padding-right: 10rpx;
+		margin-left: 90rpx;
+		font-size: 24rpx;
+		color: #fff;
+		white-space:nowrap;
+		width: 130rpx;
+		word-break: break-all;
+		white-space: normal;
+	}
+	.count-main .circle .time-num-view {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		flex-direction: row;
+		
+	}
+	.count-main .circle .text-tips{
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.count-main .circle1 {
+		width: 12rpx;
+		height: 12rpx;
+		position: absolute;
+		top: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 10%;
+		height: 10%; 
+		border-radius: 50%;
+		options:0.8;
+	}
+	.count-main .circle2 {
+		height: 100%;
+		width: 12rpx;
+		left: 50%;
+		position: absolute;
+	}
+	.circle2-r {
+		width: 12rpx;
+		height: 12rpx;
+		position: absolute;
+		top: 0;
+		left: 0;
+		border-radius: 50%;
+		options:0.8;
+	}
+	/* #ifndef APP-PLUS */
+	page {
+		width: 750rpx;
+		height: 100vh;
+		overflow: hidden;
+		position: relative;
+	}
+
+	/* #endif */
+	.page {
+		position: absolute;
+		width: 750rpx;
+		top: 0;
+		left: 0;
+		/* width: 750rpx; */
+	}
+
+	.swiper {
+		position: absolute;
+		width: 750rpx;
+		top: 0;
+		left: 0;
+	}
+
+	.video {
+		position: absolute;
+		width: 750rpx;
+		top: 0;
+		left: 0;
+	}
+
+	.flex-row {
+		display: flex;
+		flex-direction: row
+	}
+
+	.goback {
+		position: absolute;
+		z-index: 4;
+		top: 40px;
+		left: 15px;
+		width: 30px;
+		height: 30px;
+		display: flex;
+		flex-direction: column;
+		align-items: center
+	}
+
+	.goback-img {
+		width: 30px;
+		height: 30px
+	}
+
+	.playbox {
+		position: absolute;
+		width: 750rpx;
+		height: 100%;
+		flex: 1;
+		background: rgba(0, 0, 0, 0.5);
+		z-index: 3
+	}
+
+	.playbox-img {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 60rpx;
+		height: 60rpx;
+		margin-left: -30rpx;
+		margin-top: -30rpx
+	}
+	.video-right-pos{position: absolute;right: 26rpx;top: 50%;z-index: 4;transform: translateY(-50%);}
+	.video-right-pos .video-right-pos-options{display: flex;flex-direction: column;align-items: center;margin-bottom: 20rpx;}
+	.logo {
+		width: 90rpx;
+		height: 90rpx;
+		border-radius: 50%;
+		overflow: hidden;
+		border: 4rpx solid #FFFFFF;
+		background: linear-gradient(180deg, #FF2775 0%, #FF2F4B 100%);
+		margin-bottom: 40rpx;
+	}
+	.logo-img {
+		width: 86rpx;
+		height: 86rpx;
+		border-radius: 50%;
+	}
+	.viewnum-img {
+		width: 72rpx;
+		height: 72rpx
+	}
+
+	.viewnum-txt {
+		font-size: 24rpx;
+		color: #fff;
+		text-shadow: 0px 6px 12px rgba(0, 0, 0, 0.12);
+	}
+	.likenum-img {
+		width: 72rpx;
+		height: 72rpx
+	}
+
+	.likenum-txt {
+		font-size: 24rpx;
+		color: #fff;
+		text-shadow: 0px 6px 12px rgba(0, 0, 0, 0.12);
+	}
+	.commentnum-img {
+		width: 72rpx;
+		height: 72rpx
+	}
+	.commentnum-txt {
+		font-size: 24rpx;
+		color: #fff;
+		text-shadow: 0px 6px 12px rgba(0, 0, 0, 0.12);
+	}
+	.sharenum-img {
+		width: 72rpx;
+		height: 72rpx
+	}
+
+	.sharenum-txt {
+		font-size: 24rpx;
+		color: #fff;
+		text-shadow: 0px 6px 12px rgba(0, 0, 0, 0.12);
+	}
+
+	.linkurl {
+		position: absolute;
+		z-index: 4;
+		bottom: 160rpx;
+		right: 0;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		background: rgba(100, 100, 100, 0.5);
+		padding: 10rpx 0 10rpx 20rpx;
+		border-radius: 30rpx 0 0 30rpx
+	}
+
+	.linkurl-img {
+		width: 36rpx;
+		height: 36rpx
+	}
+
+	.linkurl-txt {
+		font-size: 26rpx;
+		color: #fff;
+	}
+
+	.bottomshadow {
+		position: absolute;
+		z-index: 4;
+		bottom: 0;
+		left: 0;
+		width: 100%;
+		height: 400rpx;
+		background: linear-gradient(0deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0) 100%);
+		border-radius: 10px;
+	}
+
+	.cart {
+		position: absolute;
+		z-index: 5;
+		bottom: 40rpx;
+		right: 50rpx;
+		width: 88rpx;
+		height: 88rpx;
+		display: relative
+	}
+
+	.cart-img {
+		width: 88rpx;
+		height: 88rpx
+	}
+
+	.cart-txt {
+		position: absolute;
+		z-index: 5;
+		bottom: 6rpx;
+		color: #fff;
+		width: 88rpx;
+		text-align: center;
+		font-size: 28rpx;
+		font-weight: bold
+	}
+
+	.title {
+		position: absolute;
+		z-index: 3;
+		bottom: 160rpx;
+		left: 30rpx;
+		width: 500rpx;
+		overflow: hidden;
+	}
+
+	.title-txt {
+		font-size: 36rpx;
+		color: #fff;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 1;
+		overflow: hidden;
+	}
+
+	.description {
+		position: absolute;
+		z-index: 3;
+		bottom: 60rpx;
+		left: 30rpx;
+		width: 500rpx;
+		overflow: hidden;
+	}
+
+	.description-txt {
+		font-size: 28rpx;
+		height: 88rpx;
+		line-height: 44rpx;
+		color: #fff;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		overflow: hidden;
+	}
+
+	.prodialog {
+		width: 480rpx;
+		height: 190rpx;
+		position: absolute;
+		bottom: 120rpx;
+		right: 10rpx;
+		z-index: 5;
+		display: flex
+	}
+
+	.prodialog-bgimg {
+		width: 480rpx;
+		height: 190rpx;
+	}
+
+	.prodialog-content {
+		width: 470rpx;
+		display: flex;
+		flex-direction: row;
+		flex: 1;
+		padding: 20rpx;
+		position: relative;
+		position: absolute;
+		bottom: 24rpx;
+		right: 10rpx
+	}
+
+	.prodialog-content-img {
+		width: 128rpx;
+		height: 128rpx;
+		border-radius: 10rpx;
+		flex-shrink: 0
+	}
+
+	.prodialog-content-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		padding-left: 20rpx
+	}
+
+	.prodialog-content-name {
+		color: #212121;
+		font-size: 28rpx;
+		height: 40rpx;
+		line-height: 40rpx;
+		font-weight: bold;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 1;
+		overflow: hidden;
+	}
+
+	.prodialog-content-sales {
+		color: #999999;
+		font-size: 24rpx;
+		height: 40rpx;
+		line-height: 40rpx
+	}
+
+	.prodialog-content-price {
+		color: #FD4A46;
+		font-size: 28rpx;
+		font-weight: bold;
+		height: 50rpx;
+		line-height: 50rpx
+	}
+
+	.probox {
+		width: 750rpx;
+		height: 700rpx;
+		padding: 20rpx 20rpx;
+		background: #fff;
+		z-index: 6;
+		position: absolute
+	}
+
+	.probox-replyshadow {
+		position: absolute;
+		z-index: 7;
+		background: rgba(0, 0, 0, 0.4);
+		width: 750rpx;
+		flex: 1;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+	}
+
+	.probox-close {
+		position: absolute;
+		top: 10rpx;
+		right: 10rpx;
+		z-index: 7;
+		width: 50rpx;
+		height: 50rpx;
+		padding: 10rpx;
+	}
+
+	.probox_title {
+		height: 60rpx;
+		line-height: 60rpx;
+		margin-bottom: 20rpx;
+		display: flex;
+		flex-direction: row
+	}
+
+	.probox_title-t1 {
+		font-size: 28rpx;
+		color: #000;
+		font-weight: bold
+	}
+
+	.probox_title-t2 {
+		font-size: 28rpx;
+		color: #000;
+		font-weight: bold
+	}
+
+	.probox_content {
+		height: 580rpx;
+		overflow: scroll;
+		display: flex;
+	}
+
+	.probox_content-item {
+		display: flex;
+		flex-direction: row;
+		flex: 1;
+		padding: 20rpx;
+		position: relative
+	}
+
+	.probox_content-item-img {
+		width: 188rpx;
+		height: 188rpx;
+		border-radius: 10rpx;
+		flex-shrink: 0
+	}
+
+	.probox_content-item-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		padding-left: 20rpx
+	}
+
+	.probox_content-item-name {
+		color: #212121;
+		font-size: 28rpx;
+		height: 80rpx;
+		line-height: 40rpx;
+		font-weight: bold;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		overflow: hidden;
+	}
+
+	.probox_content-item-sales {
+		color: #999999;
+		font-size: 24rpx;
+		height: 50rpx;
+		line-height: 50rpx
+	}
+
+	.probox_content-item-price {
+		color: #FD4A46;
+		font-size: 36rpx;
+		font-weight: bold;
+		height: 50rpx;
+		line-height: 50rpx
+	}
+
+	.probox_content-item-btn {
+		position: absolute;
+		top: 140rpx;
+		right: 20rpx;
+		background: linear-gradient(-90deg, #FD4A46 0%, rgba(253, 74, 70, 0.76) 100%);
+		border-radius: 26px;
+		width: 150rpx;
+		height: 54rpx;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center
+	}
+
+	.probox_content-item-btn-txt {
+		color: #FFFFFF;
+		font-size: 24rpx;
+		font-weight: bold;
+		text-align: center
+	}
+
+	.popupshare__content {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		z-index: 999;
+		width: 750rpx;
+		height: 280rpx;
+		padding: 20rpx 0;
+		background: #fff;
+		display: flex;
+	}
+
+	.popupshare__close2 {
+		position: absolute;
+		top: 10rpx;
+		right: 10rpx;
+		z-index: 1000;
+		width: 50rpx;
+		height: 50rpx;
+		padding: 10rpx;
+	}
+
+	.sharetypecontent {
+		flex: 1;
+		width: 710rpx;
+		height: 250rpx;
+		margin: 0 20rpx;
+		display: flex;
+		flex-direction: row;
+		padding: 50rpx;
+	}
+
+	.sharetypecontent-f1 {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		background: #fff;
+		font-size: 24rpx;
+		border: 0
+	}
+
+	.sharetypecontent button::after {
+		border: 0
+	}
+
+	.sharetypecontent-f1-img {
+		width: 90rpx;
+		height: 90rpx;
+		padding: 0;
+		margin: 0
+	}
+
+	.sharetypecontent-f1-t1 {
+		font-size: 24rpx;
+		color: #111111;
+		height: 60rpx;
+		line-height: 60rpx
+	}
+
+	.sharetypecontent-f2 {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center
+	}
+
+	.sharetypecontent-f2-img {
+		width: 90rpx;
+		height: 90rpx;
+	}
+
+	.sharetypecontent-f2-t1 {
+		font-size: 24rpx;
+		color: #111111;
+		height: 60rpx;
+		line-height: 60rpx
+	}
+
+	.posterDialog {
+		position: absolute;
+		z-index: 99;
+		width: 750rpx;
+		height: 1200rpx;
+		top: 100rpx;
+		left: 0
+	}
+
+	.posterDialog-main {
+		width: 670rpx;
+		height: 1100rpx;
+		margin: 60rpx 40rpx 30rpx 40rpx;
+		background: #fff;
+		position: relative;
+		border-radius: 20rpx;
+		display: flex
+	}
+
+	.posterDialog-close {
+		position: absolute;
+		padding: 20rpx;
+		top: 0;
+		right: 0;
+		z-index: 10;
+	}
+
+	.posterDialog-img {
+		width: 40rpx;
+		height: 40rpx;
+	}
+
+	.posterDialog-content {
+		width: 100%;
+		height: 100%;
+		padding: 70rpx 20rpx 30rpx 20rpx;
+		color: #333;
+		font-size: 30rpx;
+		text-align: center;
+		display: flex;
+	}
+
+	.posterDialog-content-img {
+		width: 100%;
+		height: 100%;
+	}
+
+	.prodialog-close {
+		width: 36rpx;
+		height: 36rpx;
+		padding: 10rpx;
+		position: absolute;
+		top: 6rpx;
+		right: 14rpx;
+		z-index: 9
+	}
+
+
+	.pinglun {
+		width: 750rpx;
+		padding: 0 20rpx;
+		margin: 0 auto;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		height: 100rpx;
+		background: #fff;
+		z-index: 8;
+		border-top: 1px solid #f7f7f7
+	}
+
+	.pinglun-faceicon {
+		width: 46rpx;
+		height: 46rpx;
+		margin-left: 10rpx;
+		margin-right: 18rpx
+	}
+
+	.pinglun-input {
+		flex: 1;
+		color: #000;
+		font-size: 32rpx;
+		padding: 0;
+		line-height: 100rpx
+	}
+
+	.pinglun-buybtn {
+		margin-left: 0.08rpx;
+		background: #FD4A46;
+		height: 60rpx;
+		line-height: 60rpx;
+		padding: 0 30rpx;
+		border-radius: 6rpx
+	}
+
+	.pinglun-buybtn-txt {
+		color: #fff;
+		font-size: 28rpx;
+		height: 60rpx;
+		line-height: 60rpx;
+	}
+
+
+	.plbox {
+		width: 750rpx;
+		height: 700rpx;
+		padding: 20rpx 0rpx;
+		background: #fff;
+		z-index: 6;
+		position: absolute;
+	}
+
+	.plbox-replyshadow {
+		position: absolute;
+		z-index: 7;
+		background: rgba(0, 0, 0, 0.4);
+		width: 750rpx;
+		flex: 1;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+	}
+
+	.plbox-close {
+		position: absolute;
+		top: 10rpx;
+		right: 10rpx;
+		z-index: 7;
+		width: 50rpx;
+		height: 50rpx;
+		padding: 10rpx;
+	}
+
+	.plbox_title {
+		height: 60rpx;
+		line-height: 60rpx;
+		display: flex;
+		flex-direction: row;
+		padding: 0rpx 20rpx;
+		box-sizing: border-box;
+	}
+	.plbox_titleTop{
+		box-shadow: 0rpx 8rpx 7rpx -2rpx rgba(0, 0, 0, 0.1);
+	}
+	.plbox_title-t1 {
+		font-size: 28rpx;
+		color: #000;
+		font-weight: bold
+	}
+
+	.plbox_title-t2 {
+		font-size: 28rpx;
+		color: #000;
+		font-weight: bold
+	}
+
+	.plbox_content {
+		height: 500rpx;
+		overflow: scroll;
+		display: flex;
+		padding: 0rpx 20rpx;
+	}
+
+	.plbox_content-plcontent {
+		display: flex;
+		flex-direction: row;
+		vertical-align: middle;
+		color: #111;
+		flex-wrap: wrap;
+	}
+
+	.plbox_content-plcontent-text {
+		color: #111;
+		font-size: 28rpx
+	}
+
+	.plbox_content-plcontent-image {
+		width: 44rpx;
+		height: 44rpx;
+		vertical-align: inherit;
+	}
+
+	.plbox_content-item {
+		flex: 1;
+		margin-bottom: 30rpx;
+		margin-top: 20rpx;
+		display: flex;
+		flex-direction: row;
+	}
+
+	.plbox_content-item-f1 {
+		width: 80rpx;
+	}
+
+	.plbox_content-item-f1-img {
+		width: 60rpx;
+		height: 60rpx;
+		border-radius: 50%
+	}
+
+	.plbox_content-item-f2 {
+		width: calc(100% - 88rpx);
+	}
+
+	.plbox_content-item-f2-t1 {
+		font-size: 26rpx;
+		font-weight: 500;
+		color: #838383;
+	}
+
+	.plbox_content-item-f2-t2 {
+		color: #000;
+		font-size: 28rpx;
+		margin: 15rpx 0;
+		line-height: 38rpx;
+		
+	}
+
+	.plbox_content-item-f2-t3 {
+		display: flex;
+		flex-direction: row;
+		flex: 1;
+		margin-top: 10rpx;
+		padding-bottom: 30rpx;
+		border-bottom: 1px #ebebeb solid;
+	}
+
+	.plbox_content-item-f2-t3-x1 {
+		color: #999;
+		font-size: 26rpx;
+	}
+
+	.plbox_content-item-f2-t3-x2 {
+		flex: 1;
+		display: flex;
+		flex-direction: row;
+	}
+
+	.plbox_content-item-f2-pzan {
+		display: flex;
+		flex-direction: row
+	}
+
+	.plbox_content-item-f2-pzan-img {
+		width: 32rpx;
+		height: 32rpx;
+		margin-right: 10rpx
+	}
+
+	.plbox_content-item-f2-pzan-txt {
+		font-size: 28rpx;
+		color: #666
+	}
+
+	.plbox_content-item-f2-phuifu {
+		margin-left: 6px;
+		color: #507DAF;
+		font-size: 26rpx
+	}
+
+	.plbox_content-relist {
+		flex: 1;
+		background: #f5f5f5;
+		padding: 20rpx;
+		margin-bottom: 20rpx;
+		margin-top: 10rpx;
+		border-radius: 5rpx;
+	}
+
+	.plbox_content-relist-item2 {
+		font-size: 24rpx;
+		margin-bottom: 10rpx
+	}
+
+	.plbox_content-relist-headimg {
+		width: 45rpx;
+		height: 45rpx;
+		border-radius: 50%;
+		margin-right: 10rpx;
+	}
+
+	.plbox_content-relist-nickname {
+		color: #838383;
+		font-size: 24rpx;
+	}
+
+	.plbox_content-relist-f2 {
+		margin-top: 10rpx
+	}
+
+	.comment-nodata {
+		color: #666;
+		font-size: 26rpx
+	}
+
+	.comment-nomore {
+		flex: 1;
+		color: #999;
+		height: 60rpx;
+		line-height: 60rpx;
+		font-size: 26rpx;
+		text-align: center
+	}
+	@supports(bottom: env(safe-area-inset-bottom)) {
+		.dp-tabbar-bot {
+			padding-bottom: 0 !important;
+		}
+
+		.dp-tabbar-bar {
+			padding-bottom: 0 !important;
+		}
+	}
+  .gbdesc{float: right;background: linear-gradient(-90deg, #FD4A46 0%, rgba(253, 74, 70, 0.76) 100%);overflow: hidden;border-radius:10rpx;padding: 0rpx 24rpx;flex-direction: unset;font-weight: 500;font-size: 28rpx;color: #fff;position: unset;}
+  .gbshortdesc{margin-top: 14rpx;color:#323232;font-weight:bold;font-size:28rpx;line-height:36rpx;margin-bottom:10rpx;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;height:36rpx}
+  .bottombar{ width: 100%; position: fixed;bottom: 0px; left: 0px; background: #fff;height:110rpx;align-items:center;box-sizing:content-box}
+  .bottombar .cart{width: 50%;font-size:26rpx;color:#707070}
+  .bottombar .cart .img{ width:50rpx;height:50rpx}
+  .bottombar .cart .t1{font-size:24rpx;color:#222222;height:30rpx;line-height:30rpx;margin-top:6rpx}
+  .bottombar .tobuy{ width:50%; height: 90rpx;border-radius:8rpx;color: #fff;background: linear-gradient(-90deg, #FD4A46 0%, rgba(253, 74, 70, 0.76) 100%); font-size:28rpx;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:45rpx;margin-right:16rpx;padding-right:20rpx}
+  
+  .bottomshare{width: 100%;height: 150rpx;position: fixed;bottom: 0;flex-direction: unset;color: #000;background-color: #fff;}
+  .bottomshare_item{width: 100%;line-height: 100rpx;margin-top: 15rpx;text-align: center;display: block;overflow: hidden;text-overflow: ellipsis;white-space: nowrap;margin: 10rpx;margin-top: 15rpx;padding: 10rpx;border-radius: 8rpx;height: 120rpx;box-shadow: 6rpx 6rpx 16rpx #ccc;}
+  .bottomshare_headimg{width: 50rpx;height: 50rpx;overflow: hidden;border: 2rpx solid #ccc;border-radius: 50%;}
+  .bottomshare_title{font-size: 24rpx;line-height: 50rpx;text-align: center;display: block;overflow: hidden;}
+  .nocss{flex-shrink: unset;flex-direction: unset;} 
+</style>

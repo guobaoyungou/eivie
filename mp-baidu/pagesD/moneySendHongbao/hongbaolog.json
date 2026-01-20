@@ -1,0 +1,10 @@
+{
+  "enablePullDownRefresh": true,
+  "navigationBarTitleText": "发红包记录",
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading"
+  }
+}

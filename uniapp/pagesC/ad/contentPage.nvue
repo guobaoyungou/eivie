@@ -1,0 +1,85 @@
+<template>
+	<!-- #ifdef APP-NVUE -->
+  <view class="content">
+    <ad-content-page class="ad-content-page" ref="adContentPage" :adpid="sysset.adpid" 
+		@load="onadload" @error="onaderror" @complete='completeChange' @start='startChange' @pause='pauseChange' @resume='resumeChnage'></ad-content-page>
+  </view>
+	<!-- #endif -->
+</template>
+
+<script>
+	var app = getApp();
+export default {
+  data() {
+    return {
+      sysset: ''
+    }
+  },
+  onShow() {},
+	onLoad() {
+		this.getdata();
+	},
+  onHide() {
+    // 需要在页面隐藏时调用广告组件的 hide 方法停止广告内容的声音
+    this.$refs.adContentPage.hide();
+  },
+  methods: {
+		getdata(){
+			let that = this;
+			 app.get('ApiMy/adsetSingle',{},function (res) {
+				 if(res.status == 1){
+					 that.sysset = res.sysset;
+					 // #ifdef APP-NVUE
+					 if(that.sysset.single_st == 1){
+						 that.$nextTick(() => {
+						   that.$refs.adContentPage.show();
+						 })
+					 }
+					 // #endif
+				 }else{
+					app.error('数据请求错误')
+				 }
+			 })
+		},
+		// 开始播放视屏
+		startChange(e){
+		},
+		pauseChange(){
+		},
+		resumeChnage(){
+		},
+    onadload(e) {
+      console.log("onadload",e);
+    },
+    onaderror(e) {
+			// 广告加载失败
+			uni.showModal({
+				title: '错误',
+				content:  JSON.stringify(e.detail),
+				showCancel:false,
+				confirmText:'已知晓'
+			});
+    },
+		// 播放完成事件
+		completeChange(e){
+			let that = this;
+			 app.post('ApiMy/adsetSingle',{},function (res) {
+				 if(res.status == 1){
+				 }else{
+					app.error('数据请求错误')
+				 }
+			 })
+		}
+  }
+}
+</script>
+
+<style>
+.content {
+  flex: 1
+}
+
+.ad-content-page {
+  flex: 1
+}
+</style>

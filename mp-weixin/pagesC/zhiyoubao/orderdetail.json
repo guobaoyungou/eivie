@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "演出订单详情",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

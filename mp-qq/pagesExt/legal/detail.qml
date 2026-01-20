@@ -1,0 +1,1 @@
+<block qq:if="{{content}}"><view style="width:700rpx;margin:0 auto;white-space:pre-wrap;word-wrap:break-word;"><parse vue-id="2513c4a5-1" content="{{content}}" bind:__l="__l"></parse></view></block>

@@ -1,0 +1,10 @@
+{
+  "defaultTitle": "商家详情",
+  "pullRefresh": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "dp-product-itemlist": "/components/dp-product-itemlist/dp-product-itemlist",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata"
+  }
+}

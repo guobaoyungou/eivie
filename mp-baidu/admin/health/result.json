@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "评测结果",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

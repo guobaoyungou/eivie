@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "扫码打水管理",
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading"
+  }
+}

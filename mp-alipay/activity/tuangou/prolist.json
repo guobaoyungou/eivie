@@ -1,0 +1,14 @@
+{
+  "defaultTitle": "团购列表",
+  "pullRefresh": true,
+  "usingComponents": {
+    "uni-drawer": "/components/uni-drawer/uni-drawer",
+    "dp-tuangou-item": "/components/dp-tuangou-item/dp-tuangou-item",
+    "dp-tuangou-itemlist": "/components/dp-tuangou-itemlist/dp-tuangou-itemlist",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

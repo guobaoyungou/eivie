@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "口令",
+  "pullRefresh": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

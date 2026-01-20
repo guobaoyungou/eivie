@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "商家商品分类",
+  "component": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata"
+  }
+}

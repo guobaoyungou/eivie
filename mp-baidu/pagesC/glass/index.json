@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "定制参数",
+  "component": true,
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "店铺信息",
+  "component": true,
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "loading": "/components/loading/loading"
+  }
+}

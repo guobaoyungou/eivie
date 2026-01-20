@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "错题回顾",
+  "enablePullDownRefresh": false,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

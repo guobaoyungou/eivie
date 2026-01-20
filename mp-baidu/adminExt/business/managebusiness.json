@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "商户管理",
+  "component": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

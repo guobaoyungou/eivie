@@ -1,0 +1,21 @@
+{
+  "navigationBarTitleText": "预定订单",
+  "enablePullDownRefresh": true,
+  "titleNView": {
+    "searchInput": {
+      "placeholder": "输入预订人姓名或手机号搜索",
+      "borderRadius": "15px"
+    },
+    "buttons": [
+      {
+        "type": "home"
+      }
+    ]
+  },
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading"
+  }
+}

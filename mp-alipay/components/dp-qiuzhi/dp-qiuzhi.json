@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "dp-qiuzhi-itemlist": "/components/dp-qiuzhi-itemlist/dp-qiuzhi-itemlist",
+    "dp-qiuzhi-item": "/components/dp-qiuzhi-item/dp-qiuzhi-item"
+  }
+}

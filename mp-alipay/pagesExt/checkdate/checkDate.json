@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "选择日期",
+  "pullRefresh": true,
+  "usingComponents": {
+    "calendar": "/pagesExt/cycle/mobile-calendar-simple/Calendar"
+  }
+}

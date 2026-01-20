@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "我的发表记录",
+  "usingComponents": {
+    "dd-search": "/components/dd-search/dd-search",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

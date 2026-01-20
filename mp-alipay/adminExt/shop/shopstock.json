@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "录入库存",
+  "pullRefresh": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "店铺信息",
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "loading": "/components/loading/loading"
+  }
+}

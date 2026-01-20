@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "审核内容",
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

@@ -1,0 +1,1 @@
+<view class="container"><block s-if="{{isload}}"><block></block></block></view>

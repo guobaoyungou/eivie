@@ -1,0 +1,14 @@
+{
+  "navigationBarTitleText": "周期购商品",
+  "usingComponents": {
+    "uni-drawer": "/components/uni-drawer/uni-drawer",
+    "dp-cycle-item": "/components/dp-cycle-item/dp-cycle-item",
+    "dp-cycle-itemlist": "/components/dp-cycle-itemlist/dp-cycle-itemlist",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

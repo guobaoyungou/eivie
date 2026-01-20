@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

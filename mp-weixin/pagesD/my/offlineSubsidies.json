@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

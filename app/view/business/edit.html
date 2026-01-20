@@ -1,0 +1,2951 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>添加商户</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+	<script src="__STATIC__/admin/js/address3.js"></script>
+	<style>
+		.layui-form-select{z-index: 9999}
+		.map-search-res:hover{
+			background-color: gray;
+		}
+		.layui-imgbox-close{width: 25px;height: 22px;right: -18px;top:-10px;}
+		#picList .layui-imgbox .layui-imgbox-img{height: auto;}
+		#picList .layui-imgbox{margin-right: 25px;height: auto}
+	</style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					{if !$info['id']}<i class="fa fa-plus"></i> 添加商户{else}<i class="fa fa-pencil"></i> 编辑商户{/if}
+					<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+				</div>
+				<div class="layui-card-body" pad15>
+					{if $info['status']==2}<blockquote class="layui-elem-quote" style="color:red">商户未审核通过，驳回原因：{$info.reason}</blockquote>{/if}
+					<div class="layui-form form-label-w8">
+						<input type="hidden" name="info[id]" value="{$info.id}"/>
+						<input type="hidden" name="uinfo[id]" value="{$uinfo['id']}">
+						<div class="layui-tab layui-tab-brief" lay-filter="mytab">
+							<ul class="layui-tab-title">
+								<li class="layui-this" lay-id="1">基本信息</li>
+								{if getcustom('business_apply_form')}<li lay-id="2">自定义信息</li>{/if}
+							</ul>
+							<div class="layui-tab-content">
+								<!--基本信息start-->
+								<div class="layui-tab-item layui-show">
+						<div class="layui-form-item">
+							<label class="layui-form-label">商户分类：</label>
+							<div class="layui-input-inline" style="width:300px">
+								<select name="info[cid]" xm-select="selectCid" xm-select-max="5" xm-select-search>
+								<option value="">--请选择--</option>
+								{foreach $clist as $cv}
+									<option value="{$cv['id']}" {if in_array($cv['id'],$info['cid'])}selected{/if}>{$cv['name']}</option>
+								{/foreach}
+								</select>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label"><span class="redstar">*</span>商户名称：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[name]" lay-verify="required" lay-verType="tips" class="layui-input" value="{$info.name}">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label"><span class="redstar">*</span>登录账号：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="uinfo[un]" value="{$uinfo['un']}" lay-verify="required" lay-verType="tips" autocomplete="off" class="layui-input">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">登录密码：</label>
+							<div class="layui-input-inline">
+								<input type="text" class="layui-input" autocomplete="off" name="uinfo[pwd]" value="" {if $uinfo['id']} placeholder="留空表示不修改密码"{else} lay-verify="required" lay-verType="tips"{/if}>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">抽成费率：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[feepercent]" class="layui-input" value="{$info.feepercent}">
+							</div>
+							<div class="layui-form-mid" style="margin-left:10px;">%，平台收取的佣金比例，如设置10%，平台抽成10%，商户得90%</div>
+						</div>
+						{if getcustom('maidan_new') && ($admin_auth_data =='all' || in_array('MaidanNew/*',$admin_auth_data))}
+							<div class="layui-form-item">
+								<label class="layui-form-label">新买单抽成费率：</label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="text" name="info[maidan_new_feepercent]" class="layui-input" value="{$info.maidan_new_feepercent}">
+								</div>
+								<div class="layui-form-mid" style="margin-left:10px;">%，新买单，平台收取的佣金比例，如设置10%，平台抽成10%，商户得90%</div>
+							</div>		
+						{/if}
+						{if getcustom('business_shopbuycashback')}
+							<div class="layui-form-item">
+								<label class="layui-form-label">返现比例：</label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="text" name="info[shopbuycashback_ratio]" class="layui-input" value="{$info.shopbuycashback_ratio}">
+								</div>
+								<div class="layui-form-mid" style="margin-left:10px;">%，用户购买商户的商城商品、买单时返现比例，确认收货后按比例返现到用户{:t('余额')}中</div>
+							</div>
+						{/if}
+						{if getcustom('pay_huifu_fenzhang')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">汇付独立收款：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="radio" name="info[huifu_business_status]" value="0" title="关闭" {if !$info['id'] || $info['huifu_business_status']==0}checked{/if} lay-filter="huifu_business_status"/>
+								<input type="radio" name="info[huifu_business_status]" value="1" title="开启" {if $info['huifu_business_status']==1}checked{/if} lay-filter="huifu_business_status"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux">开启后商户号独立收款，确认收货后进行平台分账，佣金发放时进行分销佣金分账，仅支持商城和买单功能，使用前请开通延时分账功能</div>
+						</div>			
+						<div class="layui-form-item" id="huifu_id_div" {if  $info['huifu_business_status']==0}style="display:none"{/if} >
+							<label class="layui-form-label">汇付商户号：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[huifu_id]" class="layui-input" value="{$info.huifu_id}">
+							</div>
+							<div class="layui-form-mid" style="margin-left:10px;"> 登录<a href="https://dashboard.huifu.com/customers/login" target="_blank" target="_blank">汇付商户</a>进行查找商户号</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">分账类型：</label>
+							<div class="layui-input-inline" style="width:250px">
+								<input type="radio" name="info[delay_acct_flag]" value="1" title="延时分账" {if  !$info['id'] || $info['delay_acct_flag']==1}checked{/if} />
+								<input type="radio" name="info[delay_acct_flag]" value="0" title="实时分账" {if  $info['delay_acct_flag']==0}checked{/if} />
+							</div>
+							<div class="layui-form-mid layui-word-aux  layui-clear">延时分账，收款交易完成，资金进入延迟户不可结算、不可取现，确认收货后进行确认交易并分账到商户或指定用户基本户，开通路径：服务商控台-【商户管理】-【商户信息】-【查看】-【分账配置】-【编辑】；<br />
+							实时分账，收款交易过程中发起及完成，控台配置分账比例，开通路径：服务商控台-【商户管理】-【商户信息】-【查看】-【分账配置】-【编辑】，汇付分账发放{t:('佣金')}将不再支持。</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">汇付分账发放{:t('佣金')}：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="radio" name="info[huifu_send_commission]" value="0" title="关闭" {if  $info['huifu_send_commission']==0}checked{/if} />
+								<input type="radio" name="info[huifu_send_commission]" value="1" title="开启" {if  !$info['id'] || $info['huifu_send_commission']==1}checked{/if} />
+							</div>
+							<div class="layui-form-mid layui-word-aux">{:t('佣金')}以汇付分账的形式发放，必须开启延迟分账。</div>
+						</div>		
+						{/if}
+						{if getcustom('pay_qilinshuzi')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">麒麟数字独立收款：</label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="radio" name="info[qilin_business_status]" value="0" title="关闭" {if !$info['id'] || $info['qilin_business_status']==0}checked{/if} lay-filter="qilin_business_status"/>
+									<input type="radio" name="info[qilin_business_status]" value="1" title="开启" {if $info['qilin_business_status']==1}checked{/if} lay-filter="qilin_business_status"/>
+								</div>
+								<div class="layui-form-mid layui-word-aux">开启后商户号独立收款,支付成功后进行分账。</div>
+						</div>
+						<div {if !$info['id'] || $info['qilin_business_status']==0}style="display:none"{/if} id="qilin_div">
+							<div class="layui-form-item">
+								<label class="layui-form-label">麒麟数字商户号：</label>
+								<div class="layui-input-inline">
+									<input type="text" name="info[qilin_id]" class="layui-input" value="{$info.qilin_id}">
+								</div>
+								<div class="layui-form-mid layui-word-aux" style="margin-left:10px;"> 登录<a href="https://b.qilinshuzi.com/business" target="_blank" target="_blank">麒麟数字</a>进行查找商户号</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">麒麟数字门店号：</label>
+								<div class="layui-input-inline">
+									<input type="text" name="info[qilin_mdid]" class="layui-input" value="{$info.qilin_mdid}">
+								</div>
+								<div class="layui-form-mid layui-word-aux" style="margin-left:10px;"> 登录<a href="https://b.qilinshuzi.com/store" target="_blank" target="_blank">麒麟数字</a>进行查找门店号</div>
+							</div>
+							<div class="layui-form-item" id="moreQilinAccountDiv">
+								<label class="layui-form-label">分账接收方：</label>
+								<div class="layui-input-inline">
+									<table id="moreQilinAccount"  class="layui-table" style="width:600px">
+										{foreach $info['qilin_submchid_text'] as $key=>$sub}
+										<tr class="ptsheshi">
+											<td><input type="text" placeholder='接收方商户号' name="qilinAccount[{$key}][submchid]" class="layui-input "  value="{$sub['submchid']}"/></td>
+											<td><input type="text" placeholder='接收方名称' name="qilinAccount[{$key}][subname]" class="layui-input" value="{$sub['subname']}"></td>
+											<td><input type="text" placeholder='接收方费率' name="qilinAccount[{$key}][feepercent]" class="layui-input" value="{$sub['feepercent']}"></td>
+											<td>
+												{if $key==0} <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" style="margin-top:5px;" id="addQilinAccount" data-key="{$key}">添加 </button>
+												{else}
+												<button type="button" class="layui-btn layui-btn-primary layui-btn-sm" style="margin-top:5px;" onclick="$(this).parent().parent().remove()">删除 </button>
+												{/if}
+											</td>
+										</tr>
+										{/foreach}
+									</table>
+								</div>
+							</div>
+						</div>
+						{/if}
+						{if getcustom('maidan_fenhong_new')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">成本比例：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[cost_bili]" class="layui-input" value="{$info.cost_bili}">
+							</div>
+							<div class="layui-form-mid" style="margin-left:10px;">%，发布产品时如果不填写成本价，成本价自动按该比例*销售价进行计算</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">设置成本比例后<br>允许修改商品成本：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="radio" name="info[cost_bili_with_edit]" value="0" title="关闭" {if $info['cost_bili_with_edit']==0 && $info['cost_bili_with_edit']!==''}checked{/if} />
+								<input type="radio" name="info[cost_bili_with_edit]" value="1" title="开启" {if !$info['id'] || $info['cost_bili_with_edit']==1 || $info['cost_bili_with_edit']===''}checked{/if} />
+							</div>
+							<div class="layui-form-mid" style="margin-left:10px;">设置成本比例后，是否允许商户修改商品成本，关闭后商户不可修改</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">买单收款成本比例：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[maidan_cost]" class="layui-input" value="{$info.maidan_cost}">
+							</div>
+							<div class="layui-form-mid" style="margin-left:10px;">%，成本价自动按该比例*销售价进行计算</div>
+						</div>
+						{/if}
+					{if getcustom('cashier_fenhong')}
+					<div class="layui-form-item">
+						<label class="layui-form-label">收银台收款成本比例：</label>
+						<div class="layui-input-inline" style="width:200px">
+							<input type="text" name="info[cashier_cost]" class="layui-input" value="{$info.cashier_cost}">
+						</div>
+						<div class="layui-form-mid" style="margin-left:10px;">%，收银台成本价自动按该比例*收款金额进行计算<span style="color: red;">(仅针对直接收款订单)</span></div>
+					</div>
+					{/if}
+
+						{if getcustom('business_deduct_cost')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">扣除成本：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="radio" name="info[deduct_cost]" value="0" title="关闭" {if !$info['id'] || $info['deduct_cost']==0}checked{/if} />
+								<input type="radio" name="info[deduct_cost]" value="1" title="开启" {if $info['deduct_cost']==1}checked{/if} />
+							</div>
+							<div class="layui-form-mid" style="margin-left:10px;">开启后商户收益=售价-（售价-成本）*抽成费率<!-- (商城、多人拼团、周期购、秒杀、积分兑换、点餐、外卖、预定) --></div>
+						</div>
+						{/if}
+						{if getcustom('plug_yang')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">配送费费率：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[feepercent_freight]" class="layui-input" value="{$info.feepercent_freight}">
+							</div>
+							<div class="layui-form-mid" style="margin-left:10px;">%</div>
+						</div>
+						{/if}
+						{if getcustom('express_wx')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">即配门店编号：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[express_wx_shop_no]" class="layui-input" value="{$info.express_wx_shop_no}">
+							</div>
+							<div class="layui-form-mid" style="margin-left:10px;">商户门店编号，在配送公司登记，如果只有一个门店，美团闪送必填，值为店铺id</div>
+						</div>
+						{/if}
+
+						{if getcustom('water_happy_ti')}
+							<div class="layui-form-item">
+								<label class="layui-form-label">打水订单平台抽成比例：</label>
+								<div class="layui-input-inline" style="width:216px">
+									<input type="radio" name="info[water_happyti_platform_rate_type]" value="0" title="跟随系统" {if !$info['id'] || $info['water_happyti_platform_rate_type']==0}checked{/if} lay-filter="water_happyti_platform_rate_type"/>
+									<input type="radio" name="info[water_happyti_platform_rate_type]" value="1" title="独立设置" {if $info['water_happyti_platform_rate_type']==1}checked{/if} lay-filter="water_happyti_platform_rate_type"/>
+								</div>
+								<div id="water_happyti_platform_rate" {if $info['water_happyti_platform_rate_type']!=1}style="display:none"{/if}>
+									<div  class="layui-input-inline" style="width:80px" >
+										<input type="text" name="info[water_happyti_platform_rate]" class="layui-input" value="{$info.water_happyti_platform_rate}">
+									</div>
+									<div class="layui-form-mid" >%，</div>
+								</div>
+								<div class="layui-form-mid" >设置后，打水订单平台会根据比例扣除对应的费用</div>
+								</div>
+							</div>
+						{/if}
+					{php}$business_withdraw_pc =getcustom('business_withdraw_pc'); {/php}
+						{if getcustom('business_withdraw_cash_mobile_duliset')}
+							<div class="layui-form-item">
+								<label class="layui-form-label">提现手续费现金支付：</label>
+								<div class="layui-input-inline" style="width:216px">
+									<input type="radio" name="info[withdrawfee_cash_status_type]" value="0" title="跟随系统" {if !$info['id'] || $info['withdrawfee_cash_status_type']==0}checked{/if} lay-filter="withdrawfee_cash_status_type"/>
+									<input type="radio" name="info[withdrawfee_cash_status_type]" value="1" title="独立设置" {if $info['withdrawfee_cash_status_type']==1}checked{/if} lay-filter="withdrawfee_cash_status_type"/>
+								</div>
+							</div>
+
+							<div id="withdrawfee_cash_status" {if $info['withdrawfee_cash_status_type']!=1}style="display:none"{/if}>
+								<div class="layui-form-item" >
+									<label class="layui-form-label">提现手续费现金支付状态：</label>
+									<div class="layui-input-inline" style="width:200px">
+										<input type="radio" name="info[withdrawfee_cash_status]" value="0" title="关闭" {if !$info['id'] || $info['withdrawfee_cash_status']==0}checked{/if} lay-filter="withdrawfee_cash_status"/>
+										<input type="radio" name="info[withdrawfee_cash_status]" value="1" title="开启" {if $info['withdrawfee_cash_status']==1}checked{/if} lay-filter="withdrawfee_cash_status"/>
+									</div>
+									<div class="layui-form-mid" >开启后，提现时需要支付一定比例的现金才可以提现。仅支持手机端提现{if $business_withdraw_pc}，关闭pc端提现{/if}</div>
+								</div>
+								<div class="layui-form-item" id="withdrawfee_cash_rate" {if $info['withdrawfee_cash_status']!=1}style="display:none"{/if}>
+									<label class="layui-form-label">提现手续费现金比例：</label>
+									<div  class="layui-input-inline" style="width:80px" >
+										<input type="text" name="info[withdrawfee_cash_rate]" class="layui-input" value="{$info.withdrawfee_cash_rate}">
+									</div>
+									<div class="layui-form-mid" >%</div>
+								</div>
+							</div>
+						{/if}
+						{if getcustom('business_withdraw_pc')}
+							<div class="layui-form-item">
+								<label class="layui-form-label">PC端提现：</label>
+								<div class="layui-input-inline" style="width:216px">
+									<input type="radio" name="info[pc_withdraw_status_type]" value="0" title="跟随系统" {if !$info['id'] || $info['pc_withdraw_status_type']==0}checked{/if} lay-filter="pc_withdraw_status_type"/>
+									<input type="radio" name="info[pc_withdraw_status_type]" value="1" title="独立设置" {if $info['pc_withdraw_status_type']==1}checked{/if} lay-filter="pc_withdraw_status_type"/>
+								</div>
+								<div id="pc_withdraw_status" {if $info['pc_withdraw_status_type']!=1}style="display:none"{/if}>
+									<label class="layui-form-label" style="width: 43px !important;">状态：</label>
+									<div class="layui-input-inline" style="width:200px">
+										<input type="radio" name="info[pc_withdraw_status]" value="0" title="关闭" {if !$info['id'] || $info['pc_withdraw_status']==0}checked{/if} />
+										<input type="radio" name="info[pc_withdraw_status]" value="1" title="开启" {if $info['pc_withdraw_status']==1}checked{/if} />
+									</div>
+								</div>
+								<div class="layui-form-mid" ></div>
+							</div>
+
+						{/if}
+
+					{if $thisuser['isadmin']!=3}
+						{if $set['wxfw_status'] == 1 || $set['wxfw_status'] == 2}
+						<div class="layui-form-item">
+							<label class="layui-form-label">子商户号收款：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="radio" name="info[wxpayst]" value="0" title="关闭" {if !$info['id'] || $info['wxpayst']==0}checked{/if} lay-filter="wxpayst"/>
+								<input type="radio" name="info[wxpayst]" value="1" title="开启" {if $info['wxpayst']==1}checked{/if} lay-filter="wxpayst"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux">开启后可设置子商户号独立收款结算，如开启扣除分销{:t('佣金')}则通过分账扣除（不能大于30%）</div>
+						</div>
+						<div {if !$info['id'] || $info['wxpayst']==0}style="display:none"{/if} id="wxpayst_div">
+							<div class="layui-form-item" >
+								<label class="layui-form-label">子商户号：</label>
+								<div class="layui-input-inline">
+									<input type="text" name="info[wxpay_submchid]" class="layui-input" value="{$info.wxpay_submchid}">
+								</div>
+								<div class="layui-form-mid" style="margin-left:10px;">在微信支付服务商后台申请的商户号</div>
+							</div>
+							{if getcustom('business_more_account')}
+								<div class="layui-form-item" id="moreaccountdiv">
+									<label class="layui-form-label">分账接收方：</label>
+									<div class="layui-input-inline">
+										<table id="moreaccount"  class="layui-table" style="width:600px">
+											{foreach $info['wxpay_submchid_text'] as $key=>$sub}
+											<tr class="ptsheshi">
+												<td><input type="text" placeholder='接收方商户号' name="accountInfo[{$key}][submchid]" class="layui-input "  value="{$sub['submchid']}"/></td>
+												<td><input type="text" placeholder='接收方名称' name="accountInfo[{$key}][subname]" class="layui-input" value="{$sub['subname']}"></td>
+												<td><input type="text" placeholder='接收方费率' name="accountInfo[{$key}][feepercent]" class="layui-input" value="{$sub['feepercent']}"></td>
+												<td> 
+												{if $key==0} <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" style="margin-top:5px;" id="addaccount" data-key="{$key}">添加 </button>
+												{else}
+												<button type="button" class="layui-btn layui-btn-primary layui-btn-sm" style="margin-top:5px;" onclick="$(this).parent().parent().remove()">删除 </button>
+												{/if}
+												</td>
+											</tr>		
+											{/foreach}
+										</table>
+									</div>										
+								</div>
+							{/if}
+						</div>
+						{/if}
+						{if getcustom('sxpay_fenzhang')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">随行付商户号：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[sxpay_mno]" class="layui-input" value="{$info.sxpay_mno}">
+							</div>
+							<div class="layui-form-mid layui-word-aux layui-clear">配置商户号后，将用该商户号独立收款结算 <a href="javascript:void(0)" onclick="openmax('{:url('SxpayIncome/index')}&isopen=1')">查找商户号</a>，注意：<span style="color: red">分销{:t('佣金')}由平台承担，上方“抽成费率”不生效，需配置分账规则收取平台佣金</span></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">随行付商户密钥：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[sxpay_mchkey]" class="layui-input" value="{$info.sxpay_mchkey}">
+							</div>
+						</div>
+						{/if}
+						{if getcustom('sxpay_mendian_info')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">天阙门店编号：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[sxpay_storeNum]" class="layui-input" value="{$info.sxpay_storeNum}">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">天阙终端编号：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[sxpay_deviceNo]" value="{$info['sxpay_deviceNo']}" class="layui-input"/>
+							</div>
+						</div>
+						{/if}
+
+						{/if}
+
+						{if getcustom('business_score_duli_set')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">消费赠{:t('积分')}：</label>
+							<div class="layui-input-inline layui-module-itemL">
+								<div>消费每满</div>
+								<input type="text" name="info[scorein_money]" class="layui-input" value="{$info.scorein_money}">
+								元
+							</div>
+							<div class="layui-input-inline layui-module-itemL">
+								<div>赠送</div>
+								<input type="text" name="info[scorein_score]" class="layui-input" value="{$info.scorein_score}">
+								{:t('积分')}
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">支付后积分即到账，退款时扣除，{:t('积分')}不足时可扣除为负值。都设置为空时，则使用平台设置，设置为0则是不送积分</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">充值赠{:t('积分')}：</label>
+							<div class="layui-input-inline layui-module-itemL">
+								<div>充值每满</div>
+								<input type="text" name="info[scorecz_money]" class="layui-input" value="{$info.scorecz_money}">
+								元
+							</div>
+							<div class="layui-input-inline layui-module-itemL">
+								<div>赠送</div>
+								<input type="text" name="info[scorecz_score]" class="layui-input" value="{$info.scorecz_score}">
+								{:t('积分')}
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">都设置为空时，则使用平台设置，设置为0则是不送积分</div>
+						</div>
+						{/if}
+						{if getcustom('business_score_withdraw')}
+						<div class="layui-form-item" {if $set.business_score_withdraw!=1}style="display:none;"{/if}>
+							<label class="layui-form-label">{:t('积分')}提现手续费：</label>
+							<div class="layui-input-inline" style="width: 217px">
+								<input type="radio" name="info[score_withdrawfee_type]" value="0" title="跟随系统" {if !$info['id'] || $info['score_withdrawfee_type']==0 }checked{/if} lay-filter="score_withdrawfee_type"/>
+								<input type="radio" name="info[score_withdrawfee_type]" value="1" title="独立设置" {if $info['score_withdrawfee_type']==1}checked{/if} lay-filter="score_withdrawfee_type"/>
+							</div>
+							<div class="layui-input-inline" id="score_withdrawfee" {if $info.score_withdrawfee_type!=1}style="display:none;"{/if}>
+								<input class="layui-input"  type="number" name="info[score_withdrawfee]" value="{$info.score_withdrawfee}"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux" id="score_withdrawfee_bfh" {if $info.score_withdrawfee_type!=1}style="display:none;"{/if}>%</div>
+						</div>
+						{/if}
+						{if getcustom('business_area_fenhong')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">区域分红：</label>
+							<div class="layui-input-inline layui-module-itemL">
+								<div>省（%）</div>
+								<input type="text" name="info[areafenhong_province]" class="layui-input" value="{$info.areafenhong_province|default=0}">
+							</div>
+							<div class="layui-input-inline layui-module-itemL">
+								<div>市（%）</div>
+								<input type="text" name="info[areafenhong_city]" class="layui-input" value="{$info.areafenhong_city|default=0}">
+							</div>
+							<div class="layui-input-inline layui-module-itemL">
+								<div>区县（%）</div>
+								<input type="text" name="info[areafenhong_district]" class="layui-input" value="{$info.areafenhong_district|default=0}">
+							</div>
+						</div>
+						{/if}
+						{if getcustom('ciruikang_fenxiao')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">区域保护：</label>
+							<div class="layui-input-inline" style="width:700px">
+								<input type="radio" name="info[areasafe]" value="0" lay-filter="areasafeChange" {if $info['areasafe']==0}checked{/if} title="无区域保护"/>
+								<input type="radio" name="info[areasafe]" value="2" lay-filter="areasafeChange" {if $info['areasafe']==2}checked{/if} title="市级区域"/>
+								<input type="radio" name="info[areasafe]" value="3" lay-filter="areasafeChange" {if $info['areasafe']==3}checked{/if} title="区县区域"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">每个地区单元内（市级，区县级）只绑定一个商户，按平台商城商品下单的收货地址，把该确认收货的订单归属到该地区商户里面,一月一结</div>
+						</div>
+						<div class="layui-form-item areasafe_address" {if !$info['areasafe'] || $info['areasafe']==0}style="display:none"{/if}>
+						<label class="layui-form-label"><span class="redstar">*</span>区域地址：</label>
+						<div class="layui-input-inline areasafe_province_div">
+							<select name="info[areasafe_province]" id="areasafe_province" lay-filter="areasafe_province"></select>
+						</div>
+						<div class="layui-input-inline areasafe_city_div" {if $info['areasafe']!=2 && $info['areasafe']!=3}style="display:none"{/if}>
+						<select name="info[areasafe_city]" id="areasafe_city" lay-filter="areasafe_city"></select>
+					</div>
+					<div class="layui-input-inline areasafe_area_div" {if $info['areasafe']!=3}style="display:none"{/if}>
+					<select name="info[areasafe_area]" id="areasafe_area"></select>
+				</div>
+	  </div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">推荐商户ID：</label>
+			<div class="layui-input-inline" style="width:200px">
+				<input type="text" name="info[recomid]" class="layui-input" value="{$info.recomid}">
+			</div>
+		</div>
+		{/if}
+		{if getcustom('maidan_reward_score')}
+		<div class="layui-form-item" >
+			<label class="layui-form-label">买单奖励：</label>
+			<div class="layui-input-inline layui-module-itemL">
+				<div>消费者(%)</div>
+				<input type="text" name="info[maidan_reward_score_member]" class="layui-input" value="{$info.maidan_reward_score_member|default=0}">
+			</div>
+			<div class="layui-input-inline layui-module-itemL">
+				<div>商户(%)</div>
+				<input type="text" name="info[maidan_reward_score_business]" class="layui-input" value="{$info.maidan_reward_score_business|default=0}">
+			</div>
+			<div class="layui-form-mid layui-word-aux layui-clear">
+				订单金额*消费者比例=消费者{:t('积分')}数量， 订单金额*商户比例=商户{:t('积分')}数量<br/>
+				商户{:t('积分')}发放到商户绑定的会员账号中
+			</div>
+		</div>
+		{/if}
+		{if getcustom('maidan_reward_commission')}
+			<div class="layui-form-item" >
+				<label class="layui-form-label">买单奖励{:t('佣金')}：</label>
+					<div class="layui-input-inline layui-module-itemL">
+						<div>消费者(%)</div>
+						<input type="text" name="info[maidan_reward_commission_member]" class="layui-input" value="{$info.maidan_reward_commission_member|default=0}">
+					</div>
+				<div class="layui-form-mid layui-word-aux layui-clear">
+						订单金额*消费者{:t('佣金')}比例=消费者{:t('佣金')}数量
+				</div>
+			</div>
+		{/if}
+						{if getcustom('business_tourl')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">指定跳转链接：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[tourl]" class="layui-input" value="{$info.tourl}" id="tourl">
+							</div>
+							<div class="layui-btn layui-btn-primary" style="float:left" onclick="chooseUrl2('tourl')">选择链接</div>
+						</div>
+						{/if}
+					  {if getcustom('active_coin')}
+					  <div class="layui-form-item" >
+						  <label class="layui-form-label">让利到{:t('激活币')}：</label>
+						  <div class="layui-input-inline layui-module-itemL">
+							  <div>总让利(%)</div>
+							  <input type="text" name="info[activecoin_ratio]" class="layui-input" value="{$info.activecoin_ratio|default=0}">
+						  </div>
+						  <div class="layui-input-inline layui-module-itemL">
+							  <div>消费者(%)</div>
+							  <input type="text" name="info[member_activecoin_ratio]" class="layui-input" value="{$info.member_activecoin_ratio|default=0}">
+						  </div>
+						  <div class="layui-input-inline layui-module-itemL">
+							  <div>商户(%)</div>
+							  <input type="text" name="info[business_activecoin_ratio]" class="layui-input" value="{$info.business_activecoin_ratio|default=0}">
+						  </div>
+						  {if getcustom('active_coin_business_tj')}
+						  <div class="layui-input-inline layui-module-itemL">
+							  <div>商户推广员(%)</div>
+							  <input type="text" name="info[business_tj_activecoin_ratio]" class="layui-input" value="{$info.business_tj_activecoin_ratio|default=0}">
+						  </div>
+						  {/if}
+						  <div class="layui-form-mid layui-word-aux layui-clear">
+							  订单金额*总让利比例*消费者比例=消费者{:t('激活币')}数量， 订单金额*总让利比例*商户比例=商户{:t('激活币')}数量<br/>
+							  商户{:t('激活币')}发放到商户绑定的会员账号中
+						  </div>
+					  </div>
+					  {/if}
+					{if getcustom('yx_new_score')}
+					<div class="layui-form-item" >
+						<label class="layui-form-label">让利到{:t('新积分')}：</label>
+						<div class="layui-input-inline layui-module-itemL">
+							<div>总让利(%)</div>
+							<input type="text" name="info[newscore_ratio]" class="layui-input" value="{$info.newscore_ratio|default=0}">
+						</div>
+						<div class="layui-input-inline layui-module-itemL">
+							<div>消费者(%)</div>
+							<input type="text" name="info[member_newscore_ratio]" class="layui-input" value="{$info.member_newscore_ratio|default=0}">
+						</div>
+						<div class="layui-input-inline layui-module-itemL">
+							<div>商户(%)</div>
+							<input type="text" name="info[business_newscore_ratio]" class="layui-input" value="{$info.business_newscore_ratio|default=0}">
+						</div>
+						<div class="layui-form-mid layui-word-aux layui-clear">
+							订单金额*总让利比例*消费者比例=消费者{:t('新积分')}数量， 订单金额*总让利比例*商户比例=商户{:t('新积分')}数量<br/>
+							商户{:t('新积分')}发放到商户绑定的会员账号中
+						</div>
+					</div>
+  					{if getcustom('yx_new_score_active')}
+					  <!----指定商家活动---->
+					  <div class="layui-form-item">
+						  <label class="layui-form-label">{:t('新积分')}子活动ID：</label>
+						  <div class="layui-input-inline">
+							  <input type="text" class="layui-input" name="info[member_newscore_active]" id="member_business_id" value="{$info['member_newscore_active']}"  />
+						  </div>
+						  <button style="float:left;" type="button" class="layui-btn layui-btn-primary"  onclick="toChooseNewScoreSet('member_business_id')">选择活动</button>
+						  <div class="layui-form-mid layui-word-aux layui-clear">
+							  会员在该商家消费优先匹配1-指定用户，2按用户等级的活动，匹配不到时使用该活动<br/>
+							  注：商家进入的活动和该处设置无关，按条件自动匹配子活动
+						  </div>
+					  </div>
+
+					  <script>
+						  var chooseSetLayer = '';
+						  var chooseSetField = '';
+						  function toChooseNewScoreSet(field){
+							  chooseSetField = field;
+							  chooseSetLayer = layer.open({type:2,title:'选择活动',content:"{:url('NewScore/choose_set')}",area:['1000px','800px'],shadeClose:true});
+						  }
+						  function chooseNewScoreSet(data,args) {
+							  $('#'+chooseSetField).val(data.id);
+						  }
+
+					  </script>
+  					{/if}
+					{/if}
+				  {if getcustom('yx_digital_consum') && ($admin_auth_data=='all' || in_array('DigitalConsum/*',$admin_auth_data) )}
+				  <div class="layui-form-item">
+					  <label class="layui-form-label">买单参与{:t('数字消费')}：</label>
+					  <div class="layui-input-block" style="width:850px">
+						  <input type="radio" name="info[digital_status]" value="0" {if !$info['id'] || $info['digital_status']==0}checked{/if} title="跟随系统设置" lay-filter="diandaSwitchMulti">
+						  <input type="radio" name="info[digital_status]" value="1" {if $info['digital_status']==1}checked{/if} title="独立设置比例" lay-filter="diandaSwitchMulti">
+						  <input type="radio" name="info[digital_status]" value="-1" {if $info['digital_status']==-1}checked{/if} title="不参与活动" lay-filter="diandaSwitchMulti">
+					  </div>
+					  <div class="layui-form-mid layui-word-aux"></div>
+				  </div>
+				  <div class="layui-form-item" diandaSwitchMulti="info[digital_status]" data-val="1" {if $info['digital_status']!=1}style="display:none"{/if}>
+					  <label class="layui-form-label">独立设置：</label>
+<!--					  <div class="layui-input-inline layui-module-itemL mt5">-->
+<!--						  <div> 参与比例(%) </div>-->
+<!--						  <input type="text" name="info[maidan_ratio]" class="layui-input" value="{$info['maidan_ratio']}">-->
+<!--					  </div>-->
+					  <div class="layui-input-inline layui-module-itemL mt5">
+						  <div> 主池(%) </div>
+						  <input type="text" name="info[maidan_to_digital_pool]" class="layui-input" value="{$info['maidan_to_digital_pool']}">
+					  </div>
+					  <div class="layui-input-inline layui-module-itemL mt5">
+						  <div> 底池(%) </div>
+						  <input type="text" name="info[maidan_to_digital_reservepool]" class="layui-input" value="{$info['maidan_to_digital_reservepool']}">
+					  </div>
+					  <div class="layui-form-mid layui-word-aux layui-clear">
+						  【订单金额】*【主池】= 进入主池金额，底池计算也是如此<br/>
+						  【主池】立马进入奖金池参与{:t('数字权益')}价格的计算<br/>
+						  【底池】根据订单金额分界点判断进入【底池1】还是【底池2】<br/>
+						  【底池1】按比例循环切割进入【底池2】<br/>
+						  【底池2】按比例循环切割进入【主池】
+					  </div>
+				  </div>
+				  {/if}
+					{if getcustom('member_commission_max') && getcustom('add_commission_max')}
+					<div class="layui-form-item" >
+						<label class="layui-form-label">让利到{:t('佣金上限')}：</label>
+						<div class="layui-input-inline layui-module-itemL">
+							<div>总让利(%)</div>
+							<input type="text" name="info[commission_max_ratio]" class="layui-input" value="{$info.commission_max_ratio|default=0}">
+						</div>
+						<div class="layui-input-inline layui-module-itemL">
+							<div>消费者(%)</div>
+							<input type="text" name="info[member_commission_max_ratio]" class="layui-input" value="{$info.member_commission_max_ratio|default=0}">
+						</div>
+						<div class="layui-input-inline layui-module-itemL">
+							<div>商户(%)</div>
+							<input type="text" name="info[business_commission_max_ratio]" class="layui-input" value="{$info.business_commission_max_ratio|default=0}">
+						</div>
+						<div class="layui-form-mid layui-word-aux layui-clear">
+							订单金额*总让利比例*消费者比例=消费者{:t('佣金上限')}数量， 订单金额*总让利比例*商户比例=商户{:t('佣金上限')}数量<br/>
+							商户{:t('佣金上限')}发放到商户绑定的会员账号中
+						</div>
+					</div>
+					  <div class="layui-form-item">
+						  <label class="layui-form-label">商品独立设置{:t('佣金上限')}：</label>
+						  <div class="layui-input-inline" style="width:200px">
+							  <input type="radio" name="info[product_commission_max]" value="0" title="关闭" {if !$info['id'] || $info['product_commission_max']==0}checked{/if} />
+							  <input type="radio" name="info[product_commission_max]" value="1" title="开启" {if $info['product_commission_max']==1}checked{/if} />
+						  </div>
+						  <div class="layui-form-mid" style="margin-left:10px;"></div>
+					  </div>
+					{/if}
+					  {if getcustom('active_score')}
+						  <div class="layui-form-item" >
+							  <label class="layui-form-label">商品让利到{:t('积分')}：</label>
+							  <div class="layui-input-inline layui-module-itemL">
+								  <div>总让利(%)</div>
+								  <input type="text" name="info[shopactivescore_ratio]" class="layui-input" value="{$info.shopactivescore_ratio|default=0}">
+							  </div>
+							  <div class="layui-input-inline layui-module-itemL">
+								  <div>消费者(%)</div>
+								  <input type="text" name="info[member_shopactivescore_ratio]" class="layui-input" value="{$info.member_shopactivescore_ratio|default=0}">
+							  </div>
+							  <div class="layui-input-inline layui-module-itemL">
+								  <div>商户(%)</div>
+								  <input type="text" name="info[business_shopactivescore_ratio]" class="layui-input" value="{$info.business_shopactivescore_ratio|default=0}">
+							  </div>
+							  <div class="layui-form-mid layui-word-aux layui-clear">
+								  商城订单金额*总让利比例*消费者比例=消费者{:t('积分')}数量， 订单金额*总让利比例*商户比例=商户{:t('积分')}数量<br/>
+								  商户{:t('积分')}发放到商户绑定的会员账号中
+							  </div>
+						  </div>
+						  {if $info['shopactivescore_data'] && $info['shopactivescore_data_html']}
+								<div class="layui-form-item">
+									<label class="layui-form-label" style="color:red">修改待审核：</label>
+									<div class="layui-input-inline" style="width:670px">
+										{$info['shopactivescore_data_html']}
+									</div>
+									<div class="layui-form-mid layui-word-aux layui-clear">红色为商户变动部分，若同意请在上方填写此参数后保存即可</div>
+								</div>
+							{/if}
+
+						  <div class="layui-form-item" >
+							  <label class="layui-form-label">买单让利到{:t('积分')}：</label>
+							  <div class="layui-input-inline layui-module-itemL">
+								  <div>总让利(%)</div>
+								  <input type="text" name="info[maidanactivescore_ratio]" class="layui-input" value="{$info.maidanactivescore_ratio|default=0}">
+							  </div>
+							  <div class="layui-input-inline layui-module-itemL">
+								  <div>消费者(%)</div>
+								  <input type="text" name="info[member_maidanactivescore_ratio]" class="layui-input" value="{$info.member_maidanactivescore_ratio|default=0}">
+							  </div>
+							  <div class="layui-input-inline layui-module-itemL">
+								  <div>商户(%)</div>
+								  <input type="text" name="info[business_maidanactivescore_ratio]" class="layui-input" value="{$info.business_maidanactivescore_ratio|default=0}">
+							  </div>
+							  <div class="layui-form-mid layui-word-aux layui-clear">
+								  买单订单金额*总让利比例*消费者比例=消费者{:t('积分')}数量， 订单金额*总让利比例*商户比例=商户{:t('积分')}数量<br/>
+								  商户{:t('积分')}发放到商户绑定的会员账号中
+							  </div>
+						  </div>
+						  {if $info['maidanactivescore_data'] && $info['maidanactivescore_data_html']}
+								<div class="layui-form-item">
+									<label class="layui-form-label" style="color:red">修改待审核：</label>
+									<div class="layui-input-inline" style="width:670px">
+										{$info['maidanactivescore_data_html']}
+									</div>
+									<div class="layui-form-mid layui-word-aux layui-clear">红色为商户变动部分，若同意请在上方填写此参数后保存即可</div>
+								</div>
+							{/if}
+					  {/if}
+					{if getcustom('yx_buyer_subsidy')}
+					<div class="layui-form-item" >
+						<label class="layui-form-label" style="width: 150px">返现积分：</label>
+						<div class="layui-input-inline layui-module-itemL">
+							<div>商户(倍)</div>
+							<input type="text" name="info[score_ratio_business]" class="layui-input" value="{$info.score_ratio_business|default=0}">
+						</div>
+						<div class="layui-input-inline layui-module-itemL">
+							<div>消费者(倍)</div>
+							<input type="text" name="info[score_ratio_member]" class="layui-input" value="{$info.score_ratio_member|default=0}">
+						</div>
+						<div class="layui-form-mid layui-word-aux layui-clear">
+							按让利数量的倍数分别进入返现积分<br/>
+							例：产品价格100元，商户设置让利比例10%；商户设置返现积分倍数2，则100*10%*2=20进入商户积分<br/>
+							例：产品价格100元，商户设置让利比例10%；消费者设置返现积分倍数5，则100*10%*5=50进入消费者积分<br/>
+							<span style="color: red;">该设置优先级高于营销-消费补贴-活动设置，两个都不设置或设置0则使用营销-消费补贴-活动设置</span>
+						</div>
+					</div>
+					{/if}
+					  {if getcustom('business_toaccount_type')}
+					  	{if $hastoaccount}
+						  <div class="layui-form-item" >
+							  <label class="layui-form-label">实际到账方式：</label>
+							  <div class="layui-input-inline" style="width:auto">
+								  <input type="radio" name="info[toaccount_type]" value="0" title="默认" {if !$info['id'] || $info['toaccount_type']==0}checked{/if} lay-filter="toaccount_type"/>
+									<input type="radio" name="info[toaccount_type]" value="1" title="按销售价到账" {if $info['toaccount_type']==1}checked{/if} lay-filter="toaccount_type"/>
+									<input type="radio" name="info[toaccount_type]" value="2" title="按市场价到账" {if $info['toaccount_type']==2}checked{/if} lay-filter="toaccount_type"/>
+									<input type="radio" name="info[toaccount_type]" value="3" title="按成本价到账" {if $info['toaccount_type']==3}checked{/if} lay-filter="toaccount_type"/>
+								</div>
+								<div class="layui-form-mid layui-word-aux layui-clear">
+									仅商城商品；{if getcustom('member_goldmoney_silvermoney')}若不是默认方式，被用户用{:t('银值')}或{:t('金值')}全部抵扣或抵扣半时用户支付的现金不够时，现金全部给商户剩余不足部分增加在商户提现账户里，由商户提起提现，平台打款{/if}</div>
+						  </div>
+						  {/if}
+					  {/if}
+						<div class="layui-form-item">
+							<label class="layui-form-label">联系人：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[linkman]" class="layui-input" value="{$info.linkman}">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">联系电话：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[linktel]" class="layui-input" value="{$info.linktel}">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">客服电话：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[tel]" class="layui-input" value="{$info.tel}">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">客服链接：</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[kfurl]" value="{$info.kfurl}" class="layui-input"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux">商品详情页客服链接，不填写则使用商城内部客服系统</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">商户LOGO：</label>
+							<input type="hidden" name="info[logo]" id="logo" lay-verType="tips" class="layui-input" value="{$info.logo}">
+							<button style="float:left;" type="button" class="layui-btn layui-btn-primary" upload-input="logo" upload-preview="logoPreview" onclick="uploader(this)">上传图片</button>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">建议尺寸：640×640像素</div>
+							<div id="logoPreview" class="picsList-class-padding">
+								<div class="layui-imgbox" style="width:100px;">
+									<div class="layui-imgbox-img"><a {if $info['logo']} style="display: block;" {else /} style="display: none;"  {/if}  class="layui-imgbox-close" href="javascript:void(0)" onclick="$(this).parent().find('img').attr('src','').hide();getpicsval('logo','logoPreview');$(this).hide();" title="删除"><i class="layui-icon layui-icon-close-fill-opaque"></i></a><img src="{$info.logo}"/></div>
+								</div>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">商户照片：</label>
+							<input type="hidden" name="info[pics]" value="{$info['pics']}" id="pics">
+							<button style="float:left;" type="button" class="layui-btn layui-btn-primary" onclick="uploader(this,true)" upload-input="pics" upload-preview="picList" >批量上传</button>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">建议尺寸：600*340像素</div>
+							<div id="picList" class="picsList-class-padding">
+								{if $info['pics']}
+								{php}$pics = explode(',',$info['pics']);{/php}
+								{foreach $pics as $pic}
+								<div class="layui-imgbox">
+									<a class="layui-imgbox-close" href="javascript:void(0)" onclick="$(this).parent().remove();getpicsval('pics','picList')" title="删除"><i class="layui-icon layui-icon-close-fill-opaque"></i></a>
+									<span class="layui-imgbox-img" style="height: auto;"><img src="{$pic}" onclick="previewImg('{$pic}')"></span>
+								</div>
+								{/foreach}{/if}
+							</div>
+						</div>
+						{if getcustom('business_showshortvideo')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">主页显示短视频：</label>
+							<div class="layui-input-inline" style="width:310px;display: flex;">
+								<input type="radio" name="info[show_shortvideo]" value="0" title="隐藏" {if !$info['id'] || $info['show_shortvideo']==0}checked{/if} style="margin-top: 0px"/>
+								<input type="radio" name="info[show_shortvideo]" value="1" title="显示" {if $info['show_shortvideo']==1}checked{/if} style="margin-top: 0px" />
+								<div style="margin-right: 20px;display: inline-block;"> 显示数量 <input type="text"  name="info[show_shortvideo_num]"  value="{$info.show_shortvideo_num?$info.show_shortvideo_num:'10'}" class="layui-input" style="display: inline-block;width: 60px;margin-right: 10px;" ></div>
+							</div>
+						</div>
+						{/if}
+						<div class="layui-form-item">
+							<label class="layui-form-label">商户描述：</label>
+							<div class="layui-input-inline" style="width:700px">
+								<input type="text" name="info[desc]" class="layui-input" value="{$info.desc}">
+							</div>
+						</div>
+						{if getcustom('shop_other_infor')}
+							<div class="layui-form-item">
+								<label class="layui-form-label">主营业务：</label>
+								<div class="layui-input-inline" style="width:700px">
+									<input type="text" name="info[main_business]" class="layui-input" value="{$info['main_business']}">
+								</div>
+								<div class="layui-form-mid layui-word-aux">在商品列表价格下面展示主营业务息，建议20字以内</div>
+							</div>
+						{/if}
+					{if getcustom('product_sync_business')}
+					<div class="layui-form-item">
+						<label class="layui-form-label">同步平台商品：</label>
+						<div class="layui-input-inline" style="width:200px">
+							<input type="radio" name="info[sync_plate_product]" value="1" title="是" {if empty($info['id']) || $info['sync_plate_product']==1}checked{/if} />
+							<input type="radio" name="info[sync_plate_product]" value="0" title="否" {if $info['id'] && $info['sync_plate_product']==0}checked{/if} />
+						</div>
+						<div class="layui-form-mid" style="margin-left:10px;">默认是</div>
+					</div>
+					<div class="layui-form-item">
+						<label class="layui-form-label">允许下架平台商品：</label>
+						<div class="layui-input-inline" style="width:200px">
+							<input type="radio" name="info[status_plate_product]" value="1" title="是" {if !$info['id'] || $info['status_plate_product']==1}checked{/if} />
+							<input type="radio" name="info[status_plate_product]" value="0" title="否" {if $info['id'] && $info['status_plate_product']==0}checked{/if} />
+						</div>
+						<div class="layui-form-mid" style="margin-left:10px;">是否允许下架从平台同步过来的商品，默认是</div>
+					</div>
+					<div class="layui-form-item">
+						<label class="layui-form-label">允许修改库存和价格：</label>
+						<div class="layui-input-inline" style="width:200px">
+							<input type="radio" name="info[stock_plate_product]" value="1" title="是" {if !$info['id'] || $info['stock_plate_product']==1}checked{/if} />
+							<input type="radio" name="info[stock_plate_product]" value="0" title="否" {if $info['id'] && $info['stock_plate_product']==0}checked{/if} />
+						</div>
+						<div class="layui-form-mid" style="margin-left:10px;">是否允许修改从平台同步过来的商品库存和价格，默认是</div>
+					</div>
+					<div class="layui-form-item">
+						<label class="layui-form-label">添加自营商品：</label>
+						<div class="layui-input-inline" style="width:200px">
+							<input type="radio" name="info[add_product]" value="1" title="是" {if !$info['id'] || $info['add_product']==1}checked{/if} />
+							<input type="radio" name="info[add_product]" value="0" title="否" {if $info['id'] && $info['add_product']==0}checked{/if} />
+						</div>
+						<div class="layui-form-mid" style="margin-left:10px;">是否允许商户自己添加商品，默认是</div>
+					</div>
+					{/if}
+					  {if getcustom('business_reward_member')}
+					  <div class="layui-form-item">
+						  <label class="layui-form-label">商户打赏：</label>
+						  <div class="layui-input-inline" style="width:200px">
+							  <input type="radio" name="info[reward_member]" value="0" title="关闭" {if !$info['id'] || $info['reward_member']==0}checked{/if} lay-filter="reward_member"/>
+							  <input type="radio" name="info[reward_member]" value="1" title="开启" {if $info['reward_member']==1}checked{/if} lay-filter="reward_member"/>
+						  </div>
+						  <div class="layui-form-mid layui-word-aux"></div>
+					  </div>
+					  <div class="layui-form-item" {if !$info['id'] || $info['reward_member']==0}style="display:none"{/if} id="reward_member_div">
+						  <label class="layui-form-label">打赏比例(%)：</label>
+						  <div class="layui-input-inline">
+							  <input type="text" name="info[reward_member_bili]" class="layui-input" value="{$info.reward_member_bili}">
+						  </div>
+						  <div class="layui-form-mid" style="margin-left:10px;"></div>
+					  </div>
+					  {/if}
+
+					{if getcustom('business_show_turnover')}
+					<div class="layui-form-item">
+						<label class="layui-form-label">商户营业额：</label>
+						<div class="layui-input-inline" style="width:200px">
+							<input type="radio" name="info[turnover_show]" value="0" title="隐藏" {if !$info['id'] || $info['turnover_show']==0}checked{/if}/>
+							<input type="radio" name="info[turnover_show]" value="1" title="显示" {if $info['turnover_show']==1}checked{/if}/>
+						</div>
+						<div class="layui-form-mid layui-word-aux">前端商户列表及商户详情是否显示营业额（营业额包含订单数据、买单付款产生的数据，不扣除退款部分），<span style="color: red">列表显示受自定义页面设置影响</span></div>
+					</div>
+					{/if}
+						<!-- <div class="layui-form-item">
+							<label class="layui-form-label">服务标签：</label>
+							<div class="layui-input-inline" style="width:400px">
+								<input type="text" name="info[fuwupoint]" class="layui-input" value="{$info.fuwupoint}">
+							</div>
+							<div class="layui-form-mid layui-word-aux">多个用空格隔开,如: 7天退换 48小时发货 假一赔十</div>
+						</div> -->
+						{if getcustom('business_maidan_scoredk')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">{:t('积分')}抵扣：</label>
+							<div class="layui-input-block" style="width:800px">
+								<input type="radio" name="info[scoredkmaxset]" value="0" {if !$info['id'] || $info['scoredkmaxset']==0}checked{/if} title="按照系统设置抵扣" lay-filter="scoredkmaxset">
+								<input type="radio" name="info[scoredkmaxset]" value="1" {if $info['scoredkmaxset']==1}checked{/if} title="单独设置抵扣比例" lay-filter="scoredkmaxset">
+								<input type="radio" name="info[scoredkmaxset]" value="-1" {if $info['scoredkmaxset']==-1}checked{/if} title="不可用{:t('积分')}抵扣" lay-filter="scoredkmaxset">
+							</div>
+							<div class="layui-form-mid layui-word-aux">只在商户买单时生效</div>
+
+						</div>
+						<div id="scoredkmaxset1" {if $info['scoredkmaxset']!=1 && $info['scoredkmaxset']!=2}style="display:none"{/if}>
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-inline layui-module-itemL">
+								<div>最多抵扣(<span id="scoredkmaxunit">{$info['scoredkmaxset']==1?'%':'元'}</span>) </div>
+								<input type="text" name="info[scoredkmaxval]" value="{$info.scoredkmaxval}" class="layui-input">
+							</div>
+						</div>
+						</div>
+						{/if}
+
+						<div class="layui-form-item">
+							<label class="layui-form-label">商户简介：</label>
+							<div class="layui-input-inline" style="width:500px;">
+								<script id="content" name="info[content]" type="text/plain" style="width:100%;height:500px">{$info.content}</script>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label"><span class="redstar">*</span>商户地址：</label>
+							<div style="display: flex;flex-direction: column;">
+								<div class="areaDiv" style="margin-bottom: 8px">
+									<div class="layui-input-inline" style="width: 150px">
+										<select name="info[province]" id="province" lay-filter="province" {if !$info.id}lay-verify="required"{/if}></select>
+									</div>
+									<div class="layui-input-inline" style="width: 150px">
+										<select name="info[city]" id="city" lay-filter="city"></select>
+									</div>
+									<div class="layui-input-inline" style="width: 150px" style="display:none">
+										<!--							<select name="custom[form{$customeKey}][]" id="region{$customeKey}_area"></select>-->
+										<select name="info[district]" id="district"></select>
+									</div>
+								</div>
+								<div class="adressDiv">
+								<div class="layui-input-inline" style="width:500px">
+									<input type="text" id="address" name="info[address]" class="layui-input layui-input-search" value="{$info.address}">
+									<div style="position: absolute;width: 500px;z-index: 100;" class="search-keywords">
+
+									</div>
+								</div>
+								<button class="layui-btn layui-btn-primary" id="searchbtn">搜索</button>
+								</div>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div id="l-map" style="width:600px;height:350px">地图加载中...</div>
+							<div style="margin-left:160px;margin-top:10px">
+								<div class="layui-input-inline" style="width:200px">
+									<input type="text" name="info[longitude]" id="mapjd" class="layui-input" value="{$info.longitude|default='116.39782905578613'}"/>
+								</div>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="text" name="info[latitude]" id="mapwd" class="layui-input" value="{$info.latitude|default='39.90358020251377'}"/>
+								</div>
+							</div>
+						</div>
+
+					{if getcustom('wx_express_intracity')}
+					{if $wx_express_intracity == 1}
+						<div class="layui-form-item">
+							<label class="layui-form-label">微信同城配送状态：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[wxtc_status]" value="1" title="开启" {if $info['wxtc_status']==1}checked{/if}>
+								<input type="radio" name="info[wxtc_status]" value="0" title="关闭" {if !$info['wxtc_status'] || $info['wxtc_status']==0}checked{/if}>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">微信门店ID：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[wxtc_store_id]" value="{$info['wxtc_store_id']}" class="layui-input mid">
+							</div>
+							<div class="layui-form-mid layui-word-aux"><a href="javascript:void(0)" onclick="openmax('{:url('WxExpressIntracity/storeList')}/isopen/1')">查找微信配送门店ID</a></div>
+						</div>
+					{/if}
+					{/if}
+
+						{if getcustom('business_platform_auth')}
+							<div class="layui-form-item">
+								<label class="layui-form-label">是否作为平台门店：</label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="radio" name="info[isplatform_auth]" value="0" title="否" {if !$info['id'] || $info['isplatform_auth']==0}checked{/if} />
+									<input type="radio" name="info[isplatform_auth]" value="1" title="是" {if $info['isplatform_auth']==1}checked{/if} />
+								</div>
+							</div>
+
+						{/if}
+						{if getcustom('wx_channels_business')}
+						<div class="layui-form-item">
+						  <label class="layui-form-label">小店达人带货分销：</label>
+						  <div class="layui-input-inline" style="width:auto">
+							  <input type="radio" name="info[channels_finder_fenxiao]" title="关闭" value="0" {if $info['channels_finder_fenxiao']==0}checked{/if}/>
+							  <input type="radio" name="info[channels_finder_fenxiao]" title="开启" value="1" {if $info['channels_finder_fenxiao']==1}checked{/if}/>
+						  </div>
+						  <div class="layui-form-mid layui-word-aux layui-clear">
+							  关闭后，达人的订单不执行分销机制
+						  </div>
+						</div>
+						{/if}
+						{include file="business/business_fenxiao" /}
+	     {php }
+	  		$business_mode_custom = getcustom('yx_queue_free_business_mode');
+	  		$mode_custom = getcustom('yx_queue_free_other_mode');
+	  		$today_average_custom = getcustom('yx_queue_free_today_average');
+	  		$yx_queue_free_edit_money_custom = getcustom('yx_queue_free_edit_money');
+  			$yx_queue_free_back_business_fanli_custom =   getcustom('yx_queue_free_back_business_fanli');
+  			$yx_queue_free_business_shopkeeper = getcustom('yx_queue_free_business_shopkeeper');
+	  	{/php}
+	{if getcustom('yx_queue_free')}
+		<span style="color:#333">{:t('排队免单')}</span><hr/>
+  		{if $admin_auth_data=='all' || in_array('QueueFreeSet/*',$admin_auth_data)}
+		<div class="layui-form-item">
+			<label class="layui-form-label">{:t('排队免单')}状态：</label>
+			<div class="layui-input-inline" style="width:200px">
+				<input type="radio" name="free_set[status]" value="1" title="开启" {if $free_set['status']==1}checked{/if}>
+				<input type="radio" name="free_set[status]" value="0" title="关闭" {if $free_set['status']==0}checked{/if}>
+			</div>
+			<div class="layui-form-mid layui-word-aux">注意：开启后返现的费用由平台支出</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">单笔金额上限：</label>
+			<div class="layui-input-inline" style="width:200px">
+				<input type="text" name="free_set[money_max]" value="{$free_set['money_max']}" class="layui-input">
+			</div>
+			<div class="layui-form-mid layui-word-aux">0为不限制，留空跟随系统设置</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">{:t('返利比例')}：</label>
+			<div class="layui-input-inline" style="width:200px">
+				<input type="number" name="free_set[rate_back]" value="{$free_set['rate_back']}" class="layui-input">
+			</div>
+			<div class="layui-form-mid layui-word-aux">下单订单给排队订单的{:t('返利比例')}，0或空跟随系统设置</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">修改免单比例：</label>
+			<div class="layui-input-inline" style="width:280px">
+				<input type="radio" name="free_set[rate_status_business]" value="-1" title="跟随系统" {if $free_set['rate_status_business']=='-1'}checked{/if}>
+				<input type="radio" name="free_set[rate_status_business]" value="1" title="开启" {if $free_set['rate_status_business']==1}checked{/if}>
+				<input type="radio" name="free_set[rate_status_business]" value="0" title="关闭" {if $free_set['rate_status_business']==0}checked{/if}>
+			</div>
+			<div class="layui-form-mid layui-word-aux">独立设置优先级大于系统设置</div>
+		</div>
+		{if $yx_queue_free_business_shopkeeper && ($admin_auth_data=='all' || in_array('QueueFreeBusinessShopkeeper',$admin_auth_data))}
+			<div class="layui-form-item">
+				<label class="layui-form-label">店主会员排队：</label>
+				<div class="layui-input-inline" style="width:280px">
+					<input type="radio" name="info[shopkeeper_switch]" value="-1" title="跟随系统" {if $info['shopkeeper_switch']=='-1'}checked{/if}>
+					<input type="radio" name="info[shopkeeper_switch]" value="1" title="开启" {if $info['shopkeeper_switch']==1}checked{/if}>
+					<input type="radio" name="info[shopkeeper_switch]" value="0" title="关闭" {if $info['shopkeeper_switch']==0}checked{/if}>
+				</div>
+				<div class="layui-form-mid layui-word-aux">独立设置优先级大于系统设置</div>
+			</div>
+		{/if}
+		{if $yx_queue_free_edit_money_custom}
+		<div class="layui-form-item">
+		  <label class="layui-form-label">修改排队金额：</label>
+		  <div class="layui-input-inline">
+			  <input type="radio" name="info[edit_money_status]" value="1" title="开启" {if  $info['edit_money_status']==1}checked{/if}>
+			  <input type="radio" name="info[edit_money_status]" value="0" title="关闭" {if	 !$info['id'] ||$info['edit_money_status']==0}checked{/if}>
+		  </div>
+		  <div class="layui-form-mid layui-word-aux">开启后，可对排队记录中的排队金额进行编辑修改</div>
+		</div>
+		{/if}
+		<!--商户独立设置模式-->
+	    {if $business_mode_custom}
+		  <div class="layui-form-item">
+			  <label class="layui-form-label">模式：</label>
+			  <div class="layui-input-inline" style="width: 80%">
+				  {if $mode_custom}
+				  <div style="display: flex">
+					  <input type="radio" name="free_set[mode]" value="-1" title="跟随系统" {if  $free_set['mode']==-1}checked{/if} lay-filter="mode">
+					  <div style="line-height: 28px;margin: 6px 10px 0;color: #999">跟随系统设置</div>
+				  </div>
+				  <div style="display: flex">
+					  <input type="radio" name="free_set[mode]" value="0" title="固定分配" {if  $free_set['mode']==0}checked{/if} lay-filter="mode">
+					  <div style="line-height: 28px;margin: 6px 10px 0;color: #999">按照固定比例，按排队顺序进行发放</div>
+				  </div>
+	
+				  <div style="display: flex">
+					  <input type="radio" name="free_set[mode]" value="1" title="平均分配" {if $free_set['mode']==1}checked{/if} lay-filter="mode">
+					  <div style="line-height: 28px;margin: 6px 10px 0;color: #999">所有未出局排队平均分配，且不低于最低金额</div>
+				  </div>
+				  <div style="display: flex">
+					  <input type="radio" name="free_set[mode]" value="2" title="金额占比分配" {if $free_set['mode']==2}checked{/if} lay-filter="mode">
+					  <div style="line-height: 28px;margin: 6px 10px 0;color: #999">根据自己的订单消费金额在整个订单当中的总金额占比进行分配</div>
+				  </div>
+				  <div style="display: flex">
+					  <input type="radio" name="free_set[mode]" value="3" title="平均+金额占比分配" {if $free_set['mode']==3}checked{/if} lay-filter="mode">
+					  <div style="line-height: 28px;margin: 6px 10px 0;color: #999">一部分平均分配，一部分按订单的金额占比分配</div>
+				  </div>
+				  <div style="display: flex">
+					  <input type="radio" name="free_set[mode]" value="4" title="平均+固定分配" {if $free_set['mode']==4}checked{/if} lay-filter="mode">
+					  <div style="line-height: 28px;margin: 6px 10px 0;color: #999">一部分平均分配，一部分按照固定比例，按排队顺序进行发放</div>
+				  </div>
+				  {/if}
+				  {if $today_average_custom && ($admin_auth_data=='all' || in_array('QueueFreeMode5',$admin_auth_data))}
+				  <div style="display: flex">
+					  <input type="radio" name="free_set[mode]" value="5" title="固定+今日平均+非今日平均" {if $free_set['mode']==5}checked{/if} lay-filter="mode">
+					  <div style="line-height: 28px;margin: 6px 10px 0;color: #999">一部分固定，按排队顺序进行发放，一部分平均今日消费，一部分平均非当日消费(次日凌晨发放)，超出订单结余到平台，下次发放</div>
+				  </div>
+				  {/if}
+			  </div>
+		  </div>
+	  	{/if}
+		  <!--商户独立设置模式 end-->
+  		 <!--给商户返利-->
+         {if $yx_queue_free_back_business_fanli_custom && ($admin_auth_data=='all' || in_array('QueueFreeBackBusinessFanli',$admin_auth_data)) }
+			<div class="layui-form-item">
+			  <label class="layui-form-label">给商户返利：</label>
+			  <div class="layui-input-inline">
+				  <input type="radio" name="free_set[queue_free_back_business_fanli_status]" value="1" title="开启" {if  $free_set['queue_free_back_business_fanli_status']==1}checked{/if} lay-filter="queue_free_back_business_fanli_status">
+				  <input type="radio" name="free_set[queue_free_back_business_fanli_status]" value="0" title="关闭" {if	 !$free_set['id'] ||$free_set['queue_free_back_business_fanli_status']==0}checked{/if} lay-filter="queue_free_back_business_fanli_status">
+			  </div>
+			  <div class="layui-form-mid layui-word-aux">开启后，商户加入排队，给商户返利，返利金额 = 订单实付金额*商户返利</div>
+			</div>
+			<div class="layui-form-item" id="queue_free_back_business_fanli_rate" {if $free_set['queue_free_back_business_fanli_status']==0}style="display:none"{/if}>
+			  <label class="layui-form-label">商户返利比例：</label>
+			  <div class="layui-input-inline" style="width:200px">
+				  <input type="number" name="free_set[queue_free_back_business_fanli_rate]" value="{$free_set['queue_free_back_business_fanli_rate']}" class="layui-input">
+			  </div>
+			  <div class="layui-form-mid layui-word-aux">商户返利金额 = 订单实付金额*商户返利比例</div>
+			</div>
+  		 {/if}
+  		 <!--给商户返利 end-->
+		{/if}
+	{/if}
+		<!--yx_queue_free end-->
+		{if getcustom('business_maidan_team_fenhong')}
+		<span style="color:#333">买单满额奖励</span><hr/>
+		<div class="layui-form-item">
+			<label class="layui-form-label">买单满额奖励状态：</label>
+			<div class="layui-input-inline" style="width:200px">
+				<input type="radio" name="info[maidan_fenhong_jl_status]" value="1" title="开启" {if $info['maidan_fenhong_jl_status']==1}checked{/if}>
+				<input type="radio" name="info[maidan_fenhong_jl_status]" value="0" title="关闭" {if $info['maidan_fenhong_jl_status']==0}checked{/if}>
+			</div>
+			<div class="layui-form-mid layui-word-aux">开启后，买单收款{if getcustom('maidan_new') && ($admin_auth_data=='all' || in_array('MaidanNew/*',$admin_auth_data))}和新买单收款{/if}金额参与分红奖励。</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">收款额满：</label>
+			<div class="layui-input-inline  layui-module-itemL" style="width:200px">
+				<div class="layui-form-mid">收款额满</div>
+				<input type="text" name="info[maidan_fenhong_jl_minprice]" value="{$info['maidan_fenhong_jl_minprice']}" class="layui-input" style="margin-right: 0px">
+				<div class="layui-form-mid">元</div>
+			</div>
+			<div class="layui-form-mid layui-word-aux">商户收款额达到了该金额可参与分红奖励</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">分红级数：</label>
+			<div class="layui-input-inline  layui-module-itemL" style="width:200px">
+				<div class="layui-form-mid">级数</div>
+				<input type="text" name="info[maidan_fenhong_jl_lv]" value="{$info['maidan_fenhong_jl_lv']|default='0'}" class="layui-input" style="margin-right: 0px">
+			</div>
+			<div class="layui-form-mid layui-word-aux">买单分红奖励发放几级，默认0不限制</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">奖励比例：</label>
+			<div class="layui-input-inline" style="width: 75%">	
+			{foreach $levellist as $level}
+			<div class="layui-input-inline layui-module-itemL" style="margin-bottom: 8px">
+				<div> {$level.name}(%) </div>
+				<input type="text" name="maidan_fenhong_jl_data[{$level.id}][ratio]" class="layui-input" value="{$maidan_fenhong_jl_data[$level['id']]['ratio']}">
+			</div>
+			{/foreach}
+			</div>
+		</div>
+		{/if}
+		{if getcustom('business_maidan_team_fenhong') && getcustom('maidan_new') && ($admin_auth_data=='all' || in_array('MaidanNew/*',$admin_auth_data))}
+		<span style="color:#333">新买单满额奖励</span><hr/>
+		<div class="layui-form-item">
+		  <label class="layui-form-label">买单满额奖励状态：</label>
+		  <div class="layui-input-inline" style="width:200px">
+			  <input type="radio" name="info[maidan_new_fenhong_jl_status]" value="1" title="开启" {if $info['maidan_new_fenhong_jl_status']==1}checked{/if}>
+			  <input type="radio" name="info[maidan_new_fenhong_jl_status]" value="0" title="关闭" {if $info['maidan_new_fenhong_jl_status']==0}checked{/if}>
+		  </div>
+		  <div class="layui-form-mid layui-word-aux">开启后，新买单收款和买单收款金额参与分红奖励。</div>
+		</div>
+		<div class="layui-form-item">
+		  <label class="layui-form-label">收款额满：</label>
+		  <div class="layui-input-inline  layui-module-itemL" style="width:200px">
+			  <div class="layui-form-mid">收款额满</div>
+			  <input type="text" name="info[maidan_new_fenhong_jl_minprice]" value="{$info['maidan_new_fenhong_jl_minprice']}" class="layui-input" style="margin-right: 0px">
+			  <div class="layui-form-mid">元</div>
+		  </div>
+		  <div class="layui-form-mid layui-word-aux">商户收款额达到了该金额可参与分红奖励</div>
+		</div>
+		<div class="layui-form-item">
+		  <label class="layui-form-label">分红级数：</label>
+		  <div class="layui-input-inline  layui-module-itemL" style="width:200px">
+			  <div class="layui-form-mid">级数</div>
+			  <input type="text" name="info[maidan_new_fenhong_jl_lv]" value="{$info['maidan_new_fenhong_jl_lv']|default='0'}" class="layui-input" style="margin-right: 0px">
+		  </div>
+		  <div class="layui-form-mid layui-word-aux">买单分红奖励发放几级，默认0不限制</div>
+		</div>
+		<div class="layui-form-item">
+		  <label class="layui-form-label">奖励比例：</label>
+		  <div class="layui-input-inline" style="width: 75%">
+			  {foreach $levellist as $level}
+			  <div class="layui-input-inline layui-module-itemL" style="margin-bottom: 8px">
+				  <div> {$level.name}(%) </div>
+				  <input type="text" name="maidan_new_fenhong_jl_data[{$level.id}][ratio]" class="layui-input" value="{$maidan_new_fenhong_jl_data[$level['id']]['ratio']}">
+			  </div>
+			  {/foreach}
+		  </div>
+		</div>
+		{/if}
+		<!-- 买单分销 -->
+		{if getcustom('business_maidan_commission')}
+		<span style="color:#333">买单分销</span><hr/>
+		<div class="layui-form-item">
+			<label class="layui-form-label">买单分销设置：</label>
+			<div class="layui-input-block" style="width:750px">
+				<input type="radio" name="info[maidan_commissionset]" value="0" {if !$info['id'] || $info['maidan_commissionset']==0 }checked{/if} title="按照{:t('会员')}等级" lay-filter="maidancommissionset">
+				<input type="radio" name="info[maidan_commissionset]" value="1" {if $info['maidan_commissionset']==1}checked{/if} title="单独设置比例" lay-filter="maidancommissionset">
+				<input type="radio" name="info[maidan_commissionset]" value="-1" {if $info['maidan_commissionset']==-1 }checked{/if} title="关闭" lay-filter="maidancommissionset">
+			</div>
+			<div class="layui-form-mid layui-word-aux">
+				按照{:t('会员')}等级：按照{:t('会员')}等级中设置的‘提成金额’比例进行提成分配<br>
+				单独设置提成比例：按照单独设置的提成比例进行提成分配<br>
+			</div>
+		</div>
+		{php}
+			$maidancommissiondata1 = json_decode($info['maidan_commissiondata1'],true);
+			if(!$maidancommissiondata1) $maidancommissiondata1 = [];
+		{/php}
+		<div id="maidancommissionset1" {if $info['maidan_commissionset']!=1}style="display:none"{/if}>
+			{if !$mdlevellist}
+				<div class="layui-form-item">
+					<label class="layui-form-label">分销比例：</label>
+					<div class="layui-form-mid" style="color:red">未设置具有分销权限的{:t('会员')}等级，请先在[{:t('会员')}]-[等级及分销]设置分销权限</div>
+				</div>
+			{else}
+			{foreach $mdlevellist as $level}
+				<div class="layui-form-item">
+				<label class="layui-form-label">{$level.name}：</label>
+				<div class="layui-input-inline layui-module-itemL">
+					<div> 一级(%) </div>
+					<input type="text" name="maidan_commissiondata1[{$level.id}][commission1]" class="layui-input" value="{$maidancommissiondata1[$level['id']]['commission1']}">
+				</div>
+				{if $level['can_agent']>1}
+				<div class="layui-input-inline layui-module-itemL">
+					<div>二级(%)</div>
+					<input type="text" name="maidan_commissiondata1[{$level.id}][commission2]" class="layui-input" value="{$maidancommissiondata1[$level['id']]['commission2']}">
+				</div>
+				{/if}
+				{if $level['can_agent']>2}
+				<div class="layui-input-inline layui-module-itemL">
+					<div>三级(%)</div>
+					<input type="text" name="maidan_commissiondata1[{$level.id}][commission3]" class="layui-input" value="{$maidancommissiondata1[$level['id']]['commission3']}">
+				</div>
+				{/if}
+			</div>
+			{/foreach}
+			{/if}
+		</div>
+		{/if}
+	  <!-- END 买单分销 -->
+    {if getcustom('maidan_invite')}
+    <fieldset class="layui-elem-field layui-field-title" style="margin-top: 30px;">
+			<legend>买单拉新设置</legend>
+		</fieldset>
+    <div class="layui-form-item">
+      <label class="layui-form-label">买单拉新：</label>
+      <div class="layui-input-block" style="width:800px">
+        <input type="radio" name="info[maidaninviteset]" value="0" {if !$info['id'] || $info['maidaninviteset']==0}checked{/if} title="跟随系统总设置" lay-filter="maidaninviteset">
+        <input type="radio" name="info[maidaninviteset]" value="1" {if $info['maidaninviteset']==1}checked{/if} title="单独设置" lay-filter="maidaninviteset">
+        <input type="radio" name="info[maidaninviteset]" value="-1" {if $info['maidaninviteset']==-1}checked{/if} title="不参与拉新" lay-filter="maidaninviteset">
+      </div>
+    </div>
+    <div id="maidaninviteset1" {if $info['maidaninviteset']!=1 && $info['maidaninviteset']!=2}style="display:none"{/if}>
+      <div id="maidaninvite_div">
+        {if $invitedata}
+        {foreach $invitedata as $k=>$give}
+        <div class="layui-form-item">
+            <label class="layui-form-label">{if $k==0}拉新设置：{/if}</label>
+            <div class="layui-input-inline" style="width:70px"><input type="text" name="maidaninvite_min[]" value="{$give.min}" class="layui-input"></div>
+            <div class="layui-form-mid">元~</div>
+            <div class="layui-input-inline" style="width:70px"><input type="text" name="maidaninvite_max[]" value="{$give.max}" class="layui-input"></div>
+            <div class="layui-form-mid">元，返</div>
+            <div class="layui-input-inline" style="width:70px"><input type="text" name="maidaninvite_back[]" value="{$give.back}" class="layui-input"></div>
+            <div class="layui-form-mid">% + 固定金额</div>
+            <div class="layui-input-inline" style="width:70px"><input type="text" name="maidaninvite_back2[]" value="{$give.back2}" class="layui-input"></div>
+            {if $k==0}
+            <button type="button" class="layui-btn layui-btn-primary" onclick="adddata()">新增</button>
+            {else}
+            <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>
+            {/if}
+        </div>
+        {/foreach}
+        {/if}
+        {if !$invitedata}
+        <div class="layui-form-item">
+            <label class="layui-form-label">拉新设置：</label>
+            <div class="layui-input-inline" style="width:70px"><input type="text" name="maidaninvite_min[]" value="" class="layui-input"></div>
+            <div class="layui-form-mid">元~</div>
+            <div class="layui-input-inline" style="width:70px"><input type="text" name="maidaninvite_max[]" value="" class="layui-input"></div>
+            <div class="layui-form-mid">元，返</div>
+            <div class="layui-input-inline" style="width:70px"><input type="text" name="maidaninvite_back[]" value="" class="layui-input"></div>
+            <div class="layui-form-mid">% + 固定金额</div>
+            <div class="layui-input-inline" style="width:70px"><input type="text" name="maidaninvite_back2[]" value="" class="layui-input"></div>
+            <button type="button" class="layui-btn layui-btn-primary" onclick="adddata()">新增</button>
+        </div>
+        {/if}
+    </div>
+    <div class="layui-form-item">
+        <label class="layui-form-label"></label>
+        <div class="layui-form-mid layui-word-aux">
+            通过商户买单付款邀请的新用户，第一次买单付款，且买单付款前其他商城内无其他购买消费，平台给商户拉新用户奖励，只奖励一次返到商户营业款余额内<br>
+            注意：<br>
+            1、各不同阶梯的价格之间数字不要相同，否则按最后一个满足的条件发奖 ，正确示例：1~100，101~200<br>
+            2、商户主管理员绑定用户为推荐人，不要随意更换，否则邀请成功后会因推荐人变动查询不一致，不发放奖励<br>
+            3、返现比例和固定金额需要设置一个，都设置的话两个设置都发，只设置一个值就发一个<br>
+            4、若菜单营销-商户买单拉新设置状态未开启，则商户拉新活动也全部未开启，包括商户独立设置的<br>
+        </div>
+    </div>
+    <script>
+      function adddata(){
+          var html = '';
+          html+='<div class="layui-form-item">';
+          html+=' <label class="layui-form-label"></label>';
+          html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="maidaninvite_min[]" value="" class="layui-input"></div>';
+          html+=' <div class="layui-form-mid">元~</div>';
+          html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="maidaninvite_max[]" value="" class="layui-input"></div>';
+          html+=' <div class="layui-form-mid">元，返</div>';
+          html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="maidaninvite_back[]" value="" class="layui-input"></div>';
+          html+=' <div class="layui-form-mid">% + 固定金额</div>';
+          html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="maidaninvite_back2[]" value="" class="layui-input"></div>';
+          html+=' <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>';
+          html+='</div>';
+          $('#maidaninvite_div').append(html);
+      }
+      function deldata(obj){
+          $(obj).parent().remove();
+      }
+    </script>
+    </div>
+    {/if}
+  {if getcustom('yx_mangfan_maidan_business') || getcustom('yx_mangfan_cashier_business')}
+  <fieldset class="layui-elem-field layui-field-title" style="margin-top: 30px;">
+	  <legend>{:t('消费盲返')}设置</legend>
+  </fieldset>
+  {/if}
+  <!--盲返买单设置-->
+  {if getcustom('yx_mangfan_maidan_business')}
+  <div class="layui-form-item">
+	  <label class="layui-form-label">{:t('消费盲返')}买单设置：</label>
+	  <div class="layui-input-block" style="width:800px">
+		  <input type="radio" name="info[mangfan_maidan_st]" value="0" {if !$info['id'] || $info['mangfan_maidan_st']==0}checked{/if} title="跟随系统设置" lay-filter="mangfan_maidan_st">
+		  <input type="radio" name="info[mangfan_maidan_st]" value="1" {if $info['mangfan_maidan_st']==1}checked{/if} title="独立设置" lay-filter="mangfan_maidan_st">
+		  <input type="radio" name="info[mangfan_maidan_st]" value="-1" {if $info['mangfan_maidan_st']==-1}checked{/if} title="不参与" lay-filter="mangfan_maidan_st">
+	  </div>
+  </div>
+  <div id="mangfanmaidanset1" {if $info['mangfan_maidan_st']!=1}style="display:none"{/if}>
+	  <div id="mangfan_div">
+		  {php}$mangfansetdata = json_decode($info['mangfan_maidan_set'],true);{/php}
+		  {if $mangfansetdata}
+		  {foreach $mangfansetdata as $k=>$give}
+		  <div class="layui-form-item">
+			  <label class="layui-form-label">{if $k==0}{:t('消费盲返')}买单设置：{/if}</label>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfanratio[start][]" value="{$give.start}" class="layui-input"></div>
+			  <div class="layui-form-mid">元~</div>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfanratio[end][]" value="{$give.end}" class="layui-input"></div>
+			  <div class="layui-form-mid">元，返</div>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfanratio[ratio][]" value="{$give.ratio}" class="layui-input"></div>
+			  <div class="layui-form-mid">% + 固定金额</div>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfanratio[money][]" value="{$give.money}" class="layui-input"></div>
+			  {if $k==0}
+			  <button type="button" class="layui-btn layui-btn-primary" onclick="adddata()">新增</button>
+			  {else}
+			  <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>
+			  {/if}
+		  </div>
+		  {/foreach}
+		  {/if}
+		  {if !$mangfansetdata}
+		  <div class="layui-form-item">
+			  <label class="layui-form-label">{:t('消费盲返')}买单设置：</label>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfanratio[start][]" value="" class="layui-input"></div>
+			  <div class="layui-form-mid">元~</div>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfanratio[end][]" value="" class="layui-input"></div>
+			  <div class="layui-form-mid">元，返</div>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfanratio[ratio][]" value="" class="layui-input"></div>
+			  <div class="layui-form-mid">% + 固定金额</div>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfanratio[money][]" value="" class="layui-input"></div>
+			  <button type="button" class="layui-btn layui-btn-primary" onclick="adddata()">新增</button>
+		  </div>
+		  {/if}
+	  </div>
+  <script>
+	  function adddata(){
+		  var html = '';
+		  html+='<div class="layui-form-item">';
+		  html+=' <label class="layui-form-label"></label>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfanratio[start][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">元~</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfanratio[end][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">元，返</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfanratio[ratio][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">% + 固定金额</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfanratio[money][]" value="" class="layui-input"></div>';
+		  html+=' <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>';
+		  html+='</div>';
+		  $('#mangfan_div').append(html);
+	  }
+	  function deldata(obj){
+		  $(obj).parent().remove();
+	  }
+  </script>
+  </div>
+  {/if}
+  <!--盲返收银台设置-->
+  {if getcustom('yx_mangfan_cashier_business')}
+  <div class="layui-form-item">
+	  <label class="layui-form-label">{:t('消费盲返')}收银台设置：</label>
+	  <div class="layui-input-block" style="width:800px">
+		  <input type="radio" name="info[mangfan_cashier_st]" value="0" {if !$info['id'] || $info['mangfan_cashier_st']==0}checked{/if} title="跟随系统设置" lay-filter="mangfan_cashier_st">
+		  <input type="radio" name="info[mangfan_cashier_st]" value="1" {if $info['mangfan_cashier_st']==1}checked{/if} title="独立设置" lay-filter="mangfan_cashier_st">
+		  <input type="radio" name="info[mangfan_cashier_st]" value="-1" {if $info['mangfan_cashier_st']==-1}checked{/if} title="不参与" lay-filter="mangfan_cashier_st">
+	  </div>
+  </div>
+  <div id="mangfancashierset1" {if $info['mangfan_cashier_st']!=1}style="display:none"{/if}>
+  <div id="cashier_div">
+	  {php}$mangfancashiersetdata = json_decode($info['mangfan_cashier_set'],true);{/php}
+	  {if $mangfancashiersetdata}
+	  {foreach $mangfancashiersetdata as $k=>$give}
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">{if $k==0}{:t('消费盲返')}收银台设置：{/if}</label>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfancashierratio[start][]" value="{$give.start}" class="layui-input"></div>
+		  <div class="layui-form-mid">元~</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfancashierratio[end][]" value="{$give.end}" class="layui-input"></div>
+		  <div class="layui-form-mid">元，返</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfancashierratio[ratio][]" value="{$give.ratio}" class="layui-input"></div>
+		  <div class="layui-form-mid">% + 固定金额</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfancashierratio[money][]" value="{$give.money}" class="layui-input"></div>
+		  {if $k==0}
+		  <button type="button" class="layui-btn layui-btn-primary" onclick="adddata()">新增</button>
+		  {else}
+		  <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>
+		  {/if}
+	  </div>
+	  {/foreach}
+	  {/if}
+	  {if !$mangfancashiersetdata}
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">{:t('消费盲返')}收银台设置：</label>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfancashierratio[start][]" value="" class="layui-input"></div>
+		  <div class="layui-form-mid">元~</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfancashierratio[end][]" value="" class="layui-input"></div>
+		  <div class="layui-form-mid">元，返</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfancashierratio[ratio][]" value="" class="layui-input"></div>
+		  <div class="layui-form-mid">% + 固定金额</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfancashierratio[money][]" value="" class="layui-input"></div>
+		  <button type="button" class="layui-btn layui-btn-primary" onclick="adddata()">新增</button>
+	  </div>
+	  {/if}
+  </div>
+  <script>
+	  function adddata(){
+		  var html = '';
+		  html+='<div class="layui-form-item">';
+		  html+=' <label class="layui-form-label"></label>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfancashierratio[start][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">元~</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfancashierratio[end][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">元，返</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfancashierratio[ratio][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">% + 固定金额</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfancashierratio[money][]" value="" class="layui-input"></div>';
+		  html+=' <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>';
+		  html+='</div>';
+		  $('#cashier_div').append(html);
+	  }
+	  function deldata(obj){
+		  $(obj).parent().remove();
+	  }
+  </script>
+  </div>
+  {/if}
+
+  <!--盲返扫码点餐设置-->
+  {if getcustom('yx_mangfan_restaurant_shop') && getcustom('yx_mangfan_restaurant_shop_business') && ($admin_auth_data=='all' || in_array('mangfan_restaurant_shop_business',$admin_auth_data)) }
+  <div class="layui-form-item">
+	  <label class="layui-form-label">{:t('消费盲返')}扫码点餐设置：</label>
+	  <div class="layui-input-block" style="width:800px">
+		  <input type="radio" name="info[mangfan_restaurant_shop_st]" value="0" {if !$info['id'] || $info['mangfan_restaurant_shop_st']==0}checked{/if} title="跟随系统设置" lay-filter="mangfan_restaurant_shop_st">
+		  <input type="radio" name="info[mangfan_restaurant_shop_st]" value="1" {if $info['mangfan_restaurant_shop_st']==1}checked{/if} title="独立设置" lay-filter="mangfan_restaurant_shop_st">
+		  <input type="radio" name="info[mangfan_restaurant_shop_st]" value="-1" {if $info['mangfan_restaurant_shop_st']==-1}checked{/if} title="不参与" lay-filter="mangfan_restaurant_shop_st">
+	  </div>
+  </div>
+  <div id="mangfanrestaurantshopset1" {if $info['mangfan_restaurant_shop_st']!=1}style="display:none"{/if}>
+  <div id="restaurant_shop_div">
+	  {php}$mangfan_restaurant_shop_setdata = json_decode($info['mangfan_restaurant_shop_set'],true);{/php}
+	  {if $mangfan_restaurant_shop_setdata}
+	  {foreach $mangfan_restaurant_shop_setdata as $k=>$give}
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">{if $k==0}{:t('消费盲返')}扫码点餐设置：{/if}</label>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_shop_ratio[start][]" value="{$give.start}" class="layui-input"></div>
+		  <div class="layui-form-mid">元~</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_shop_ratio[end][]" value="{$give.end}" class="layui-input"></div>
+		  <div class="layui-form-mid">元，返</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_shop_ratio[ratio][]" value="{$give.ratio}" class="layui-input"></div>
+		  <div class="layui-form-mid">% + 固定金额</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_shop_ratio[money][]" value="{$give.money}" class="layui-input"></div>
+		  {if $k==0}
+		  <button type="button" class="layui-btn layui-btn-primary" onclick="adddrestaurantshopdata()">新增</button>
+		  {else}
+		  <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>
+		  {/if}
+	  </div>
+	  {/foreach}
+	  {/if}
+	  {if !$mangfan_restaurant_shop_setdata}
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">{:t('消费盲返')}扫码点餐设置：</label>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_shop_ratio[start][]" value="" class="layui-input"></div>
+		  <div class="layui-form-mid">元~</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_shop_ratio[end][]" value="" class="layui-input"></div>
+		  <div class="layui-form-mid">元，返</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_shop_ratio[ratio][]" value="" class="layui-input"></div>
+		  <div class="layui-form-mid">% + 固定金额</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_shop_ratio[money][]" value="" class="layui-input"></div>
+		  <button type="button" class="layui-btn layui-btn-primary" onclick="adddrestaurantshopdata()">新增</button>
+	  </div>
+	  {/if}
+  </div>
+  <script>
+	  function adddrestaurantshopdata(){
+		  var html = '';
+		  html+='<div class="layui-form-item">';
+		  html+=' <label class="layui-form-label"></label>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_shop_ratio[start][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">元~</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_shop_ratio[end][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">元，返</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_shop_ratio[ratio][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">% + 固定金额</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_shop_ratio[money][]" value="" class="layui-input"></div>';
+		  html+=' <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>';
+		  html+='</div>';
+		  $('#restaurant_shop_div').append(html);
+	  }
+	  function deldata(obj){
+		  $(obj).parent().remove();
+	  }
+  </script>
+  </div>
+  {/if}
+  <!--盲返外卖设置-->
+  {if getcustom('yx_mangfan_restaurant_takeaway') && getcustom('yx_mangfan_restaurant_takeaway_business')  && ($admin_auth_data=='all' || in_array('mangfan_restaurant_takeaway_business',$admin_auth_data)) }
+  <div class="layui-form-item">
+	  <label class="layui-form-label">{:t('消费盲返')}外卖设置：</label>
+	  <div class="layui-input-block" style="width:800px">
+		  <input type="radio" name="info[mangfan_restaurant_takeaway_st]" value="0" {if !$info['id'] || $info['mangfan_restaurant_takeaway_st']==0}checked{/if} title="跟随系统设置" lay-filter="mangfan_restaurant_takeaway_st">
+		  <input type="radio" name="info[mangfan_restaurant_takeaway_st]" value="1" {if $info['mangfan_restaurant_takeaway_st']==1}checked{/if} title="独立设置" lay-filter="mangfan_restaurant_takeaway_st">
+		  <input type="radio" name="info[mangfan_restaurant_takeaway_st]" value="-1" {if $info['mangfan_restaurant_takeaway_st']==-1}checked{/if} title="不参与" lay-filter="mangfan_restaurant_takeaway_st">
+	  </div>
+  </div>
+  <div id="mangfanrestauranttakeawayset1" {if $info['mangfan_restaurant_takeaway_st']!=1}style="display:none"{/if}>
+	  <div id="restaurant_takeaway_div">
+		  {php}$mangfan_restaurant_takeaway_setdata = json_decode($info['mangfan_restaurant_takeaway_set'],true);{/php}
+		  {if $mangfan_restaurant_takeaway_setdata}
+		  {foreach $mangfan_restaurant_takeaway_setdata as $k=>$give}
+		  <div class="layui-form-item">
+			  <label class="layui-form-label">{if $k==0}{:t('消费盲返')}外卖设置：{/if}</label>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_takeaway_ratio[start][]" value="{$give.start}" class="layui-input"></div>
+			  <div class="layui-form-mid">元~</div>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_takeaway_ratio[end][]" value="{$give.end}" class="layui-input"></div>
+			  <div class="layui-form-mid">元，返</div>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_takeaway_ratio[ratio][]" value="{$give.ratio}" class="layui-input"></div>
+			  <div class="layui-form-mid">% + 固定金额</div>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_takeaway_ratio[money][]" value="{$give.money}" class="layui-input"></div>
+			  {if $k==0}
+			  <button type="button" class="layui-btn layui-btn-primary" onclick="adddrestauranttakeawaydata()">新增</button>
+			  {else}
+			  <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>
+			  {/if}
+		  </div>
+		  {/foreach}
+		  {/if}
+		  {if !$mangfan_restaurant_takeaway_setdata}
+		  <div class="layui-form-item">
+			  <label class="layui-form-label">{:t('消费盲返')}外卖设置：</label>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_takeaway_ratio[start][]" value="" class="layui-input"></div>
+			  <div class="layui-form-mid">元~</div>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_takeaway_ratio[end][]" value="" class="layui-input"></div>
+			  <div class="layui-form-mid">元，返</div>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_takeaway_ratio[ratio][]" value="" class="layui-input"></div>
+			  <div class="layui-form-mid">% + 固定金额</div>
+			  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_takeaway_ratio[money][]" value="" class="layui-input"></div>
+			  <button type="button" class="layui-btn layui-btn-primary" onclick="adddrestauranttakeawaydata()">新增</button>
+		  </div>
+		  {/if}
+	  </div>
+	  <script>
+		  function adddrestauranttakeawaydata(){
+			  var html = '';
+			  html+='<div class="layui-form-item">';
+			  html+=' <label class="layui-form-label"></label>';
+			  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_takeaway_ratio[start][]" value="" class="layui-input"></div>';
+			  html+=' <div class="layui-form-mid">元~</div>';
+			  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_takeaway_ratio[end][]" value="" class="layui-input"></div>';
+			  html+=' <div class="layui-form-mid">元，返</div>';
+			  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_takeaway_ratio[ratio][]" value="" class="layui-input"></div>';
+			  html+=' <div class="layui-form-mid">% + 固定金额</div>';
+			  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_restaurant_takeaway_ratio[money][]" value="" class="layui-input"></div>';
+			  html+=' <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>';
+			  html+='</div>';
+			  $('#restaurant_takeaway_div').append(html);
+		  }
+		  function deldata(obj){
+			  $(obj).parent().remove();
+		  }
+	  </script>
+  </div>
+  {/if}
+  
+  <!--盲返约车设置-->
+  {if getcustom('yx_mangfan_car_hailing') && getcustom('yx_mangfan_car_hailing_business') && ($admin_auth_data=='all' || in_array('mangfan_car_hailing_business',$admin_auth_data)) }
+  <div class="layui-form-item">
+	  <label class="layui-form-label">{:t('消费盲返')}约车设置：</label>
+	  <div class="layui-input-block" style="width:800px">
+		  <input type="radio" name="info[mangfan_car_hailing_st]" value="0" {if !$info['id'] || $info['mangfan_car_hailing_st']==0}checked{/if} title="跟随系统设置" lay-filter="mangfan_car_hailing_st">
+		  <input type="radio" name="info[mangfan_car_hailing_st]" value="1" {if $info['mangfan_car_hailing_st']==1}checked{/if} title="独立设置" lay-filter="mangfan_car_hailing_st">
+		  <input type="radio" name="info[mangfan_car_hailing_st]" value="-1" {if $info['mangfan_car_hailing_st']==-1}checked{/if} title="不参与" lay-filter="mangfan_car_hailing_st">
+	  </div>
+  </div>
+  <div id="mangfancarhailingset1" {if $info['mangfan_car_hailing_st']!=1}style="display:none"{/if}>
+  <div id="car_hailing_div">
+	  {php}$mangfan_car_hailing_setdata = json_decode($info['mangfan_car_hailing_set'],true);{/php}
+	  {if $mangfan_car_hailing_setdata}
+	  {foreach $mangfan_car_hailing_setdata as $k=>$give}
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">{if $k==0}{:t('消费盲返')}约车设置：{/if}</label>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_car_hailing_ratio[start][]" value="{$give.start}" class="layui-input"></div>
+		  <div class="layui-form-mid">元~</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_car_hailing_ratio[end][]" value="{$give.end}" class="layui-input"></div>
+		  <div class="layui-form-mid">元，返</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_car_hailing_ratio[ratio][]" value="{$give.ratio}" class="layui-input"></div>
+		  <div class="layui-form-mid">% + 固定金额</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_car_hailing_ratio[money][]" value="{$give.money}" class="layui-input"></div>
+		  {if $k==0}
+		  <button type="button" class="layui-btn layui-btn-primary" onclick="adddcarhailingdata()">新增</button>
+		  {else}
+		  <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>
+		  {/if}
+	  </div>
+	  {/foreach}
+	  {/if}
+	  {if !$mangfan_car_hailing_setdata}
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">{:t('消费盲返')}约车设置：</label>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_car_hailing_ratio[start][]" value="" class="layui-input"></div>
+		  <div class="layui-form-mid">元~</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_car_hailing_ratio[end][]" value="" class="layui-input"></div>
+		  <div class="layui-form-mid">元，返</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_car_hailing_ratio[ratio][]" value="" class="layui-input"></div>
+		  <div class="layui-form-mid">% + 固定金额</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_car_hailing_ratio[money][]" value="" class="layui-input"></div>
+		  <button type="button" class="layui-btn layui-btn-primary" onclick="adddcarhailingdata()">新增</button>
+	  </div>
+	  {/if}
+  </div>
+  <script>
+	  function adddcarhailingdata(){
+		  var html = '';
+		  html+='<div class="layui-form-item">';
+		  html+=' <label class="layui-form-label"></label>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_car_hailing_ratio[start][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">元~</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_car_hailing_ratio[end][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">元，返</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_car_hailing_ratio[ratio][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">% + 固定金额</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_car_hailing_ratio[money][]" value="" class="layui-input"></div>';
+		  html+=' <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>';
+		  html+='</div>';
+		  $('#car_hailing_div').append(html);
+	  }
+	  function deldata(obj){
+		  $(obj).parent().remove();
+	  }
+  </script>
+  </div>
+  {/if}
+
+  <!--盲返酒店设置-->
+  {if getcustom('yx_mangfan_hotel') && getcustom('yx_mangfan_hotel_business') && ($admin_auth_data=='all' || in_array('mangfan_hotel_business',$admin_auth_data)) }
+  <div class="layui-form-item">
+	  <label class="layui-form-label">{:t('消费盲返')}酒店设置：</label>
+	  <div class="layui-input-block" style="width:800px">
+		  <input type="radio" name="info[mangfan_hotel_st]" value="0" {if !$info['id'] || $info['mangfan_hotel_st']==0}checked{/if} title="跟随系统设置" lay-filter="mangfan_hotel_st">
+		  <input type="radio" name="info[mangfan_hotel_st]" value="1" {if $info['mangfan_hotel_st']==1}checked{/if} title="独立设置" lay-filter="mangfan_hotel_st">
+		  <input type="radio" name="info[mangfan_hotel_st]" value="-1" {if $info['mangfan_hotel_st']==-1}checked{/if} title="不参与" lay-filter="mangfan_hotel_st">
+	  </div>
+  </div>
+  <div id="mangfanhotelset1" {if $info['mangfan_hotel_st']!=1}style="display:none"{/if}>
+  <div id="hotel_div">
+	  {php}$mangfan_hotel_setdata = json_decode($info['mangfan_hotel_set'],true);{/php}
+	  {if $mangfan_hotel_setdata}
+	  {foreach $mangfan_hotel_setdata as $k=>$give}
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">{if $k==0}{:t('消费盲返')}酒店设置：{/if}</label>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_hotel_ratio[start][]" value="{$give.start}" class="layui-input"></div>
+		  <div class="layui-form-mid">元~</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_hotel_ratio[end][]" value="{$give.end}" class="layui-input"></div>
+		  <div class="layui-form-mid">元，返</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_hotel_ratio[ratio][]" value="{$give.ratio}" class="layui-input"></div>
+		  <div class="layui-form-mid">% + 固定金额</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_hotel_ratio[money][]" value="{$give.money}" class="layui-input"></div>
+		  {if $k==0}
+		  <button type="button" class="layui-btn layui-btn-primary" onclick="adddhoteldata()">新增</button>
+		  {else}
+		  <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>
+		  {/if}
+	  </div>
+	  {/foreach}
+	  {/if}
+	  {if !$mangfan_hotel_setdata}
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">{:t('消费盲返')}酒店设置：</label>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_hotel_ratio[start][]" value="" class="layui-input"></div>
+		  <div class="layui-form-mid">元~</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_hotel_ratio[end][]" value="" class="layui-input"></div>
+		  <div class="layui-form-mid">元，返</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_hotel_ratio[ratio][]" value="" class="layui-input"></div>
+		  <div class="layui-form-mid">% + 固定金额</div>
+		  <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_hotel_ratio[money][]" value="" class="layui-input"></div>
+		  <button type="button" class="layui-btn layui-btn-primary" onclick="adddhoteldata()">新增</button>
+	  </div>
+	  {/if}
+  </div>
+  <script>
+	  function adddhoteldata(){
+		  var html = '';
+		  html+='<div class="layui-form-item">';
+		  html+=' <label class="layui-form-label"></label>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_hotel_ratio[start][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">元~</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_hotel_ratio[end][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">元，返</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_hotel_ratio[ratio][]" value="" class="layui-input"></div>';
+		  html+=' <div class="layui-form-mid">% + 固定金额</div>';
+		  html+=' <div class="layui-input-inline" style="width:70px"><input type="text" name="mangfan_hotel_ratio[money][]" value="" class="layui-input"></div>';
+		  html+=' <button type="button" class="layui-btn layui-btn-primary" onclick="deldata(this)">删除</button>';
+		  html+='</div>';
+		  $('#hotel_div').append(html);
+	  }
+	  function deldata(obj){
+		  $(obj).parent().remove();
+	  }
+  </script>
+  </div>
+  {/if}
+  <!--奖金池设置 start-->
+  {if getcustom('bonus_pool_gold')}
+  <fieldset class="layui-elem-field layui-field-title" style="margin-top: 30px;">
+	  <legend>{:t('奖金池')}设置</legend>
+  </fieldset>
+  <div class="layui-form-item">
+	  <label class="layui-form-label">买单进入{:t('奖金池')}：</label>
+	  <div class="layui-input-inline" style="width:600px">
+		  <input type="radio" name="info[maidan_bonuspool_set]" value="0" title="跟随系统设置" {if $info['id'] && $info['maidan_bonuspool_set']==0}checked{/if}  lay-filter="maidan_bonuspool_set"/>
+		  <input type="radio" name="info[maidan_bonuspool_set]" value="1" title="单独设置比例" {if !$info['id'] ||  $info['maidan_bonuspool_set']==1}checked{/if}  lay-filter="maidan_bonuspool_set"/>
+		  <input type="radio" name="info[maidan_bonuspool_set]" value="2" title="单独设置金额" {if !$info['id'] ||  $info['maidan_bonuspool_set']==2}checked{/if}  lay-filter="maidan_bonuspool_set"/>
+		  <input type="radio" name="info[maidan_bonuspool_set]" value="-1" title="不参与奖金池" {if !$info['id'] ||  $info['maidan_bonuspool_set']==-1}checked{/if}  lay-filter="maidan_bonuspool_set"/>
+	  </div>
+  </div>
+  <div id="maidan_bonuspool_set" {if $info['maidan_bonuspool_set']!=1 && $info['maidan_bonuspool_set']!=2}style="display:none"{/if}>
+  <div class="layui-form-item">
+	  <label class="layui-form-label"></label>
+	  <div class="layui-input-inline layui-module-itemL">
+		  <div> 进入{:t('奖金池')}<span class="maidan_bonuspool_text">比例(%)</span> </div>
+		  <input type="text" name="info[maidan_bonuspool]" class="layui-input" value="{$info['maidan_bonuspool']}">
+	  </div>
+	  <div class="layui-input-inline layui-module-itemL">
+		  <div> 不参与{:t('奖金池')}金额 </div>
+		  <input type="text" name="info[maidan_no_min]" class="layui-input" value="{$info['maidan_no_min']}">
+		  -
+		  <input type="text" name="info[maidan_no_max]" class="layui-input" value="{$info['maidan_no_max']}">
+	  </div>
+	  <div class="layui-form-mid layui-word-aux layui-clear">买单付款金额在【不参与{:t('奖金池')}金额】范围内不参与奖金池活动，不进入奖金池也不赠送金币</div>
+  </div>
+  </div>
+  <div class="layui-form-item">
+	  <label class="layui-form-label" style="width: 150px">商户{:t('金币')}自动出局倍数：</label>
+	  <div class="layui-input-inline" style="width:120px">
+		  <input type="text" name="info[business_auto_withdraw_beishu]" value="{$info['business_auto_withdraw_beishu']}" class="layui-input"/>
+	  </div>
+	  <div class="layui-form-mid layui-word-aux layui-clear">优先于奖金池设置，大于0生效。
+		  达到该价值后会员{:t('金币')}自动兑换出局，按会员每笔获取金币时的价值算<br/>
+		  例：第一天天获得10个金币单价为1元，第二天获得5个金币单价为1.5元，会员总金币为15个，当金币价值达到2元后是第一次获得的2倍，则这10个自动出局，会员剩余5个金币
+	  </div>
+  </div>
+  {/if}
+  <!--奖金池设置 end-->
+	<!--盲返设置结束-->
+  {if getcustom('gold_bean')}
+  <fieldset class="layui-elem-field layui-field-title" style="margin-top: 30px;">
+	  <legend>{:t('金豆')}设置</legend>
+  </fieldset>
+  <div class="layui-form-item">
+	  <label class="layui-form-label">买单赠送{:t('金豆')}：</label>
+	  <div class="layui-input-inline">
+		  <input type="radio" name="info[maidan_give_gold_bean_status]" title="开启" value="1" {if
+			$info['maidan_give_gold_bean_status']==1}checked{/if} lay-filter="maidan_give_gold_bean_status"/>
+		  <input type="radio" name="info[maidan_give_gold_bean_status]" title="关闭" value="0" {if 	 !$info['id'] || $info['maidan_give_gold_bean_status']==0}checked{/if} lay-filter="maidan_give_gold_bean_status"/>
+	  </div>
+	  <div class="layui-form-mid layui-word-aux">开启后，买单支付完成将按照设置进行赠送{:t('金豆')}</div>
+  </div>
+  <div class="layui-form-item" id="maidan_give_gold_bean" {if $info['maidan_give_gold_bean_status'] != 1} style="display:none"{/if}>
+	  <label class="layui-form-label">买单赠送{:t('金豆')}设置：</label>
+	  <div class="layui-input-inline layui-module-itemL">
+		  <div>消费每满</div>
+		  <input type="text" name="info[maidan_give_gold_bean_money]" class="layui-input" value="{$info.maidan_give_gold_bean_money}">
+		  元
+	  </div>
+	  <div class="layui-input-inline layui-module-itemL">
+		  <div>赠送</div>
+		  <input type="text" name="info[maidan_give_gold_bean_givenum]" class="layui-input" value="{$info.maidan_give_gold_bean_givenum}">
+		  {:t('金豆')}
+	  </div>
+	  <div class="layui-form-mid layui-word-aux">默认0 不赠送</div>
+  </div>
+  <div class="layui-form-item">
+	  <label class="layui-form-label">{:t('余额')}支付送{:t('金豆')}：</label>
+	  <div class="layui-input-inline" style="width: 280px">
+		  <input type="radio" name="info[moneypay_give_gold_bean_status]" title="开启" value="1" {if $info['moneypay_give_gold_bean_status']==1}checked{/if} lay-filter="moneypay_give_gold_bean_status"/>
+		  <input type="radio" name="info[moneypay_give_gold_bean_status]" title="关闭" value="0" {if $info['moneypay_give_gold_bean_status']==0}checked{/if} lay-filter="moneypay_give_gold_bean_status"/>
+	  </div>
+	  <div class="layui-form-mid layui-word-aux">开启后{:t('余额')}支付会赠送{:t('金豆')}</div>
+  </div>
+  {/if}
+  {if getcustom('maidan_give_score')}
+  <fieldset class="layui-elem-field layui-field-title" style="margin-top: 30px;">
+	  <legend>{:t('积分')}设置</legend>
+  </fieldset>
+  <div class="layui-form-item">
+	  <label class="layui-form-label">买单赠送{:t('积分')}：</label>
+	  <div class="layui-input-inline" style="width: 280px">
+		  <input type="radio" name="info[maidan_give_score_status]" title="跟随系统" value="-1" {if 
+          !$info['id'] || $info['maidan_give_score_status']==-1}checked{/if} lay-filter="maidan_give_score_status"/>
+		  <input type="radio" name="info[maidan_give_score_status]" title="开启" value="1" {if $info['maidan_give_score_status']==1}checked{/if} lay-filter="maidan_give_score_status"/>
+		  <input type="radio" name="info[maidan_give_score_status]" title="关闭" value="0" {if $info['maidan_give_score_status']==0}checked{/if} lay-filter="maidan_give_score_status"/>
+	  </div>
+	  <div class="layui-form-mid layui-word-aux">开启后，买单支付完成将按照设置进行赠送{:t('积分')}</div>
+  </div>
+  <div class="layui-form-item" id="maidan_give_score" {if $info['maidan_give_score_status'] != 1} style="display:none"{/if}>
+	  <label class="layui-form-label">买单赠送{:t('积分')}设置：</label>
+	  <div class="layui-input-inline layui-module-itemL">
+		  <div>消费每满</div>
+		  <input type="text" name="info[maidan_give_score_money]" class="layui-input" value="{$info.maidan_give_score_money}">
+		  元
+	  </div>
+	  <div class="layui-input-inline layui-module-itemL">
+		  <div>赠送</div>
+		  <input type="text" name="info[maidan_give_score_givenum]" class="layui-input" value="{$info.maidan_give_score_givenum}">
+		  {:t('积分')}
+	  </div>
+	  <div class="layui-form-mid layui-word-aux">默认0 不赠送</div>
+  </div>
+  <div class="layui-form-item">
+	  <label class="layui-form-label">{:t('余额')}支付送{:t('积分')}：</label>
+	  <div class="layui-input-inline" style="width: 280px">
+		  <input type="radio" name="info[moneypay_give_score_status]" title="跟随系统" value="-1" {if !$info['id'] || $info['moneypay_give_score_status']==-1}checked{/if} lay-filter="moneypay_give_score_status"/>
+		  <input type="radio" name="info[moneypay_give_score_status]" title="开启" value="1" {if $info['moneypay_give_score_status']==1}checked{/if} lay-filter="moneypay_give_score_status"/>
+		  <input type="radio" name="info[moneypay_give_score_status]" title="关闭" value="0" {if $info['moneypay_give_score_status']==0}checked{/if} lay-filter="moneypay_give_score_status"/>
+	  </div>
+	  <div class="layui-form-mid layui-word-aux">开启后{:t('余额')}支付会再次赠送</div>
+  </div>
+  {/if}
+  
+  
+    <fieldset class="layui-elem-field layui-field-title" style="margin-top: 30px;">
+			<legend>其他设置</legend>
+		</fieldset>
+						<div class="layui-form-item">
+							<label class="layui-form-label">证明材料：</label>
+							<input type="hidden" name="info[zhengming]" value="{$info['zhengming']}" id="zhengming">
+							<button style="float:left;" type="button" class="layui-btn layui-btn-primary" onclick="uploader(this,true)" upload-input="zhengming" upload-preview="zhengmingList" >批量上传</button>
+							<div id="zhengmingList" class="picsList-class-padding">
+								{if $info['zhengming']}
+								{php}$pics = explode(',',$info['zhengming']);{/php}
+								{foreach $pics as $pic}
+								<div class="layui-imgbox">
+									<a class="layui-imgbox-close" href="javascript:void(0)" onclick="$(this).parent().remove();getpicsval('zhengming','zhengmingList')" title="删除"><i class="layui-icon layui-icon-close-fill-opaque"></i></a>
+									<span class="layui-imgbox-img"><img src="{$pic}" onclick="previewImg('{$pic}')"></span>
+								</div>
+								{/foreach}{/if}
+							</div>
+						</div>
+						{if getcustom('business_selfscore')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">{:t('积分')}是否可为负值：</label>
+							<div class="layui-input-inline" style="width:500px">
+								<input type="radio" name="info[business_selfscore_minus]" value="0" title="否" {if $info['id'] && $info['business_selfscore_minus']==0}checked{/if}/>
+								<input type="radio" name="info[business_selfscore_minus]" value="1" title="是" {if !$info['id'] || $info['business_selfscore_minus']==1}checked{/if}/>
+								<input type="radio" name="info[business_selfscore_minus]" value="-1" title="跟随系统设置" {if $info['business_selfscore_minus']==-1}checked{/if}/>
+							</div>
+							<div class="layui-form-mid layui-word-aux"></div>
+						</div>
+						{/if}
+						
+						<!-- <div class="layui-form-item">
+							<label class="layui-form-label">微信号：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[weixin]" class="layui-input" value="{$info.weixin}">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">支付宝：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[aliaccount]" class="layui-input" value="{$info.aliaccount}">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">开户行：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[bankname]" class="layui-input" value="{$info.bankname}">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">持卡人：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[bankcarduser]" class="layui-input" value="{$info.bankcarduser}">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">银行卡号：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[bankcardnum]" class="layui-input" value="{$info.bankcardnum}">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">消费人数：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[sales]" value="{$info.sales|default=0}" class="layui-input">
+							</div>
+						</div> -->
+					
+
+						{if getcustom('touzi_fenhong')}
+							{if $admin['shareholder_status']}
+							<div class="layui-form-item">
+								<label class="layui-form-label">{:t('投资分红')}：</label>
+								<div class="layui-input-inline">
+									<input type="radio" name="info[shareholder_status]" value="1" title="开启" {if $info['shareholder_status']==1}checked{/if}>
+									<input type="radio" name="info[shareholder_status]" value="0" title="关闭" {if !$info['shareholder_status'] || $info['shareholder_status']==0}checked{/if}>
+								</div>
+							</div>
+							{/if}
+						{/if}
+						{if getcustom('member_gongxian')}
+							{if $admin['member_gongxian_status']}
+							<div class="layui-form-item">
+								<label class="layui-form-label">{:t('贡献')}分红：</label>
+								<div class="layui-input-inline">
+									<input type="radio" name="info[fenhong_member_gongxian]" value="1" title="开启" {if $info['fenhong_member_gongxian']==1}checked{/if}>
+									<input type="radio" name="info[fenhong_member_gongxian]" value="0" title="关闭" {if !$info['fenhong_member_gongxian'] || $info['fenhong_member_gongxian']==0}checked{/if}>
+								</div>
+							</div>
+							{/if}
+						{/if}
+					{if getcustom('fenhong_business_item_switch')}
+						{if $admin_auth_data=='all' || in_array('gdfenhong',$admin_auth_data)}
+						<div class="layui-form-item">
+							<label class="layui-form-label">{:t('股东分红')}：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[gdfenhong_status]" value="1" title="开启" {if $info['gdfenhong_status']==1}checked{/if}>
+								<input type="radio" name="info[gdfenhong_status]" value="0" title="关闭" {if !$info['gdfenhong_status'] || $info['gdfenhong_status']==0}checked{/if}>
+							</div>
+						</div>
+						{/if}
+						{if $admin_auth_data=='all' || in_array('teamfenhong',$admin_auth_data)}
+						<div class="layui-form-item">
+							<label class="layui-form-label">{:t('团队分红')}：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[teamfenhong_status]" value="1" title="开启" {if $info['teamfenhong_status']==1}checked{/if}>
+								<input type="radio" name="info[teamfenhong_status]" value="0" title="关闭" {if !$info['teamfenhong_status'] || $info['teamfenhong_status']==0}checked{/if}>
+							</div>
+						</div>
+						{/if}
+						{if $admin_auth_data=='all' || in_array('areafenhong',$admin_auth_data)}
+						<div class="layui-form-item">
+							<label class="layui-form-label">{:t('区域代理分红')}：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[areafenhong_status]" value="1" title="开启" {if $info['areafenhong_status']==1}checked{/if}>
+								<input type="radio" name="info[areafenhong_status]" value="0" title="关闭" {if !$info['areafenhong_status'] || $info['areafenhong_status']==0}checked{/if}>
+							</div>
+						</div>
+						{/if}
+					{/if}
+					{if $maidan_fenhong_new==1}
+					<!--买单分红开关 start-->
+					<div class="layui-form-item">
+						<label class="layui-form-label">买单{:t('团队分红')}：</label>
+						<div class="layui-input-inline" style="width:400px">
+							<input type="radio" name="info[maidan_team]" value="1" title="按照{:t('会员')}等级" {if $info['maidan_team']==1}checked{/if} lay-filter="maidan_team">
+							<input type="radio" name="info[maidan_team]" value="2" title="单独设置分红比例" {if $info['maidan_team']==2}checked{/if} lay-filter="maidan_team">
+							<input type="radio" name="info[maidan_team]" value="0" title="关闭" {if !$info['maidan_team'] || $info['maidan_team']==0}checked{/if} lay-filter="maidan_team">
+						</div>
+					</div>
+					<div id="maidanteamset" {if $info['maidan_team']!=2}style="display:none"{/if}>
+							{php}
+								$maidan_teamfenhongdata1 = json_decode($info['maidan_teamfenhongdata1'],true);
+								if(!$maidan_teamfenhongdata1) $maidan_teamfenhongdata1 = [];
+							{/php}
+							<div class="layui-form-item">
+								<label class="layui-form-label">分红比例：</label>
+								{if !$teamlevellist}
+									<div class="layui-form-mid" style="color:red">未设置具有团队分红权限的{:t('会员')}等级，请先在[{:t('会员')}]-[等级及分销]设置</div>
+								{/if}
+								{foreach $teamlevellist as $level}
+									<div class="layui-input-inline layui-module-itemL">
+										<div> {$level.name}(%) </div>
+										<input type="text" name="maidan_teamfenhongdata1[{$level.id}][commission]" class="layui-input" value="{$maidan_teamfenhongdata1[$level['id']]['commission']}">
+									</div>
+								{/foreach}
+							</div>
+					</div>
+					<div class="layui-form-item">
+						<label class="layui-form-label">买单{:t('股东分红')}：</label>
+						<div class="layui-input-inline" style="width:400px">
+							<input type="radio" name="info[maidan_gudong]" value="1" title="按照{:t('会员')}等级" {if $info['maidan_gudong']==1}checked{/if} lay-filter="maidan_gudong">
+							<input type="radio" name="info[maidan_gudong]" value="2" title="单独设置分红比例" {if $info['maidan_gudong']==2}checked{/if} lay-filter="maidan_gudong">
+							<input type="radio" name="info[maidan_gudong]" value="0" title="关闭" {if !$info['maidan_gudong'] || $info['maidan_gudong']==0}checked{/if} lay-filter="maidan_gudong">
+						</div>
+					</div>
+					<div id="maidangudongset" {if $info['maidan_gudong']!=2}style="display:none"{/if}>
+							{php}
+								$maidan_gudongfenhongdata1 = json_decode($info['maidan_gudongfenhongdata1'],true);
+								if(!$maidan_gudongfenhongdata1) $maidan_gudongfenhongdata1 = [];
+							{/php}
+							<div class="layui-form-item">
+								<label class="layui-form-label">分红比例：</label>
+								{if !$gdlevellist}
+									<div class="layui-form-mid" style="color:red">未设置具有团队分红权限的{:t('会员')}等级，请先在[{:t('会员')}]-[等级及分销]设置</div>
+								{/if}
+								{foreach $gdlevellist as $level}
+									<div class="layui-input-inline layui-module-itemL">
+										<div> {$level.name}(%) </div>
+										<input type="text" name="maidan_gudongfenhongdata1[{$level.id}][commission]" class="layui-input" value="{$maidan_gudongfenhongdata1[$level['id']]['commission']}">
+									</div>
+								{/foreach}
+							</div>
+					</div>
+					<div class="layui-form-item">
+						<label class="layui-form-label">买单{:t('区域代理分红')}：</label>
+						<div class="layui-input-inline" style="width:400px">
+							<input type="radio" name="info[maidan_area]" value="1" title="按照{:t('会员')}等级" {if $info['maidan_area']==1}checked{/if} lay-filter="maidan_area">
+							<input type="radio" name="info[maidan_area]" value="2" title="单独设置分红比例" {if $info['maidan_area']==2}checked{/if} lay-filter="maidan_area">
+							<input type="radio" name="info[maidan_area]" value="0" title="关闭" {if !$info['maidan_area'] || $info['maidan_area']==0}checked{/if} lay-filter="maidan_area">
+						</div>
+					</div>
+					<div id="maidanareaset" {if $info['maidan_area']!=2}style="display:none"{/if}>
+							{php}
+								$maidan_areafenhongdata1 = json_decode($info['maidan_areafenhongdata1'],true);
+								if(!$maidan_areafenhongdata1) $maidan_areafenhongdata1 = [];
+							{/php}
+							<div class="layui-form-item">
+								<label class="layui-form-label">分红比例：</label>
+								{if !$areafhlevellist}
+									<div class="layui-form-mid" style="color:red">未设置具有团队分红权限的{:t('会员')}等级，请先在[{:t('会员')}]-[等级及分销]设置</div>
+								{/if}
+								{foreach $areafhlevellist as $level}
+									<div class="layui-input-inline layui-module-itemL">
+										<div> {$level.name}(%) </div>
+										<input type="text" name="maidan_areafenhongdata1[{$level.id}][commission]" class="layui-input" value="{$maidan_areafenhongdata1[$level['id']]['commission']}">
+									</div>
+								{/foreach}
+							</div>
+					</div>
+
+				  {if getcustom('fenhong_gudong_huiben')}
+				  <div class="layui-form-item">
+					  <label class="layui-form-label">买单{:t('回本股东分红')}：</label>
+					  <div class="layui-input-inline">
+						  <input type="radio" name="info[maidan_fenhong_huiben]" value="1" title="开启" {if $info['maidan_fenhong_huiben']==1}checked{/if}>
+						  <input type="radio" name="info[maidan_fenhong_huiben]" value="0" title="关闭" {if !$info['maidan_fenhong_huiben'] || $info['maidan_fenhong_huiben']==0}checked{/if}>
+					  </div>
+				  </div>
+				  {/if}
+					{if getcustom('teamfenhong_jiandan')}
+					<div class="layui-form-item">
+						<label class="layui-form-label">买单{:t('团队分红见单')}：</label>
+						<div class="layui-input-inline">
+							<input type="radio" name="info[maidan_team_jiandan]" value="1" title="开启" {if $info['maidan_team_jiandan']==1}checked{/if}>
+							<input type="radio" name="info[maidan_team_jiandan]" value="0" title="关闭" {if !$info['maidan_team_jiandan'] || $info['maidan_team_jiandan']==0}checked{/if}>
+						</div>
+					</div>
+					{/if}
+					{if getcustom('touzi_fenhong')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">买单{:t('投资分红')}：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[maidan_touzi]" value="1" title="开启" {if $info['maidan_touzi']==1}checked{/if}>
+								<input type="radio" name="info[maidan_touzi]" value="0" title="关闭" {if !$info['maidan_touzi'] || $info['maidan_touzi']==0}checked{/if}>
+							</div>
+						</div>
+					{/if}
+					{if getcustom('member_gongxian')}
+					<div class="layui-form-item">
+						<label class="layui-form-label">买单{:t('贡献值分红')}：</label>
+						<div class="layui-input-inline">
+							<input type="radio" name="info[maidan_gongxian]" value="1" title="开启" {if $info['maidan_gongxian']==1}checked{/if}>
+							<input type="radio" name="info[maidan_gongxian]" value="0" title="关闭" {if !$info['maidan_gongxian'] || $info['maidan_gongxian']==0}checked{/if}>
+						</div>
+					</div>
+					{/if}
+					<!--买单分红开关 end-->
+					{/if}
+
+					{if getcustom('buybutton_custom')}
+						{if $buybtn_status == 1}
+						  <div class="layui-form-item">
+							  <label class="layui-form-label">购买按钮自定义：</label>
+							  <div class="layui-input-inline">
+								  <input type="radio" name="info[buybtn_status]" value="1" title="开启" {if $info['buybtn_status']==1}checked{/if}>
+								  <input type="radio" name="info[buybtn_status]" value="0" title="关闭" {if !$info['buybtn_status'] || $info['buybtn_status']==0}checked{/if}>
+							  </div>
+							  <div class="layui-form-mid layui-word-aux">开启后，商户可在商城商品编辑中自定义购买按钮</div>
+						  </div>
+						{/if}
+					{/if}
+					{if getcustom('business_product_isexamine')}
+					<div class="layui-form-item">
+						<label class="layui-form-label">商品开启审核：</label>
+						<div class="layui-input-inline">
+							<input type="radio" name="info[is_open_examine]" value="1" title="开启" {if $info['is_open_examine']==1}checked{/if}>
+							<input type="radio" name="info[is_open_examine]" value="0" title="关闭" {if !$info['is_open_examine'] || $info['is_open_examine']==0}checked{/if}>
+						</div>
+						<div class="layui-form-mid layui-word-aux">开启后，商户的商城商品在新增或编辑后需要平台审核才可上架</div>
+					</div>
+					<div class="layui-form-item">
+						<label class="layui-form-label">商品开启分销：</label>
+						<div class="layui-input-inline">
+							<input type="radio" name="info[is_open_commission]" value="1" title="开启" {if $info['is_open_commission']==1}checked{/if}>
+							<input type="radio" name="info[is_open_commission]" value="0" title="关闭" {if !$info['is_open_commission'] || $info['is_open_commission']==0}checked{/if}>
+						</div>
+						<div class="layui-form-mid layui-word-aux">开启后，商户的商城商品启用分销功能</div>
+					</div>
+					{/if}
+					{if getcustom('business_mendian_num_limit')}
+					<div class="layui-form-item">
+						<label class="layui-form-label">门店数量上限：</label>
+						<div class="layui-input-inline">
+							<input type="number" min="0" name="info[mendian_num_limit]" value="{$info.mendian_num_limit|default=0}" class="layui-input">
+						</div>
+						<div class="layui-form-mid layui-word-aux">0为不限制</div>
+					</div>
+					{/if}
+					{if getcustom('business_agent_referrer_independent')}
+					{if $set.referrer_independent == 1}
+					<div class="layui-form-item">
+						<label class="layui-form-label">推荐关系：</label>
+						<div class="layui-input-inline" style="width:380px">
+							<input type="radio" name="info[recommend_type]" value="1" title="跟随会员关系" {if !$info['id'] || $info['recommend_type']==1}checked{/if} lay-filter="recommend_type">
+							<input type="radio" name="info[recommend_type]" value="2" title="独立推荐关系" {if $info['id'] && $info['recommend_type']==2}checked{/if} lay-filter="recommend_type">
+						</div>
+					</div>
+					{/if}
+					{/if}
+					{if getcustom('business_agent') || getcustom('business_agent_referrer_independent')}
+					<div class="layui-form-item">
+						<label class="layui-form-label">推荐人：</label>
+						<div class="layui-input-inline business_pid" {if getcustom('business_agent_referrer_independent') && $set.referrer_independent == 1 && $info['recommend_type'] != 1 && $info['id']} style="display:none" {/if}>
+							<input type="text" name="business_pid" value="{$business_pid}" class="layui-input">
+						</div>
+						{if getcustom('business_agent_referrer_independent')}
+						<div class="layui-input-inline independent_pid" {if $info['recommend_type'] != 2 || $set.referrer_independent != 1} style="display:none" {/if}>
+							<input type="text" name="independent_pid" value="{$independent_pid}" class="layui-input">
+						</div>
+						{/if}
+						<div class="layui-form-mid layui-word-aux">关联店长推荐人，修改此推荐人即修改店长关联会员的推荐人</div>
+					</div>
+					{/if}
+					{if getcustom('business_fenhong_memberlevel')}
+					<div class="layui-form-item">
+						<label class="layui-form-label">指定股东分红：</label>
+						<div class="layui-input-inline" style="width:800px">
+							{foreach $gdlevellist as $gdlv}
+							<input type="checkbox" name="info[fenhong_memberlevel][]" value="{$gdlv.id}" class="layui-input" title="{$gdlv.name}" {if in_array($gdlv['id'],explode(',',$info['fenhong_memberlevel']))}checked{/if} lay-skin="primary">
+							{/foreach}
+						</div>
+						<div class="layui-form-mid layui-word-aux" style="clear:left;margin-left:160px">指定等级后该商户的股东分红只分给改等级的用户，不指定则全部分红</div>
+					</div>
+					{/if}
+
+					{if getcustom('business_sales_quota')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">销售额度：</label>
+							<div class="layui-input-inline" style="width:150px">
+								<input type="text" name="info[sales_quota]" value="{$info['sales_quota']}" class="layui-input">
+							</div>
+							<div class="layui-form-mid">元</div>
+							<div class="layui-form-mid layui-word-aux">销售额度，在该额度内，多商户用户可正常下单，当该多商户额度低于订单金额时用户不能下单</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">扣除额度时间：</label>
+							<div class="layui-input-inline" style="width:350px">
+								<input type="radio" name="info[kctime]" value="0" title="支付后" {if $info['kctime']==0}checked{/if}>
+								<input type="radio" name="info[kctime]" value="1" title="提交订单后" {if $info['kctime']==1}checked{/if}>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">扣除额度方式：</label>
+							<div class="layui-input-inline" style="width:350px">
+								<input type="radio" name="info[kctype]" value="0" title="按销售价" {if $info['kctype']==0}checked{/if}>
+								<input type="radio" name="info[kctype]" value="1" title="按结算价" {if $info['kctype']==1}checked{/if}>
+							</div>
+						</div>
+					{/if}
+					{if getcustom('business_cansetscore')}
+					<div class="layui-form-item">
+						<label class="layui-form-label">能否修改{:t('积分')}抵扣：</label>
+						<div class="layui-input-inline">
+							<input type="radio" name="info[business_cansetscore]" value="0" title="关闭" {if !$info['id'] || $info['business_cansetscore']==0}checked{/if}/>
+							<input type="radio" name="info[business_cansetscore]" value="1" title="开启" {if $info['business_cansetscore']==1}checked{/if}/>
+						</div>
+						<div class="layui-form-mid layui-word-aux">
+							开启后：商户仅预约服务、餐饮商品可自主修改{:t('积分')}抵扣设置；<br>
+							关闭后：商户的服务预约商品仅平台可修改，餐饮的商品平台和商户都无法修改，抵扣时按照系统设置抵扣
+						</div>
+					</div>
+					{/if}
+					<div class="layui-form-item" id="endtimediv">
+						<label class="layui-form-label">到期时间：</label>
+						<div class="layui-input-inline">
+							<input type="text" id="endtime" name="info[endtime]" autocomplete="off" value="{if $info['endtime']}{:date('Y-m-d H:i:s',$info['endtime'])}{/if}" class="layui-input">
+						</div>
+					</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">状态：</label>
+							<div class="layui-input-inline" style="width:380px">
+								<input type="radio" name="info[status]" value="0" title="待审核" {if $info['id'] && $info['status']==0}checked{/if} lay-filter="changest">
+								<input type="radio" name="info[status]" value="1" title="已通过" {if !$info['id'] || $info['status']==1}checked{/if} lay-filter="changest">
+								<input type="radio" name="info[status]" value="2" title="已驳回" {if $info['id'] && $info['status']==2}checked{/if} lay-filter="changest">
+								<input type="radio" name="info[status]" value="-1" title="已过期" {if $info['id'] && $info['status']==-1}checked{/if} lay-filter="changest">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">序号：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[sort]" value="{$info.sort|default=0}" class="layui-input">
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">用于排序,越大越靠前</div>
+						</div>
+						{if getcustom('blist_showviewnum')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">浏览量：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[viewnum]" value="{$info.viewnum|default=0}" class="layui-input">
+							</div>
+						</div>
+						{/if}
+
+						<div id="changestset" {if $info['status']!=2}style="display:none"{/if}>
+							<div class="layui-form-item">
+								<label class="layui-form-label">驳回原因：</label>
+								<div class="layui-input-inline" style="width:310px">
+									<input type="text" name="info[reason]" value="{$info['reason']}" class="layui-input"/>
+								</div>
+							</div>
+						</div>
+					  	{if getcustom('return_component')}
+		  					{if $return_component_open}
+								<div class="return_set_div" style="border-bottom: 1px solid #e6e6e6;padding-bottom: 20px">
+								  <fieldset class="layui-elem-field layui-field-title" style="margin-top: 30px;">
+									  <legend>退货设置</legend>
+								  </fieldset>
+								  <div class="layui-form-item">
+									  <label class="layui-form-label"><span class="redstar">*</span>联系人：</label>
+									  <div class="layui-input-inline">
+										  <input type="text" name="info[return_name]" lay-verify="required" lay-verType="tips" class="layui-input" value="{$info.return_name}">
+									  </div>
+								  </div>
+								  <div class="layui-form-item">
+									  <label class="layui-form-label"><span class="redstar">*</span>联系电话：</label>
+									  <div class="layui-input-inline">
+										  <input type="text" name="info[return_tel]" lay-verify="required" lay-verType="tips" class="layui-input" value="{$info.return_tel}">
+									  </div>
+								  </div>
+								  <div class="layui-form-item">
+									  <label class="layui-form-label">退货地址</label>
+									  <div class="layui-input-inline" style="width:700px">
+										  <div class="layui-input-inline return_province_div">
+											  <select name="info[return_province]" id="return_province" lay-filter="return_province"></select>
+										  </div>
+										  <div class="layui-input-inline return_city_div">
+											  <select name="info[return_city]" id="return_city" lay-filter="return_city"></select>
+										  </div>
+										  <div class="layui-input-inline return_area_div">
+											  <select name="info[return_area]" id="return_area"></select>
+										  </div>
+									  </div>
+								  </div>
+								  <div class="layui-form-item">
+									  <label class="layui-form-label">详细地址</label>
+									  <div class="layui-input-inline" style="width:700px">
+										  <input type="text" name="info[return_address]" class="layui-input" value="{$info.return_address}">
+									  </div>
+								  </div>
+								</div>
+		  					{/if}
+					  	{/if}
+						
+<!--						<div class="layui-form-item">-->
+<!--							<label class="layui-form-label">模块权限：</label>-->
+<!--							<div class="layui-input-inline">-->
+<!--								<input type="radio" name="uinfo[auth_type]" value="1" title="所有" {if !$uinfo['id'] || $uinfo['auth_type']==1}checked{/if} lay-filter="auth_type">-->
+<!--								<input type="radio" name="uinfo[auth_type]" value="0" title="选择" {if $uinfo['id'] && $uinfo['auth_type']==0}checked{/if} lay-filter="auth_type">-->
+<!--							</div>-->
+<!--						</div>-->
+<!--						<div class="layui-form-item" id="authdataset" style="{if !$uinfo['id'] || $uinfo['auth_type']==1}display:none{/if}"></div>-->
+					{if getcustom('admin_user_multi_business') && ($admin_auth_data =='all' || in_array('UserMultiBusiness',$admin_auth_data))}
+					{if !$info['id'] || ($info['id'] && $uinfo['manage_uid']==0)}
+					<div class="layui-form-item">
+					  <label class="layui-form-label">管理多个商户：</label>
+					  <div class="layui-input-inline">
+						  <input type="radio" name="uinfo[manage_multi_business_status]" value="1" title="开启" {if $uinfo['manage_multi_business_status']==1}checked{/if} lay-filter="manage_multi_business_status">
+						  <input type="radio" name="uinfo[manage_multi_business_status]" value="0" title="关闭" {if !$uinfo['id'] || $uinfo['manage_multi_business_status']==0}checked{/if} lay-filter="manage_multi_business_status">
+					  </div>
+					  <div class="layui-form-mid layui-word-aux">开启后，该商户的管理员可以手机端管理多个商户和创建其他商户</div>
+					</div>
+					<div class="layui-form-item" id="manage_business" {if $uinfo['manage_multi_business_status']==0}style="display:none"{/if}>
+					  <label class="layui-form-label">管理商户ID：</label>
+					  <div class="layui-input-inline" style="width:200px">
+						  <input type="text" name="manage_bids" id="manage_bids" lay-verType="tips" class="layui-input" min="0" value="{$uinfo.manage_bids}">
+					  </div>
+						<a href="javascript:vodi(0)" class="layui-btn layui-btn-primary" onclick="showChooseBusiness()">查找商户ID</a>
+					</div>
+  
+					{/if}
+					{/if}
+  					<input type="hidden" name="uinfo[auth_type]" value="0">
+  					{if getcustom('business_user_group')}
+  					<div class="layui-form-item">
+							<label class="layui-form-label">权限组：</label>
+							<div class="layui-input-inline">
+								<select name="uinfo[groupid]" lay-filter="groupidChange">
+									{foreach $groupList as $group}
+									<option value="{$group.id}" {if $uinfo['groupid']==$group['id']}selected{/if}>{$group.name}</option>
+									{/foreach}
+								</select>
+							</div>
+						</div>
+						{/if}
+						<div id="quanxianset_div" style="{if $uinfo['groupid']!=0}display:none{/if}">
+							{include file="public/user_auth"/}
+						</div>
+						</div>
+					
+						<!--基本信息End-->
+							<!--自定义信息start-->
+							{if getcustom('business_apply_form')}
+							<input type="hidden" name="formdata[id]" value="{$register_record.id}">
+							<div class="layui-tab-item">
+								  {volist name="register_record.content" id="item" key="key"}
+								  {php}
+									  $formkey = 'form'.($key-1);
+									  $val = $register_record['form'.($key-1)]??'';
+								  {/php}
+								  {if $item.key=='input'}
+								  <div class="layui-form-item">
+									  <label class="layui-form-label">{$item.val1}：</label>
+									  <div class="layui-input-inline">
+										  <input type="text" name="formdata[{$formkey}]" class="layui-input"  value="{$val}"  >
+									  </div>
+								  </div>
+								  {/if}
+								  {if $item.key=='textarea'}
+								  <div class="layui-form-item">
+									  <label class="layui-form-label">{$item.val1}：</label>
+									  <div class="layui-input-inline" style="min-width: 300px">
+										  <textarea class="layui-textarea" name="formdata[{$formkey}]">{$val}</textarea>
+									  </div>
+								  </div>
+								  {/if}
+								  {if $item.key=='radio'}
+								  <div class="layui-form-item">
+									  <label class="layui-form-label">{$item.val1}：</label>
+									  <div class="layui-input-inline">
+										  {volist name="item.val2" id="item2"}
+											  <label><input type="radio" name="formdata[{$formkey}]" title="{$item2}" value="{$item2}" {if $item2==$val}checked{/if}></label>
+										  {/volist}
+									  </div>
+								  </div>
+								  {/if}
+								  {if $item.key=='checkbox'}
+								  {php}
+								  $val = explode(',',$val);
+								  {/php}
+								  <div class="layui-form-item">
+									  <label class="layui-form-label">{$item.val1}：</label>
+									  <div class="layui-input-inline" style="min-width: 40%">
+										  {volist name="item.val2" id="item2"}
+										  <input type="checkbox" name="formdata[{$formkey}][]" value="{$item2}" title="{$item2}" {if in_array($item2,$val)}checked{/if}>
+										  {/volist}
+									  </div>
+								  </div>
+								  {/if}
+								  {if $item.key=='selector'}
+								  <div class="layui-form-item">
+									  <label class="layui-form-label">{$item.val1}：</label>
+									  <div class="layui-input-inline">
+										  <select name="formdata[{$formkey}]" class="layui-select">
+											  <option name="">请选择</option>
+											  {volist name="item.val2" id="item2"}
+											  <option name="formdata[{$formkey}]" {if $item2==$val}selected{/if}>{$item2}</option>
+											  {/volist}
+										  </select>
+									  </div>
+								  </div>
+								  {/if}
+								  {if $item.key=='time'}
+								  <div class="layui-form-item">
+									  <label class="layui-form-label">{$item.val1}：</label>
+									  <div class="layui-input-inline">
+										  <input type="text" name="formdata[{$formkey}]" id="{$formkey}" class="layui-input timeinput" value="{$val}">
+									  </div>
+								  </div>
+								  {/if}
+								  {if $item.key=='date'}
+								  <div class="layui-form-item">
+									  <label class="layui-form-label">{$item.val1}：</label>
+									  <div class="layui-input-inline">
+										  <input type="text" name="formdata[{$formkey}]" id="{$formkey}" class="layui-input dateinput" value="{$val}">
+									  </div>
+								  </div>
+								  {/if}
+								  {if $item.key=='upload'}
+								  <div class="layui-form-item">
+									  <label class="layui-form-label">{$item.val1}：</label>
+									  <div class="layui-input-inline" style="min-width: 40%">
+										  <input type="hidden" name="formdata[{$formkey}]" id="formpic{$formkey}" class="layui-input" value="{$val}">
+										  <button style="float:left;" type="button" class="layui-btn layui-btn-primary" upload-input="formpic{$formkey}" upload-preview="formpic{$formkey}Preview" onclick="uploader(this)">上传图片</button>
+										  <div id="formpic{$formkey}Preview" style="float:left;padding-top:10px;clear: both;">
+											  <div class="layui-imgbox" style="width:100px;"><div class="layui-imgbox-img"><img src="{$val}"/></div></div>
+										  </div>
+									  </div>
+								  </div>
+								  {/if}
+								  {if $item.key == 'upload_file'}
+								  <div class="layui-form-item">
+									  <label class="layui-form-label">{$item.val1}：</label>
+									  <div class="layui-input-inline">
+										  <input type="text" name="formdata[{$formkey}]" id="formfile{$formkey}" class="layui-input" value="{$val}">
+									  </div>
+									  <div class="layui-input-inline">
+										  <button type="button" class="layui-btn layui-btn-primary" upload-input="formfile{$formkey}" onclick="uploader(this)">上传文件</button>
+									  </div>
+								  </div>
+								  {/if}
+								  {if $item.key=='region'}
+								  <div class="layui-form-item region_item" id="region{$customeKey}" data-text="{$val}">
+									  <label class="layui-form-label" >{$item.val1}：</label>
+									  <div class="layui-input-inline custom_province_div" style="width: 150px">
+										  <select name="formdata[{$formkey}][]" id="region{$customeKey}_province" lay-filter="region{$customeKey}_province"></select>
+									  </div>
+									  <div class="layui-input-inline custom_city_div" style="width: 150px">
+										  <select name="formdata[{$formkey}][]" id="region{$customeKey}_city" lay-filter="region{$customeKey}_area"></select>
+									  </div>
+									  <div class="layui-input-inline custom_area_div" style="width: 150px" style="display:none">
+										  <!--							<select name="custom[form{$customeKey}][]" id="region{$customeKey}_area"></select>-->
+										  <select name="formdata[{$formkey}][]" id="region{$customeKey}_area"></select>
+									  </div>
+								  </div>
+								  {/if}
+								  {/volist}
+							  </div>
+							  {/if}
+							
+							  <!--自定义信息end-->
+						</div>
+
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn layui-btn-danger" lay-submit lay-filter="formsubmit">提 交</button>
+							</div>
+						</div>
+					</div>
+				</div>
+				</div>
+      </div>
+    </div>
+  </div>
+	{include file="public/js"/}
+  {if getcustom('return_component')}
+  <script>
+	  address3('return_province','return_city','return_area',"{$info.return_province}","{$info.return_city}","{$info.return_area}");
+  </script>
+  {/if}
+  <script src="__STATIC__/admin/js/searchaddress.js?v=202410"></script>
+  <script>
+	  address3('province','city','district',"{$info.province}","{$info.city}","{$info.district}");
+  </script>
+	<script charset="utf-8" src="https://map.qq.com/api/js?v=2.exp&key={$sysset_webinfo.map_key_qq}"></script>
+	<script>
+
+	layui.laydate.render({
+		elem: '#endtime',
+		type: 'datetime'
+	});
+	//所有的时间控件
+	$('.timeinput').each(function (e){
+	var objId = $(this).attr('id');
+	layui.laydate.render({
+		elem: "#"+objId,
+		type: 'time'
+	})
+	})
+	//所有的日期控件
+	$('.dateinput').each(function (e){
+		var objId = $(this).attr('id');
+		layui.laydate.render({
+			elem: "#"+objId,
+			type: 'date'
+		})
+	})
+	{if $register_record}
+		$('.region_item').each(function (index,obj){
+			var regionId = $(obj).attr('id');
+			var areatext = $(obj).data('text');
+			var provinceId = regionId+'_province';
+			var cityId = regionId+'_city';
+			var areaId = regionId+'_area';
+			var provinceVal = '';
+			var cityVal = '';
+			var areaVal = '';
+			if(areatext){
+				var areaAry = areatext.split(',');
+				if(areaAry.length>0){
+					provinceVal = areaAry[0];
+				}
+				if(areaAry.length>1){
+					cityVal = areaAry[1];
+				}
+				if(areaAry.length>2){
+					areaVal = areaAry[2];
+				}
+			}
+			address3(provinceId,cityId,areaId,provinceVal,cityVal,areaVal);
+		})
+	{/if}
+	layui.form.on('radio(wxpayst)',function(data){
+		if(data.value == '1'){
+			$('#wxpayst_div').show();
+		}else{
+			$('#wxpayst_div').hide();
+		}
+	})
+
+	layui.form.on('radio(auth_type)', function(data){
+		if(data.value == '0'){
+			$('#authdataset').show();
+		}else{
+			$('#authdataset').hide();
+		}
+	})
+	layui.form.on('checkbox(checkall_all)',function(data){
+		if(data.elem.checked){
+			$(data.elem).parent().parent().find('input[type=checkbox]').prop('checked',true);
+		}else{
+			$(data.elem).parent().parent().find('input[type=checkbox]').prop('checked',false);
+		}
+		layui.form.render('checkbox'); 
+	})
+	layui.form.on('checkbox(checkall)',function(data){
+		if(data.elem.checked){
+			$(data.elem).parent().parent().find('input[type=checkbox]').prop('checked',true);
+		}else{
+			$(data.elem).parent().parent().find('input[type=checkbox]').prop('checked',false);
+		}
+		layui.form.render('checkbox'); 
+	})
+	layui.form.on('radio(changest)', function(data){
+		if(data.value == '2'){
+			$('#changestset').show();
+		}else{
+			$('#changestset').hide();
+		}
+	})
+	layui.form.on('select(groupidChange)',function(data){
+		if(data.value == 0){
+			$('#quanxianset_div').show();
+		}else{
+			$('#quanxianset_div').hide();
+		}
+	});
+	layui.form.on('radio(score_withdrawfee_type)',function(data){
+		if(data.value == '1'){
+			$('#score_withdrawfee').show();
+			$('#score_withdrawfee_bfh').show();
+		}else{
+			$('#score_withdrawfee').hide();
+			$('#score_withdrawfee_bfh').hide();
+		}
+	})
+	var ueditor = UE.getEditor('content');
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		field['info[content]'] = ueditor.getContent();
+		//console.log(field);return;
+		var index = layer.load();
+		$.post("{:url('save')}",field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status == 1){
+				setTimeout(function(){
+					parent.layer.close(parent.layer.getFrameIndex(window.name));
+					parent.tableIns.reload()
+				},1000)
+			}
+		})
+	})
+  </script>
+	<script>
+	
+	var chooseUrlField = '';
+	function chooseUrl2(field){
+		chooseUrlField = field;
+		layer.open({type:2,shadeClose:true,area:['1200px', '650px'],'title':'选择链接',content:"{:url('DesignerPage/chooseurl')}&callback=chooseLink2"})
+	}
+	function chooseLink2(urlname,url){
+		$("#"+chooseUrlField).val(url);
+	}
+
+	function previewImg(url){
+		layer.open({type:1,area:'500px',content:'<div style="margin:auto auto;text-align:center"><img src="'+url+'" style="max-width:100%;max-height:100%"/></div>',title:false,shadeClose:true})
+	}
+	// 地图详细地址框按回车键搜索
+	$(".layui-input-search").keydown(function (e) {
+		if (e.which == 13) {
+				//拼接省市县
+				var address = $('#province').val() + $('#city').val() + $('#district').val() + $("#address").val();
+				if(address == ""){
+					dialog("请输地址！");
+					return ;
+				}
+				clearOverlays(markers);
+				//根据输入的关键字在搜索范围内检索
+				searchService.search(address);
+		}
+	});
+	{if getcustom('business_fenxiao')}
+	//开关 radio联动下方div显示隐藏
+	layui.form.on('radio(protect_status)', function(data){
+		// console.log(data.elem.name);
+		if(data.value == '0'){
+			$(".protect_div").hide();
+		}else{
+			$(".protect_div").show();
+		}
+	})
+	{/if}
+	{if getcustom('ciruikang_fenxiao')}
+	address3('areasafe_province','areasafe_city','areasafe_area',"{$info.areasafe_province}","{$info.areasafe_city}","{$info.areasafe_area}");
+	layui.form.on('radio(areasafeChange)',function(data){
+		setareasafe(this);
+	});
+	function setareasafe(e){
+		var formdata = layui.form.val('form');
+		var areasafe = $(e).val();
+		if(areasafe>0){
+			$('.areasafe_address').show();
+			$('.areasafe_province_div').show();
+			$('.areasafe_city_div').hide();
+			$('.areasafe_area_div').hide();
+
+			if(areasafe==2){
+				$('.areasafe_city_div').show();
+			}else if(areasafe==3){
+				$('.areasafe_city_div').show();
+				$('.areasafe_area_div').show();
+			}
+		}else{
+			$('.areasafe_address').hide();
+		}
+	}
+	{/if}
+		{if getcustom('business_reward_member')}
+		layui.form.on('radio(reward_member)',function(data){
+			if(data.value == '1'){
+				$('#reward_member_div').show();
+			}else{
+				$('#reward_member_div').hide();
+			}
+		})
+		{/if}
+	{if getcustom('business_maidan_scoredk')}
+	layui.form.on('radio(scoredkmaxset)', function(data){
+		if(data.value == '1'){
+			$('#scoredkmaxset1').show();
+			$('#scoredkmaxunit').html('%');
+		}else if(data.value == '2'){
+			$('#scoredkmaxset1').show();
+			$('#scoredkmaxunit').html('元');
+		}else{
+			$('#scoredkmaxset1').hide();
+		}
+	})
+	{/if}
+	{if getcustom('maidan_invite')}
+	layui.form.on('radio(maidaninviteset)', function(data){
+		if(data.value == '1'){
+			$('#maidaninviteset1').show();
+		}else{
+			$('#maidaninviteset1').hide();
+		}
+	})
+	{/if}
+	{if getcustom('yx_mangfan_maidan_business')}
+	layui.form.on('radio(mangfan_maidan_st)', function(data){
+		if(data.value == '1'){
+			$('#mangfanmaidanset1').show();
+		}else{
+			$('#mangfanmaidanset1').hide();
+		}
+	})
+	{/if}
+	{if getcustom('yx_mangfan_cashier_business')}
+	layui.form.on('radio(mangfan_cashier_st)', function(data){
+		if(data.value == '1'){
+			$('#mangfancashierset1').show();
+		}else{
+			$('#mangfancashierset1').hide();
+		}
+	})
+	{/if}
+	{if getcustom('yx_mangfan_restaurant_shop_business')}
+	layui.form.on('radio(mangfan_restaurant_shop_st)', function(data){
+		if(data.value == '1'){
+			$('#mangfanrestaurantshopset1').show();
+		}else{
+			$('#mangfanrestaurantshopset1').hide();
+		}
+	})
+	{/if}
+	{if getcustom('yx_mangfan_restaurant_takeaway_business')}
+	layui.form.on('radio(mangfan_restaurant_takeaway_st)', function(data){
+		console.log(data);
+		if(data.value == '1'){
+			$('#mangfanrestauranttakeawayset1').show();
+		}else{
+			$('#mangfanrestauranttakeawayset1').hide();
+		}
+	})
+	{/if}
+	{if getcustom('yx_mangfan_car_hailing_business')}
+	layui.form.on('radio(mangfan_car_hailing_st)', function(data){
+		console.log(data);
+		if(data.value == '1'){
+			$('#mangfancarhailingset1').show();
+		}else{
+			$('#mangfancarhailingset1').hide();
+		}
+	})
+	{/if}
+	{if getcustom('yx_mangfan_hotel_business')}
+	layui.form.on('radio(mangfan_hotel_st)', function(data){
+		console.log(data);
+		if(data.value == '1'){
+			$('#mangfanhotelset1').show();
+		}else{
+			$('#mangfanhotelset1').hide();
+		}
+	})
+	{/if}
+	{if getcustom('pay_huifu_fenzhang')}
+	layui.form.on('radio(huifu_business_status)', function(data){
+		if(data.value == '1'){
+			$('#huifu_id_div').show();
+		}else{
+			$('#huifu_id_div').hide();
+		}
+	})
+	{/if}
+    {if getcustom('pay_qilinshuzi')}
+    layui.form.on('radio(qilin_business_status)', function(data){
+        $('#qilin_div').toggle(data.value === '1');
+    })
+    var qilinAccountlenth = '{$qilinsubmchidlength}';
+    $(function(){
+        $("#addQilinAccount").click(function(){
+            var i = qilinAccountlenth++;
+            if(i>=9){
+                dialog('分账接收方最多添加9个');
+                return false;
+            }
+            var xhtml='<tr>';
+            xhtml +='<td><input type="text" placeholder="接收方商户号" name="qilinAccount['+i+'][submchid]" class="layui-input "  value=""/></td>';
+            xhtml +='<td><input type="text" placeholder="接收方名称" name="qilinAccount['+i+'][subname]" class="layui-input" value=""></td>';
+            xhtml +='<td><input type="text" placeholder="接收方费率" name="qilinAccount['+i+'][feepercent]" class="layui-input" value=""></td>';
+            xhtml +='<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="$(this).parent().parent().remove()">删除</button> </td>';
+            xhtml +=' </tr>';
+            $('#moreQilinAccount').append(xhtml);
+        })
+    })
+    {/if}
+	{if getcustom('business_more_account')}
+	var accountlenth = '{$submchidlength}';
+	$(function(){		
+		$("#addaccount").click(function(){	
+			var i = accountlenth++;
+			var xhtml='<tr>';
+				xhtml +='<td><input type="text" placeholder="接收方商户号" name="accountInfo['+i+'][submchid]" class="layui-input "  value=""/></td>'; 
+				xhtml +='<td><input type="text" placeholder="接收方名称" name="accountInfo['+i+'][subname]" class="layui-input" value=""></td>'; 
+				xhtml +='<td><input type="text" placeholder="接收方费率" name="accountInfo['+i+'][feepercent]" class="layui-input" value=""></td>'; 
+				xhtml +='<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="$(this).parent().parent().remove()">删除</button> </td>';
+				xhtml +=' </tr>';
+			$('#moreaccount').append(xhtml);
+		})
+	})			
+	{/if}
+
+	//买单分销
+	{if getcustom('business_maidan_commission')}
+		layui.form.on('radio(maidancommissionset)', function(data){
+			$('#maidancommissionset1').toggle(data.value === '1');
+		});
+	{/if}
+
+	{if $maidan_fenhong_new==1}
+		layui.form.on('radio(maidan_gudong)', function(data){
+			var val = data.value;
+			if(val == 2){
+				$('#maidangudongset').show();
+			}else{
+				$('#maidangudongset').hide();
+			}
+		});
+		layui.form.on('radio(maidan_area)', function(data){
+			var val = data.value;
+			if(val == 2){
+				$('#maidanareaset').show();
+			}else{
+				$('#maidanareaset').hide();
+			}
+		});
+		layui.form.on('radio(maidan_team)', function(data){
+			var val = data.value;
+			if(val == 2){
+				$('#maidanteamset').show();
+			}else{
+				$('#maidanteamset').hide();
+			}
+		});
+	{/if}
+	</script>
+  <script>
+	  layui.form.on('radio(maidan_bonuspool_set)', function(data){
+		  if(data.value == '1'){
+			  $('#maidan_bonuspool_set').show();
+			  $('.maidan_bonuspool_text').text('比例(%)');
+		  }else if(data.value == '2'){
+			  $('#maidan_bonuspool_set').show();
+			  $('.maidan_bonuspool_text').text('(元)');
+		  }else{
+			  $('#maidan_bonuspool_set').hide();
+		  }
+	  })
+	  {if getcustom('admin_user_multi_business')}
+	  layui.form.on('radio(manage_multi_business_status)', function(data){
+		  var val = data.value;
+		  if(val ==1){
+			  $('#manage_business').show();
+		  }else{
+			  $('#manage_business').hide();
+		  }
+	  });
+	  var chooseBusinessLayer;
+	  function showChooseBusiness(){
+		  chooseBusinessLayer = layer.open({type:2,title:'选择商户',content:"{:url('Business/choosebusiness')}/type/multibusiness",area:['1000px','600px'],shadeClose:true});
+	  }
+	  function choosebusiness(data){
+		  var fid = data.id;
+		  layer.close(chooseBusinessLayer);
+		  var isadd = 0;
+		  var manage_bids  = $('#manage_bids').val();
+		 
+		  if(manage_bids.indexOf(fid) !== -1){;
+			  isadd = 1
+			  dialog('该商户已添加过了');
+		  }
+		  if(isadd == 0){
+			  if(manage_bids ==''){
+				  manage_bids=fid;
+			  }else{
+				  manage_bids+=','+fid;
+			  }
+			  $("#manage_bids").val(manage_bids);
+		  }
+	  }
+	  {/if}
+		{if getcustom('water_happy_ti')}
+			layui.form.on('radio(water_happyti_platform_rate_type)',function(data){
+				if(data.value == '1'){
+					$('#water_happyti_platform_rate').show();
+				}else{
+					$('#water_happyti_platform_rate').hide();
+				}
+			})
+		{/if}
+		{if getcustom('business_withdraw_pc')}
+			layui.form.on('radio(pc_withdraw_status_type)',function(data){
+				if(data.value == '1'){
+					$('#pc_withdraw_status').show();
+				}else{
+					$('#pc_withdraw_status').hide();
+				}
+			})
+		{/if}
+		{if getcustom('business_withdraw_cash_mobile_duliset')}
+			layui.form.on('radio(withdrawfee_cash_status_type)',function(data){
+				if(data.value == '1'){
+					$('#withdrawfee_cash_status').show();
+				}else{
+					$('#withdrawfee_cash_status').hide();
+				}
+			})
+			layui.form.on('radio(withdrawfee_cash_status)',function(data){
+				if(data.value == '1'){
+					$('#withdrawfee_cash_rate').show();
+				}else{
+					$('#withdrawfee_cash_rate').hide();
+				}
+			})
+		{/if}
+		{if getcustom('business_agent_referrer_independent')}
+		layui.form.on('radio(recommend_type)', function(data){
+            let value = (data.value == '1');
+            $('.business_pid').toggle(value).siblings('.independent_pid').toggle(!value);
+		})
+		{/if}
+		{if getcustom('gold_bean')}
+		layui.form.on('radio(maidan_give_gold_bean_status)',function (data){
+			if(data.value==1){
+				$('#maidan_give_gold_bean').show();
+			}else{
+				$('#maidan_give_gold_bean').hide();
+			}
+		})
+		{/if}
+		{if getcustom('maidan_give_score')}
+		layui.form.on('radio(maidan_give_score_status)',function (data){
+			if(data.value==1){
+				$('#maidan_give_score').show();
+			}else{
+				$('#maidan_give_score').hide();
+			}
+		})
+		{/if}
+		{if getcustom('yx_queue_free_back_business_fanli')}
+		layui.form.on('radio(queue_free_back_business_fanli_status)',function (data){
+			if(data.value==1){
+				$('#queue_free_back_business_fanli_rate').show();
+			}else{
+				$('#queue_free_back_business_fanli_rate').hide();
+			}
+		})
+		{/if}
+  </script>
+</body>
+</html>

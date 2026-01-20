@@ -1,0 +1,1 @@
+<view><block tt:if="{{loading}}"><loading vue-id="48c64909-1" bind:__l="__l"></loading></block></view>

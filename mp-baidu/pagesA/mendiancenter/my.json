@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "门店中心",
+  "component": true,
+  "usingComponents": {
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

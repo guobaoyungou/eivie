@@ -1,0 +1,12 @@
+.tabbar{height: auto; position: relative;}
+.tabbar-icon {width: 50rpx;height: 50rpx;}
+.tabbar-bar {display: flex;flex-direction: row;width: 100%;height:100rpx;position: fixed;bottom: 0;padding:10rpx 0 0 0;background: #fff;font-size: 24rpx;color: #999;border-top: 1px solid #e5e5e5;z-index: 999999;box-sizing:content-box}
+.tabbar-item {flex: 1;text-align: center;overflow: hidden;}
+.tabbar-image-box {height: 54rpx;margin-bottom: 4rpx;}
+.tabbar-text {line-height: 30rpx;font-size: 24rpx;color:#222222}
+.tabbar-text.active{color:#3d7af7}
+.tabbar-bot{height:110rpx;width:100%;box-sizing:content-box}
+@supports(bottom: env(safe-area-inset-bottom)){
+	.tabbar-bot{padding-bottom:env(safe-area-inset-bottom);}
+	.tabbar-bar{padding-bottom:env(safe-area-inset-bottom);}
+}

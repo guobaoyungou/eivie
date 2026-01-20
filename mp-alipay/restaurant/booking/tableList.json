@@ -1,0 +1,10 @@
+{
+  "defaultTitle": "餐桌列表",
+  "pullRefresh": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

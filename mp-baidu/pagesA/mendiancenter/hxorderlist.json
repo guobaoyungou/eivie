@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "用户待核销订单",
+  "component": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

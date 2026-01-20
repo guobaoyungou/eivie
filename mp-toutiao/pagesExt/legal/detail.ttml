@@ -1,0 +1,1 @@
+<block tt:if="{{content}}"><view style="width:700rpx;margin:0 auto;white-space:pre-wrap;word-wrap:break-word;"><parse vue-id="7d6647ea-1" content="{{content}}" bind:__l="__l"></parse></view></block>

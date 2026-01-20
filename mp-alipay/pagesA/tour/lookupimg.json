@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "订单图片",
+  "pullRefresh": false,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

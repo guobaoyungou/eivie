@@ -1,0 +1,203 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>资金账户</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+    <style>
+        .layui-col-sm6, .layui-col-sm12 {
+            padding-top: 0;
+            padding-left: 0
+        }
+    </style>
+</head>
+<body>
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-sm6 layui-col-md3">
+            <div class="layui-card">
+                <div class="layui-card-header">结算账户</div>
+                <div class="layui-card-body layuiadmin-card-list" style="padding-top:5px">
+                    <div class="layuiadmin-big-font" style="font-size:20px;height: 54px;overflow:hidden;display:flex;align-items:center">
+                        {if $bankacct}
+                        <div style="display:flex;align-items:center;margin-right:10px;cursor:pointer;height:40px;overflow:hidden;width:50%" onclick="location.href='{:url('set')}'">
+                            <div style="margin-left:10px;margin-right:10px;display:flex;flex-direction:column">
+                                <span style="font-size:16px;white-space:nowrap;overflow:hidden">{$bankacct['account_number']}</span>
+                                <span style="font-size:10px;color:#73d78e;line-height:12px;">{$bankacct['account_bank']}&nbsp;</span>
+                            </div>
+                        </div>
+                        {else}
+                        <div style="display:flex;align-items:center;margin-right:10px">
+                            <a href="{:url('set')}" style="color:#1E9FFF;font-size:16px;height:20px;line-height:20px">未设置</a>
+                        </div>
+                        {/if}
+                    </div>
+                    <p>账户类型：<span class="layuiadmin-span-color">{if($bankacct['bank_account_type']=='ACCOUNT_TYPE_BUSINESS')}公户{else}个人{/if}</span></p>
+                    <p>账户名称：<span class="layuiadmin-span-color">{$bankacct['account_name']}</span></p>
+                </div>
+            </div>
+        </div>
+        <div class="layui-col-sm6 layui-col-md3">
+            <div class="layui-card">
+                <div class="layui-card-header">账户总资产<span style="float:right;color:#666;cursor:pointer" onclick="location.href='{:url('WxChannelsFundsflow/withdraw_log')}'">提现记录</span></div>
+                <div class="layui-card-body layuiadmin-card-list">
+                    <p class="layuiadmin-big-font" style="cursor:pointer"
+                       onclick="location.href='{:url('WxChannelsFundsflow/index')}'">{$total_amount}</p>
+                    <p>可提现余额 <span class="layuiadmin-span-color">{$available_amount}</span></p>
+                    <p>待结算余额 <span class="layuiadmin-span-color">{$pending_amount}</span></p>
+                </div>
+            </div>
+        </div>
+		<div class="layui-col-sm6 layui-col-md3">
+			<div class="layui-card">
+				<div class="layui-card-header">订单金额<span style="float:right;color:#666">今日新增&nbsp;{$today_order_price}</span></div>
+				<div class="layui-card-body layuiadmin-card-list">
+					<p class="layuiadmin-big-font" style="cursor:pointer"
+					   onclick="location.href='{:url('WxChannelsOrder/index')}'">{$total_order_price}</p>
+					<p>昨日新增 <span class="layuiadmin-span-color">{$yesterday_order_price}</span></p>
+					<p>本月新增 <span class="layuiadmin-span-color">{$month_order_price}</span></p>
+				</div>
+			</div>
+		</div>
+
+        <div class="layui-col-sm6 layui-col-md3">
+            <div class="layui-card">
+                <div class="layui-card-header">订单数量<span style="float:right;color:#666">今日新增&nbsp;{$today_order_count}</span></div>
+                <div class="layui-card-body layuiadmin-card-list">
+                    <p class="layuiadmin-big-font" style="cursor:pointer"
+                       onclick="location.href='{:url('WxChannelsOrder/index')}'">{$total_order_count}</p>
+                    <p>昨日新增 <span class="layuiadmin-span-color">{$yesterday_order_count}</span></p>
+                    <p>本月新增 <span class="layuiadmin-span-color">{$month_order_count}</span></p>
+                </div>
+            </div>
+        </div>
+        <div class="layui-col-sm6 layui-col-md3">
+            <div class="layui-card">
+                <div class="layui-card-header">售后数量<span style="float:right;color:#666">未审核&nbsp;{$noaudit_aftersale_count}</span></div>
+                <div class="layui-card-body layuiadmin-card-list">
+                    <p class="layuiadmin-big-font" style="cursor:pointer"
+                       onclick="location.href='{:url('WxChannelsAfterSales/index')}'">{$total_aftersale_count}</p>
+                    <p>今日新增 <span class="layuiadmin-span-color">{$today_aftersale_count}</span></p>
+                    <p>本月新增 <span class="layuiadmin-span-color">{$month_aftersale_count}</span></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="layui-col-sm6 layui-col-md3">
+            <div class="layui-card">
+                <div class="layui-card-header">商品数量</div>
+                <div class="layui-card-body layuiadmin-card-list">
+                    <p class="layuiadmin-big-font" style="cursor:pointer"
+                       onclick="location.href='{:url('WxChannelsProduct/index')}'">{$productCount}</p>
+                    <p>未上架 <span class="layuiadmin-span-color">{$product0Count}</span></p>
+                    <p>已上架 <span class="layuiadmin-span-color">{$product1Count}</span></p>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="layui-col-sm12">
+            <div class="layui-card">
+                <div class="layui-card-header">最近30天数据曲线</div>
+                <div class="layui-card-body">
+                    <div class="layui-row">
+                        <div class="layui-col-sm9">
+                            <div class="layui-carousel layadmin-carousel layadmin-dataview" style="width:100%"
+                                 id="chart1"></div>
+                        </div>
+                        <div class="layui-col-sm3">
+                            <div style="padding-top:70px"></div>
+                            <div style="margin:5px 0;"><span onclick="getchart(4,'订单金额')" style="cursor:pointer">订单金额</span></div>
+                            <div style="margin:5px 0;"><span onclick="getchart(5,'订单数')" style="cursor:pointer">订单数</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{include file="public/js"/}
+<script src="__STATIC__/admin/js/echarts.min.js"></script>
+<script type="text/javascript">
+    var nowtime = "{:time()}";
+    $(function () {
+        setInterval(function () {
+            nowtime++;
+            var date = getLocalTime(nowtime);
+            $('#systime').html(date);
+        }, 1000)
+    })
+    function getLocalTime(time) {
+        var date = new Date(time * 1000);
+        var year = date.getFullYear();
+        var month = date.getMonth() + 1;
+        var day = parseInt(date.getDate());
+        var hour = date.getHours();
+        var minute = date.getMinutes();
+        var second = date.getSeconds();
+        return year + '-' + (month < 10 ? '0' + month : month) + '-' + (day < 10 ? ('0' + day) : day) + ' ' + (hour < 10 ? '0' + hour : hour) + ':' + (minute < 10 ? '0' + minute : minute) + ':' + (second < 10 ? '0' + second : second);
+    }
+    var myChart = echarts.init(document.getElementById("chart1"));
+    option = {
+        title: {
+            text: '订单金额',textStyle:{fontSize:12},x: "center"
+        },
+        tooltip: {
+            trigger: 'axis'
+        },
+        xAxis: {
+            //name:'日期',
+            boundaryGap: false,
+            type: 'category',
+            data: {:json_encode($dateArr)}
+        },
+        yAxis: {
+            type: 'value'
+        },
+        series: [{
+            name:'订单金额',
+            data: {:json_encode($dataArr)},
+            type: 'line'
+        }]
+    }
+
+    myChart.setOption(option, true);
+
+    //getchart(1,'客户数');
+    function getchart(type, title) {
+        var index = layer.load();
+        $.post('{:url("getdata")}', { type: type}, function (res) {
+            layer.close(index);
+            option = {
+                title: {
+                    text: title, textStyle: {fontSize: 12}, x: "center"
+                },
+                tooltip: {
+                    trigger: 'axis'
+                },
+                xAxis: {
+                    //name:'日期',
+                    boundaryGap: false,
+                    type: 'category',
+                    data: res.dateArr
+                },
+                yAxis: {
+                    type: 'value'
+                },
+                series: [{
+                    name: title,
+                    data: res.dataArr,
+                    type: 'line'
+                }]
+            }
+            myChart.setOption(option, true);
+        })
+    }
+</script>
+{include file="public/copyright"/}
+</body>
+</html>

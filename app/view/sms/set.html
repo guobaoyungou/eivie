@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>短信设置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  <style>
+	  .hide{display:none}
+  </style>
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<!-- <div class="layui-card-header">短信设置</div> -->
+				<div class="layui-tab layui-tab-brief">
+					<ul class="layui-tab-title">
+						<li class="layui-this" onclick="location.href='{:url('set')}'">短信设置</li>
+						<li onclick="location.href='{:url('sendlog')}'">发送记录</li>
+					</ul>
+				</div>
+				<div class="layui-card-body" pad15>
+					
+					<div class="layui-form form-label-w8" lay-filter="">
+						{if $ainfo.sms_system_status != 1}
+						<div class="layui-form-item">
+							<label class="layui-form-label">短信状态</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="radio" name="info[status]" value="1" title="开启" {if $info['status']==1}checked{/if}/>
+								<input type="radio" name="info[status]" value="0" title="关闭" {if $info['status']==0}checked{/if}/>
+							</div>
+							<div class="layui-form-mid layui-word-aux"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">短信接口</label>
+							<div class="layui-input-inline" style="width:300px">
+								<select name="info[smstype]" lay-filter="smstypeset">
+									<option value="1" {if $info['smstype']==1}selected{/if}>阿里云</option>
+									<option value="2" {if $info['smstype']==2}selected{/if}>腾讯云</option>
+									<!-- <option value="3">聚合短信</option> -->
+									{if $auth_data=='all' || in_array('SmsChannel/*',$auth_data)}
+									<option value="4" {if $info['smstype']==4}selected{/if}>定制短信通道</option>
+									{/if}
+								</select>
+							</div>
+							<div class="layui-form-mid layui-word-aux"></div>
+							<div class="layui-form-mid " id="tip4" style="color: red;{if $info['smstype']!=4}display: none{/if}" >定制短信通道适用于大客户营销，有储值费和开户费，详情咨询本系统客服。</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label" id="keyid" >{if $info['smstype']==1}AccessKey ID{elseif $info['smstype']==4}用户名{else}SecretId{/if}</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[accesskey]" value="{$info['accesskey']}" class="layui-input"/>
+								{if $info['accesskey']}<div style="position: absolute;left: 0;top: 0;right: 0;bottom: 0; background: #fff;padding: .35rem .7rem;border: 1px solid rgba(0, 0, 0, .15);border-radius: .15rem;color: #636c72;" onclick="$(this).hide()">已隐藏内容，点击查看或编辑</div>{/if}
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label" id="secretid">{if $info['smstype']==1}AccessKey Secret{elseif $info['smstype']==4}密码{else}SecretKey{/if}</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[accesssecret]" value="{$info['accesssecret']}" class="layui-input"/>
+								{if $info['accesssecret']}<div style="position: absolute;left: 0;top: 0;right: 0;bottom: 0; background: #fff;padding: .35rem .7rem;border: 1px solid rgba(0, 0, 0, .15);border-radius: .15rem;color: #636c72;" onclick="$(this).hide()">已隐藏内容，点击查看或编辑</div>{/if}
+							</div>
+						</div>
+						<div class="layui-form-item" id="sdkappiddiv" style="{if $info['smstype']!=2}display:none;{/if}">
+							<label class="layui-form-label">应用SDK AppID</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[sdkappid]" value="{$info['sdkappid']}" class="layui-input"/>
+								{if $info['sdkappid']}<div style="position: absolute;left: 0;top: 0;right: 0;bottom: 0; background: #fff;padding: .35rem .7rem;border: 1px solid rgba(0, 0, 0, .15);border-radius: .15rem;color: #636c72;" onclick="$(this).hide()">已隐藏内容，点击查看或编辑</div>{/if}
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">短信签名</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input class="layui-input" name="info[sign_name]" value="{$info.sign_name}"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux"></div>
+						</div>
+						<div class="layui-form-item" id="codelength" style="{if $info['smstype']!=2}display:none;{/if}">
+							<label class="layui-form-label">变量长度</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="radio" name="info[code_length]" value="0" title="不限制" lay-filter="codelength" {if $info['code_length']==0}checked{/if}/>
+								<input type="radio" name="info[code_length]" value="1" title="6个字符" lay-filter="codelength" {if $info['code_length']==1}checked{/if}/>
+								<input type="radio" name="info[code_length]" value="2" title="不含变量" lay-filter="codelength" {if $info['code_length']==2}checked{/if}/>
+							</div>
+							<div class="layui-form-mid layui-word-aux">腾讯云新账号限制变量最多6个字符，选择“不含变量”则模板中没有任何变量（短信验证码除外）</div>
+						</div>
+						{/if}
+						{if $ainfo.sms_system_status == 1}
+						<blockquote class="layui-elem-quote" style="color:#333">
+							当前使用平台短信
+						</blockquote>
+						<div class="layui-form-item">
+							<label class="layui-form-label">短信签名</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input class="layui-input" value="{$info.sign_name}" disabled/>
+							</div>
+							<div class="layui-form-mid layui-word-aux"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">每条价格</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input class="layui-input" name="" value="{$ainfo.sms_system_price}" disabled/>
+							</div>
+							<div class="layui-form-mid layui-word-aux"></div>
+						</div>
+						{/if}
+						{if $ainfo.sms_system_status != 1}
+						短信模板设置
+						<hr>
+						{include file="public/sms_tmpl"}
+
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="setmypass">确认修改</button>
+							</div>
+						</div>
+						{/if}
+					</div>
+        </div>
+      </div>
+    </div>
+  </div>
+	{include file="public/js"/}
+  	{include file="public/sms_tmpl_js"}
+	<script>
+	layui.form.on('select(smstypeset)', function(data){
+		$('.smstip1').hide();
+		$('.smstip2').hide();
+		$('#tip4').hide();	
+		$('#tmpl4').hide();	
+		if(data.value==1){
+			$('#keyid').html('AccessKey ID');
+			$('#secretid').html('AccessKey Secret');
+			$('#sdkappiddiv').hide();
+			$('.smstip1').show();
+			$('.smstip2').hide();
+			$('#codelength').hide();
+			$('.normal-tmpl').show();
+			$('.normal-tmpl-tips').hide();
+			$('.length-limit-tmpl,.length-limit-tmpl-tips').hide();
+		}else if(data.value==4){ //马到成功通道
+			$('#keyid').html('用户名');
+			$('#secretid').html('密码');
+			$('#sdkappiddiv').hide();
+			$('#codelength').hide();
+			$('.smstip4').show();
+			$('#tip4').show();
+			$('#tmpl4').show();
+		}else {
+			$('#keyid').html('SecretId');
+			$('#secretid').html('SecretKey');
+			$('#sdkappiddiv').show();
+			$('.smstip1').hide();
+			$('.smstip2').show();
+			$('#codelength').show();
+			//获取当前变量长度状态
+			let thiscodelength = $("input[name='info[code_length]']:checked").val();
+			if(thiscodelength == '1'){
+				$('.normal-tmpl,normal-tmpl-tips').hide();
+				$('.length-limit-tmpl,length-limit-tmpl-tips').show();
+			}else{
+				$('.normal-tmpl,normal-tmpl-tips').show();
+				$('.length-limit-tmpl,length-limit-tmpl-tips').hide();
+			}
+		}
+	})
+
+	layui.form.on('radio(codelength)', function(data){
+		if(data.value === '1'){
+			$('.normal-tmpl,.normal-tmpl-tips').hide();
+			$('.length-limit-tmpl,.length-limit-tmpl-tips').show();
+		}else{
+			$('.normal-tmpl,.normal-tmpl-tips').show();
+			$('.length-limit-tmpl,.length-limit-tmpl-tips').hide();
+		}
+	})
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

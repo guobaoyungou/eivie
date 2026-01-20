@@ -1,0 +1,195 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>库存流水</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-card layui-col-md12">
+          <div class="layui-card-header">库存流水{if input('param.isopen')==1}<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>{/if}</div>
+          <div class="layui-card-body" pad15>
+				<div class="layui-col-md4" style="padding-bottom:10px">
+					<button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="asyncAllStock(0)">同步库存</button>
+				</div>
+				<div class="layui-form layui-col-md8 layui-form-search">
+					<div class="layui-inline layuiadmin-input-useradmin">
+						<label class="layui-form-label">商品名称</label>
+						<div class="layui-input-inline">
+							<input type="text" name="name" autocomplete="off" class="layui-input">
+						</div>
+					</div>
+					<div class="layui-inline">
+						<button class="layui-btn layuiadmin-btn-replys" lay-submit="" lay-filter="LAY-app-forumreply-search">
+							<i class="layui-icon layui-icon-search layuiadmin-button-btn"></i>
+						</button>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<table id="tabledata" lay-filter="tabledata"></table>
+				</div>
+          </div>
+        </div>
+    </div>
+  </div>
+  <div class="layui-form" lay-filter="" style="margin-top:20px; display: none" id="stock">
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">商品：</label>
+		  <div class="layui-form-mid" id="product_name">
+			  {if $info}
+			  {$info.brand_id}-{$info.ch_name}-{$info.en_name}
+			  {/if}
+		  </div>
+		  <input type="hidden" name="guige_id" id="guige_id" />
+		  <a href="javascript:void(0)" class="layui-btn layui-btn-primary" onclick="chooseskuShow()">选择商品</a>
+	  </div>
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">查询日期：</label>
+		  <div class="layui-input-inline" style="width:300px">
+			  <div class="layui-input-inline" style="width: 120px;">
+				  <input type="text" id="query_start_time" class="layui-input" />
+			  </div>
+			  <div class="layui-form-mid"> ~ </div>
+			  <div class="layui-input-inline" style="width: 120px;">
+				  <input type="text" id="query_end_time" class="layui-input" />
+			  </div>
+		  </div>
+	  </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+  var table = layui.table;
+	var datawhere = {};
+  //数据表
+  var tableIns = table.render({
+    elem: '#tabledata'
+    ,url: "{$Request.url}/id/{$id}" //数据接口
+    ,page: true //开启分页
+    ,cols: [[ //表头
+			{type:"checkbox"},
+      {field: 'id', title: 'ID',  sort: true,width:70},
+      {field: 'name', title: '商品信息'},
+		  {field: 'guige_name', title: '规格'},
+			{field: 'amount', title: '库存变动'},
+      {field: 'type_str', title: '变动类型'},
+      {field: 'update_time', title: '变动时间',sort: true,templet:function(d){ return date('Y-m-d H:i',d.update_time)},width:150},
+    ]]
+  });
+	//排序
+	table.on('sort(tabledata)', function(obj){
+		datawhere.field = obj.field;
+		datawhere.order = obj.type;
+		tableIns.reload({
+			initSort: obj,
+			where: datawhere
+		});
+	});
+	//检索
+	layui.form.on('submit(LAY-app-forumreply-search)', function(obj){
+		var field = obj.field
+		var olddatawhere = datawhere
+		datawhere = field
+		datawhere.field = olddatawhere.field
+		datawhere.order = olddatawhere.order
+		tableIns.reload({
+			where: datawhere,
+			page: {curr: 1}
+		});
+	});
+  layui.laydate.render({
+	  elem: '#query_start_time',
+	  trigger: 'click',
+	  type: 'datetime'
+  });
+  layui.laydate.render({
+	  elem: '#query_end_time',
+	  trigger: 'click',
+	  type: 'datetime'
+  });
+
+  function chooseskuShow(){
+	  layer.open({type:2,title:'选择产品规格',content:"{:url('WxChannelsProduct/sku_lists')}/type/1/product_id/{$info['product_id']}",area:['900px','600px'],shadeClose:true});
+  }
+  function choosesku (data) {
+	  console.log(data);
+	  $("input[name='guige_id']").val(data.id);
+	  $("#product_name").text(data.product_name+'-'+data.name);
+
+  }
+	</script>
+  <script>
+	  //同步库存流水
+	  var $ = layui.jquery;
+	  var next_key = 0;
+	  var percent = 0;
+	  function asyncAllStock(){
+		  var stockLayer = layer.open({type:1,area:['600px','400px'],title:'同步库存流水',content:$("#stock"),shadeClose:true,btn: ['确定', '取消'],
+			  yes:function(){
+				  pagenum = 0;
+				  var guige_id = $('#guige_id').val();
+				  var s_time = $('#query_start_time').val();
+				  var e_time = $('#query_end_time').val();
+				  var field = {};
+				  field.guige_id = guige_id;
+				  field.s_time = s_time;
+				  field.e_time = e_time;
+				  layer.msg('同步中，请勿刷新或关闭页面', {
+					  icon: 16,
+					  shade: 0.01,
+					  time:false
+				  });
+				  _tplsend(field);
+			  }
+		  });
+
+	  }
+	  function _tplsend(field){
+		  pagenum++;
+		  $.ajax({
+			  type:'POST',
+			  url:"{:url('asyncAllStock')}/next_key/"+next_key,
+			  dataType:'json',
+			  data:field,
+			  success:function(data){
+				  console.log(data);
+
+				  if(data.status==1){
+					  next_key = data.next_key;
+					  //layer.msg('成功同步'+next_key+'',{offset:'100px'});
+					  layer.msg('正在同步'+next_key+'，请勿刷新或关闭页面', {
+						  icon: 16,
+						  shade: 0.01,
+						  time:false
+					  });
+					  tableIns.reload();
+				  }
+				  // return false;
+				  if(data.status==1 && data.continue_flag){
+					  _tplsend(field);
+				  }else{
+					  if(data.status==1){
+						  dialog(data.msg,1);
+					  }else{
+						  dialog(data.msg,data.status);
+					  }
+					  setTimeout(function(){
+						  parent.layer.closeAll();
+						  parent.tableIns.reload()
+					  },2000);
+				  }
+			  },
+			  error:function(){
+				  layer.close(index);
+				  dialog('未知错误',0);
+			  }
+		  })
+	  }
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

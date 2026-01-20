@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "发红包封面",
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

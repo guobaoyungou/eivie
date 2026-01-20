@@ -1,0 +1,664 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>售后管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+	<style>
+		.layui-table-view .layui-table td .table-imgbox{width:60px;height:60px;float:left;display: flex;align-items: center;justify-content: center}
+		.layui-table-view .layui-table td .table-imgbox img{max-width:60px;max-height:60px;float:left;}
+	</style>
+	<style>
+		.orderdetail{background:#f7f7f8;width: 94%;box-sizing:border-box;margin:0 10px;display:flex;flex-direction:column;}
+		.orderdetail *{box-sizing:border-box;}
+		.address{ display:flex;align-items:center;width: 100%; padding:10px 0; background: #FFF;color:#222}
+		.address .img{width:45px;padding:0 10px}
+		.address img{width:25px; height:25px;}
+		.address .info{flex:1;display:flex;flex-direction:column;}
+		.address .info .t1{ font-weight:bold}
+
+		.express { width:100%;background: #fff; padding:10px;display:flex;align-items:center;margin-top:5px;color:#333}
+		.express .f1{ width:40px;font-size:20px;color:#999}
+		.express .f2{display:flex;flex-direction:column;flex:auto}
+
+		.product{width:100%; padding:5px;background: #FFF;margin: 5px 0px;}
+		.product .content{display:flex;margin: 10px 0px;}
+		.product .box{position:relative;width: 100%; padding:5px 0px;border-bottom: 1px #e5e5e5 dashed;position:relative}
+		.product .content{display:flex;position:relative;}
+		.product .box:last-child{ border-bottom: 0; }
+		.product .content img{ width: 70px; height: 70px;}
+		.product .content .detail{display:flex;flex-direction:column;margin-left:7px;flex:1}
+		.product .content .detail .t1{height: 30px;line-height: 15px;color: #000;}
+		.product .content .detail .t2{height: 23px;line-height: 23px;color: #999;overflow: hidden;font-size:13px;}
+		.product .content .detail .t3{display:flex;height:15px;line-height:15px;color: #ff4246;}
+		.product .content .detail .x1{ flex:1}
+		.product .content .detail .x2{ width:50px;font-size:16px;text-align:right;margin-right:4px}
+		.product .content .comment{position:absolute;top:32px;right:5px;border: 1px #ffc702 solid; border-radius:5px;background:#fff; color: #ffc702;  padding: 0 5px; height: 23px; line-height: 23px;}
+
+		.orderinfo{ width:100%;margin-top:5px;padding: 5px;background: #FFF;}
+		.orderinfo .item{display:flex;width:100%;padding:10px 0;border-bottom:1px dashed #ededed;overflow:hidden}
+		.orderinfo .item:last-child{ border-bottom: 0;}
+		.orderinfo .item .t1{width:100px;flex-shrink:0}
+		.orderinfo .item .t2{flex:1;text-align:right;}
+		.orderinfo .item .red{color:red}
+
+		.logistics{ width: 94%;  background: #fff; padding: 0 10px;display:flex;flex-direction:column;color: #979797;}
+		.logistics .on{color: #23aa5e;}
+		.logistics .item{display:flex;width: 96%;  margin: 0 2%;/*border-left: 1px #dadada solid;*/padding:0 0}
+		.logistics .item .f1{ width:30px;position:relative}
+		/*.logistics img{width: 15px; height: 15px; position: absolute; left: -8px; top:11px;}*/
+		.logistics .item .f1 img{ width: 15px; height: 100%;}
+
+		.logistics .item .f2{display:flex;flex-direction:column;flex:auto;padding:5px 0}
+		.logistics .item .f2 .t1{font-size: 15px;}
+		.logistics .item .f2 .t1{font-size: 13px;}
+
+		.glassitem{    background: #f5f5f5;
+			padding: 5px;
+			font-size: 12px;
+			border-radius: 6px;
+			margin-top: 5px;}
+		.glassitem .bt{border-top:1px solid #e3e3e3}
+		.search-form .layui-inline{margin-bottom: 6px}
+		.layui-table-view .layui-table td .table-imgbox{width:60px;height:60px;float:left;display: flex;align-items: center;justify-content: center}
+		.layui-table-view .layui-table td .table-imgbox img{max-width:60px;max-height:60px;float:left;}
+		.layui-form-search .layui-inline{margin-bottom: 6px}
+		.layui-form-search .layui-inline .layui-input-inline{width:175px;}
+	</style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-card layui-col-md12">
+          <div class="layui-card-header" style="height: auto">
+			  <div class="layui-tab layui-tab-brief">
+				  <ul class="layui-tab-title">
+					  <li {if !input('?param.status') || input('param.status')===''}class="layui-this"{/if} onclick="location.href='{:url('index')}'">全部</li>
+					  <li {if input('param.status') == 'MERCHANT_PROCESSING'}class="layui-this"{/if} onclick="location.href='{:url('index')}/status/MERCHANT_PROCESSING'">待受理</li>
+					  <li {if input('param.status') == 'MERCHANT_WAIT_RECEIPT'}class="layui-this"{/if} onclick="location.href='{:url('index')}/status/MERCHANT_WAIT_RECEIPT'">待收货</li>
+					  <li {if input('param.status') == 'PLATFORM_REFUND_FAIL'}class="layui-this"{/if} onclick="location.href='{:url('index')}/status/PLATFORM_REFUND_FAIL'">待打款</li>
+					  <li {if input('param.status') == 'MERCHANT_OVERDUE_REFUND'}class="layui-this"{/if} onclick="location.href='{:url('index')}/status/MERCHANT_OVERDUE_REFUND'">逾期未退款</li>
+					  <li {if input('param.status') == 'MERCHANT_REFUND_SUCCESS'}class="layui-this"{/if} onclick="location.href='{:url('index')}/status/MERCHANT_REFUND_SUCCESS'">已退款</li>
+				  </ul>
+			  </div>
+			  {if input('param.isopen')==1}<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>{/if}
+		  </div>
+          <div class="layui-card-body" pad15>
+						<div class="layui-col-md4" style="padding-bottom:10px">
+							<button class="layui-btn layui-btn-primary layuiadmin-btn-list" data-form-export="{:url('index')}/excel/1">导出</button>
+							<button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="asyncAllOrder(0)">同步售后订单</button>
+						</div>
+						<div class="layui-form layui-col-md12 layui-form-search">
+							<div class="layui-inline">
+								<label class="layui-form-label">售后单号</label>
+								<div class="layui-input-inline">
+									<input type="text" name="after_sale_order_id" autocomplete="off" placeholder="输入售后单搜索" class="layui-input">
+								</div>
+							</div>
+							<div class="layui-inline">
+								<label class="layui-form-label">订单号</label>
+								<div class="layui-input-inline">
+									<input type="text" name="order_id" autocomplete="off" placeholder="输入订单搜索" class="layui-input">
+								</div>
+							</div>
+							<div class="layui-inline">
+								<label class="layui-form-label">物流单号</label>
+								<div class="layui-input-inline">
+									<input type="text" name="waybill_id" autocomplete="off" placeholder="输入退货物流单号" class="layui-input">
+								</div>
+							</div>
+							<div class="layui-inline">
+								<label class="layui-form-label">退款原因</label>
+								<div class="layui-input-inline">
+									<select name="reason_text">
+										<option value="">全部</option>
+										{foreach $after_refund_reason2 as $refund_k=>$refund_v}
+										<option value="{$refund_v}">{$refund_v}</option>
+										{/foreach}
+									</select>
+								</div>
+							</div>
+							<div class="layui-inline">
+								<label class="layui-form-label">手机号</label>
+								<div class="layui-input-inline">
+									<input type="text" name="tel_number" autocomplete="off" placeholder="输入下单手机号搜索" class="layui-input">
+								</div>
+							</div>
+							<div class="layui-inline">
+								<label class="layui-form-label">申请时间</label>
+								<div class="layui-input-inline" style="width:200px;margin-left:0">
+									<input type="text" name="create_time" id="orderTime"  autocomplete="off" placeholder="选择售后申请时间" class="layui-input" >
+								</div>
+							</div>
+							<div class="layui-inline">
+								<label class="layui-form-label">退款类型</label>
+								<div class="layui-input-inline">
+									<select name="type">
+										<option value="">全部</option>
+										{foreach $after_sale_type as $sale_type_k=>$sale_type_v}
+										<option value="{$sale_type_k}">{$sale_type_v}</option>
+										{/foreach}
+									</select>
+								</div>
+							</div>
+							<div class="layui-inline">
+								<label class="layui-form-label">买家/收件人</label>
+								<div class="layui-input-inline">
+									<input type="text" name="user_name" autocomplete="off" placeholder="输入买家昵称/收件人" class="layui-input">
+								</div>
+							</div>
+							<div class="layui-inline">
+								<label class="layui-form-label">商品编码</label>
+								<div class="layui-input-inline">
+									<input type="text" name="product_id" autocomplete="off" placeholder="填写商品编码" class="layui-input">
+								</div>
+							</div>
+							<div class="layui-inline">
+								<label class="layui-form-label">状态</label>
+								<div class="layui-input-inline">
+									<select name="status">
+										<option value="">全部</option>
+										{foreach $after_sale_status as $status_k=>$status_v}
+										<option value="{$status_k}">{$status_v}</option>
+										{/foreach}
+									</select>
+								</div>
+							</div>
+							<div class="layui-inline">
+								<button class="layui-btn layuiadmin-btn-replys" lay-submit="" lay-filter="LAY-app-forumreply-search">
+									<i class="layui-icon layui-icon-search layuiadmin-button-btn"></i>
+								</button>
+							</div>
+						</div>
+						<div class="layui-col-md12">
+							<table id="tabledata" lay-filter="tabledata"></table>
+						</div>
+          </div>
+        </div>
+    </div>
+  </div>
+  <div class="layui-form" lay-filter="" style="margin-top:20px; display: none" id="notcelayer">
+	  <input type="hidden" id="notice_id" />
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">订单编号：</label>
+		  <div class="layui-form-mid" id="notice_order_id">
+
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">备注：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline">
+				  <input type="text" id="notice" class="layui-input">
+			  </div>
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <div class="layui-input-block">
+			  <button class="layui-btn layui-btn-normal" lay-submit lay-filter="formNotice">确定</button>
+		  </div>
+	  </div>
+  </div>
+  <div class="layui-form" lay-filter="" style="margin-top:20px; display: none" id="stock">
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">下单时间：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline" style="width:300px;margin-left:0px">
+				  <input type="text" id="create_time_range" autocomplete="off" class="layui-input">
+			  </div>
+			  <div class="layui-form-mid layui-word-aux" style="margin-left:10px;">时间范围最大24H</div>
+		  </div>
+	  </div>
+<!--	  <div class="layui-form-item">-->
+<!--		  <label class="layui-form-label">订单状态：</label>-->
+<!--		  <div class="layui-inline">-->
+<!--			  <div class="layui-input-inline" style="width:300px;margin-left:0px">-->
+<!--				  <select id="query_status">-->
+<!--					  <option value="">全部</option>-->
+<!--					  {foreach $order_status as $status=>$status_name}-->
+<!--					  <option value="{$status}">{$status_name}</option>-->
+<!--					  {/foreach}-->
+<!--				  </select>-->
+<!--			  </div>-->
+<!--		  </div>-->
+<!--	  </div>-->
+  </div>
+  <div class="layui-form" lay-filter="" style="margin-top:20px; display: none" id="rejectlayer">
+	  <input type="hidden" id="reject_sale_id" />
+	  <div class="layui-form-item">
+		  <label class="layui-form-label" style="width: 120px;">售后单编号：</label>
+		  <div class="layui-form-mid" id="reject_sale_order_id">
+
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <label class="layui-form-label" style="width: 120px;">拒绝原因：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline" style="width:300px;margin-left:0px">
+				  <select name="reject_reason_type">
+					  <option value="">全部</option>
+					  {foreach $reject_reason_type_arr as $reject_reason_type}
+					  <option value="{$reject_reason_type['reject_reason_type']}">{$reject_reason_type['reject_reason_type_text']}</option>
+					  {/foreach}
+				  </select>
+			  </div>
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <label class="layui-form-label" style="width: 120px;">拒绝原因描述：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline" style="width:300px;margin-left:0px">
+				  <input type="text" name="reject_reason" class="layui-input">
+			  </div>
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <div class="layui-input-block">
+			  <button class="layui-btn layui-btn-normal" lay-submit lay-filter="formRejectReason">确定</button>
+		  </div>
+	  </div>
+  </div>
+  <div class="layui-form" lay-filter="" style="margin-top:20px; display: none" id="acceptlayer">
+	  <input type="hidden" id="accept_sale_id" />
+	  <div class="layui-form-item">
+		  <label class="layui-form-label" style="width: 120px;">售后单编号：</label>
+		  <div class="layui-form-mid" id="accept_sale_order_id">
+
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <label class="layui-form-label"  style="width: 120px;">类型：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline" style="width:300px;margin-left:0px">
+				  <input type="radio" name="accept_type" value="1" checked title="同意退货退款">
+				  <input type="radio" name="accept_type" value="2" title=" 确认收到货并退款">
+			  </div>
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <label class="layui-form-label"  style="width: 120px;">退货地址：</label>
+		  <div class="layui-form-mid" id="address_name">
+
+		  </div>
+		  <input type="hidden" name="address_id" id="address_id" />
+		  <a href="javascript:void(0)" class="layui-btn layui-btn-primary" onclick="chooseadrShow()">选择地址</a>
+	  </div>
+	  <div class="layui-form-item">
+		  <div class="layui-input-block">
+			  <button class="layui-btn layui-btn-normal" lay-submit lay-filter="formAcceptReason">确定</button>
+		  </div>
+	  </div>
+  </div>
+  <div class="layui-form" lay-filter="" style="margin-top:20px; display: none" id="uploadlayer">
+	  <input type="hidden" id="upload_sale_id" />
+	  <div class="layui-form-item">
+		  <label class="layui-form-label" style="width: 120px;">售后单编号：</label>
+		  <div class="layui-form-mid" id="upload_sale_order_id">
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <label class="layui-form-label" style="width: 120px;">退款凭证：</label>
+		  <input type="hidden" name="refund_certificates" value="" id="refund_certificates">
+		  <input type="hidden" name="refund_certificates_ids" value="" id="refund_certificates_ids">
+		  <button style="float:left;" type="button" class="layui-btn layui-btn-primary" onclick="uploader(this,true,'','channels_wx_mediaid')" upload-input="refund_certificates" upload-preview="refund_certificatesList" upload-channel-input="refund_certificates_ids" >批量上传</button>
+		  <div class="layui-form-mid layui-word-aux" style="margin-left:10px;"></div>
+		  <div id="refund_certificatesList" class="picsList-class-padding ui-sortable" style="    padding-top: 10px;
+    padding-left: 150px;
+    clear: both;">
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <label class="layui-form-label" style="width: 120px;">备注：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline" style="width:300px;margin-left:0px">
+				  <input type="text" name="desc" class="layui-input">
+			  </div>
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <div class="layui-input-block">
+			  <button class="layui-btn layui-btn-normal" lay-submit lay-filter="formUpload">确定</button>
+		  </div>
+	  </div>
+  </div>
+  <script id="detailtpl" type="text/html">
+	  {include file='wx_channels_after_sales/getdetail' /}
+  </script>
+	{include file="public/js"/}
+	<script>
+  var table = layui.table;
+	var datawhere = {};
+  //数据表
+  var tableIns = table.render({
+    elem: '#tabledata'
+    ,url: "{$Request.url}" //数据接口
+    ,page: true //开启分页
+    ,cols: [[ //表头
+			{type:"checkbox"},
+      {field: 'id', title: 'ID',  sort: true,width:70},
+		  {field: 'goodsdata', title: '商品信息',width: 300},
+		  {field: 'after_sale_order_id', title: '售后单号/申请时间',sort: true,width:160,templet:function(d){
+				  return d.after_sale_order_id +'<div style="color:#080">'+ date('Y年m月d日 H:i',d.create_time)+'</div>'
+			  }},
+		  {field: 'order_id', title: '订单编号'},
+      	{field: 'status_name', title: '状态'},
+		  {field: 'openid', title: '用户信息'},
+		  // {field: 'product_id', title: '商品id'},
+		  // {field: 'sku_id', title: '商品skuid'},
+		  // {field: 'count', title: '售后数量'},
+		  {field: 'amount', title: '退款金额'},
+		  {field: 'refund_reason_str', title: '退款原因'},
+		  {field: 'waybill_id', title: '退货物流信息',templet:function(d){
+		  	if(d.delivery_id){
+				return d.delivery_name + d.delivery_id
+			}else{
+		  		return '';
+			}
+		  }},
+		  {field: 'type_str', title: '退款类型/原因',templet:function(d){
+			  return d.type_str +'<div style="color:#080">'+ d.reason_text+'</div>'
+		  }},
+      {field: 'operation', title: '操作',templet:function(d){
+				var html = '';
+			  html += '<button class="table-btn" onclick="showdetail('+d.id+')">详情</button>';
+				if(d.status=='MERCHANT_PROCESSING'){
+					//退款商家受理中
+					html += '<button class="table-btn" onclick="rejectsale('+d.id+',\''+d.after_sale_order_id+'\')">拒绝售后</button>';
+					if(d.type=='REFUND'){
+						//退款
+						html += '<button class="table-btn" onclick="acceptrefund('+d.id+',\''+d.order_id+'\',\''+d.amount+'\')">同意退款</button>';
+					}else{
+						//退货退款
+						html += '<button class="table-btn" onclick="acceptreturn('+d.id+',\''+d.order_id+'\')">同意售后</button>';
+					}
+					html += '<button class="table-btn" onclick="uploadrefund('+d.id+',\''+d.order_id+'\')">线下退款</button>';
+				}
+				if(d.status=='MERCHANT_WAIT_RECEIPT'){
+					//退款待商家收货
+					html += '<button class="table-btn" onclick="acceptreturn('+d.id+',\''+d.order_id+'\')">同意售后</button>';
+				}
+			  // html += '<button class="table-btn" onclick="openmax(\'{:url('view')}/isopen/1/id/'+d.id+'\')">查看</button>';
+				return html;
+      }}
+    ]]
+  });
+	//排序
+	table.on('sort(tabledata)', function(obj){
+		datawhere.field = obj.field;
+		datawhere.order = obj.type;
+		tableIns.reload({
+			initSort: obj,
+			where: datawhere
+		});
+	});
+	//日期范围选择
+	layui.laydate.render({
+	  elem: '#orderTime',
+	  trigger: 'click',
+	  type:'datetime',
+	  range: '~' //或 range: '~' 来自定义分割字符
+	});
+	//检索
+	layui.form.on('submit(LAY-app-forumreply-search)', function(obj){
+		var field = obj.field
+		var olddatawhere = datawhere
+		datawhere = field
+		datawhere.field = olddatawhere.field
+		datawhere.order = olddatawhere.order
+		tableIns.reload({
+			where: datawhere,
+			page: {curr: 1}
+		});
+	});
+	//详情
+  var detailLayer;
+  function showdetail(id){
+	  var index = layer.load();
+	  $.post("{:url('getdetail')}",{id:id},function(data){
+		  layer.close(index);
+		  var html = '';
+		  layui.laytpl(detailtpl.innerHTML).render(data, function(html){
+			  //view.innerHTML = html;
+			  var detailBtn = [];
+			  if(data.info.status=='MERCHANT_WAIT_RECEIPT'){
+				  detailBtn.push('同意售后');
+			  }else if(data.info.status=='MERCHANT_PROCESSING'){
+				  if(data.info.type=='REFUND'){
+					  detailBtn.push('同意退款');
+				  }else{
+					  detailBtn.push('同意售后');
+				  }
+				  detailBtn.push('线下退款');
+				  detailBtn.push('拒绝售后');
+			  }
+
+
+			  detailLayer = layer.open({type:1,title:'售后单详情',area:'500px',content:html,resize:true,shadeClose:true,maxmin:true,btn:detailBtn,
+				  yes:function(){
+					  return btnOperation(detailBtn[0],data.info);
+				  },
+				  btn2:function(){
+					  return btnOperation(detailBtn[1],data.info);
+				  },
+				  btn3:function(){
+					  return btnOperation(detailBtn[2],data.info);
+				  },
+			  });
+		  });
+	  })
+  }
+  function btnOperation(type,data){
+	  if(type=='同意售后'){
+		  acceptreturn(data.id,''+data.order_id+'')
+	  }else if(type=='同意退款'){
+		  acceptrefund(data.id,''+data.after_sale_order_id+'',''+data.amount+'')
+	  }else if(type=='线下退款'){
+		  uploadrefund(data.id,''+data.after_sale_order_id+'')
+	  }else if(type=='拒绝售后'){
+		  rejectsale(data.id,''+data.after_sale_order_id+'')
+	  }
+  }
+
+	//拒绝提交
+  var rejectlayer
+  function rejectsale(id,order_id){
+  	console.log(order_id);
+	  $('#reject_sale_id').val(id);
+	  $('#reject_sale_order_id').html(order_id);
+	  rejectlayer = layer.open({type:1,area: ['500px', '480px'],title:'拒绝售后',content:$('#rejectlayer'),shadeClose:true})
+  }
+  //拒绝提交
+  layui.form.on('submit(formRejectReason)', function(obj){
+	  var index= layer.load();
+	  var id =  $('#reject_sale_id').val();
+	  console.log(obj);
+	  var filed = obj.field;
+	  filed.id = id;
+	  filed.status = 2;
+	  console.log(filed);
+	  $.post("{:url('audit')}",filed,function(data){
+		  layer.close(index);
+		  dialog(data.msg,data.status,data.url);
+		  if(data.status==1){
+			  tableIns.reload({
+				  where: datawhere
+			  });
+		  }
+		  layer.close(rejectlayer);
+	  })
+  });
+
+  //同意退货申请
+  var acceptlayer
+  function acceptreturn(id,order_id){
+	  $('#accept_sale_id').val(id);
+	  $('#accept_sale_order_id').html(order_id);
+	  acceptlayer = layer.open({type:1,area: ['500px', '480px'],title:'同意售后',content:$('#acceptlayer'),shadeClose:true})
+  }
+  layui.form.on('submit(formAcceptReason)', function(obj){
+	  var index= layer.load();
+	  var id =  $('#accept_sale_id').val();
+	  console.log(obj);
+	  var filed = obj.field;
+	  filed.id = id;
+	  filed.status = 1;
+	  console.log(filed);
+	  $.post("{:url('audit')}",filed,function(data){
+		  layer.close(index);
+		  dialog(data.msg,data.status,data.url);
+		  if(data.status==1){
+			  tableIns.reload({
+				  where: datawhere
+			  });
+		  }
+		  layer.close(acceptlayer);
+	  })
+  });
+  //同意退款
+  function acceptrefund(id,order_id,amount){
+	  layer.confirm('确认退款后，退款金额'+amount+'将直接退入买家微信支付账户内，确认退款?',{icon: 7, title:'操作确认'}, function(index){
+		  var index2= layer.load();
+		  $.post("{:url('audit')}",{id:id,status:1},function(data){
+			  layer.close(index);
+			  layer.close(index2);
+			  dialog(data.msg,data.status,data.url);
+			  if(data.status==1){
+				  tableIns.reload({
+					  where: datawhere
+				  });
+			  }
+		  })
+	  });
+  }
+
+  //上传退款凭证
+  var uploadlayer
+  function uploadrefund(id,order_id){
+	  $('#upload_sale_id').val(id);
+	  $('#upload_sale_order_id').html(order_id);
+	  $('#refund_certificatesList').html('');
+	  $('#refund_certificates').val('');
+	  $('#refund_certificates_ids').val('');
+
+	  uploadlayer = layer.open({type:1,area: ['500px', '480px'],title:'同意售后',content:$('#uploadlayer'),shadeClose:true})
+  }
+  layui.form.on('submit(formUpload)', function(obj){
+	  var index= layer.load();
+	  var id =  $('#upload_sale_id').val();
+	  console.log(obj);
+	  var filed = obj.field;
+	  filed.id = id;
+	  console.log(filed);
+	  $.post("{:url('upload_refund')}",filed,function(data){
+		  layer.close(index);
+		  dialog(data.msg,data.status,data.url);
+		  if(data.status==1){
+			  tableIns.reload({
+				  where: datawhere
+			  });
+		  }
+		  layer.closeAll();
+	  })
+  });
+
+  function showImg(obj){
+	  if($(obj).attr('src')){
+		  var url = $(obj).attr('src')
+		  parent.layer.open({type:1,area:'500px',content:'<div style="margin:auto auto;text-align:center"><img src="'+url+'" style="max-width:100%;max-height:100%" onclick="window.open(\''+url+'\')"/></div>',title:false,shadeClose:true})
+	  }
+  }
+	</script>
+  <script>
+	  //日期范围选择
+	  layui.laydate.render({
+		  elem: '#create_time_range',
+		  trigger: 'click',
+		  type:'datetime',
+		  range: '~' //或 range: '~' 来自定义分割字符
+	  });
+	  //同步售后单
+	  var $ = layui.jquery
+			  ,element = layui.element; //Tab的切换功能，切换事件监听等，需要依赖element模块
+	  var next_key = 0;
+	  var percent = 0;
+	  function asyncAllOrder(type){
+		  var orderLayer = layer.open({type:1,area:['600px','400px'],title:'同步售后订单',content:$("#stock"),shadeClose:true,btn: ['确定', '取消'],
+			  yes:function(){
+				  pagenum = 0;
+				  var status = $('#query_status').val();
+				  var create_time_range = $('#create_time_range').val();
+				  if(!create_time_range){
+				  	layer.msg('请选择时间');
+				  	return
+				  }
+				  var field = {};
+				  field.status = status;
+				  field.create_time_range = create_time_range;
+				  layer.msg('同步中，请勿刷新或关闭页面', {
+					  icon: 16,
+					  shade: 0.01,
+					  time:false
+				  });
+				  _tplsend(field);
+			  }
+		  });
+	  }
+	  function _tplsend(field){
+		  pagenum++;
+		  $.ajax({
+			  type:'POST',
+			  url:"{:url('asyncAllOrder')}/next_key/"+next_key,
+			  dataType:'json',
+			  data:field,
+			  success:function(data){
+				  console.log(data);
+
+				  if(data.status==1){
+					  next_key = data.next_key;
+					  //layer.msg('成功同步'+next_key+'',{offset:'100px'});
+					  layer.msg('正在同步'+next_key+'，请勿刷新或关闭页面', {
+						  icon: 16,
+						  shade: 0.01,
+						  time:false
+					  });
+					  tableIns.reload();
+				  }
+				  // return false;
+				  if(data.status==1 && data.continue_flag){
+					  _tplsend(field);
+				  }else{
+					  if(data.status==1){
+						  dialog(data.msg,1);
+					  }else{
+						  dialog(data.msg,data.status);
+					  }
+					  next_key = '';
+					  setTimeout(function(){
+						  parent.layer.closeAll();
+						  parent.tableIns.reload()
+					  },2000);
+				  }
+			  },
+			  error:function(){
+				  layer.close(index);
+				  dialog('未知错误',0);
+			  }
+		  })
+	  }
+
+	  function chooseadrShow(){
+		  layer.open({type:2,title:'选择地址',content:"{:url('WxChannelsAddress/choosechanelsaddress')}",area:['900px','600px'],shadeClose:true});
+	  }
+	  function choosechannelsaddress (data) {
+		  console.log(data);
+		  $("input[name='address_id']").val(data.address_id);
+		  $("#address_name").text(data.address_id+'-'+data.name);
+
+	  }
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

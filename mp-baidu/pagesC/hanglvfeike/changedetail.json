@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "选择改签航班",
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

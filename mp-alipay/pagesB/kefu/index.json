@@ -1,0 +1,10 @@
+{
+  "defaultTitle": "在线咨询",
+  "pullRefresh": false,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "wxface": "/components/wxface/wxface",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

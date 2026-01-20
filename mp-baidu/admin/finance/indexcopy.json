@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "财务copy",
+  "navigationStyle": "custom",
+  "component": true,
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

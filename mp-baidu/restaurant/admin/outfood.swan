@@ -1,0 +1,1 @@
+<view><view class="container"><block s-if="{{btnshow}}"><view data-event-opts="{{[['tap',[['saoyisao',['$event']]]]]}}" class="btn-add" bindtap="__e">扫码出餐</view></block><block s-if="{{loading}}"><loading vue-id="776d57a2-1"></loading></block></view><wxxieyi vue-id="776d57a2-2"></wxxieyi></view>

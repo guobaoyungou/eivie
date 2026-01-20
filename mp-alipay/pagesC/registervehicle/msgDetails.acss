@@ -1,0 +1,1 @@
+page{background:#fff}.page-class{padding:30rpx;position:relative}.title-view-class{width:100%}.title-view-class .title-text{font-size:30rpx;font-weight:700;color:#000}.title-view-class .time-text{font-size:24rpx;color:#a09fa6}.info-text{font-size:28rpx;color:#a09fa6;width:100%;word-break:break-all;margin-top:40rpx}

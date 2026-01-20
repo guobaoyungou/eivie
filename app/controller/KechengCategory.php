@@ -1,0 +1,160 @@
+<?php
+/**
+ * 点大商城（www.diandashop.com） - 微信公众号小程序商城系统!
+ * Copyright © 2020 山东点大网络科技有限公司 保留所有权利
+ * =========================================================
+ * 版本：V2
+ * 授权主体：shop.guobaoyungou.cn
+ * 授权域名：guobaoyungou.cn
+ * 授权码：TZJcxBSGGdtDBIxFerKVJo
+ * ----------------------------------------------
+ * 您只能在商业授权范围内使用，不可二次转售、分发、分享、传播
+ * 任何企业和个人不得对代码以任何目的任何形式的再发布
+ * =========================================================
+ */
+
+// +----------------------------------------------------------------------
+// | 课程分类
+// +----------------------------------------------------------------------
+namespace app\controller;
+use think\facade\View;
+use think\facade\Db;
+
+class KechengCategory extends Common
+{
+    public function initialize(){
+		parent::initialize();
+		$this->defaultSet();
+	}
+	//列表
+    public function index(){
+		if(request()->isAjax()){
+			if(input('param.field') && input('param.order')){
+				$order = input('param.field').' '.input('param.order');
+			}else{
+				$order = 'sort desc, id';
+			}
+			$where = [];
+			$where[] = ['aid','=',aid];
+			$where[] = ['bid','=',bid];
+			$data = [];
+			$cate0 = Db::name('kecheng_category')->where('aid',aid)->where('bid',bid)->where('pid',0)->order($order)->select()->toArray();
+			foreach($cate0 as $c0){
+				if($c0['pcid']){
+					$pcinfo = Db::name('kecheng_category')->where('aid',aid)->where('id',$c0['pcid'])->find();
+					$pcname = $pcinfo['name'];
+					if($pcinfo['pid']){
+						$pcinfoP = Db::name('kecheng_category')->where('aid',aid)->where('id',$pcinfo['pid'])->find();
+						$pcname = $pcinfoP['name'] . ' / ' .$pcname;
+					}
+					$c0['pcname'] = $pcname;
+				}
+				$data[] = $c0;
+				$cate1 = Db::name('kecheng_category')->where('aid',aid)->where('bid',bid)->where('pid',$c0['id'])->order($order)->select()->toArray();
+				foreach($cate1 as $k1=>$c1){
+					if($k1 < count($cate1)-1){
+						$c1['name'] = '<span style="color:#aaa">&nbsp;&nbsp;&nbsp;&nbsp;├ </span>'.$c1['name'];
+					}else{
+						$c1['name'] = '<span style="color:#aaa">&nbsp;&nbsp;&nbsp;&nbsp;└ </span>'.$c1['name'];
+					}
+					$data[] = $c1;
+				}
+			}
+			return json(['code'=>0,'msg'=>'查询成功','count'=>count($cate0),'data'=>$data]);
+		}
+		return View::fetch();
+    }
+	//编辑
+	public function edit(){
+		if(input('param.id')){
+			$info = Db::name('kecheng_category')->where('aid',aid)->where('bid',bid)->where('id',input('param.id/d'))->find();
+		}else{
+			$info = array('id'=>'');
+			if(input('param.pid')) $info['pid'] = input('param.pid');
+		}
+		if(false){}else{
+			$pcCidArr = [];
+		}
+
+		View::assign('pcCidArr',$pcCidArr);
+		View::assign('info',$info);
+		return View::fetch();
+	}
+	public function save(){
+		$info = input('post.info/a');
+		if($info['id']){
+			Db::name('kecheng_category')->where('aid',aid)->where('bid',bid)->where('id',$info['id'])->update($info);
+			\app\common\System::plog('编辑课程分类'.$info['id']);
+		}else{
+			$info['aid'] = aid;
+			$info['bid'] = bid;
+			$info['createtime'] = time();
+			$id = Db::name('kecheng_category')->insertGetId($info);
+			\app\common\System::plog('添加课程分类'.$id);
+		}
+		return json(['status'=>1,'msg'=>'操作成功','url'=>(string)url('index')]);
+	}
+	//改状态
+	public function setst(){
+		$st = input('post.st/d');
+		$ids = input('post.ids/a');
+		Db::name('kecheng_category')->where('aid',aid)->where('bid',bid)->where('id','in',$ids)->update(['status'=>$st]);
+		\app\common\System::plog('课程分类改状态'.implode(',',$ids));
+		return json(['status'=>1,'msg'=>'操作成功']);
+	}
+	//删除
+	public function del(){
+		$ids = input('post.ids/a');
+		Db::name('kecheng_category')->where('aid',aid)->where('bid',bid)->where('id','in',$ids)->delete();
+		\app\common\System::plog('课程分类删除'.implode(',',$ids));
+		return json(['status'=>1,'msg'=>'删除成功']);
+	}
+    function defaultSet(){
+        $set = Db::name('kecheng_sysset')->where('aid',aid)->find();
+        if(!$set){
+            Db::name('kecheng_sysset')->insert(['aid'=>aid]);
+        }
+    }
+
+    //选择分类弹窗
+    public function choosecategory(){
+        if(request()->isAjax()){
+            if(input('param.field') && input('param.order')){
+                $order = input('param.field').' '.input('param.order');
+            }else{
+                $order = 'sort desc,id';
+            }
+            $where = [];
+            $where[] = ['aid','=',aid];
+            $data = [];
+            $cate0 = Db::name('kecheng_category')->where('aid',aid)->where('pid',0)->order($order)->select()->toArray();
+            foreach($cate0 as $c0){
+                $c0['showname'] = $c0['name'];
+                $c0['deep'] = 0;
+                $data[] = $c0;
+                $cate1 = Db::name('kecheng_category')->where('aid',aid)->where('pid',$c0['id'])->order($order)->select()->toArray();
+                foreach($cate1 as $k1=>$c1){
+                    if($k1 < count($cate1)-1){
+                        $c1['showname'] = '<span style="color:#aaa">&nbsp;&nbsp;&nbsp;&nbsp;├ </span>'.$c1['name'];
+                    }else{
+                        $c1['showname'] = '<span style="color:#aaa">&nbsp;&nbsp;&nbsp;&nbsp;└ </span>'.$c1['name'];
+                    }
+                    $c1['deep'] = 1;
+                    $data[] = $c1;
+                    $cate2 = Db::name('kecheng_category')->where('aid',aid)->where('pid',$c1['id'])->order($order)->select()->toArray();
+                    foreach($cate2 as $k2=>$c2){
+                        if($k2 < count($cate2)-1){
+                            $c2['showname'] = '<span style="color:#aaa">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ </span>'.$c2['name'];
+                        }else{
+                            $c2['showname'] = '<span style="color:#aaa">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ </span>'.$c2['name'];
+                        }
+                        $c2['deep'] = 2;
+                        $data[] = $c2;
+                    }
+                }
+            }
+            return json(['code'=>0,'msg'=>'查询成功','count'=>count($cate0),'data'=>$data]);
+        }
+        return View::fetch();
+    }
+}

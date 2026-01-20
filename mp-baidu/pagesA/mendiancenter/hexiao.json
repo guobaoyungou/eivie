@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "核销订单",
+  "component": true,
+  "usingComponents": {
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

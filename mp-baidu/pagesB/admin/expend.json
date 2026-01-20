@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "支出记录",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg",
+    "uni-datetime-picker": "/pagesB/admin/uni-datetime-picker/uni-datetime-picker"
+  }
+}

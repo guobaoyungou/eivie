@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AI旅拍 - 商家配置管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+    <style>
+        .config-form {
+            padding: 20px;
+        }
+        .form-section {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .form-section:last-child {
+            border-bottom: none;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            padding-left: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .form-row {
+            display: flex;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        .form-label {
+            width: 150px;
+            text-align: right;
+            padding-right: 20px;
+            color: #666;
+            font-weight: 500;
+        }
+        .form-input {
+            flex: 1;
+        }
+        .form-help {
+            color: #999;
+            font-size: 12px;
+            margin-top: 5px;
+            padding-left: 170px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .monitor-path-tip {
+            background: #f8f9ff;
+            border: 1px solid #667eea;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .monitor-path-tip code {
+            background: #667eea;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-card layui-col-md12">
+                <div class="layui-card-header">
+                    <i class="fa fa-cog"></i> AI旅拍 - 商家配置管理
+                </div>
+                <div class="layui-card-body pad15">
+                    <blockquote class="layui-elem-quote">
+                        配置可灵AI账号、监控路径、生成参数等信息
+                    </blockquote>
+                    
+                    <div class="layui-col-md6" style="padding-bottom:10px">
+                        <button class="layui-btn layuiadmin-btn-list" onclick="openmax('{:url('edit')}')">
+                            <i class="fa fa-plus"></i> 新增配置
+                        </button>
+                    </div>
+                    
+                    <div class="layui-col-md12">
+                        <table id="tabledata" lay-filter="tabledata"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {include file="public/js"/}
+    <script>
+        layui.use(['table', 'layer', 'form'], function(){
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            
+            // 数据表
+            var tableIns = table.render({
+                elem: '#tabledata',
+                url: "{:url('config_list')}",
+                page: true,
+                cols: [[
+                    {type: 'checkbox'},
+                    {field: 'id', title: 'ID', width: 80},
+                    {field: 'merchant_name', title: '商家名称'},
+                    {field: 'model_name', title: '模型名称'},
+                    {field: 'mode', title: '生成模式'},
+                    {field: 'aspect_ratio', title: '画幅比例'},
+                    {field: 'duration', title: '视频时长(秒)'},
+                    {field: 'monitor_path', title: '监控路径', width: 200},
+                    {field: 'auto_upload', title: '自动上传', templet: function(d){
+                        return d.auto_upload == 1 ? '<span class="layui-badge layui-bg-green">是</span>' : '<span class="layui-badge layui-bg-gray">否</span>';
+                    }},
+                    {field: 'status', title: '状态', width: 100, templet: function(d){
+                        return d.status == 1 ? '<span class="layui-badge layui-bg-green">启用</span>' : '<span class="layui-badge layui-bg-gray">禁用</span>';
+                    }},
+                    {field: 'createtime', title: '创建时间', templet: function(d){
+                        return layui.util.toDateString(d.createtime * 1000, 'yyyy-MM-dd HH:mm:ss');
+                    }},
+                    {field: 'updatetime', title: '更新时间', templet: function(d){
+                        return layui.util.toDateString(d.updatetime * 1000, 'yyyy-MM-dd HH:mm:ss');
+                    }},
+                    {fixed: 'right', title: '操作', toolbar: '#tableToolbar', width: 200}
+                ]],
+                page: true,
+                limit: 20,
+                limits: [10, 20, 50, 100],
+                done: function(res, curr, count){
+                    // 数据加载完成
+                }
+            });
+            
+            // 工具栏
+            table.on('toolbar(tabledata)', function(obj){
+                var checkStatus = table.checkStatus(tabledata);
+                var data = obj.data;
+                
+                if(obj.event === 'edit'){
+                    openmax('{:url('edit', ['id' => data.id])}');
+                } else if(obj.event === 'del'){
+                    if(checkStatus){
+                        layer.confirm('确定删除该配置吗?', function(index){
+                            layui.$.ajax({
+                                url: "{:url('delete')}",
+                                type: 'POST',
+                                data: {id: data.id},
+                                success: function(res){
+                                    if(res.status == 1){
+                                        layer.msg('删除成功');
+                                        tableIns.reload();
+                                    } else {
+                                        layer.msg(res.msg || '删除失败');
+                                    }
+                                    layer.close(index);
+                                }
+                            });
+                        });
+                    }
+                }
+            });
+        });
+        
+        function openmax(url){
+            layer.open({
+                type: 2,
+                title: '配置信息',
+                area: ['800px', '600px'],
+                content: url,
+                end: function(){
+                    // 窗口关闭后的回调
+                }
+            });
+        }
+    </script>
+</body>
+</html>

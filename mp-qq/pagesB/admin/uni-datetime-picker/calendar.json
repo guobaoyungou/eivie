@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "calendar-item": "/pagesB/admin/uni-datetime-picker/calendar-item",
+    "time-picker": "/pagesB/admin/uni-datetime-picker/time-picker"
+  }
+}

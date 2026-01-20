@@ -1,0 +1,1 @@
+.container{width:100%;margin-top:90rpx;display:flex;flex-direction:column}.content{width:94%;margin:0 3% 20rpx 3%}.content .item{width:100%;background:#fff;margin:20rpx 0;padding:20rpx 20rpx;border-radius:8px;line-height:60rpx}.content .item:last-child{border:0}

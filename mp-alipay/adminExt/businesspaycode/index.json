@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "商家收款码",
+  "pullRefresh": false,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

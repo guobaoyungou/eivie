@@ -1,0 +1,17 @@
+{
+  "custom_file": "hotel",
+  "enablePullDownRefresh": false,
+  "navigationStyle": "custom",
+  "componentPlaceholder": {
+    "calendar": "view"
+  },
+  "component": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "parse": "/components/parse/parse",
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "dp": "/components/dp/dp",
+    "calendar": "/hotel/mobile-calendar-simple/Calendar"
+  }
+}

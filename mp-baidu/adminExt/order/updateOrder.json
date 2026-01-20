@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "订单修改",
+  "component": true,
+  "usingComponents": {
+    "uni-data-picker": "/components/uni-data-picker/uni-data-picker",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

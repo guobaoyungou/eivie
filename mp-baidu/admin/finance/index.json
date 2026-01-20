@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "财务",
+  "navigationStyle": "custom",
+  "component": true,
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading"
+  }
+}

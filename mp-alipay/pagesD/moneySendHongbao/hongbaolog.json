@@ -1,0 +1,9 @@
+{
+  "defaultTitle": "发红包记录",
+  "pullRefresh": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading"
+  }
+}

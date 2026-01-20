@@ -1,0 +1,6 @@
+{
+  "defaultTitle": "计划详情",
+  "usingComponents": {
+    "uni-popup": "/components/uni-popup/uni-popup"
+  }
+}

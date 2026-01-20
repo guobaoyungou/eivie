@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>服务器域名设置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+	<style>
+		.labelValue {line-height: 20px;
+			padding: 9px 15px;
+			word-wrap: break-word;
+		}
+	</style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+		<div class="layui-card-header"><i class="fa fa-cog"></i> 服务器域名设置<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i></div>
+		<div class="layui-card-body" pad15>
+			<blockquote class="layui-elem-quote" style="color:#333">
+				1.配置后，需重新提交代码审核，审核通过且重新发布上线后才会生效。<br>
+				2.提交后还未重新发布上线前，再次打开看不到上次的配置为正常情况，上次的配置还未生效，接口读取的是已生效的配置，审核通过且重新发布上线后才会生效。<br>
+				3.每个月只能修改50次。<br>
+				4.<a href="https://developers.weixin.qq.com/miniprogram/dev/framework/ability/network.html#1.%20%E6%9C%8D%E5%8A%A1%E5%99%A8%E5%9F%9F%E5%90%8D%E9%85%8D%E7%BD%AE" target="_blank">官方域名配置说明文档</a>
+			</blockquote>
+			<div class="layui-form form-label-w10" lay-filter="">
+				<div class="layui-form-item">
+					<label class="layui-form-label">request合法域名：</label>
+					<div class="layui-col-md8">
+						<input type="text" name="info[requestdomain]" value="{$info['requestdomain']}" class="layui-input" lay-verify="required" lay-verType="tips"/>
+					</div>
+					<div class="layui-form-mid layui-word-aux layui-clear">以 https:// 开头。可填写300个域名，域名间请用英文 ; 分割</div>
+				</div>
+				<div class="layui-form-item">
+					<label class="layui-form-label">socket合法域名：</label>
+					<div class="layui-col-md8">
+						<input type="text" name="info[wsrequestdomain]" value="{$info['wsrequestdomain']}" class="layui-input" lay-verify="required" lay-verType="tips"/>
+					</div>
+					<div class="layui-form-mid layui-word-aux layui-clear">以 wss:// 开头。可填写200个域名，域名间请用英文 ; 分割</div>
+				</div>
+				<div class="layui-form-item">
+					<label class="layui-form-label">uploadFile合法域名：</label>
+					<div class="layui-col-md8">
+						<input type="text" name="info[uploaddomain]" value="{$info['uploaddomain']}" class="layui-input" lay-verify="required" lay-verType="tips"/>
+					</div>
+					<div class="layui-form-mid layui-word-aux layui-clear">以 https:// 开头。可填写200个域名，域名间请用英文 ; 分割</div>
+				</div>
+				<div class="layui-form-item">
+					<label class="layui-form-label">downloadFile合法域名：</label>
+					<div class="layui-col-md8">
+						<input type="text" name="info[downloaddomain]" value="{$info['downloaddomain']}" class="layui-input" lay-verify="required" lay-verType="tips"/>
+					</div>
+					<div class="layui-form-mid layui-word-aux layui-clear">以 https:// 开头。可填写200个域名，域名间请用英文 ; 分割</div>
+				</div>
+<!--						<div class="layui-form-item">-->
+<!--							<label class="layui-form-label">udp合法域名：</label>-->
+<!--							<div class="layui-col-md8">-->
+<!--								<input type="text" name="info[udpdomain]" value="{$info['udpdomain']}" class="layui-input" />-->
+<!--							</div>-->
+<!--							<div class="layui-form-mid layui-word-aux layui-clear">以 udp:// 开头。可填写200个域名，域名间请用英文 ; 分割</div>-->
+<!--						</div>-->
+<!--						<div class="layui-form-item">-->
+<!--							<label class="layui-form-label">tcp合法域名：</label>-->
+<!--							<div class="layui-col-md8">-->
+<!--								<input type="text" name="info[notice_method]" value="{$info['notice_method']}" class="layui-input" />-->
+<!--							</div>-->
+<!--							<div class="layui-form-mid layui-word-aux layui-clear">以 tcp:// 开头。可填写200个域名，域名间请用英文 ; 分割</div>-->
+<!--						</div>-->
+
+				<div class="layui-form-item">
+					<label class="layui-form-label"></label>
+					<div class="layui-input-block">
+						<button class="layui-btn layui-btn-primary" onclick="getEffectiveServerDomain()">查看发布后生效域名</button><button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+					</div>
+				</div>
+			</div>
+		</div>
+      </div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		$.post('',field,function(data){
+			dialog(data.msg,data.status,data.url);
+		})
+	})
+	function getEffectiveServerDomain(){
+		var index = layer.load();
+		$.get("{:url('getEffectiveServerDomain')}",{},function(res){
+			layer.close(index);
+			var data = res.data;
+			if(res.status != 1){
+				dialog(res.msg,res.status);return;
+			}
+
+			var html = '<div style="margin:auto auto;">';
+			html+='<div class="layui-form form-label-w10" lay-filter="">\n' +
+					'\t\t\t\t<div class="layui-form-item">\n' +
+					'\t\t\t\t\t<label class="layui-form-label">request合法域名：</label>\n' +
+					'\t\t\t\t\t<div class="layui-col-md8 labelValue">\n' +
+					data.requestdomain +
+					'\t\t\t\t\t</div>\n' +
+					'\t\t\t\t</div>'+
+					'\t\t\t\t<div class="layui-form-item">\n' +
+					'\t\t\t\t\t<label class="layui-form-label">socket合法域名：</label>\n' +
+					'\t\t\t\t\t<div class="layui-col-md8 labelValue">\n' +
+					data.wsrequestdomain +
+					'\t\t\t\t\t</div>\n' +
+					'\t\t\t\t</div>'+
+					'\t\t\t\t<div class="layui-form-item">\n' +
+					'\t\t\t\t\t<label class="layui-form-label">upload合法域名：</label>\n' +
+					'\t\t\t\t\t<div class="layui-col-md8 labelValue">\n' +
+					data.uploaddomain +
+					'\t\t\t\t\t</div>\n' +
+					'\t\t\t\t</div>'+
+					'\t\t\t\t<div class="layui-form-item">\n' +
+					'\t\t\t\t\t<label class="layui-form-label">download合法域名：</label>\n' +
+					'\t\t\t\t\t<div class="layui-col-md8 labelValue">\n' +
+					data.downloaddomain +
+					'\t\t\t\t\t</div>\n' +
+					'\t\t\t\t</div>'+
+				'</div>';
+			html+='</div>'
+
+			layer.open({type:1,area:['740px','320px'],content:html,title:'发布后生效域名',shadeClose:true})
+		});
+
+	}
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

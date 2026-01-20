@@ -1,0 +1,10 @@
+{
+  "defaultTitle": "文章列表",
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "loading": "/components/loading/loading",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

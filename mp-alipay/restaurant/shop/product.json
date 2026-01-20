@@ -1,0 +1,11 @@
+{
+  "defaultTitle": "商品详情",
+  "usingComponents": {
+    "couponlist": "/components/couponlist/couponlist",
+    "dp": "/components/dp/dp",
+    "buydialog-restaurant": "/components/buydialog-restaurant/buydialog-restaurant",
+    "scrolltop": "/components/scrolltop/scrolltop",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

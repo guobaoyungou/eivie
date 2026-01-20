@@ -1,0 +1,9 @@
+{
+  "defaultTitle": "商家打赏",
+  "pullRefresh": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "",
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "nomore": "/components/nomore/nomore"
+  }
+}

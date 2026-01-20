@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "存取记录",
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

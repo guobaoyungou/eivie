@@ -1,0 +1,10 @@
+{
+  "defaultTitle": "寄快递",
+  "pullRefresh": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

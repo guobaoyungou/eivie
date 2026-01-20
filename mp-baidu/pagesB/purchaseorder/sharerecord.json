@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "分享记录",
+  "component": true,
+  "usingComponents": {
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

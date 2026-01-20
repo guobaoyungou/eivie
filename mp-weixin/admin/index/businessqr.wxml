@@ -1,0 +1,1 @@
+<view class="addressadd"><block wx:if="{{isload}}"><block><image style="width:100%;" src="{{poster}}" data-url="{{poster}}" mode="widthFix" data-event-opts="{{[['tap',[['previewImage',['$event']]]]]}}" bindtap="__e"></image></block></block></view>

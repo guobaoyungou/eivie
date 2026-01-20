@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "计划详情",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "uni-popup": "/components/uni-popup/uni-popup"
+  }
+}

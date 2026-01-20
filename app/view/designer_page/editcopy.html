@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>页面设计</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+	<style>
+		.layui-card-header{display:flex;align-items:center;justify-content: space-between;position: relative;height: 50px;line-height: 50px;padding: 0 15px;
+			border-bottom: 1px solid #f6f6f6;color: #333;border-radius: 2px 2px 0 0;font-size: 14px;}
+		.button-div button{border-radius: 4px;padding: 0px 15px;}
+		.header-icon-div{}
+		.header-icon-div .img-box{width: 20px;height: 20px;margin-right:15px;cursor:pointer;}
+		.header-icon-div .img-box img{width: 20px;height: 20px;display: block;}
+		.select-div{margin-right: 15px;}
+		.header-icon-div .select-div .layui-form-select{border-radius: 5px;border:none;}
+		.header-icon-div .select-div .layui-form-select .layui-unselect{background: #F7F7F7;border:none;}
+	</style>
+</head>
+<body>
+  <div class="layui-fluid" style="padding:8px">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-form">
+				<div class="layui-card-header">
+					<div class="flex-y-center header-icon-div">
+						<div class="img-box" onclick="closeSelf()"><img src="{$Think.const.PRE_URL}/static/admin/img/fanhui.png"></div>
+						<div class="img-box" onclick="refresh()"><img src="{$Think.const.PRE_URL}/static/admin/img/shuaxin.png"></div>
+						<div class="img-box" onclick="closeSelf()"><img src="{$Think.const.PRE_URL}/static/admin/img/zhuye.png"></div>
+						<div class="select-div">
+							<select>
+								<option value="">请选择</option>
+								<option value="">设计首页</option>
+								<option value="">设计我的</option>
+								<option value="">设计页面1</option>
+								<option value="">设计页面2</option>
+							</select>
+						</div>
+					<!-- 	<?php
+						print_r($info);
+						?> -->
+						<div>{if $info['id']}<i class="fa fa-edit"></i> 页面编辑{else}<i class="fa fa-plus"></i> 添加页面{/if}</div>
+					</div>
+					
+					<div class="button-div">
+						<button class="layui-btn layui-btn-primary layui-btn-sm" onclick="showqr()">浏览</button>
+						<button class="layui-btn layui-btn-normal layui-btn-sm" onclick="pagesave(1)">发布</button>
+						<!-- <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="closeSelf()">关闭</button> -->
+						<button class="layui-btn layui-btn-warm layui-btn-sm" onclick="datadel({{$info['id']}})">删除</button>
+						<button class="layui-btn layui-btn-primary layui-btn-sm" onclick="pagesave(0)">保存副本</button>
+					</div>
+					
+				</div>
+				<div class="layui-card-body">
+						<input type="hidden" id="pageid" value="{$info['id']}">
+						<!-- 详情编辑器 -->
+						{include file="designer_page/designercopy" /}
+						<!-- <div class="layui-form-item">
+							<div class="layui-input-block" style="margin-left:400px">
+								<button class="layui-btn layui-btn-danger" lay-submit lay-filter="formsubmit">设计完成</button>
+							</div>
+						</div> -->
+				</div>
+				</div>
+			</div>
+		</div>
+  </div>
+	<script>
+		// 浏览
+		function showqr(id,ishome,type=0){
+			if(ishome==1){
+				if('{$bid}'==0){
+					var pagepath = 'pages/index/index';
+				}else{
+					var pagepath = 'pagesExt/business/index?id='+ {$bid};
+				}
+			}else if(ishome==2){
+				var pagepath = 'pages/my/usercenter'
+			}else{
+				var pagepath = 'pages/index/main?id='+id
+			}
+			if(type == 1){
+				//https://hexiao.com/h5/1.html#/pages/index/main?id=183
+				var before = url.indexOf("h5/")+2;
+				var after  = url.indexOf(".html");
+		
+				url = url.substring(0,before)+'/1'+url.substring(after);
+				console.log(url)
+			}
+			viewLink(pagepath);
+		}
+	function refresh(){
+	}
+	function closeSelf(){
+		var index = parent.layer.getFrameIndex(window.name); //先得到当前iframe层的索引
+		parent.layer.close(index); //再执行关闭   
+		parent.location.reload();
+	}
+	function pagesave(savetype){
+		var id = $('#pageid').val()
+		var contentdata = geteditordata();
+		var index = layer.load();
+		$.post('',{ op:'save',id:id,content:contentdata.datainfo,pageinfo:contentdata.pageinfo},function(data){
+			layer.close(index);
+			if(data.status == 1 && savetype ==1){
+				dialog(data.msg,data.status);
+				setTimeout(function(){
+					parent.layer.closeAll();
+					parent.location.reload()
+					//parent.tableIns.reload()
+				},1000)
+			}else{
+				if(data.pageid){
+					$('#pageid').val(data.pageid)
+				}
+				layer.msg(data.msg);
+			}
+		})
+	}
+	function datadel(id,param=''){
+		var id = $('#pageid').val();
+		if(!id) return layer.msg('请先保存！');
+		if(id==0){
+			var checkStatus = table.checkStatus('tabledata')
+			var checkData = checkStatus.data; //得到选中的数据
+			if(checkData.length === 0){
+				 return layer.msg('请选择数据');
+			}
+			var id = [];
+			for(var i=0;i<checkData.length;i++){
+				id.push(checkData[i]['id']);
+			}
+		}
+		if(param){
+			var  go_url = "{:url('del')}{$typeparam}";
+		}else{
+			var  go_url = "{:url('del')}";
+		}
+		layer.confirm('确定要删除吗?',{icon: 7, title:'操作确认'}, function(index){
+			//do something
+			layer.close(index);
+			var index = layer.load();
+			$.post(go_url,{id:id},function(data){
+				layer.close(index);
+				// dialog(data.msg,data.status,location.href);
+				layer.confirm('操作确认',{icon: 1, title:'删除成功！',btn: ['确定'], closeBtn: 0}, function(index){
+					parent.layer.closeAll();
+					parent.location.reload();
+				})
+			})
+		});
+	}
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

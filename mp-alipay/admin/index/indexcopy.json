@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "管理中心",
+  "pullRefresh": true,
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

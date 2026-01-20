@@ -1,0 +1,200 @@
+<!--custom_file(wx_channels)-->
+	<div class="orderdetail">
+		<div class="address">
+			<div class="img">
+				<img src="__STATIC__/admin/img/address.png" class="buy-addimg"/>
+			</div>
+			{{# if(d.order.deliver_method==0){ }}
+			<div class="info">
+				<span class="t1">{{d.address_info.user_name}} {{d.address_info.tel_number}}</span>
+				<span class="t2">{{d.address_info.province_name}}{{d.address_info.city_name}}{{d.address_info.county_name}}{{d.address_info.detail_info}}</span>
+			</div>
+			{{# } }}
+			{{# if(d.order.deliver_method==1){ }}
+			<div class="info">
+				<span class="t1">{{d.address_info.virtual_order_tel_number}}</span>
+			</div>
+			{{# } }}
+		</div>
+		{{# if(d.order.deliver_method==0){ }}
+		<div class="express">
+			<div class="f1"><i class="fa fa-truck"></i></div>
+			<div class="f2">
+				{{# if(d.delivery_product_info!=''){ }}
+				{{#  layui.each(d.delivery_product_info, function(index, item){ }}
+				<span class="log-te1">{{item.delivery_id}}：{{item.waybill_id}}</span>
+				{{# }); }}
+				{{# } }}
+			</div>
+		</div>
+		{{# } }}
+
+		<div class="product">
+			{{#  layui.each(d.oglist, function(index, item){ }}
+			<div class="box">
+				<div class="content">
+					<div>
+						<img src="{{item.thumb_img}}"/>
+					</div>
+					<div class="detail">
+						<span class="t1">{{item.title}}</span>
+						<span class="t2">{{item.guige_name}}</span>
+						<div class="t3"><span class="x1 flex1">￥{{item.sale_price}}</span><span class="x2">×{{item.sku_cnt}}</span></div>
+
+					</div>
+				</div>
+			</div>
+			{{# }); }}
+
+		</div>
+
+
+		{{#  if(d.order.customer_notes || d.order.merchant_notes){ }}
+		<div class="orderinfo">
+			{{#  if(d.order.customer_notes){ }}
+			<div class="item">
+				<span class="t1">客户备注</span>
+				<span class="t2 red">{{d.order.customer_notes ? d.order.customer_notes : '无'}}</span>
+			</div>
+			{{# } }}
+			{{#  if(d.order.merchant_notes){ }}
+			<div class="item">
+				<span class="t1">后台备注</span>
+				<span class="t2 red">{{d.order.merchant_notes ? d.order.merchant_notes : '无'}}</span>
+			</div>
+			{{# } }}
+		</div>
+		{{# } }}
+		<div class="orderinfo">
+			<div class="item">
+				<span class="t1">下单人</span>
+				<span class="t2"><img src="{{d.member.headimg}}" style="width:40px"/> {{d.member.nickname}} {{# if(d.member.realname){ }}[{{d.member.realname}} {{d.member.tel}}]{{#} }}</span>
+			</div>
+			<div class="item">
+				<span class="t1">{:t('会员')}ID</span>
+				<span class="t2">{{d.member.id}}</span>
+			</div>
+		</div>
+		<div class="orderinfo">
+			<div class="item">
+				<span class="t1">订单编号</span>
+				<span class="t2">{{d.order.order_id}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">下单时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.order.create_time)}}</span>
+			</div>
+			{{#  if(d.order.status==20 && d.order.pay_time){ }}
+			<div class="item">
+				<span class="t1">支付时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.order.pay_time)}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">支付方式</span>
+				<span class="t2">{{d.order.payment_method_str}}</span>
+			</div>
+			{{# } }}
+
+
+			{{#  if(d.order.status==30 && d.order.ship_done_time){ }}
+			<div class="item">
+				<span class="t1">发货时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.order.ship_done_time)}}</span>
+			</div>
+			{{# } }}
+			{{#  if(d.order.status==100 && d.order.settle_time){ }}
+			<div class="item">
+				<span class="t1">收货时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.order.settle_time)}}</span>
+			</div>
+			{{# } }}
+		</div>
+		<div class="orderinfo">
+			<div class="item">
+				<span class="t1">商品金额</span>
+				<span class="t2 red">
+					¥{{d.order.product_price}}
+
+				</span>
+			</div>
+			{{#  if(d.order.user_coupon_id > 0){ }}
+			<div class="item">
+				<span class="t1">优惠券ID</span>
+				<span class="t2 red">{{d.order.user_coupon_id}}</span>
+			</div>
+			{{# } }}
+			{{#  if(d.order.discounted_price > 0){ }}
+			<div class="item">
+				<span class="t1">优惠</span>
+				<span class="t2 red">-¥{{d.order.discounted_price}}</span>
+			</div>
+			{{# } }}
+			<div class="item">
+				<span class="t1">配送费/服务费</span>
+				<span class="t2 red">￥{{d.order.freight}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">实付款</span>
+				<span class="t2 red">
+				¥{{d.order.order_price}}
+				</span>
+			</div>
+			<div class="item">
+				<span class="t1">订单状态</span>
+				{{#  if(d.order.status==10){ }}
+				<span class="t2" style="color:#ff8758">未付款</span>
+				{{# } }}
+				{{#  if(d.order.status==20 ){ }}
+				<span class="t2" style="color:#008000">待发货</span>
+				{{# } }}
+				{{#  if(d.order.status==30){ }}
+				<span class="t2" style="color:#008000">待收货</span>
+				{{# } }}
+				{{#  if(d.order.status==100){ }}
+				<span class="t2" style="color:#ff4246">完成</span>
+				{{# } }}
+				{{#  if(d.order.status==200){ }}
+				<span class="t2" style="color:#999">全部商品售后，订单取消</span>
+				{{# } }}
+				{{#  if(d.order.status==250){ }}
+				<span class="t2" style="color:#bbb">已关闭</span>
+				{{# } }}
+			</div>
+
+			{{#  if(d.order.refund_status>0){ }}
+			<div class="item">
+				<span class="t1">退款状态</span>
+				{{#  if(d.order.refund_status==1){ }}
+				<span class="t2 red">审核中,¥{{d.order.refund_money}}</span>
+				{{# } }}
+				{{#  if(d.order.refund_status==2){ }}
+				<span class="t2 red">已退款,¥{{d.order.refund_money}}</span>
+				{{# } }}
+				{{#  if(d.order.refund_status==3){ }}
+				<span class="t2 red">已驳回,¥{{d.order.refund_money}}</span>
+				{{# } }}
+			</div>
+			{{# } }}
+
+		</div>
+		{{#  if(d.comdata.parent1.mid){ }}
+		<div class="orderinfo">
+			<div class="item">
+				<span class="t1">一级{:t('佣金')}</span>
+				<span class="t2"><img src="{{d.comdata.parent1.headimg}}" style="width:30px"/> {{d.comdata.parent1.nickname}} <span style="color:#ff8758">{{d.comdata.parent1.money}}元 {{#  if(d.comdata.parent1.score){ }}+{{d.comdata.parent1.score}}{:t('积分')}{{# } }}</span></span>
+			</div>
+			{{#  if(d.comdata.parent2.mid && (d.comdata.parent2.money>0 || d.comdata.parent2.score>0)){ }}
+			<div class="item">
+				<span class="t1">二级{:t('佣金')}</span>
+				<span class="t2"><img src="{{d.comdata.parent2.headimg}}" style="width:30px"/> {{d.comdata.parent2.nickname}}  <span style="color:#ff8758">{{d.comdata.parent2.money}}元 {{#  if(d.comdata.parent2.score){ }}+{{d.comdata.parent2.score}}{:t('积分')}{{# } }}</span></span>
+			</div>
+			{{# } }}
+			{{#  if(d.comdata.parent1.mid && (d.comdata.parent3.money>0 || d.comdata.parent3.score>0)){ }}
+			<div class="item">
+				<span class="t1">三级{:t('佣金')}</span>
+				<span class="t2"><img src="{{d.comdata.parent3.headimg}}" style="width:30px"/> {{d.comdata.parent3.nickname}}  <span style="color:#ff8758">{{d.comdata.parent3.money}}元  {{#  if(d.comdata.parent3.score){ }}+{{d.comdata.parent3.score}}{:t('积分')}{{# } }}</span></span>
+			</div>
+			{{# } }}
+		</div>
+		{{# } }}
+	</div>

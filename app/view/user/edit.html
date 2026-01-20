@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>账号编辑</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+	<script src="__STATIC__/admin/js/address3.js"></script>
+	<style>
+		.layui-input-block{margin-left:160px!important}
+		</style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+			 <div class="layui-card-header">
+				{if !$info['id']}<i class="fa fa-plus"></i> 新增账号{else}<i class="fa fa-pencil"></i> 编辑账号{/if}
+			 <i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i></div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w6" lay-filter="">
+						<input type="hidden" name="info[id]" value="{$info['id']}"/>
+						<!-- <div class="layui-form-item">
+							<label class="layui-form-label">头像</label>
+							<input type="hidden" name="info[headimg]" id="headimg" class="layui-input" value="{$info['headimg']}">
+							<button style="float:left;" type="button" class="layui-btn layui-btn-primary" upload-input="headimg" upload-preview="headimgPreview" onclick="uploader(this)">上传图片</button>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">建议尺寸：150×150像素</div>
+							<div id="headimgPreview" style="float:left;padding-top:10px;margin-left:110px;clear: both;">
+								<div class="layui-imgbox" style="width:100px;"><div class="layui-imgbox-img"><img src="{$info['headimg']}"/></div></div>
+							</div>
+						</div> -->
+						<div class="layui-form-item">
+							<label class="layui-form-label">登录账号：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[un]" lay-verify="required" lay-verType="tips" class="layui-input" value="{$info.un}">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">登录密码：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[pwd]" class="layui-input" autocomplete="off" value="" {if $info['id']} placeholder="留空表示不修改密码"{else} lay-verify="required" lay-verType="tips"{/if}>
+							</div>
+						</div>
+						<div class="layui-form-item" style="{if $bid!=0}display:none{/if}">
+							<label class="layui-form-label">{:t('会员')}ID：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[mid]" class="layui-input" value="{$info.mid}">
+							</div>
+							<div class="layui-form-mid layui-word-aux">用于绑定会员接收消息通知{if getcustom('xixie')}，<span style="font-weight: bold;">门店账号不用绑定会员,手机端可去菜单会员编辑中绑定</span> {/if}{if $bid==0}<a href="javascript:vodi(0)" onclick="openmax('{:url('Member/index')}/isopen/1')">查找{:t('会员')}ID</a>{/if}</div>
+						</div>
+						{if getcustom('admin_login_sms_verify') || getcustom('sms_temp_orderpay_adminuser') || getcustom('adminuser_edit_pwd')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">手机号：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[tel]" class="layui-input" value="{$info.tel}">
+							</div>
+							<div class="layui-form-mid layui-word-aux">{if getcustom('admin_login_sms_verify')}用于登录时接收短信验证码；{/if}{if getcustom('sms_temp_orderpay_adminuser')}用于接收商城下单订单通知；{/if}</div>
+						</div>
+						{/if}
+						{if getcustom('user_area_agent') && $loginbid==0 && (!$info.id || $info.isadmin==0 || $info.isadmin==3)}
+						<div class="layui-form-item">
+							<label class="layui-form-label">账号类型：</label>
+							<div class="layui-input-inline" style="width: 60%">
+								<input name="info[isadmin]" type="radio" value="0" {if !$info.id || $info.isadmin==0}checked{/if} title="管理员" lay-filter="isadminChange">
+								<input name="info[isadmin]" type="radio" value="3" {if $info.id && $info.isadmin==3}checked{/if} title="区域代理" lay-filter="isadminChange">
+							</div>
+						</div>
+						<div id="areabox" {if $info.isadmin!=3}style="display:none;"{/if}>
+							<div class="layui-form-item">
+								<label class="layui-form-label">代理类型：</label>
+								<div class="layui-input-inline" style="width: 60%">
+									<input name="info[agent_level]" type="radio" value="1" {if !$info.id || $info.agent_level==1}checked{/if} lay-filter="areaAgentChange" title="省级代理">
+									<input name="info[agent_level]" type="radio" value="2" {if $info.id && $info.agent_level==2}checked{/if} lay-filter="areaAgentChange" title="市级代理">
+									<input name="info[agent_level]" type="radio" value="3" {if $info.id && $info.agent_level==3}checked{/if} lay-filter="areaAgentChange" title="县级代理">
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">代理区域：</label>
+								<div class="layui-input-inline" style="width:70%">
+									<div class="layui-input-inline agentprovince">
+										<select name="info[agent_province]" id="agent_province" lay-filter="agent_province"></select>
+									</div>
+									<div class="layui-input-inline agentcity" {if $info.agent_level<2}style="display:none;"{/if}>
+										<select name="info[agent_city]" id="agent_city" lay-filter="agent_city"></select>
+									</div>
+									<div class="layui-input-inline agentarea" {if $info.agent_level<3}style="display:none;"{/if}>
+										<select name="info[agent_area]" id="agent_area"></select>
+									</div>
+								</div>
+							</div>
+						</div>
+		  				{/if}
+						{if getcustom('restaurant_bar_table_order')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">餐饮收银台门店：</label>
+							<div class="layui-input-inline" style="width:800px">
+								{foreach $mendianlist as $md}<input type="radio" name="info[cashdesk_mdid]" value="{$md.id}" {if $md['id']==$info['cashdesk_mdid']}checked{/if} title="{$md.name}">{/foreach}
+							</div>
+							<div class="layui-word-aux layui-clear">绑定门店后，餐饮收银台的吧台点餐使用该门店取餐</div>
+						</div>
+						{/if}
+						<div class="layui-form-item">
+							<label class="layui-form-label">备注：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[remark]" class="layui-input" value="{$info['remark']}">
+							</div>
+						</div>
+						{if getcustom('user_hexiao_num')}
+		  				{if $thisuser['isadmin']==1 || $thisuser['isadmin']==2}
+						<div class="layui-form-item">
+							<label class="layui-form-label">可核销次数：</label>
+							<div class="layui-input-inline">
+							  <input type="number" name="info[hexiao_num]" class="layui-input" value="{$info['hexiao_num']}" min="0">
+							</div>
+							<div class="layui-word-aux layui-clear">管理员剩余可核销的次数,设置-1不限制</div>
+						</div>
+		  				{/if}
+						{/if}
+						{if $thisuser_isadmin!=0 && $info['id'] && $info['id']!=$thisuserid}
+						<div class="layui-form-item">
+							<label class="layui-form-label">创建人：</label>
+							<div class="layui-input-inline">
+								<select name="info[addid]">
+									{foreach $userlist as $u}
+									<option value="{$u.id}" {if $u['id'] == $info['addid']}selected{/if}>{$u.un}</option>
+									{/foreach}
+								</select>
+							</div>
+						</div>
+						{/if}
+
+						{if (!$info['id'] || $info['isadmin']==0 || $info['isadmin']==3) && $info['id']!=$thisuserid}
+						<div class="layui-form-item">
+							<label class="layui-form-label">权限组：</label>
+							<div class="layui-input-inline">
+								<select name="info[groupid]" lay-filter="groupidChange">
+									{foreach $groupList as $group}
+									<option value="{$group.id}" {if $info['groupid']==$group['id']}selected{/if}>{$group.name}</option>
+									{/foreach}
+								</select>
+							</div>
+						</div>
+
+						{if getcustom('user_auth_area')}
+						<div id="areabox">
+							<div class="layui-form-item">
+								<label class="layui-form-label">权限区域类型：</label>
+								<div class="layui-input-inline" style="width: 60%">
+									<input name="info[auth_area_type]" type="radio" value="-1" {if !$info.id || $info.auth_area_type==-1}checked{/if} lay-filter="auth_area_type" title="全国（总部）">
+									<input name="info[auth_area_type]" type="radio" value="1" {if  $info.id && $info.auth_area_type==1}checked{/if} lay-filter="auth_area_type" title="省级">
+									<input name="info[auth_area_type]" type="radio" value="2" {if $info.id && $info.auth_area_type==2}checked{/if} lay-filter="auth_area_type" title="市级">
+									<input name="info[auth_area_type]" type="radio" value="3" {if $info.id && $info.auth_area_type==3}checked{/if} lay-filter="auth_area_type" title="区县级">
+								</div>
+							</div>
+							<div class="layui-form-item" id="qxqy" {if !$info.id || $info.auth_area_type==-1}style="display:none;"{/if}>
+								<label class="layui-form-label">权限区域：</label>
+								<div class="layui-input-inline" style="width:70%">
+									<div class="layui-input-inline authareaprovince" {if $info.auth_area_type<1}style="display:none;"{/if}>
+										<select name="info[auth_area_province]" id="auth_area_province" lay-filter="auth_area_province"></select>
+									</div>
+									<div class="layui-input-inline authareacity" {if $info.auth_area_type<2}style="display:none;"{/if}>
+										<select name="info[auth_area_city]" id="auth_area_city" lay-filter="auth_area_city"></select>
+									</div>
+									<div class="layui-input-inline authareaarea" {if $info.auth_area_type<3}style="display:none;"{/if}>
+										<select name="info[auth_area_area]" id="auth_area_area"></select>
+									</div>
+								</div>
+							</div>
+						</div>
+						{/if}
+						
+						<div id="quanxianset_div" style="{if $info['groupid']!=0}display:none{/if}">
+							{if $thisuser_mdid == 0}
+							<div class="layui-form-item">
+								<label class="layui-form-label">门店：</label>
+								<div class="layui-input-inline" style="width:800px">
+									<input type="radio" name="info[mdid]" value="0" {if !$info['id'] || $info['mdid']==0}checked{/if} title="全部">
+									{foreach $mendianlist as $md}<input type="radio" name="info[mdid]" value="{$md.id}" {if $md['id']==$info['mdid']}checked{/if} title="{$md.name}">{/foreach}
+								</div>
+								<div class="layui-word-aux layui-clear">指定门店后，该管理员的订单权限只能看到指定门店的订单</div>
+							</div>
+							{elseif !$info['id']}
+							<input type="hidden" value="info[mdid]" value="{$thisuser_mdid}"/>
+							{/if}
+
+							{if getcustom('user_bquanxian') && $bid == 0}
+							<div class="layui-form-item">
+								<label class="layui-form-label">商户：</label>
+								<div class="layui-input-inline" style="width:800px">
+									<input type="checkbox" name="bids[]" value="0" {if !$info['id'] || $info['bids']==='0'}checked{/if} title="全部" lay-skin="primary">
+									{php}$bids = $info['bids'] ? explode(',',$info['bids']) : '';{/php}
+									{foreach $blist as $b}<input type="checkbox" name="bids[]" value="{$b.id}" {if in_array($b['id'],$bids)}checked{/if} title="{$b.name}" lay-skin="primary">{/foreach}
+								</div>
+								<div class="layui-word-aux layui-clear"></div>
+							</div>
+							{/if}
+							{if (!getcustom('user_bquanxian') || $bid != 0) && !$info['id']}
+							<input type="hidden" value="bids[]" value="0"/>
+							{/if}
+							{if getcustom('workorder') && $bid == 0}
+							<div class="layui-form-item">
+								<label class="layui-form-label">工单类型：</label>
+								<div class="layui-input-inline">
+									<select name="info[workcate_id]">
+										<option  value="0" {if !$info['id'] || $info['workcate_id']==0}selected{/if}> 请选择</option>
+										{foreach $workcateList as $cate}
+										<option value="{$cate.id}" {if $info['workcate_id']==$cate['id']}selected{/if}>{$cate.name}</option>
+										{/foreach}
+									</select>
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">工单权限：</label>
+								<div class="layui-input-inline">
+									<input type="radio" name="info[workorder_type]" value="1" {if !$info['id'] || $info['workorder_type']==1}checked{/if} title="用户">
+									<input type="radio" name="info[workorder_type]" value="2" {if !$info['id'] || $info['workorder_type']==2}checked{/if} title="商户">
+								</div>
+							</div>
+							{/if}
+							{if $thisuser_showtj == 1}
+							<div class="layui-form-item">
+								<label class="layui-form-label">首页数据统计：</label>
+								<div class="layui-input-inline">
+									<input type="radio" name="info[showtj]" value="1" {if $info['showtj']==1}checked{/if} title="显示"/>
+									<input type="radio" name="info[showtj]" value="0" {if $info['showtj']==0}checked{/if} title="不显示"/>
+								</div>
+							</div>
+							{elseif !$info['id']}
+							<input type="hidden" value="info[showtj]" value="0"/>
+							{/if}
+							{if getcustom('user_auth_province') && $bid == 0}
+							<div class="layui-form-item">
+								<label class="layui-form-label">选择区域：</label>
+								<div class="layui-input-inline" style="width: 600px">
+									<span class="provinceshtml">{$info.provinces}</span>
+									<input type="hidden" class="provinces" name="info[provinces]" value="{$info.provinces}" />
+									<button class="layui-btn layui-btn-sm layui-btn-primary" onclick="editArea(this)"><i class="fa fa-edit"></i> 点击选择</button>
+								</div>
+								<div class="layui-word-aux layui-clear layui-form-mid">选择区域后，该管理员的订单权限只能看到指定区域的商户数据</div>
+							</div>
+							{/if}
+
+							{if getcustom('kecheng_lecturer')}
+								{if $haslecturer}
+								<div class="layui-form-item">
+									<label class="layui-form-label">课程讲师：</label>
+									<div class="layui-input-inline">
+										<select name="info[lecturerid]">
+											<option {if !$info['id'] || $info['lecturerid']==0}selected{/if} value="0" >请选择</option>
+											{foreach $lecturers as $lecturer}
+											<option {if $info['lecturerid']==$lecturer['id']}selected{/if} value="{$lecturer.id}" >{$lecturer.nickname} {$lecturer.tel}</option>
+											{/foreach}
+										</select>
+									</div>
+								</div>
+								{/if}
+							{/if}
+
+							{include file="public/user_auth"/}
+						</div>
+						{/if}
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-inline">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+    </div>
+  </div>
+  {if getcustom('user_auth_province')}
+  <style type='text/css'>
+	  .modal-areas .layui-layer-content{ position:static;overflow:visible;height:300px}
+	  .province { float:left; position:relative;width:210px; height:35px; line-height:35px;border:1px solid #fff;}
+	  .province:hover { border:1px solid #f7e4a5;border-bottom:1px solid #fffec6; background:#fffec6;}
+	  .province .cityall { margin-top:10px;}
+	  .province ul { list-style: outside none none;position:absolute;padding:0;background:#fffec6;border:1px solid #f7e4a5;display:none;width:auto; width:300px; z-index:999999;left:-1px;top:32px;}
+	  .province ul li  { float:left;min-width:60px;margin-left:20px; height:30px;line-height:30px; position:relative; }
+	  .province ul li dl { list-style: outside none none;position:absolute;padding:0;background:#fee993;border:1px solid #f7e4a5;display:none;width:auto; width:220px; z-index:9999999;left:-1px;top:0px; margin-left:60px;}
+	  .province dl dd  { float:left;min-width:60px;margin-left:20px; height:30px;line-height:30px; }
+  </style>
+  <div id="modal-areas" style="display:none">
+  </div>
+  {/if}
+	{include file="public/js"/}
+	<script>
+	layui.form.on('checkbox(checkall_all)',function(data){
+		if(data.elem.checked){
+			$(data.elem).parent().parent().find('input[type=checkbox]').prop('checked',true);
+		}else{
+			$(data.elem).parent().parent().find('input[type=checkbox]').prop('checked',false);
+		}
+		layui.form.render('checkbox');
+	})
+	layui.form.on('checkbox(checkall)',function(data){
+		if(data.elem.checked){
+			$(data.elem).parent().parent().find('input[type=checkbox]').prop('checked',true);
+		}else{
+			$(data.elem).parent().parent().find('input[type=checkbox]').prop('checked',false);
+		}
+		layui.form.render('checkbox');
+	})
+	layui.form.on('select(groupidChange)',function(data){
+		if(data.value == 0){
+			$('#quanxianset_div').show();
+		}else{
+			$('#quanxianset_div').hide();
+		}
+	});
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		var index = layer.load();
+		$.post("{:url('save')}",obj.field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status == 1){
+				setTimeout(function(){
+					parent.layer.closeAll();
+					parent.tableIns.reload()
+				},1000)
+			}
+		})
+	})
+
+	//这里写在定制里面
+	{if getcustom('user_area_agent')}
+	address3('agent_province','agent_city','agent_area',"{$info.agent_province}","{$info.agent_city}","{$info.agent_area}");
+
+	layui.form.on('radio(isadminChange)',function(data){
+		if(data.value == 3){
+			$('#areabox').show();
+		}else{
+			$('#areabox').hide();
+		}
+	});
+	layui.form.on('radio(areaAgentChange)',function(data){
+		if(data.value == 1){
+			$('.agentprovince').show();
+			$('.agentcity').hide();
+			$('.agentarea').hide();
+		}else if(data.value == 2){
+			$('.agentprovince').show();
+			$('.agentcity').show();
+			$('.agentarea').hide();
+		}else{
+			$('.agentprovince').show();
+			$('.agentcity').show();
+			$('.agentarea').show();
+		}
+	});
+	{/if}
+	//这里写在定制里面
+	{if getcustom('user_auth_area')}
+	address3('auth_area_province','auth_area_city','auth_area_area',"{$info.auth_area_province}","{$info.auth_area_city}","{$info.auth_area_area}");
+
+	layui.form.on('radio(auth_area_type)',function(data){
+		if(data.value == 1){
+			$('#qxqy').show();
+			$('.authareaprovince').show();
+			$('.authareacity').hide();
+			$('.authareaarea').hide();
+		}else if(data.value == 2){
+			$('#qxqy').show();
+			$('.authareaprovince').show();
+			$('.authareacity').show();
+			$('.authareaarea').hide();
+		}else if(data.value == 3){
+			$('#qxqy').show();
+			$('.authareaprovince').show();
+			$('.authareacity').show();
+			$('.authareaarea').show();
+		}else {
+			$('.authareaprovince').hide();
+			$('.authareacity').hide();
+			$('.authareaarea').hide();
+			$('#qxqy').hide();
+		}
+	});
+	{/if}
+
+		{if getcustom('user_auth_province')}
+		$(function(){
+			var regiondata = '';
+			for(var i in provinceList){
+				if(i>0){
+					var province = provinceList[i];
+					regiondata+='<div class="province">';
+					regiondata+='			<label class="checkbox-inline" style="margin-left:20px;">';
+					regiondata+='				<input type="checkbox" class="cityall" province="'+province.name+'"/> '+province.name;
+					regiondata+='				<span class="citycount" style="color:#ff6600"></span>';
+					regiondata+='			</label>';
+					if(province.cityList){
+						regiondata+='		<ul>';
+						for(var j in province.cityList){
+							var city = province.cityList[j];
+							regiondata+='		<li class="cityli">';
+							regiondata+='			<label class="checkbox-inline">';
+							regiondata+='				<input type="checkbox" class="city areaall" style="margin-top:8px;" city="'+city.name+'" /> '+city.name;
+							regiondata+='				<span class="areacount" style="color:#ff6600"></span>';
+							regiondata+='			</label>';
+							if(city.areaList){
+								regiondata+='		<dl>';
+								for(var ar in city.areaList){
+									var area = city.areaList[ar];
+									regiondata+='		<dd>';
+									regiondata+='			<label class="checkbox-inline">';
+									regiondata+='				<input type="checkbox" class="area" style="margin-top:8px;" area="'+area+'" /> '+area;
+									regiondata+='			</label>';
+									regiondata+='		</dd>';
+								}
+								regiondata+='		</dl>';
+							}
+								regiondata+='		</li>';
+							}
+							regiondata+='		</ul>';
+						}
+						regiondata+='		</div>';
+					}
+				}
+				$('#modal-areas').html(regiondata);
+				$('.province').mouseover(function(){
+					$(this).find('ul').show();
+				}).mouseout(function(){
+					$(this).find('ul').hide();
+				});
+				$('.cityli').mouseover(function(){
+					$(this).find('dl').show();
+				}).mouseout(function(){
+					$(this).find('dl').hide();
+				});
+				$('.cityall').click(function(){
+					var checked = $(this).get(0).checked;
+					var citys = $(this).parent().parent().find('.city');
+					citys.each(function(){
+						$(this).get(0).checked = checked;
+					});
+					var count = 0;
+					if(checked){
+						count =  $(this).parent().parent().find('.city:checked').length;
+					}
+					if(count>0){
+						$(this).next().html("(" + count + ")")    ;
+					}else{
+						$(this).next().html("");
+					}
+
+					});
+				$('.city').click(function(){
+					var checked = $(this).get(0).checked;
+					var cityall = $(this).parent().parent().parent().parent().find('.cityall');
+					if(checked){
+						cityall.get(0).checked = true;
+					}
+					var count = cityall.parent().parent().find('.city:checked').length;
+					if(count>0){
+						cityall.next().html("(" + count + ")")    ;
+					}else{
+						cityall.next().html("");
+						cityall.get(0).checked = false;
+					}
+				});
+			$('.areaall').click(function(){
+				var checked = $(this).get(0).checked;
+				var cityall = $(this).parent().parent().parent().parent().find('.cityall');
+				if(checked){
+					cityall.get(0).checked = true;
+				}
+				var areas = $(this).parent().parent().find('.area');
+				areas.each(function(){
+					$(this).get(0).checked = checked;
+				});
+				if(checked){
+					cityall.get(0).checked = true;
+				}
+				var countarea = 0;
+				if(checked){
+					countarea =  $(this).parent().parent().find('.area:checked').length;
+				}
+				if(countarea>0){
+					$(this).next().html("(" + countarea + ")")    ;
+				}else{
+					$(this).next().html("");
+				}
+				var count = cityall.parent().parent().find('.city:checked').length;
+				if(count>0){
+					cityall.next().html("(" + count + ")")    ;
+				}else{
+					cityall.next().html("");
+				}
+			});
+			$('.area').click(function(){
+				var checked = $(this).get(0).checked;
+				var cityall = $(this).parent().parent().parent().parent().parent().parent().find('.cityall');
+				var areaall = $(this).parent().parent().parent().parent().find('.areaall');
+				if(checked){
+					cityall.get(0).checked = true;
+					areaall.get(0).checked = true;
+				}
+				var count = cityall.parent().parent().find('.city:checked').length;
+				if(count>0){
+					cityall.next().html("(" + count + ")")    ;
+				}else{
+					cityall.next().html("");
+				}
+				var countarea = areaall.parent().parent().find('.area:checked').length;
+				if(countarea>0){
+					areaall.next().html("(" + countarea + ")")    ;
+				}else{
+					areaall.next().html("");
+				}
+			});
+			})
+
+		function editArea(btn){
+			//current = $(btn).attr('random');
+			var areasettd = $(btn).parent();
+			clearSelects();
+			var old_citys = $(btn).prev().val().split('];');
+			console.log(old_citys);
+			var arealevel = 2;
+
+				//$('.cityall').each(function(){
+				if(arealevel == 2){
+					for(var i in old_citys){
+						if(old_citys[i] == '') continue;
+						var provincecity = old_citys[i].split('[');
+						//console.log(provincecity);
+						$('input[province='+provincecity[0]+']').prop('checked',true);
+						if(provincecity[1] == '全部地区'){
+							$('input[province='+provincecity[0]+']').parent().parent().find('.city').prop('checked',true);
+							$('input[province='+provincecity[0]+']').next('.citycount').html('('+$('input[province='+provincecity[0]+']').parent().parent().find('.city').length+')');
+							var citys = $('input[province='+provincecity[0]+']').parent().parent().find('.city');
+							//console.log(citys);
+							citys.each(function(){
+								var areas = $(this).parent().parent().find('.area');
+								areas.each(function(){
+									$(this).get(0).checked = true;
+								});
+								var countarea = 0;
+								countarea =  $(this).parent().parent().find('.area:checked').length;
+								if(countarea>0){
+									$(this).next().html("(" + countarea + ")")    ;
+								}else{
+									$(this).next().html("");
+								}
+							});
+						}else{
+							var citys = provincecity[1].split(',');
+							//console.log(citys);return;
+							var citycount = 0;
+							for(var j in citys){
+								if(citys[j] == '') continue;
+								citycount++;
+								var citylist = citys[j].split('|');
+
+								if(citylist[1] == '全部县区' || citylist[1] == '' || citylist[1]==undefined){
+									$('input[province='+provincecity[0]+']').parent().parent().find('.city[city='+citylist[0]+']').prop('checked',true);
+									$('input[city='+citylist[0]+']').parent().parent().find('.area').prop('checked',true);
+									$('input[city='+citylist[0]+']').next('.areacount').html('('+$('input[city='+citylist[0]+']').parent().parent().find('.area').length+')');
+								}else{
+									$('input[city='+citylist[0]+']').parent().parent().find('.city[city='+citylist[0]+']').prop('checked',true);
+									if(citylist[1] == ''|| citylist[1]==undefined) continue;
+									var arealsit = citylist[1].split('-');
+									//console.log(arealsit);
+									var areacount = 0;
+									for(var ar in arealsit){
+										areacount++;
+										$('input[city='+citylist[0]+']').parent().parent().find('.area[area='+arealsit[ar]+']').prop('checked',true);
+									}
+									$('input[city='+citylist[0]+']').next('.areacount').html('('+areacount+')');
+								}
+
+							}
+							$('input[province='+provincecity[0]+']').next('.citycount').html('('+citycount+')');
+						}
+					}
+				}
+				var areasLayer = layer.open({type:1,skin:'modal-areas',content:$("#modal-areas"),area:['900px','400px'],offset:'50px',shadeClose:true,title:'选择区域',btn:['确定','关闭'],yes:function(){
+					var arealevel = 2;
+					var citystrs = '';
+					if(arealevel ==1){
+						$('.cityall:checked').each(function(){
+							// if($(this).parent().parent().find('.city').length == $(this).parent().parent().find('.city:checked').length){
+							// 	citystrs+=$(this).attr('province') + '[全部地区]' + ';';
+							// }else{
+								var citychecked = [];
+								$(this).parent().parent().find('.city:checked').each(function(){
+									citychecked.push($(this).attr('city'));
+								});
+								citystrs+=$(this).attr('province') + '['+citychecked.join(',')+']' + ';';
+							// }
+						})
+					}
+						//开启县区
+						if(arealevel ==2){
+							var citystrs = '';
+							$('.cityall:checked').each(function(){
+								var areacountall = 0;
+								var areacountchecked = 0;
+
+								$(this).parent().parent().find('.city:checked').each(function(){
+									areacountall +=$(this).parent().parent().find('.area').length;
+									areacountchecked +=$(this).parent().parent().find('.area:checked').length;
+								});
+								console.log(areacountall);
+								console.log('--');
+								console.log(areacountchecked);
+								var citychecked = [];
+								$(this).parent().parent().find('.city:checked').each(function(){
+									var areachecked = [];
+									if($(this).parent().parent().find('.area').length == $(this).parent().parent().find('.area:checked').length){
+										citychecked.push($(this).attr('city')+'|全部县区');
+									}else{
+										$(this).parent().parent().find('.area:checked').each(function(){
+											areachecked.push($(this).attr('area'));
+										});
+										citychecked.push($(this).attr('city')+'|'+areachecked.join('-'));
+									}
+								});
+								citystrs+=$(this).attr('province') + '['+citychecked.join(',')+']' + ';';
+							})
+						}
+					areasettd.find('.provinceshtml').html(citystrs);
+					areasettd.find('.provinces').val(citystrs);
+					layer.close(areasLayer);
+				}})
+			}
+			var current = '';
+			function clearSelects(){
+				$('.city').attr('checked',false).removeAttr('disabled');
+				$('.cityall').attr('checked',false).removeAttr('disabled');
+				$('.citycount').html('');
+			}
+
+
+
+		{/if}
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

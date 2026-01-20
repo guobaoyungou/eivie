@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "排队管理",
+  "pullRefresh": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata"
+  }
+}

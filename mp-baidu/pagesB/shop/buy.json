@@ -1,0 +1,17 @@
+{
+  "navigationBarTitleText": "订单确认",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "uni-data-picker": "/components/uni-data-picker/uni-data-picker",
+    "couponlist": "/components/couponlist/couponlist",
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "dp-map": "/components/dp-map/dp-map",
+    "parse": "/components/parse/parse",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

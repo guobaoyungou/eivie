@@ -1,0 +1,13 @@
+{
+  "defaultTitle": "搜索",
+  "pullRefresh": false,
+  "usingComponents": {
+    "dp-yuyue-item": "/components/dp-yuyue-item/dp-yuyue-item",
+    "dp-yuyue-itemlist": "/components/dp-yuyue-itemlist/dp-yuyue-itemlist",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

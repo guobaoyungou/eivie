@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>慧动企微设置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+		<div class="layui-card-header"><i class="fa fa-cog"></i> 慧动企微设置</div>
+		<div class="layui-card-body" pad15>
+			<blockquote class="layui-elem-quote">用于对接慧动的企微系统实现聊天中向客户一键发送商品、{:t('优惠券')}等，查看客户购买的商城订单信息、购物车的商品等，使用该功能需要先购买慧动的企微系统</blockquote>
+			<div class="layui-form" lay-filter="">
+				<div class="layui-form-item">
+					<label class="layui-form-label" >状态：</label>
+					<div class="layui-input-inline">
+						<input type="radio" name="set[huidong_status]" value="1" title="开启" {if $set['huidong_status']==1}checked{/if}>
+						<input type="radio" name="set[huidong_status]" value="0" title="关闭" {if $set['huidong_status']==0}checked{/if}>
+					</div>
+				</div>
+				<div class="layui-form-item">
+					<label class="layui-form-label" >慧动请求地址：</label>
+					<div class="layui-input-inline" style="width: 300px">
+						<input type="text" name="set[huidong_url]" value="{$set.huidong_url}" class="layui-input">
+					</div>
+					<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">开启并填入地址后需要一段时间同步{:t('会员')}信息</div>
+				</div>
+				<div class="layui-form-item">
+					<label class="layui-form-label" >店铺域名：</label>
+					<div class="layui-input-inline" style="width: 300px">
+						<input type="text" name="" value="{$domain}" class="layui-input" readonly>
+					</div>
+				</div>
+				<div class="layui-form-item">
+					<label class="layui-form-label" >店铺ID：</label>
+					<div class="layui-input-inline" style="width: 300px">
+						<input type="text" name="" value="{$info.aid}" class="layui-input" readonly>
+					</div>
+				</div>
+				<div class="layui-form-item">
+					<label class="layui-form-label" >API_KEY：</label>
+					<div class="layui-input-inline" style="width: 300px">
+						<input type="text" name="" value="{$info.appsecret}" class="layui-input" readonly>
+						{if $info['appsecret']}<div style="position: absolute;left: 0;top: 0;right: 0;bottom: 0; background: #fff;padding: .35rem .7rem;border: 1px solid rgba(0, 0, 0, .15);border-radius: .15rem;color: #636c72;" onclick="$(this).hide()">已隐藏内容，点击查看或编辑</div>{/if}
+					</div>
+					<button class="layui-btn layui-btn-normal" onclick="reset()">重 置</button>
+				</div>
+				<div class="layui-form-item">
+					<div class="layui-input-block" style="margin-left:175px;">
+						<button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+					</div>
+				</div>
+			</div>
+		</div>
+      </div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+
+
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+
+		var index = layer.load();
+		$.post('',field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status,data.url);
+		})
+	})
+
+	function reset(){
+		layer.confirm('确定要重置吗？',function(index){
+			layer.close(index)
+			var index = layer.load();
+			$.post("{:url()}",{op:'reset',appid:$("#appid").val()},function(data){
+				layer.close(index);
+				dialog(data.msg,data.status,data.url);
+			})
+		})
+
+	}
+
+	</script>
+
+
+	{include file="public/copyright"/}
+</body>
+</html>

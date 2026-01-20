@@ -1,0 +1,10 @@
+{
+  "pullRefresh": false,
+  "usingComponents": {
+    "uni-data-picker": "/components/uni-data-picker/uni-data-picker",
+    "parse": "/components/parse/parse",
+    "gk-city": "/components/gk-city/gk-city",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

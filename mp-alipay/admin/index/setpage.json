@@ -1,0 +1,6 @@
+{
+  "defaultTitle": "配置",
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

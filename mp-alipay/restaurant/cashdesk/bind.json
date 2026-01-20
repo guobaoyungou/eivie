@@ -1,0 +1,6 @@
+{
+  "defaultTitle": "会员绑定",
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

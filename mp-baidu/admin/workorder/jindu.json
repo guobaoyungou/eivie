@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "工单进度",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse"
+  }
+}

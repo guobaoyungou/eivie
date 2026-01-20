@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "数字权益",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "l-echart": "/echarts/l-echart/l-echart"
+  }
+}

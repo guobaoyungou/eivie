@@ -1,0 +1,162 @@
+<!--custom_file(wx_channels)-->
+	<div class="orderdetail">
+		<div class="product">
+			{{#  layui.each(d.oglist, function(index, item){ }}
+			<div class="box">
+				<div class="content">
+					<div>
+						<img src="{{item.thumb_img}}"/>
+					</div>
+					<div class="detail">
+						<span class="t1">{{item.title}}</span>
+						<span class="t2">{{item.guige_name}}</span>
+						<div class="t3"><span class="x1 flex1">￥{{item.sale_price}}</span><span class="x2">×{{item.sku_cnt}}</span></div>
+
+					</div>
+				</div>
+			</div>
+			{{# }); }}
+		</div>
+		<div class="orderinfo">
+			<div class="item">
+				<span class="t1">下单人</span>
+				<span class="t2"><img src="{{d.member.headimg}}" style="width:40px"/> {{d.member.nickname}} {{# if(d.member.realname){ }}[{{d.member.realname}} {{d.member.tel}}]{{#} }}</span>
+			</div>
+			<div class="item">
+				<span class="t1">{:t('会员')}ID</span>
+				<span class="t2">{{d.member.id}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">openid</span>
+				<span class="t2">{{d.info.openid}}</span>
+			</div>
+		</div>
+		<div class="orderinfo">
+
+			<div class="item">
+				<span class="t1">退款编号</span>
+				<span class="t2">{{d.info.after_sale_order_id}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">退款金额</span>
+				<span class="t2">{{d.info.amount}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">退款数量</span>
+				<span class="t2">{{d.info.count}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">申请时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.info.create_time)}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">退款状态</span>
+				<span class="t2">{{d.info.status_str}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">退款原因</span>
+				<span class="t2">{{d.info.reason_text}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">退款说明</span>
+				<span class="t2">{{d.info.desc}}</span>
+			</div>
+			{{#  if(d.media_url_arr){ }}
+			<div class="item">
+				<span class="t1">举证图片</span>
+				<span class="t2">
+					{{#  layui.each(d.media_url_arr, function(index, item){ }}
+					<div class="layui-imgbox" onclick="previewImg('{{item}}')">
+						<span class="layui-imgbox-img"><img src="{{item}}"></span>
+					</div>
+					{{# }); }}
+				</span>
+			</div>
+			{{# } }}
+
+			{{#  if(d.refund_certificates){ }}
+			<div class="item">
+				<span class="t1">退款凭证</span>
+				<span class="t2">
+					{{#  layui.each(d.refund_certificates, function(index, item){ }}
+					<div class="layui-imgbox" onclick="previewImg('{{item}}')">
+						<span class="layui-imgbox-img"><img src="{{item}}"></span>
+					</div>
+					{{# }); }}
+				</span>
+			</div>
+			{{# } }}
+
+			{{#  if(d.order.status==30 && d.order.ship_done_time){ }}
+			<div class="item">
+				<span class="t1">发货时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.order.ship_done_time)}}</span>
+			</div>
+			{{# } }}
+			{{#  if(d.order.status==100 && d.order.settle_time){ }}
+			<div class="item">
+				<span class="t1">收货时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.order.settle_time)}}</span>
+			</div>
+			{{# } }}
+		</div>
+		<div class="orderinfo">
+			<div class="item">
+				<span class="t1">拒绝原因</span>
+				<span class="t2">{{d.info.reject_reason_type_str.reject_reason}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">拒绝原因描述</span>
+				<span class="t2">{{d.info.reject_reason}}</span>
+			</div>
+			{{#  if(d.media_url_arr != '' && d.media_url_arr != null){ }}
+			<div class="item">
+				<span class="t1">举证图片</span>
+			</div>
+			<div class="item">
+				{{#  layui.each(d.media_url_arr, function(k, v){ }}
+				<div class="layui-imgbox">
+					<div class="layui-imgbox-img">
+						<img src="{{v}}" onclick="showImg(this)">
+					</div>
+				</div>
+				{{# }); }}
+			</div>
+			{{# } }}
+
+			{{#  if(d.refund_certificates_url_arr != '' && d.refund_certificates_url_arr != null){ }}
+			<div class="item">
+				<span class="t1">退款凭证</span>
+			</div>
+			<div class="item">
+				{{#  layui.each(d.refund_certificates_url_arr, function(rk, rv){ }}
+				<div class="layui-imgbox">
+					<div class="layui-imgbox-img">
+						<img src="{{rv}}" onclick="showImg(this)">
+					</div>
+				</div>
+				{{# }); }}
+			</div>
+			{{# } }}
+		</div>
+		<div class="orderinfo">
+			<div class="item">
+				<span class="t1">订单编号</span>
+				<span class="t2">{{d.info.order_id}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">下单时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.order.create_time)}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">支付时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.order.pay_time)}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">商品金额</span>
+				<span class="t2 red">
+					¥{{d.order.product_price}}
+				</span>
+			</div>
+		</div>
+	</div>

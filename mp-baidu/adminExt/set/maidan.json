@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "买单设置",
+  "component": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

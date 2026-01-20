@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "互助积分明细",
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

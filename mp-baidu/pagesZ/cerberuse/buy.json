@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "智能开门购买",
+  "component": true,
+  "usingComponents": {
+    "couponlist": "/components/couponlist/couponlist",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

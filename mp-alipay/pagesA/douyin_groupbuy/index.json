@@ -1,0 +1,12 @@
+{
+  "defaultTitle": "抖音团购核销",
+  "pullRefresh": false,
+  "usingComponents": {
+    "buydialog": "/components/buydialog/buydialog",
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

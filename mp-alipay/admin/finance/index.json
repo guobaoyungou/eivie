@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "财务",
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading"
+  }
+}

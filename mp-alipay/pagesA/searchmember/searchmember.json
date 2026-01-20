@@ -1,0 +1,9 @@
+{
+  "defaultTitle": "一键查看",
+  "pullRefresh": false,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

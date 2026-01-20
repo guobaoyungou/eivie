@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "收款二维码",
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

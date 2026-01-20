@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "土地详情",
+  "pullRefresh": false,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "loading": "/components/loading/loading"
+  }
+}

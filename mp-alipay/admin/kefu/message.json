@@ -1,0 +1,8 @@
+{
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "wxface": "/components/wxface/wxface",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

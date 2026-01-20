@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "defaultTitle": "设置银行卡账号",
+  "pullRefresh": false,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

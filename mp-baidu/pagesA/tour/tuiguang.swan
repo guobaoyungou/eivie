@@ -1,0 +1,1 @@
+<view class="all_view" style="{{('background: '+$root.m0)}}"><view class="img_view"><image style="width:640rpx;height:640rpx;" data-url="{{imagsrc}}" src="{{imagsrc}}" data-event-opts="{{[['tap',[['previewImage',['$event']]]]]}}" bindtap="__e"></image></view></view>

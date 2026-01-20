@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "幸运拼团分类",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "buydialog": "/components/buydialog/buydialog",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

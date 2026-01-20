@@ -1,0 +1,6 @@
+{
+  "defaultTitle": "核销订单",
+  "usingComponents": {
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

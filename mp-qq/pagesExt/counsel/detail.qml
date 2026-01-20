@@ -1,0 +1,1 @@
+<block qq:if="{{content}}"><view style="width:700rpx;margin:0 auto;white-space:pre-wrap;word-wrap:break-word;">{{''+content+''}}</view></block>

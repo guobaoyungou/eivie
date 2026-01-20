@@ -1,0 +1,9 @@
+{
+  "pullRefresh": true,
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "dp-guanggao": "/components/dp-guanggao/dp-guanggao",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

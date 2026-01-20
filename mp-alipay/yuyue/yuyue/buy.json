@@ -1,0 +1,11 @@
+{
+  "defaultTitle": "订单确认",
+  "pullRefresh": false,
+  "usingComponents": {
+    "couponlist": "/components/couponlist/couponlist",
+    "yybuydialog": "/components/yybuydialog/yybuydialog",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

@@ -1,0 +1,19 @@
+.flex{display: flex;align-items: center;}
+.flex-s{display: flex;justify-content: flex-start;align-items: center;}
+.flex-e{display: flex;justify-content: flex-end;align-items: center;}
+.flex-sb{display: flex;justify-content: space-between;align-items: center;}
+.flex-c{display: flex;justify-content: center;align-items: center;}
+.flwp{flex-wrap: wrap;}
+.tabbar{height: auto; position: relative;}
+.tabbar-icon {width: 40rpx;height: 40rpx;}
+.tabbar-bar {display: flex;justify-content: space-around;align-items: center;width: 100%;height:120rpx;position: fixed;bottom: 0;background: #fff;font-size: 28rpx;color: #999;z-index: 8;box-sizing:content-box;}
+.tabbar-item {text-align: center;overflow: hidden;}
+.tabbar-image-box {height: 54rpx;margin-bottom: 4rpx;}
+.tabbar-text {line-height: 30rpx;color:#b1b3b6}
+.tabbar-text.active{color:#ff9469}
+.tabbar-bot{height:110rpx;width:100%;box-sizing:content-box}
+@supports(bottom: env(safe-area-inset-bottom)){
+	.tabbar-bot{padding-bottom:env(safe-area-inset-bottom);}
+	.tabbar-bar{padding-bottom:env(safe-area-inset-bottom);}
+}
+.tabbar-add-icon{border-radius: 50%;border: 1rpx solid #b1b3b6;width: 76rpx;height: 76rpx;display: flex;justify-content: center;align-items: center;}

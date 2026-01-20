@@ -1,0 +1,11 @@
+{
+  "defaultTitle": "打水订单",
+  "pullRefresh": true,
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

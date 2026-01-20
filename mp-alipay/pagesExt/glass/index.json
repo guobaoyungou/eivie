@@ -1,0 +1,11 @@
+{
+  "defaultTitle": "视力档案",
+  "pullRefresh": false,
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

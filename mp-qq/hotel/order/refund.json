@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "申请退款",
+  "custom_file": "hotel",
+  "enablePullDownRefresh": false,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

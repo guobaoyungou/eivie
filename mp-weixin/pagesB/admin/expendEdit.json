@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "支出记录",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

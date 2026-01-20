@@ -1,0 +1,1 @@
+<block a:if="{{fireworksShow}}"><canvas class="fire-canvas" style="{{'width:'+(width+'px')+';'+('height:'+(height+'px')+';')+('z-index:'+(zIndex)+';')}}" canvas-id="{{canvasId}}" data-event-opts="{{[['error',[['canvasIdErrorCallback',['$event']]]]]}}" onError="__e"></canvas></block>

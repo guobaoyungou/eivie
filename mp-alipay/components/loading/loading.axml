@@ -1,0 +1,1 @@
+<view class="loading-wrap" style="{{(loadstyle)}}"><image class="loading-img" src="{{pre_url+'/upload/loading/icon_'+aid+'.png'}}"></image></view>

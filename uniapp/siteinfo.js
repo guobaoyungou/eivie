@@ -1,0 +1,1 @@
+var siteinfo = {"uniacid":"1","siteroot":"https://v2.diandashop.com"};module.exports = siteinfo;

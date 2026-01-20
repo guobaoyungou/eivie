@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "活动",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "dp-product-item": "/components/dp-product-item/dp-product-item",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

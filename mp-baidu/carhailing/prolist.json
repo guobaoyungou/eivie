@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "约车列表",
+  "component": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata"
+  }
+}

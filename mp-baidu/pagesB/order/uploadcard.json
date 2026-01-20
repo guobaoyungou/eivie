@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "海关资料补充",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "uni-data-picker": "/components/uni-data-picker/uni-data-picker"
+  }
+}

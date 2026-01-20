@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "选择日期",
+  "usingComponents": {
+    "calendar": "/pagesExt/cycle/mobile-calendar-simple/Calendar"
+  }
+}

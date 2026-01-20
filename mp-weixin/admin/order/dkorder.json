@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "代客下单",
+  "enablePullDownRefresh": false,
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "uni-data-picker": "/components/uni-data-picker/uni-data-picker"
+  }
+}

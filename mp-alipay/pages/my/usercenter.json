@@ -1,0 +1,11 @@
+{
+  "pullRefresh": true,
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "parse": "/components/parse/parse",
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "dp-wxad": "/components/dp-wxad/dp-wxad",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

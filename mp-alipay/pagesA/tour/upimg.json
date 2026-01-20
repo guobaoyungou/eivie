@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "上传图片",
+  "pullRefresh": false,
+  "usingComponents": {
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

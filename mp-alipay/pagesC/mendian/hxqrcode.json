@@ -1,0 +1,9 @@
+{
+  "defaultTitle": "核销二维码",
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

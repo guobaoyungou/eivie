@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "",
+  "component": true,
+  "usingComponents": {
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

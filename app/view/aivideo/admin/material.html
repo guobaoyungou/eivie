@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AI旅拍 - 素材管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+    <style>
+        .material-preview {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 5px;
+            border: 1px solid #eee;
+        }
+        .material-type-badge {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .type-image {
+            background: #667eea;
+            color: white;
+        }
+        .type-video {
+            background: #764ba2;
+            color: white;
+        }
+        .upload-type-badge {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .type-manual {
+            background: #52c41a;
+            color: white;
+        }
+        .type-auto {
+            background: #faad14;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-card layui-col-md12">
+                <div class="layui-card-header">
+                    <i class="fa fa-image"></i> AI旅拍 - 素材管理
+                </div>
+                <div class="layui-card-body pad15">
+                    <blockquote class="layui-elem-quote">
+                        管理上传的素材文件,支持手动上传和自动监控上传
+                    </blockquote>
+                    
+                    <div class="layui-col-md6" style="padding-bottom:10px">
+                        <button class="layui-btn layuiadmin-btn-list" onclick="openmax('{:url('upload')}')">
+                            <i class="fa fa-upload"></i> 手动上传
+                        </button>
+                        <button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="refreshMonitor()">
+                            <i class="fa fa-refresh"></i> 刷新监控
+                        </button>
+                    </div>
+                    
+                    <div class="layui-col-md12">
+                        <table id="tabledata" lay-filter="tabledata"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {include file="public/js"/}
+    <script>
+        layui.use(['table', 'layer', 'form', 'upload'], function(){
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            var upload = layui.upload;
+            
+            // 数据表
+            var tableIns = table.render({
+                elem: '#tabledata',
+                url: "{:url('material_list')}",
+                page: true,
+                cols: [[
+                    {type: 'checkbox'},
+                    {field: 'id', title: 'ID', width: 80},
+                    {field: 'material_name', title: '素材名称'},
+                    {field: 'material_type', title: '素材类型', width: 100, templet: function(d){
+                        var typeClass = d.material_type == 'image' ? 'type-image' : 'type-video';
+                        var typeText = d.material_type == 'image' ? '图片' : '视频';
+                        return '<span class="material-type-badge ' + typeClass + '">' + typeText + '</span>';
+                    }},
+                    {field: 'upload_type', title: '上传方式', width: 100, templet: function(d){
+                        var typeClass = d.upload_type == 'manual' ? 'type-manual' : 'type-auto';
+                        var typeText = d.upload_type == 'manual' ? '手动' : '自动';
+                        return '<span class="upload-type-badge ' + typeClass + '">' + typeText + '</span>';
+                    }},
+                    {field: 'material_url', title: '素材URL', width: 200, templet: function(d){
+                        return '<a href="' + d.material_url + '" target="_blank" style="color:#667eea;">查看</a>';
+                    }},
+                    {field: 'file_size', title: '文件大小', templet: function(d){
+                        return formatFileSize(d.file_size);
+                    }},
+                    {field: 'upload_source', title: '上传来源'},
+                    {field: 'createtime', title: '上传时间', templet: function(d){
+                        return layui.util.toDateString(d.createtime * 1000, 'yyyy-MM-dd HH:mm:ss');
+                    }},
+                    {fixed: 'right', title: '操作', toolbar: '#tableToolbar', width: 200}
+                ]],
+                page: true,
+                limit: 20,
+                limits: [10, 20, 50, 100],
+                done: function(res, curr, count){
+                    // 数据加载完成
+                }
+            });
+            
+            // 工具栏
+            table.on('toolbar(tabledata)', function(obj){
+                var checkStatus = table.checkStatus(tabledata);
+                var data = obj.data;
+                
+                if(obj.event === 'del'){
+                    if(checkStatus){
+                        layer.confirm('确定删除选中的素材吗?', function(index){
+                            layui.$.ajax({
+                                url: "{:url('delete')}",
+                                type: 'POST',
+                                data: {ids: data},
+                                success: function(res){
+                                    if(res.status == 1){
+                                        layer.msg('删除成功');
+                                        tableIns.reload();
+                                    } else {
+                                        layer.msg(res.msg || '删除失败');
+                                    }
+                                    layer.close(index);
+                                }
+                            });
+                        });
+                    }
+                }
+            });
+            
+            // 格式化文件大小
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+            
+            // 刷新监控
+            function refreshMonitor(){
+                layer.load('正在刷新监控...');
+                layui.$.ajax({
+                    url: "{:url('refresh_monitor')}",
+                    type: 'POST',
+                    success: function(res){
+                        layer.closeAll();
+                        if(res.status == 1){
+                            layer.msg('监控刷新成功');
+                            tableIns.reload();
+                        } else {
+                            layer.msg(res.msg || '刷新失败');
+                        }
+                    }
+                });
+            }
+        });
+        
+        function openmax(url){
+            layer.open({
+                type: 2,
+                title: '上传素材',
+                area: ['600px', '400px'],
+                content: url,
+                end: function(){
+                    // 窗口关闭后的回调
+                }
+            });
+        }
+    </script>
+</body>
+</html>

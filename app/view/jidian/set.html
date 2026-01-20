@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>集点规则设置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					<i class="fa fa-cog"></i> 集点规则设置
+				</div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form" lay-filter="">
+						
+						<div class="layui-form-item">
+							<label class="layui-form-label" style="width:130px">状态：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[status]" value="1" title="开启" {if !$info['id'] || $info['status']==1}checked{/if}>
+								<input type="radio" name="info[status]" value="0" title="关闭" {if $info['status']==0}checked{/if}>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label" style="width:130px"><span class="redstar">*</span>名称：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[name]" value="{$info['name']}" class="layui-input">
+							</div>
+							<div class="layui-form-mid layui-word-aux">如：集满x单返券</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label" style="width:130px"><span class="redstar">*</span>最低消费金额：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[price_start]" value="{$info['price_start']}" class="layui-input">
+							</div>
+							<div class="layui-form-mid layui-word-aux"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label" style="width:130px"><span class="redstar">*</span>消费周期：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[days]" value="{$info['days']}" class="layui-input">
+							</div>
+							<div class="layui-form-mid">天</div>
+							<div class="layui-form-mid layui-word-aux">消费周期内金额大于等于最低消费金额的订单算集点一次</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label" style="width:130px"><span class="redstar">*</span>开始时间：</label>
+							<div class="layui-input-inline">
+								<input type="text" id="starttime" name="info[starttime]" value="{:date('Y-m-d H:i:s',$info['starttime'])}" class="layui-input">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label" style="width:130px"><span class="redstar">*</span>结束时间：</label>
+							<div class="layui-input-inline">
+								<input type="text" id="endtime" name="info[endtime]" value="{:date('Y-m-d H:i:s',$info['endtime'])}" class="layui-input">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label" style="width:130px">集点场景：</label>
+							<div class="layui-input-inline" style="width:500px">
+								{php} $paygive_scenes = explode(',',$info['paygive_scene']);{/php}
+								<input type="checkbox" name="info[paygive_scene][]" value="shop" {if in_array('shop',$paygive_scenes)}checked{/if} title="商城"/>
+<!--								<input type="checkbox" name="info[paygive_scene][]" value="scoreshop" {if in_array('scoreshop',$paygive_scenes)}checked{/if} title="兑换"/>-->
+<!--								<input type="checkbox" name="info[paygive_scene][]" value="collage" {if in_array('collage',$paygive_scenes)}checked{/if} title="拼团"/>-->
+<!--								<input type="checkbox" name="info[paygive_scene][]" value="kanjia" {if in_array('kanjia',$paygive_scenes)}checked{/if} title="砍价"/>-->
+<!--								<input type="checkbox" name="info[paygive_scene][]" value="seckill" {if in_array('seckill',$paygive_scenes)}checked{/if} title="秒杀"/>-->
+<!--								<input type="checkbox" name="info[paygive_scene][]" value="tuangou" {if in_array('tuangou',$paygive_scenes)}checked{/if} title="团购"/>-->
+<!--								<input type="checkbox" name="info[paygive_scene][]" value="lucky_collage" {if in_array('lucky_collage',$paygive_scenes)}checked{/if} title="幸运拼团"/>-->
+<!--								<input type="checkbox" name="info[paygive_scene][]" value="recharge" {if in_array('recharge',$paygive_scenes)}checked{/if} title="充值"/>-->
+<!--								<input type="checkbox" name="info[paygive_scene][]" value="maidan" {if in_array('maidan',$paygive_scenes)}checked{/if} title="买单付款"/>-->
+								<input type="checkbox" name="info[paygive_scene][]" value="restaurant_shop" {if in_array('restaurant_shop',$paygive_scenes)}checked{/if} title="点餐"/>
+								<input type="checkbox" name="info[paygive_scene][]" value="restaurant_takeaway" {if in_array('restaurant_takeaway',$paygive_scenes)}checked{/if} title="外卖"/>
+							</div>
+						</div>
+						<div id="div">
+							{php} $setdata = json_decode($info['set'],true);{/php}
+							{if $setdata}
+							{foreach $setdata as $k=>$v}
+							<div class="layui-form-item">
+								<label class="layui-form-label" style="width:130px">{if $k==0}奖励设置：{/if}</label>
+								<div class="layui-form-mid">集点</div>
+								<div class="layui-input-inline" style="width:70px"><input type="text" name="days[]" value="{$v['days']}" class="layui-input"></div>
+								<div class="layui-form-mid">个获得 优惠券ID</div>
+								<div class="layui-input-inline" style="width:70px"><input type="text" name="coupon_id[]" value="{$v['coupon_id']}" class="layui-input coupon_id" id="coupon_{$v['days']}"></div>
+								<input type="hidden" name="coupon_name[]" value="{$v['coupon_name']}" class="layui-input coupon_name_input" id="coupon_name_{$v['days']}">
+								<div class="layui-form-mid">优惠券名称：<span class="coupon_name">{$v['coupon_name']}</span></div>
+								<button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="showChooseCoupon(this)">选择</button>
+								<tr class="choose-tr-add"></tr>
+								{if $k==0}
+								<button class="layui-btn layui-btn-primary" onclick="addlxqd()"><i class="fa fa-plus"></i></button>
+								{else}
+								<button class="layui-btn layui-btn-primary" onclick="removelxqd(this)"><i class="fa fa-minus"></i></button>
+								{/if}
+							</div>
+							{/foreach}
+							{else}
+							<div class="layui-form-item">
+								<label class="layui-form-label" style="width:130px">奖励设置：</label>
+								<div class="layui-form-mid">集点</div>
+								<div class="layui-input-inline" style="width:70px"><input type="text" name="days[]" value="" class="layui-input"></div>
+								<div class="layui-form-mid">个获得 优惠券ID</div>
+								<div class="layui-input-inline coupon_id_div" style="width:70px"><input type="text" name="coupon_id[]" value="{$v['coupon_id']}" class="layui-input coupon_id"></div>
+								<input type="hidden" name="coupon_name[]" value="{$v['coupon_name']}" class="layui-input coupon_name_input" id="">
+								<div class="layui-form-mid">优惠券名称：<span class="coupon_name"></span></div>
+								<button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="showChooseCoupon(this)">选择</button>
+								<tr class="choose-tr-add"></tr>
+								<button class="layui-btn layui-btn-primary" onclick="addlxqd()"><i class="fa fa-plus"></i></button>
+							</div>
+							{/if}
+
+						</div>
+						<div class="layui-form-item"><label class="layui-form-label" style="width:130px"></label><div class="layui-form-mid layui-word-aux" >* 建议设置奖励不超过3个</div></div>
+
+						<!-- 详情编辑器 -->
+						<div class="layui-form-item">
+							<label class="layui-form-label" style="width:130px">规则说明：</label>
+							<div class="layui-input-inline" style="width:500px">
+								<script id="guize" name="info[guize]" type="text/plain" style="width:100%;height:500px">{$info.guize}</script>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<div class="layui-input-block" style="margin-left:160px;">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+							</div>
+						</div>
+					</div>
+					
+				</div>
+			</div>
+		</div>
+	</div>
+	{include file="public/js"/}
+	<script>
+		//日期时间选择器
+		layui.laydate.render({
+			elem: '#starttime',
+			type: 'datetime',
+			trigger: 'click'
+		});
+		layui.laydate.render({
+			elem: '#endtime',
+			type: 'datetime',
+			trigger: 'click'
+		});
+             var days = '';
+             var types = ''
+			 var obj = ''
+			// function showChooseCoupon(day,type){
+			// 	alert(1);
+			//    days = day;
+			//    types = type;
+			//    console.log(type)
+			//    chooseCouponLayer = layer.open({type:2,title:'选择{:t(\'优惠券\')}',content:"{:url('Coupon/choosecoupon')}",area:['1000px','600px'],shadeClose:true});
+			// }
+			 function showChooseCoupon(thisobj){
+				 obj = thisobj;
+				 chooseCouponLayer = layer.open({type:2,title:'选择{:t(\'优惠券\')}',content:"{:url('Coupon/choosecoupon')}&type=all",area:['1000px','600px'],shadeClose:true});
+			 }
+			function choosecoupon(res){
+				var detail = res;
+				console.log(res);
+				// $("#"+types+"_coupon_"+days).val(res.id);
+				// $("#"+types+"_coupon_name_"+days).val(res.name);
+				// $("#"+types+"_coupon_name_explain_"+days).text(res.name);
+
+				console.log(obj);
+				$(obj).parent().find(".coupon_id").val(res.id);
+				$(obj).parent().find(".coupon_name_input").val(res.name);
+				$(obj).parent().find(".coupon_name").text(res.name);
+			}
+	function addlxqd(){
+		var html = '';
+		html+='<div class="layui-form-item">';
+		html+='	<label class="layui-form-label" style="width:130px"></label>';
+		html+='	<div class="layui-form-mid">集点</div>';
+		html+='	<div class="layui-input-inline" style="width:70px"><input type="text" name="days[]" value="" class="layui-input"></div>';
+		html+='	<div class="layui-form-mid">个获得 优惠券ID</div>';
+		html+='	<div class="layui-input-inline" style="width:70px"><input type="text" name="coupon_id[]" value="" class="layui-input coupon_id"></div>';
+		html+='	 <input type="hidden" name="coupon_name[]" value="" class="layui-input coupon_name_input" id=""><div class="layui-form-mid">优惠券名称：<span class="coupon_name"></span></div><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="showChooseCoupon(this)">选择</button>';
+		html+='	<button class="layui-btn layui-btn-primary" onclick="removelxqd(this)"><i class="fa fa-minus"></i></button>';
+		html+='</div>';
+		$('#div').append(html);
+	}
+	function removelxqd(obj){
+		$(obj).parent().remove();
+	}
+	var ueditor = UE.getEditor('guize');
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		field['info[guize]'] = ueditor.getContent();
+		var index = layer.load();
+		$.post('',field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status==1){
+				setTimeout(function(){
+					location.href = location.href
+				},1000)
+			}
+		})
+	})
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

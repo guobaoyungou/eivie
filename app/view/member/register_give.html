@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>注册赠送</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					注册赠送
+				</div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w8" lay-filter="">
+						<input type="hidden" name="info[id]" value="{$info['id']}">
+						<div class="layui-form-item">
+							<label class="layui-form-label">状态：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[status]" value="1" {if !$info['id'] || $info['status']==1}checked{/if} title="开启"/>
+								<input type="radio" name="info[status]" value="0" {if $info['id'] && $info['status']==0}checked{/if} title="关闭"/>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">赠送{:t('余额')}：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[money]" value="{$info.money|default=0}" autocomplete="off" class="layui-input">
+							</div>
+							<div class="layui-form-mid">元</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">赠送{:t('积分')}：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[score]" value="{$info.score|default=0}" autocomplete="off" class="layui-input">
+							</div>
+							<div class="layui-word-aux" style="clear:both;margin-left:125px"></div>
+						</div>
+						
+						<div class="layui-form-item">
+							<label class="layui-form-label">完善资料送{:t('积分')}：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[wanshan_score]" value="{$info.wanshan_score|default=0}" autocomplete="off" class="layui-input">
+							</div>
+							<div class="layui-word-aux" style="clear:both;margin-left:125px">指姓名、手机号、性别和生日全部填写</div>
+						</div>
+						{if getcustom('member_goldmoney_silvermoney')}
+							{if $SendSilvermoney}
+							<div class="layui-form-item">
+								<label class="layui-form-label">赠送{:t('银值')}：</label>
+								<div class="layui-input-inline">
+									<input type="text" name="info[silvermoney]" value="{$info.silvermoney|default=0}" autocomplete="off" class="layui-input">
+								</div>
+							</div>
+							{/if}
+							{if $SendGoldmoney}
+							<div class="layui-form-item">
+								<label class="layui-form-label">赠送{:t('金值')}：</label>
+								<div class="layui-input-inline">
+									<input type="text" name="info[goldmoney]" value="{$info.goldmoney|default=0}" autocomplete="off" class="layui-input">
+								</div>
+							</div>
+							{/if}
+						{/if}
+						{if getcustom('member_dedamount')}
+							<div class="layui-form-item">
+								<label class="layui-form-label">赠送抵扣金：</label>
+								<div class="layui-input-inline">
+									<input type="text" name="info[dedamount]" value="{$info.dedamount|default=0}" autocomplete="off" class="layui-input">
+								</div>
+								<div class="layui-form-mid layui-word-aux">只有扫有分销权限的分享员海报二维码注册的才赠送抵扣金</div>
+							</div>
+						{/if}
+						{if getcustom('commission_withdraw_limit')}
+							<div class="layui-form-item">
+								<label class="layui-form-label">赠送{:t('佣金提现额度')}：</label>
+								<div class="layui-input-inline">
+									<input type="text" name="info[give_commission_withdraw_limit]" value="{$info.give_commission_withdraw_limit|default=0}" autocomplete="off" class="layui-input">
+								</div>
+							</div>
+						{/if}
+
+						<div class="layui-form-item">
+							<label class="layui-form-label">开始时间：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[starttime]" autocomplete="off" value="{$info.starttime}" lay-verify="required" lay-verType="tips" class="layui-input" id="starttime">
+							</div>
+							<div class="layui-form-mid layui-word-aux">活动开始时间</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">结束时间：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[endtime]" autocomplete="off" value="{$info.endtime}" lay-verify="required" lay-verType="tips" class="layui-input" id="endtime">
+							</div>
+							<div class="layui-form-mid layui-word-aux">活动结束时间</div>
+						</div>
+
+						<div class="layui-form-item">
+							<label class="layui-form-label">赠送{:t('优惠券')}：</label>
+							<div class="layui-input-inline" style="width:500px">
+								<input type="radio" name="info[give_coupon]" value="0" {if $info['give_coupon']==0}checked{/if} title="关闭" lay-filter="give_coupon"/>
+								<input type="radio" name="info[give_coupon]" value="1" {if $info['give_coupon']==1}checked{/if} title="开启" lay-filter="give_coupon"/>
+							</div>
+							<div class="give_coupon" style="clear:both;{if $info['give_coupon']!=1}display:none{/if}">
+								<label class="layui-form-label"></label>
+								<div class="layui-input-inline" style="width:auto; overflow: hidden;">
+									<table class="layui-table choose-coupon" style="width:500px" id="choose-coupon">
+										<thead>
+										<tr>
+											<th>ID</th>
+											<th>名称</th>
+											<th>库存</th>
+											<th>操作</th>
+										</tr>
+										</thead>
+										{if $couponList}
+										{foreach $couponList as $k=>$ff}
+										<tr class="choose-tr-list"><td>{$ff.id}</td><td>{$ff.name}</td><td>{$ff.stock}</td><td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="delChooseTr(this,{$ff.id})">删除</button></td></tr>
+										{/foreach}
+										{/if}
+										<tr class="choose-tr-add">
+											<td colspan="4"><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="showChooseCoupon()">添加</button></td>
+										</tr>
+									</table>
+									<div class="layui-form-mid layui-word-aux">请确认{:t('优惠券')}的有效期、库存有效</div>
+									<input type="hidden" name="info[coupon_ids]" value="{$info.coupon_ids}"/>
+								</div>
+							</div>
+
+							<script>
+								var chooseCouponLayer;
+								function showChooseCoupon(){
+									chooseCouponLayer = layer.open({type:2,title:'选择{:t(\'优惠券\')}',content:"{:url('Coupon/choosecoupon')}/module/registergive",area:['1000px','600px'],shadeClose:true});
+								}
+								function choosecoupon(res){
+									var detail = res;
+									var chooseClassName = '.choose-coupon';
+									layer.close(chooseCouponLayer);
+									var objIds = [];
+									var isadd = 0;
+									$(chooseClassName).find('.choose-tr-list').each(function(){
+										var thisfid = $(this).find('td:eq(0)').html();
+										if(thisfid == detail.id){
+											isadd = 1
+											dialog('该项已添加过了');
+										}
+										objIds.push(thisfid)
+									})
+									if(isadd == 0){
+										objIds.push(detail.id)
+										$("input[name='info[coupon_ids]']").val(objIds.join(','));
+										var tr = '<tr class="choose-tr-list"><td>'+detail.id+'</td><td>'+detail.name+'</td><td>'+detail.stock+'</td><td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="delChooseTr(this,'+detail.id+')">删除</button></td></tr>';
+										$(chooseClassName).find('.choose-tr-add').before(tr);
+									}
+									// $(chooseClassName).find('.choose-tr-add').hide();
+								}
+								function delChooseTr(obj,fid){
+									$(obj).closest('.choose-tr-list').remove();
+									var objIds = [];
+									$('#choose-coupon').find('.choose-tr-list').each(function(){
+										objIds.push($(this).find('td:eq(0)').html())
+									})
+									console.log(objIds)
+									$("input[name='info[coupon_ids]']").val(objIds.join(','));
+									// $(obj).closest('table').find('.choose-tr-add').show();
+								}
+							</script>
+						</div>
+						{if getcustom('member_register_give_parent_score')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">赠送上级{:t('积分')}：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[introscore]" value="{$info.introscore|default=0}" autocomplete="off" class="layui-input">
+							</div>
+							<div class="layui-word-aux" style="clear:both;margin-left:125px"></div>
+						</div>
+						{/if}
+
+						{if getcustom('yx_reg_give_parent_coupons')}
+						<div class="layui-form-item">
+						    <label class="layui-form-label">赠送上级{:t('优惠券')}：</label>
+						    <div class="layui-input-inline" style="width:620px">
+								<input type="radio" name="info[give_parent_coupons_status]" value="0" {if $info['give_parent_coupons_status']==0}checked{/if} title="关闭" lay-filter="give_parent_coupons_status"/>
+								<input type="radio" name="info[give_parent_coupons_status]" value="1" {if $info['give_parent_coupons_status']==1}checked{/if} title="开启" lay-filter="give_parent_coupons_status"/>
+							</div>
+							<div class="give_parent_coupons_status" style="clear:both;{if $info['give_parent_coupons_status']!=1}display:none{/if}">
+								<label class="layui-form-label"></label>
+								<div class="layui-input-inline" style="width:auto; overflow: hidden;">
+							        <table class="layui-table choose-coupon-p" style="width:620px;" id="choose-coupon-p">
+							            <thead>
+							                <tr>
+							                    <th>ID</th>
+							                    <th>名称</th>
+							                    <th>库存</th>
+							                    <th>数量</th>
+							                    <th>操作</th>
+							                </tr>
+							            </thead>
+							            <tbody>
+							                <!-- 循环显示已选择的优惠券列表 -->
+							                {foreach $give_parent_coupons as $k=>$v}
+							                <tr class="choose-tr-lists">
+							                    <td>{$v.coupon_id}<input type="hidden" value="{$v.coupon_id}" name="coupon_ids[]"></td>
+							                    <td>{$v.name}</td>
+							                    <td>{$v.stock}</td>
+							                    <td>
+							                        <input type="number" name="coupon_nums[]" value="{$v.coupon_num}" min="0" class="layui-input" style="width:70px"/>
+							                    </td>
+							                    <td>
+							                        <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="delChooseCoupon(this, {$v.coupon_id})">删除</button>
+							                    </td>
+							                </tr>
+							                {/foreach}
+							                
+							                <!-- 添加优惠券按钮行 -->
+							                <tr class="choose-tr-add">
+							                    <td colspan="5"><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="showChooseCouponNew(1)">添加</button>
+							                    </td>
+							                </tr>
+							            </tbody>
+							        </table>
+							        <div class="layui-form-mid layui-word-aux">请确认{:t('优惠券')}的有效期、库存有效</div>
+							    </div>
+							</div>
+							<script>
+							    // 全局变量，存储弹层对象
+							    var chooseCouponLayerNew;
+							    
+							    /**
+							     * 显示选择优惠券弹窗
+							     * @param {number} jx 参数
+							     */
+							    function showChooseCouponNew(jx) {
+							        chooseCouponLayerNew = layer.open({
+							            type: 2, // iframe类型
+							            title: '选择{:t('优惠券')}', // 标题
+							            content: "{:url('Coupon/choosecoupon')}/callback/choosecouponnew/args/" + jx, // 内容URL
+							            area: ['1000px', '600px'], // 宽高
+							            shadeClose: true // 点击遮罩关闭
+							        });
+							    }
+							    
+							    /**
+							     * 添加新优惠券回调函数
+							     * @param {object} res 选择的优惠券数据
+							     * @param {any} args 额外参数
+							     */
+							    function choosecouponnew(res, args) {
+							        var detail = res;
+							        var chooseClassName = '.choose-coupon-p';
+							        
+							        // 关闭选择弹窗
+							        layer.close(chooseCouponLayerNew);
+							        
+							        // 检查是否已添加过该优惠券
+							        var isDuplicate = false;
+							        $(chooseClassName).find('.choose-tr-lists').each(function() {
+							            if ($(this).find('td:eq(0)').text() == detail.id) {
+							                isDuplicate = true;
+							                layer.msg('该优惠券已添加过了', {icon: 2}); // 提示用户
+							                return false; // 终止循环
+							            }
+							        });
+							        
+							        // 如果不是重复的优惠券，则添加到列表
+							        if (!isDuplicate) {
+							            var html = '<tr class="choose-tr-lists">' +
+							                '<td>' + detail.id + '<input type="hidden" value="' + detail.id + '" name="coupon_ids[]"></td>' +
+							                '<td>' + detail.name + '</td>' +
+							                '<td>' + detail.stock + '</td>' +
+							                '<td><input type="number" name="coupon_nums[]" value="1" min="0" class="layui-input" style="width:70px"/></td>' +
+							                '<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="delChooseCoupon(this,' + detail.id + ')">删除</button></td>' +
+							                '</tr>';
+							            
+							            // 在"添加"按钮前插入新行
+							            $(chooseClassName).find('.choose-tr-add').before(html);
+							            
+							            // 重新渲染表单元素
+							            layui.form.render();
+							        }
+							    }
+							    
+							    /**
+							     * 删除选择的优惠券
+							     * @param {object} obj 点击的按钮对象
+							     * @param {number} fid 优惠券ID
+							     */
+							    function delChooseCoupon(obj, fid) {
+							        // 找到最近的tr元素并移除
+							        $(obj).closest('.choose-tr-lists').remove();
+							    }
+							</script>
+						</div>
+						<!--优惠券 End-->
+						{/if}
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+							</div>
+						</div>
+					</div>
+					
+				</div>
+			</div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+
+	layui.form.on('radio(give_coupon)',function(data){
+		if(data.value==1){
+			$('.give_coupon').show();
+		}else{
+			$('.give_coupon').hide();
+		}
+	})
+	{if getcustom('yx_reg_give_parent_coupons')}
+		layui.form.on('radio(give_parent_coupons_status)',function(data){
+			if(data.value==1){
+				$('.give_parent_coupons_status').show();
+			}else{
+				$('.give_parent_coupons_status').hide();
+			}
+		})
+	{/if}
+	layui.laydate.render({ 
+		elem: '#starttime'
+		,type: 'datetime'
+		,range: false,
+		trigger: 'click'
+	});
+	layui.laydate.render({ 
+		elem: '#endtime'
+		,type: 'datetime'
+		,range: false,
+		trigger: 'click'
+	});
+	layui.laydate.render({ 
+		elem: '#yxqtime'
+		,type: 'datetime'
+		,range: '~',
+		trigger: 'click'
+	});
+
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		var index = layer.load();
+		$.post("{:url('registerGive')}",field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status,true);
+		})
+	})
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

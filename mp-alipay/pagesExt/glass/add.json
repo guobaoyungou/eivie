@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "视力档案",
+  "pullRefresh": false,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

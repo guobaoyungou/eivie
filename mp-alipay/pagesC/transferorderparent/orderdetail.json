@@ -1,0 +1,9 @@
+{
+  "defaultTitle": "审核订单详情",
+  "usingComponents": {
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

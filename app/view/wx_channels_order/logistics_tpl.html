@@ -1,0 +1,51 @@
+<!--custom_file(wx_channels)-->
+	<div style="padding:5px"></div>
+	{{# if(d.data.length==0){ }}<div style="font-size:14px;color:#f05555;padding:10px;"><i class="fa fa-info-circle"></i> 暂未查到物流信息</div>{{# } }}
+	{{# if(d.data.length>0){ }}
+	<div class="layui-tab layui-tab-brief" lay-filter="mytab">
+		<ul class="layui-tab-title">
+			{{#  layui.each(d.data, function(index, item){ }}
+			<li  class="{{index==0?'layui-this':''}}" lay-id="{{index}}">{{item.express_com}}-{{item.express_no}}</li>
+			{{# }); }}
+		</ul>
+		<div class="layui-tab-content">
+			{{#  layui.each(d.data, function(index, item){ }}
+			<div class="layui-tab-item {{index==0?'layui-show':''}}">
+				{{# if((item.oglist).length>0){ }}
+				<div class="product" style='border-bottom:1px #e6e6e6 solid;padding-bottom: 10px'>
+					{{#  layui.each(item.oglist, function(index2, item2){ }}
+					<div class="content">
+						<div>
+							<img src="{{item2.pic}}"/>
+						</div>
+						<div class="detail">
+							<span class="t1">{{item2.name}}</span>
+							<span class="t2">{{item2.guigename}}</span>
+							<div class="t3"><span class="x1 flex1">￥{{item2.sell_price}}</span><span class="x2">×{{item2.product_cnt}}</span></div>
+						</div>
+					</div>
+					{{# }); }}
+				</div>
+				{{# } }}
+				{{# if((item.express_data).length>0){ }}
+				<ul class="layui-timeline">
+					{{#  layui.each(item.express_data, function(index2, item2){ }}
+					<li class="layui-timeline-item">
+						<i class="layui-icon layui-timeline-axis {{index2==0?'on':''}}"></i>
+						<div class="layui-timeline-content layui-text">
+							<p>{{item2.time}}</p>
+							<p>
+								{{item2.context}}
+							</p>
+						</div>
+					</li>
+					{{# }); }}
+				</ul>
+				{{# }else{ }}
+				<div style="padding:20px 0 20px 0;font-size:16px">暂未查到物流信息</div>
+				{{# } }}
+			</div>
+			{{# }); }}
+		</div>
+	</div>
+	{{# } }}

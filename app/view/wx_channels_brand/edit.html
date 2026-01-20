@@ -1,0 +1,258 @@
+<!--custom_file(wx_channels)-->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>品牌资质</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					{if $info['id']}<i class="fa fa-plus"></i> 编辑品牌资质{else/}<i class="fa fa-plus"></i> 新增品牌资质{/if}
+					<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+				</div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w10" lay-filter="">
+						<input type="hidden" name="info[brand_id]" value="{$info.brand_id}" />
+						<div class="layui-form-item">
+							<label class="layui-form-label"><span class="redstar">*</span>品牌编号：</label>
+							<div class="layui-form-mid" id="brand_name">
+								{if $info}
+								{$info.brand_id}-{$info.ch_name}-{$info.en_name}
+								{/if}
+							</div>
+							<a href="javascript:vodi(0)" class="layui-btn layui-btn-primary" onclick="chooseBrandShow()">查找品牌编号</a>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">商标分类号：</label>
+							<div class="layui-input-inline" style="width:100px">
+								<input type="number" name="info[classification_no]" value="{$info['classification_no']}" min="1" max="45" class="layui-input" />
+							</div>
+							<div class="layui-form-mid">
+								商标分类号, 取值范围1-45
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">商标类型：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="radio" name="info[trade_mark_symbol]" title="R标" {if !$info || $info['trade_mark_symbol']==1}checked{/if} value="1" lay-filter="trade_mark_symbol" />
+								<input type="radio" name="info[trade_mark_symbol]" title="TM标" {if $info['trade_mark_symbol']==2}checked{/if} value="2" lay-filter="trade_mark_symbol" />
+							</div>
+							<div class="layui-form-mid">
+
+							</div>
+						</div>
+						<div class="mark_r" {if $info['trade_mark_symbol']==2}style="display:none;"{/if}>
+							<div class="layui-form-item">
+								<label class="layui-form-label">商标注册人：</label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="text" name="info[registrant]" value="{$info['registrant']}" class="layui-input" />
+								</div>
+								<div class="layui-form-mid">
+									R标时必填
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">商标注册号：</label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="text" name="info[register_no]" value="{$info['register_no']}" class="layui-input" />
+								</div>
+								<div class="layui-form-mid">
+									R标时必填
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">是否长期有效：</label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="radio" name="info[is_permanent]" title="是" value="1" {if condition="$info['is_permanent']==1"}checked{/if} />
+									<input type="radio" name="info[is_permanent]" title="否" value="0" {if condition="$info['is_permanent']==0"}checked{/if} />
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">有效期：</label>
+								<div class="layui-input-inline" style="width:500px">
+									<div class="layui-input-inline">
+										<input type="text" name="info[start_time]" id="start_time" class="layui-input" value="{if $info.start_time}{$info.start_time|date='Y-m-d H:i'}{/if}">
+									</div>
+									<div class="layui-form-mid"> ~ </div>
+									<div class="layui-input-inline">
+										<input type="text" name="info[end_time]" id="end_time" class="layui-input" value="{if $info.end_time}{$info.end_time|date='Y-m-d H:i'}{/if}">
+									</div>
+								</div>
+								<div class="layui-form-mid">
+									长期有效可不填
+								</div>
+							</div>
+						</div>
+
+
+						<div class="mark_tm" {if !$info || $info['trade_mark_symbol']==1}style="display:none;"{/if}>
+							<div class="layui-form-item">
+								<label class="layui-form-label">商标申请受理时间：</label>
+								<div class="layui-input-inline">
+									<div class="layui-input-inline">
+										<input type="text" name="info[acceptance_time]" id="acceptance_time" class="layui-input" value="{if $info.acceptance_time}{$info.acceptance_time|date='Y-m-d H:i'}{/if}">
+									</div>
+								</div>
+								<div class="layui-form-mid">
+									TM标时必填
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">商标申请号：</label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="text" name="info[acceptance_no]" value="{$info['acceptance_no']}" class="layui-input" />
+								</div>
+								<div class="layui-form-mid">
+									TM标时必填
+								</div>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">商标授权信息：</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="radio" name="info[grant_type]" title="自有品牌" value="1" {if !$info || $info['grant_type']==1}checked{/if} lay-filter="grant_type" />
+								<input type="radio" name="info[grant_type]" title="授权品牌" value="2" {if $info['grant_type']==2}checked{/if} lay-filter="grant_type" />
+							</div>
+						</div>
+						<div class="grant_type" {if !$info || $info['grant_type']==1}style="display:none;"{/if}>
+							<div class="layui-form-item">
+								<label class="layui-form-label">授权级数：</label>
+								<div class="layui-input-inline" style="width:100px">
+									<input type="number" name="info[grant_level]" min="1" max="3" class="layui-input" />
+								</div>
+								<div class="layui-form-mid">
+									授权级数, 授权品牌必填, 取值1-3
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">是否长期有效：</label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="radio" name="info[grant_is_permanent]" title="是" value="1" {if condition="$info['grant_is_permanent']==1"}checked{/if} />
+									<input type="radio" name="info[grant_is_permanent]" title="否" value="0" {if condition="$info['grant_is_permanent']==0"}checked{/if} />
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">授权有效期：</label>
+								<div class="layui-input-inline" style="width:500px">
+									<div class="layui-input-inline">
+										<input type="text" name="info[grant_start_time]" id="grant_start_time" class="layui-input" value="{if $info.grant_start_time}{$info.grant_start_time|date='Y-m-d H:i'}{/if}">
+									</div>
+									<div class="layui-form-mid"> ~ </div>
+									<div class="layui-input-inline">
+										<input type="text" name="info[grant_end_time]" id="grant_end_time" class="layui-input" value="{if $info.grant_end_time}{$info.grant_end_time|date='Y-m-d H:i'}{/if}">
+									</div>
+								</div>
+								<div class="layui-form-mid">
+									长期有效可不填
+								</div>
+							</div>
+						</div>
+						<fieldset class="layui-elem-field layui-field-title"  style="margin-top: 30px;">
+							<legend>资质证书</legend>
+						</fieldset>
+						{foreach $file_type as $field=>$field_name}
+						<div class="layui-form-item">
+							<label class="layui-form-label">{$field_name['name']}：</label>
+							<input type="hidden" name="info[{$field}]" value="{$info[$field]}" id="{$field}">
+							<input type="hidden" name="info[{$field}_ids]" value="{$info[$field.'_ids']}" id="{$field}_ids">
+							<button style="float:left;" type="button" class="layui-btn layui-btn-primary" onclick="uploader(this,true,'','channels_qua')" upload-input="{$field}" upload-preview="{$field}List" upload-channel-input="{$field}_ids" >批量上传</button>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">{$field_name['desc']}</div>
+							<div id="{$field}List" class="picsList-class-padding">
+								{if $info[$field]}{php}$pics = explode(',',$info[$field]);{/php}{foreach $pics as $pic}
+								<div class="layui-imgbox">
+									<a class="layui-imgbox-close" href="javascript:void(0)" onclick="$(this).parent().remove();getpicsval('{$field}','{$field}List')" title="删除"><i class="layui-icon layui-icon-close-fill-opaque"></i></a>
+									<span class="layui-imgbox-img"><img src="{$pic}" data-file-id=""></span>
+								</div>
+								{/foreach}{/if}
+							</div>
+						</div>
+						{/foreach}
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+							</div>
+						</div>
+					</div>
+					
+				</div>
+			</div>
+		</div>
+  </div>
+	</div>
+	{include file="public/js"/}
+
+	<script>
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		var index = layer.load();
+		$.post("{:url('save')}",field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status==1){
+				setTimeout(function(){
+					parent.layer.closeAll();
+					parent.tableIns.reload();
+				},1000)
+			}
+		})
+	})
+	layui.form.on('radio(trade_mark_symbol)', function(data){
+		if(data.value == '1'){
+			$('.mark_r').show();
+			$('.mark_tm').hide();
+		}else{
+			$('.mark_r').hide();
+			$('.mark_tm').show();
+		}
+	})
+	layui.form.on('radio(grant_type)', function(data){
+		if(data.value == '1'){
+			$('.grant_type').hide();
+		}else{
+			$('.grant_type').show();
+		}
+	})
+  </script>
+  <script>
+	  function chooseBrandShow(){
+		  layer.open({type:2,title:'选择品牌',content:"{:url('WxChannelsBrand/choosebrand')}/type/1",area:['900px','600px'],shadeClose:true});
+	  }
+	  function choosebrand (data) {
+		  console.log(data);
+		  $("input[name='info[brand_id]']").val(data.brand_id);
+		  $("#brand_name").text(data.brand_id+'-'+data.ch_name+'-'+data.en_name);
+
+	  }
+	  //日期范围选择
+	  layui.laydate.render({
+		  elem: '#start_time',
+		  trigger: 'click'
+	  });
+	  layui.laydate.render({
+		  elem: '#end_time',
+		  trigger: 'click'
+	  });
+	  layui.laydate.render({
+		  elem: '#grant_start_time',
+		  trigger: 'click'
+	  });
+	  layui.laydate.render({
+		  elem: '#grant_end_time',
+		  trigger: 'click'
+	  });
+	  layui.laydate.render({
+		  elem: '#acceptance_time',
+		  trigger: 'click'
+	  });
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

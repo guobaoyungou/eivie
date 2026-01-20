@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "核销二维码",
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

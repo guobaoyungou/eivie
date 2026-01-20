@@ -1,0 +1,1 @@
+.dp-coupon{height:auto;position:relative}.dp-coupon .item{display:flex}.dp-coupon .item .coupon{flex-shrink:0;width:200rpx;height:120rpx;background-size:100%;color:#fff;text-align:center;margin:0 8rpx}.dp-coupon .item .coupon .f1{font-size:40rpx;padding-top:6rpx;margin-bottom:6rpx}.dp-coupon .item .coupon .f2{font-size:22rpx;color:#eee}

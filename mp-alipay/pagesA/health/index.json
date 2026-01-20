@@ -1,0 +1,10 @@
+{
+  "defaultTitle": "量表评测",
+  "pullRefresh": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "navigationBarTitleText": "餐饮优惠券列表",
+  "enablePullDownRefresh": false,
+  "titleNView": {
+    "searchInput": {
+      "placeholder": "输入关键字搜索",
+      "borderRadius": "15px"
+    },
+    "buttons": [
+      {
+        "type": "home"
+      }
+    ]
+  },
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading",
+    "nodata": "/components/nodata/nodata"
+  }
+}

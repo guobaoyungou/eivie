@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "佣金转绿色积分",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

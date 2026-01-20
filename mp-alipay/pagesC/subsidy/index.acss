@@ -1,0 +1,1 @@
+.container2{width:100%;padding:20rpx;background:#fff;height:100vh;box-sizing:border-box}.navbox{background:#fff;height:auto;overflow:hidden}.nav_li{width:33%;text-align:center;box-sizing:border-box;padding:30rpx 0 10rpx;float:left;color:#222;font-size:24rpx}.nav_li image{width:100rpx;height:100rpx;margin-bottom:10rpx;border-radius:20rpx}.cp{cursor:pointer}

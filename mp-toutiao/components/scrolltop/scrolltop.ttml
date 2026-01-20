@@ -1,0 +1,1 @@
+<view><view data-event-opts="{{[['tap',[['gotop',['$event']]]]]}}" hidden="{{!(isshow)}}" class="scrolltop" bindtap="__e"><image class="image" src="{{pre_url+'/static/img/gotop.png'}}"></image></view></view>

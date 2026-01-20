@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "商户主体",
+  "enablePullDownRefresh": false,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

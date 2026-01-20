@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "报名",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

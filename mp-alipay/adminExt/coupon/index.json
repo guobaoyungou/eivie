@@ -1,0 +1,9 @@
+{
+  "pullRefresh": true,
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading",
+    "nodata": "/components/nodata/nodata"
+  }
+}

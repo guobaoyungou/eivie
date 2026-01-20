@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "填写计划",
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

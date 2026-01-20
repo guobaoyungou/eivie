@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "排队叫号",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

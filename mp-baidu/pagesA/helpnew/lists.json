@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "帮助中心",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore"
+  }
+}

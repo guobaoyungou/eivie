@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "选择城市",
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

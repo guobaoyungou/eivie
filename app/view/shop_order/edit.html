@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>修改订单</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					修改订单<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+				</div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w6" lay-filter="">
+						<input type="hidden" name="info[id]" value="{$info['id']}">
+						
+						<div class="layui-form-item" id="setgg">
+							<label class="layui-form-label">商品信息：</label>
+							<div class="layui-input-inline" style="width:auto">
+								<table id="ggnamediv"  class="layui-table" style="">
+									<thead>
+									<tr>
+										<th style="width:400px">商品名称</th>
+										<th>规格</th>
+										{if $caltype==2}
+										<th>重量</th>
+										<th>单价</th>
+										{else/}
+										<th>数量</th>
+										<th>价格</th>
+										{/if}
+										{if getcustom('shoporder_update')}
+											<th>备注</th>
+											<th>操作</th>
+										{/if}
+									</tr>
+									</thead>
+										{foreach $order_goods as $k=>$goods}
+											<tr>
+												{if $shoporder_update}
+													<td><input type="hidden" class="layui-input" name="guigedata" value="{$goods.guigedata}" style=""/><input type="text" class="layui-input" name="goods_name[]" value="{$goods.name}" style=""/><input type="hidden" name="goods_id[]" value="{$goods.id}"><input type="hidden" name="goods_lvprice[]" value="{$goods.lvprice}"></td>
+												{else/}
+													<td>{$goods.name}<input type="hidden" class="layui-input" name="goods_name[]" value="{$goods.name}" style=""/><input type="hidden" name="goods_id[]" value="{$goods.id}"><input type="hidden" name="goods_lvprice[]" value="{$goods.lvprice}"></td>
+												{/if}
+
+												<td><input type="text" class="layui-input" name="goods_ggname[]" value="{$goods.ggname}" style="" {if $price_status!=1} disabled {/if} /></td>
+												{if $caltype==2}
+													<td>
+														<input type="text" class="layui-input" name="goods_weight[]" value="{$goods.total_weight}" style="width:80px" {if $price_status==1} onblur="caculate()" {else/} disabled {/if}/>
+													</td>
+												{else/}
+													<td><input type="text" class="layui-input" name="goods_num[]" value="{$goods.num}" style="width:80px" {if $price_status==1} onblur="caculate()" {else/} disabled {/if}/></td>
+												{/if}
+												<td><input type="text" class="layui-input" name="goods_sell_price[]" value="{$goods.sell_price}" style="width:80px" {if $price_status==1} onblur="caculate()" {else/} disabled {/if}/></td>
+												{if getcustom('shoporder_update')}
+												<td><input type="text" class="layui-input" name="remark[]" value="{$goods.remark}" style="width:150px" {if $shoporder_update!=1} disabled {/if}/></td>
+												<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="parentremove(this)">删除</button></td>
+												{/if}
+											</tr>
+										{/foreach}
+								</table>
+								{if $shoporder_update}
+								<button class="layui-btn layui-btn-primary" style="float:left" onclick="showChooseProduct()">增加选择商品及规格</button>
+								{/if}
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">商品总价：</label>
+							<div class="layui-input-inline"><input type="text" name="info[product_price]" value="{$info.product_price}" class="layui-input"  {if $price_status==1} readonly {else/} disabled {/if} ></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">{:t('会员')}折扣：</label>
+							<div class="layui-input-inline"><input type="text" name="info[leveldk_money]" value="{$info.leveldk_money|default=0}" class="layui-input" {if $price_status==1} readonly {else/} disabled {/if} ></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">{:t('优惠券')}抵扣：</label>
+							<div class="layui-input-inline"><input type="text" name="info[coupon_money]" value="{$info.coupon_money|default=0}" class="layui-input" {if $price_status==1} readonly {else/} disabled {/if} ></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">{:t('积分')}抵扣：</label>
+							<div class="layui-input-inline"><input type="text" name="info[scoredk_money]" value="{$info.scoredk_money|default=0}" class="layui-input" {if $price_status==1} readonly {else/} disabled {/if} ></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">指定返佣人：</label>
+							<div class="layui-input-inline"><input type="text" name="info[checkmemid]" value="{$info.checkmemid}" class="layui-input" {if $price_status==1} onblur="caculate()" {else/} disabled {/if}></div>
+						</div>
+
+						<div class="layui-form-item">
+							<label class="layui-form-label">收货人姓名：</label>
+							<div class="layui-input-inline"><input type="text" name="info[linkman]" value="{$info.linkman}" class="layui-input"></div>
+						</div>
+
+						<div class="layui-form-item">
+							<label class="layui-form-label">收货人电话：</label>
+							<div class="layui-input-inline"><input type="text" name="info[tel]" value="{$info.tel}" class="layui-input"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">收货地区：</label>
+							<div class="layui-input-inline" style="width:300px"><input type="text" name="info[area]" value="{$info.area}" class="layui-input"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">收货地址：</label>
+							<div class="layui-input-inline" style="width:300px"><input type="text" name="info[address]" value="{$info.address}" class="layui-input"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">配送方式：</label>
+							<div class="layui-input-inline"><input type="text" name="info[freight_text]" value="{$info.freight_text}" class="layui-input" {if $price_status!=1} disabled {/if}></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">配送费：</label>
+							<div class="layui-input-inline"><input type="text" name="info[freight_price]" value="{$info.freight_price|default=0}" class="layui-input" {if $price_status==1} onblur="caculate()" {else/} disabled {/if}></div>
+						</div>
+						{if getcustom('money_dec')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">{:t('余额')}抵扣：</label>
+							<div class="layui-input-inline"><input type="text" id="dec_money" name="info[dec_money]" value="{$info.dec_money|default=0}" class="layui-input" {if $price_status==1} onblur="caculate()" {else/} disabled {/if}></div>
+						</div>
+						{/if}
+						<div class="layui-form-item">
+							<label class="layui-form-label">管理员优惠：</label>
+							<div class="layui-input-inline"><input type="text" id="discount_money_admin" name="info[discount_money_admin]" value="{$info.discount_money_admin|default=0}" class="layui-input" {if $price_status==1} onblur="caculate()" {else/} disabled {/if}></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">实付款：</label><!--总价不修改，通过其他商品价格，优惠价格修改减少总价-->
+							<div class="layui-input-inline"><input type="text" name="info[totalprice]" value="{$info.totalprice}" class="layui-input" readonly disabled></div>
+							<div class="layui-form-mid layui-word-aux">总价不能修改，通过商品价格、配送费、管理员优惠等修改自动计算总价</div>
+						</div>
+						{if $info.status==2 && $info.express_com != '多单发货' && $info.express_com != '货运托运'}
+						<div class="layui-form-item">
+							<label class="layui-form-label">快递公司：</label>
+							<div class="layui-input-inline">
+								<select name="info[express_com]">
+									{foreach $express_data as $k=>$v}
+									<option {if $info['express_com']==$k}selected{/if}>{$k}</option>
+									{/foreach}
+								</select>
+								<!-- <input type="text" name="info[express]" value="{$info.express}" class="layui-input"> -->
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">快递单号：</label>
+							<div class="layui-input-inline"><input type="text" name="info[express_no]" value="{$info.express_no}" class="layui-input"></div>
+						</div>
+						{/if}
+
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<input type="hidden" id="newpro" name="newpro" value="0">
+								<input type="hidden" id="buydatastr" name="buydatastr" value="">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">确定修改</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+	var discount = parseFloat('{$discount}');
+	var caltype = {$caltype|default=0};
+	function caculate(){
+		var leveldk_money = 0;
+		var product_price = 0
+		$("input[name='goods_sell_price[]']").each(function(k,v){
+			var sell_price = parseFloat($(this).val());
+
+			if(caltype==2){
+				var weight = parseFloat($("input[name='goods_weight[]']").eq(k).val());
+				product_price += sell_price * weight;
+			}else{
+				var num = parseInt($("input[name='goods_num[]']").eq(k).val());
+				var lvprice = $("input[name='goods_lvprice[]']").eq(k).val();
+				if(lvprice == '0'){
+					leveldk_money += sell_price * (1-discount) * num
+				}
+				product_price += sell_price * num;
+			}
+		})
+		var freight_price = parseFloat($("input[name='info[freight_price]']").val());
+		var scoredk_money = parseFloat($("input[name='info[scoredk_money]']").val());
+		var coupon_money = parseFloat($("input[name='info[coupon_money]']").val());
+		var discount_money_admin = parseFloat($("input[name='info[discount_money_admin]']").val());
+		var totalprice = product_price - leveldk_money - coupon_money
+		{if getcustom('money_dec')}
+			var dec_money = $('#dec_money').val();
+			totalprice -= dec_money;
+		{/if}
+		if(totalprice < 0 ) totalprice = 0;
+		totalprice = totalprice + freight_price - scoredk_money- discount_money_admin;
+
+		if(totalprice < 0 ) totalprice = 0;
+		$("input[name='info[product_price]']").val(product_price.toFixed(2));
+		$("input[name='info[leveldk_money]']").val(leveldk_money.toFixed(2));
+		$("input[name='info[totalprice]']").val(totalprice.toFixed(2));
+	}
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		var index = layer.load();
+		$.post("",field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status==1){
+				setTimeout(function(){
+					parent.layer.closeAll();
+					parent.tableIns.reload();
+				},1000)
+			}
+		})
+	})
+
+	{if getcustom('shoporder_update')}
+	var chooseProductLayer;
+	var levelid = 0;
+	function showChooseProduct(){
+		var mid = $("input[name='mid']").val();
+		chooseProductLayer = layer.open({type:2,title:'选择商品',content:"{:url('shop_product/chooseproduct')}/hidebid/1/mid/"+mid,area:['900px','600px'],shadeClose:true});
+	}
+	function choosepro(data){
+		showgg(data.product,data.guigedata,data.gglist);
+	}
+	var buydata = [];
+	var buydatastr = '';
+	function showgg(product,specs,gglist){
+		buydata = [];
+		var len = specs.length;
+		var newlen = 1;
+		var h = new Array(len);
+		var rowspans = new Array(len);
+		var mid = $("input[name='mid']").val();
+
+		var html = '<div style="margin:10px"><table id="ggvaldiv" class="layui-table"><thead><tr>';
+		for(var i=0;i<len;i++){
+			html+="<th>" + specs[i].title + "</th>";
+			var itemlen = specs[i].items.length;
+			if(itemlen<=0) { itemlen = 1 };
+			newlen*=itemlen;
+			h[i] = new Array(newlen);
+			for(var j=0;j<newlen;j++){
+				h[i][j] = new Array();
+			}
+			var l = specs[i].items.length;
+			rowspans[i] = 1;
+			for(j=i+1;j<len;j++){
+				rowspans[i]*= specs[j].items.length;
+			}
+		}
+		html += '<th>库存</th>';
+		html += '<th>成本价</th>';
+		html += '<th>销售价</th>';
+		html += '<th>购买数量</th>';
+		html += '</tr></thead>';
+
+		for(var m=0;m<len;m++){
+			var k = 0,kid = 0,n=0;
+			for(var j=0;j<newlen;j++){
+				var rowspan = rowspans[m];
+				if( j % rowspan==0){
+					h[m][j]={ k:specs[m].items[kid].k,title: specs[m].items[kid].title, html: "<td rowspan='" +rowspan + "'>"+ specs[m].items[kid].title+"</td>\r\n",id: specs[m].items[kid].id};
+				}else{
+					h[m][j]={ k:specs[m].items[kid].k,title:specs[m].items[kid].title, html: "",id: specs[m].items[kid].id};
+				}
+				n++;
+				if(n==rowspan){
+					kid++; if(kid>specs[m].items.length-1) { kid=0; }
+					n=0;
+				}
+			}
+		}
+		var hh = "";
+		for(var i=0;i<newlen;i++){
+			hh+="<tr>";
+			var ks = [];
+			var titles = [];
+			for(var j=0;j<len;j++){
+				hh+=h[j][i].html;
+				ks.push( h[j][i].k);
+				titles.push( h[j][i].title);
+			}
+			ks =ks.join(',');
+			titles =titles.join(',');
+			if(typeof(gglist[ks])!='undefined'){
+				var val = gglist[ks];
+			}else{
+				var val = { procode:'',market_price:'',cost_price:'',sell_price:'',weight:'',stock:'1000',pic:''};
+			}
+			if(levelid && product.lvprice) {
+				var lvprice = JSON.parse(val['lvprice_data']);
+				if(lvprice[levelid] >= 0)
+					val['sell_price'] = lvprice[levelid];
+			}
+			hh += '<td>'+val.stock+'</td>';
+			hh += '<td>'+val.cost_price+'</td>';
+			hh += '<td>'+val.sell_price+'</td>';
+			hh += '<td>';
+			hh += ' <input name="buynum" ggid="'+val['id']+'" sellprice="'+val['sell_price']+'" ggname="'+val['name']+'" lvprice=\''+val['lvprice_data']+'\' type="num" style="width:80px" value="0" class="layui-input"/>';
+			hh += '</td>';
+			hh += "</tr>";
+		}
+		html+=hh;
+		html+='</table></div>';
+		layer.open({type:1,title:product.name,content:html,area:['900px','600px'],shadeClose:true,btn:['确定','取消'],
+			yes:function(index){
+				layer.close(index);
+				$('input[name=buynum]').each(function(){
+					var ggid = $(this).attr('ggid');
+					var ggname = $(this).attr('ggname');
+					var sell_price = $(this).attr('sellprice');
+					var buynum = $(this).val();
+					if(buynum > 0){
+						var product_type = 0;
+						if(product && product.product_type){
+							product_type = product.product_type;
+						}
+						var thisdata = {'name':product.name,'pic':product.pic,'id':product.id,'lvprice':product.lvprice,'ggname':ggname,'ggid':ggid,'sell_price':sell_price,'buynum':buynum,'product_type':product_type}
+						buydata.push(thisdata);
+					}
+				});
+				showproinfo()
+			}
+		});
+	}
+	function parentremove(obj){
+		$(obj).parent().parent().remove();
+		buydatastrArrdel = [];
+		$('#ggnamediv tbody tr').find('input[name=guigedata]').each(function(){
+			buydatastrArrdel.push($(this).val());
+		});
+
+		buydatastr = buydatastrArrdel.join('-');
+		$('#buydatastr').val(buydatastr);
+		$('#newpro').val('1');
+		caculate();
+	}
+	function showproinfo(){
+		buydatastr = '';
+		buydatastrArr = [];
+		$('#newpro').val('1');
+
+		$('#ggnamediv tbody tr').find('input[name=guigedata]').each(function(){
+			buydatastrArr.push($(this).val());
+		});
+
+		console.log(buydata)
+		for(var i in buydata){
+			var m = buydata[i];
+
+			var html = '<tr>';
+			html += '	<td><input type="hidden" name="guigedata" value="'+m.id + ',' + m.ggid + ',' + m.buynum+'" ><input type="hidden" name="ggid[]" value="'+m.ggid+'"><input type="hidden" name="goods_id[]" value="'+m.id+'"><input type="hidden" name="goods_lvprice[]" value="'+m.lvprice+'"><input type="text" class="layui-input" name="goods_name[]" value="'+m.name+'" style="" /></td>';
+			html += '	<td><input type="text" class="layui-input" name="goods_ggname[]" value="'+m.ggname+'" style="" /></td>';
+				{if $caltype==2}
+					html += '		<td>';
+					html += '			<input type="text" class="layui-input" name="goods_weight[]" value="'+m.sell_price+'" style="width:80px" onblur="caculate()" />';
+					html += '		</td>';
+				{else/}
+					html += '		<td><input type="text" class="layui-input" name="goods_num[]" value="'+m.buynum+'" style="width:80px" onblur="caculate()" /></td>';
+				{/if}
+			html += '	<td><input type="text" class="layui-input" name="goods_sell_price[]" value="'+m.sell_price+'" style="width:80px" onblur="caculate()" /></td>';
+			html += '	<td><input type="text" class="layui-input" name="remark[]" value="" style="width:150px" /></td>';
+			html += '	<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="parentremove(this)">删除</button></td>';
+			html += '</tr>';
+
+			buydatastrArr.push(m.id + ',' + m.ggid + ',' + m.buynum);
+			$('#ggnamediv').append(html);
+		}
+
+		buydatastr = buydatastrArr.join('-');
+		$('#buydatastr').val(buydatastr);
+		caculate();
+	}
+	{/if}
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "calendar-item": "/pagesExt/sign/uni-calendar/uni-calendar-item"
+  }
+}

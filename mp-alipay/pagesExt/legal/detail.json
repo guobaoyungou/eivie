@@ -1,0 +1,6 @@
+{
+  "pullRefresh": false,
+  "usingComponents": {
+    "parse": "/components/parse/parse"
+  }
+}

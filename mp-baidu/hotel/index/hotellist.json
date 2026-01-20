@@ -1,0 +1,10 @@
+{
+  "custom_file": "hotel",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading"
+  }
+}

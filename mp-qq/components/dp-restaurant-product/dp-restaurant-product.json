@@ -1,0 +1,8 @@
+{
+  "component": true,
+  "usingComponents": {
+    "dp-restaurant-product-item": "/components/dp-restaurant-product-item/dp-restaurant-product-item",
+    "dp-restaurant-product-itemlist": "/components/dp-restaurant-product-itemlist/dp-restaurant-product-itemlist",
+    "dp-restaurant-product-itemline": "/components/dp-restaurant-product-itemline/dp-restaurant-product-itemline"
+  }
+}

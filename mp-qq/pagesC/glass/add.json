@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "定制参数",
+  "usingComponents": {
+    "uni-drawer": "/components/uni-drawer/uni-drawer",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

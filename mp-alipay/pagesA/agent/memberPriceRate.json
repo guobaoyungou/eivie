@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "",
+  "pullRefresh": false,
+  "usingComponents": {
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

@@ -1,0 +1,100 @@
+{
+	"id": "uni-requestMerchantTransfer",
+	"displayName": "uni-requestMerchantTransfer",
+	"version": "1.0.2",
+	"description": "商家转账用户确认模式下，拉起页面请求用户确认收款Transfer",
+	"keywords": [
+        "确认收款"
+    ],
+	"repository": "",
+	"engines": {
+		"HBuilderX": "^3.6.8"
+	},
+	"dcloudext": {
+		"type": "uts",
+		"sale": {
+			"regular": {
+				"price": "0.00"
+			},
+			"sourcecode": {
+				"price": "0.00"
+			}
+		},
+		"contact": {
+			"qq": ""
+		},
+		"declaration": {
+			"ads": "无",
+			"data": "使用微信Open SDK，数据采集相关内容参考：微信Open SDK个人信息处理规则 https://support.weixin.qq.com/cgi-bin/mmsupportacctnodeweb-bin/pages/RYiYJkLOrQwu0nb8",
+			"permissions": "无"
+		},
+		"npmurl": ""
+	},
+	"uni_modules": {
+		"uni-ext-api": {
+			"uni": {
+				"requestMerchantTransfer": {
+					"name": "requestMerchantTransfer",
+					"app": {
+						"js": false,
+						"kotlin": true,
+						"swift": true,
+						"arkts": false
+					}
+				}
+			}
+		},
+		"dependencies": [],
+		"encrypt": [],
+		"platforms": {
+			"cloud": {
+				"tcb": "y",
+				"aliyun": "y",
+				"alipay": "y"
+			},
+			"client": {
+				"Vue": {
+					"vue2": "y",
+					"vue3": "y"
+				},
+				"App": {
+                    "app-android": {
+                        "minVersion": "21"
+                    },
+                    "app-ios": {
+                        "minVersion": "12"
+                    },
+                    "app-harmony": "u"
+                },
+				"H5-mobile": {
+					"Safari": "u",
+					"Android Browser": "u",
+					"微信浏览器(Android)": "u",
+					"QQ浏览器(Android)": "u"
+				},
+				"H5-pc": {
+					"Chrome": "u",
+					"IE": "u",
+					"Edge": "u",
+					"Firefox": "u",
+					"Safari": "u"
+				},
+				"小程序": {
+					"微信": "u",
+					"阿里": "u",
+					"百度": "u",
+					"字节跳动": "u",
+					"QQ": "u",
+					"钉钉": "u",
+					"快手": "u",
+					"飞书": "u",
+					"京东": "u"
+				},
+				"快应用": {
+					"华为": "u",
+					"联盟": "u"
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "个人设置",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {}
+}

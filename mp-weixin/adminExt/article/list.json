@@ -1,0 +1,26 @@
+{
+  "navigationBarTitleText": "文章列表",
+  "titleNView": {
+    "searchInput": {
+      "placeholder": "输入关键字搜索",
+      "borderRadius": "15px"
+    },
+    "buttons": [
+      {
+        "type": "home"
+      },
+      {
+        "type": "none",
+        "fontSrc": "/static/font/iconfont.ttf",
+        "text": ""
+      }
+    ]
+  },
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "loading": "/components/loading/loading",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

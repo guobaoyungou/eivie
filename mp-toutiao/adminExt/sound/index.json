@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "云音响",
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata"
+  }
+}

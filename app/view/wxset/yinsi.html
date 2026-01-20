@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>用户隐私保护指引设置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+	<style>
+		.form-label-w10 .layui-form-item .layui-form-label {width: 200px}
+	</style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header"><i class="fa fa-cog"></i> 用户隐私保护指引设置<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i></div>
+				<div class="layui-card-body" pad15>
+					<blockquote class="layui-elem-quote" style="color:#333">
+						1.配置后，需重新提交代码审核，审核通过且重新发布上线后才会在小程序端生效。<br>
+						2.提交后还未重新发布上线前，再次打开看不到上次的配置为正常情况，上次的配置还未生效，接口读取的是已生效的配置，审核通过且重新发布上线后才会生效。<br>
+						3.如果驳回，可以查看小程序审核驳回原因进行调整。
+					</blockquote>
+					<div class="layui-form form-label-w10" lay-filter="">
+						收集信息用途说明<hr/>
+						{foreach $privacyArr as $k=>$item}
+						<div class="layui-form-item">
+							<label class="layui-form-label">{$item.desc}：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="setting_list[{$k}]" value="{$item['text']}" class="layui-input"
+									   {if in_array($k,['UserInfo','Address','PhoneNumber','MessageFile','Location','Album','AlbumWriteOnly','ChooseLocation','Clipboard',Contact])} lay-verify="required"{/if} lay-verType="tips"/>
+							</div>
+							{if $k == 'UserInfo'}
+							<div class="layui-form-mid layui-word-aux">例如 辨别用户身份</div>
+							{elseif $k == 'Address'}
+							<div class="layui-form-mid layui-word-aux">例如 地址导航</div>
+							{elseif $k == 'PhoneNumber'}
+							<div class="layui-form-mid layui-word-aux">例如 发送短信通知</div>
+							{elseif $k == 'MessageFile'}
+							<div class="layui-form-mid layui-word-aux">例如 上传评价图片等</div>
+							{elseif $k == 'Location'}
+							<div class="layui-form-mid layui-word-aux">例如 推荐最近的自提点</div>
+							{elseif $k == 'Album'}
+							<div class="layui-form-mid layui-word-aux">例如 评价晒单</div>
+							{elseif $k == 'AlbumWriteOnly'}
+							<div class="layui-form-mid layui-word-aux">例如 保存商品图片和海报</div>
+							{elseif $k == 'ChooseLocation'}
+							<div class="layui-form-mid layui-word-aux">例如 选择位置作为收货地址</div>
+							{elseif $k == 'Clipboard'}
+							<div class="layui-form-mid layui-word-aux">例如 复制订单号</div>
+							{elseif $k == 'Contact'}
+							<div class="layui-form-mid layui-word-aux">例如 保存联系方式</div>
+							{else}
+							<div class="layui-form-mid layui-word-aux">选填</div>
+							{/if}
+						</div>
+						{/foreach}
+						信息收集方联系方式<hr/>
+						<div class="layui-form-item">
+							<label class="layui-form-label">邮箱：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="owner_setting[contact_email]" value="{$owner_setting['contact_email']}" class="layui-input"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux">邮箱、手机号、QQ、微信号 4种联系方式至少要填一种</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">手机号：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="owner_setting[contact_phone]" value="{$owner_setting['contact_phone']}" class="layui-input"/>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">QQ：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="owner_setting[contact_qq]" value="{$owner_setting['contact_qq']}" class="layui-input"/>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">微信号：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="owner_setting[contact_weixin]" value="{$owner_setting['contact_weixin']}" class="layui-input"/>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">通知方式：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="owner_setting[notice_method]" value="{$owner_setting['notice_method']}" class="layui-input" lay-verify="required" lay-verType="tips"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux">例如 弹窗、公告或其他方式</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">存储地区：</label>
+							<div class="layui-input-inline">
+								<select name="owner_setting[store_region]" lay-search>
+									<option value="1017" {if $owner_setting['store_region']==1017 || !$owner_setting['store_region']}selected{/if}>中国大陆</option>
+									<option value="1031" {if $owner_setting['store_region']==1031}selected{/if}>中国香港</option>
+									<option value="1054" {if $owner_setting['store_region']==1054}selected{/if}>中国澳门</option>
+									<option value="1080" {if $owner_setting['store_region']==1080}selected{/if}>中国台湾</option>
+									<option value="1045" {if $owner_setting['store_region']==1045}selected{/if}>韩国</option>
+									<option value="1042" {if $owner_setting['store_region']==1042}selected{/if}>日本</option>
+									<option value="1082" {if $owner_setting['store_region']==1082}selected{/if}>美国</option>
+									<option value="1014" {if $owner_setting['store_region']==1014}selected{/if}>加拿大</option>
+									<option value="1058" {if $owner_setting['store_region']==1058}selected{/if}>墨西哥</option>
+									<option value="1005" {if $owner_setting['store_region']==1005}selected{/if}>澳大利亚</option>
+									<option value="1063" {if $owner_setting['store_region']==1063}selected{/if}>新西兰</option>
+									<option value="1074" {if $owner_setting['store_region']==1074}selected{/if}>新加坡</option>
+									<option value="1059" {if $owner_setting['store_region']==1059}selected{/if}>马来西亚</option>
+									<option value="1023" {if $owner_setting['store_region']==1023}selected{/if}>英国</option>
+									<option value="1018" {if $owner_setting['store_region']==1018}selected{/if}>德国</option>
+									<option value="1040" {if $owner_setting['store_region']==1040}selected{/if}>意大利</option>
+									<option value="1070" {if $owner_setting['store_region']==1070}selected{/if}>俄罗斯</option>
+									<option value="1110" {if $owner_setting['store_region']==1110}selected{/if}>埃及</option>
+									<option value="1086" {if $owner_setting['store_region']==1086}selected{/if}>南非</option>
+									<option value="1141" {if $owner_setting['store_region']==1141}selected{/if}>尼日利亚</option>
+									<option value="1108" {if $owner_setting['store_region']==1108}selected{/if}>阿尔及利亚</option>
+									<option value="1134" {if $owner_setting['store_region']==1134}selected{/if}>摩洛哥</option>
+									<option value="1003" {if $owner_setting['store_region']==1003}selected{/if}>阿根廷</option>
+									<option value="1010" {if $owner_setting['store_region']==1010}selected{/if}>巴西</option>
+									<option value="1101" {if $owner_setting['store_region']==1101}selected{/if}>哥伦比亚</option>
+									<option value="1020" {if $owner_setting['store_region']==1020}selected{/if}>西班牙</option>
+									<option value="1062" {if $owner_setting['store_region']==1062}selected{/if}>荷兰</option>
+									<option value="1067" {if $owner_setting['store_region']==1067}selected{/if}>葡萄牙</option>
+									<option value="1149" {if $owner_setting['store_region']==1149}selected{/if}>波兰</option>
+									<option value="1065" {if $owner_setting['store_region']==1065}selected{/if}>菲律宾</option>
+									<option value="1077" {if $owner_setting['store_region']==1077}selected{/if}>泰国</option>
+									<option value="1136" {if $owner_setting['store_region']==1136}selected{/if}>缅甸</option>
+									<option value="1127" {if $owner_setting['store_region']==1127}selected{/if}>老挝</option>
+									<option value="1137" {if $owner_setting['store_region']==1137}selected{/if}>蒙古</option>
+								</select>
+							</div>
+							<div class="layui-form-mid layui-word-aux">境外主体的小程序必须选择地区，否则小程序审核会被驳回。</div>
+						</div>
+
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+							</div>
+						</div>
+					</div>
+				</div>
+      </div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+	layui.form.on('radio(wxpay_type)', function(data){
+		if(data.value == '0'){
+			$('#wxpay_type1set').hide();
+			$('#wxpay_type0set').show();
+		}else{
+			$('#wxpay_type1set').show();
+			$('#wxpay_type0set').hide();
+		}
+	})
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		$.post('',field,function(data){
+			dialog(data.msg,data.status,data.url);
+		})
+	})
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

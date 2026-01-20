@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "会员卡领取",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

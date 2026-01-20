@@ -1,0 +1,1 @@
+<view class="nomore"><view class="nomore-line" style="{{'border-color:'+(linecolor)+';'}}"></view><view class="nomore-text"><text class="txt" style="{{'color:'+(textcolor)+';'}}">{{text}}</text></view><view class="nomore-line" style="{{'border-color:'+(linecolor)+';'}}"></view></view>

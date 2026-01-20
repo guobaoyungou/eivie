@@ -1,0 +1,15 @@
+{
+  "navigationBarTitleText": "商品搜索",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "uni-drawer": "/components/uni-drawer/uni-drawer",
+    "buydialog": "/components/buydialog/buydialog",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

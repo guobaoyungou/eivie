@@ -1,0 +1,13 @@
+{
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "dp-guanggao": "/components/dp-guanggao/dp-guanggao",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "dp-sharegive": "/components/dp-sharegive/dp-sharegive",
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

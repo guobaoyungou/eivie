@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "餐桌分类管理",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata"
+  }
+}

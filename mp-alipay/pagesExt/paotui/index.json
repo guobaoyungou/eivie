@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "跑腿",
+  "pullRefresh": false,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

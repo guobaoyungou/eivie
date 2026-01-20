@@ -1,0 +1,289 @@
+<template>
+<view class="container">
+	<block v-if="isload">
+		<view class="ordertop flex" :style="'background:url('+pre_url+'/static/img/orderbg.png);background-size:100%'">
+			<view class="f1 " v-if="detail.status==0">
+				<view class="t1">等待买家付款</view>
+			</view>
+			<view class="f1" v-if="detail.status==1">
+				<view class="t2">订单已付款</view>
+			</view>
+			<view class="f1" v-if="detail.status==3">
+				<view class="t1">订单已完成</view>
+			</view>
+			<view class="f1" v-if="detail.status==4">
+				<view class="t1">订单已取消</view>
+			</view>
+			<view class="orderx"><image :src="pre_url+'/static/img/orderx.png'"></view>
+		</view>
+		
+		<view class="orderinfo orderinfotop">
+			<view class="title">订单信息</view>
+			<view class="item">
+				<text class="t1">订单编号</text>
+				<text class="t2" user-select="true" selectable="true">{{detail.ordernum}}</text>
+			</view>
+			<view class="item">
+				<text class="t1">下单时间</text>
+				<text class="t2">{{detail.createtime}}</text>
+			</view>
+			<view class="item">
+				<text class="t1">预约时间</text>
+				<text class="t2">{{detail.yy_time}}</text>
+			</view>
+		</view>
+		<view class="orderinfo" v-if="(detail.formdata).length > 0">
+			<view class="item" v-for="item in detail.formdata" :key="index">
+				<text class="t1">{{item[0]}}</text>
+				<view class="t2" v-if="item[2]=='upload'"><image :src="item[1]" style="width:400rpx;height:auto" mode="widthFix" @tap="previewImage" :data-url="item[1]"/></view>
+				<text class="t2" v-else user-select="true" selectable="true">{{item[1]}}</text>
+			</view>
+		</view>
+		
+		<!-- <view class="btitle flex-y-center" v-if="detail.bid>0" @tap="goto" :data-url="'/pagesExt/business/index?id=' + detail.bid">
+			<image :src="detail.binfo.logo" style="width:36rpx;height:36rpx;"></image>
+			<view class="flex1" decode="true" space="true" style="padding-left:16rpx">{{detail.binfo.name}}</view>
+		</view> -->
+		<view class="product">
+			<view class="title">课程信息</view>
+			<view class="content">
+				<view @tap="goto" :data-url="'product?id=' + detail.proid">
+					<image :src="detail.propic"></image>
+				</view>
+				<view class="detail">
+					<text class="t1">{{detail.proname}}</text>
+					<view class="t2 flex flex-y-center flex-bt">
+						<text>{{t('教练')}}：{{workerinfo.realname}} {{workerinfo.dengji||''}}</text>
+					</view>
+					<view class="t3"><text class="x1 flex1">￥{{detail.product_price}}</text></view>
+					<!-- <view class="t4 flex flex-x-bottom">
+						<view class="btn3" v-if="detail.status==3 && prolist.iscomment==0" @tap.stop="goto" :data-url="'comment?oid=' + prolist.id">去评价</view>
+						<view class="btn3" v-if="detail.status==3 && prolist.iscomment==1" @tap.stop="goto" :data-url="'comment?oid=' + prolist.id">查看评价</view>
+					</view> -->
+				</view>
+			</view>
+		</view>
+
+		<view class="orderinfo">
+			<view class="item">
+				<text class="t1">下单人</text>
+				<text class="flex1"></text>
+				<image :src="detail.headimg" style="width:80rpx;height:80rpx;margin-right:8rpx"/>
+				<text  style="height:80rpx;line-height:80rpx">{{detail.nickname}}</text>
+			</view>
+			<view class="item">
+				<text class="t1">{{t('会员')}}ID</text>
+				<text class="t2">{{detail.mid}}</text>
+			</view>
+		</view>
+		<view class="orderinfo">
+			<view class="item" v-if="detail.total_kecheng_num">
+				<text class="t1">课程数量</text>
+				<text class="t2">{{detail.total_kecheng_num}}节</text>
+			</view>
+			<view class="item" v-if="detail.product.yuyue_model == 2 && detail.total_kecheng_num">
+				<text class="t1">剩余课程</text>
+				<text class="t2">{{detail.surplus_kecheng_num}}节</text>
+			</view>
+			<view class="item" v-if="detail.guige">
+				<text class="t1">{{t('课时')}}</text>
+				<text class="t2">{{detail.guige.duration}}分钟/节</text>
+			</view>
+			<view class="item">
+				<text class="t1">应付金额</text>
+				<text class="t2 red">¥{{detail.product_price}}</text>
+			</view>
+			<view class="item" v-if="detail.leveldk_money > 0">
+				<text class="t1">{{t('会员')}}折扣</text>
+				<text class="t2 red">-¥{{detail.leveldk_money}}</text>
+			</view>
+			<view class="item" v-if="detail.manjian_money > 0">
+				<text class="t1">满减活动</text>
+				<text class="t2 red">-¥{{detail.manjian_money}}</text>
+			</view>
+			<view class="item" v-if="detail.freight_type==1 && detail.freightprice > 0">
+				<text class="t1">服务费</text>
+				<text class="t2 red">+¥{{detail.freight_price}}</text>
+			</view>
+			<view class="item" v-if="detail.freight_time">
+				<text class="t1">{{detail.freight_type!=1?'配送':'提货'}}时间</text>
+				<text class="t2">{{detail.freight_time}}</text>
+			</view>
+			<view class="item" v-if="detail.coupon_money > 0">
+				<text class="t1">{{t('优惠券')}}抵扣</text>
+				<text class="t2 red">-¥{{detail.coupon_money}}</text>
+			</view>
+			
+			<view class="item" v-if="detail.scoredk > 0">
+				<text class="t1">{{t('积分')}}抵扣</text>
+				<text class="t2 red">-¥{{detail.scoredk_money}}</text>
+			</view>
+			<view class="item">
+				<text class="t1">实付款</text>
+				<text class="t2 red">¥{{detail.totalprice}}</text>
+			</view>
+
+			<view class="item">
+				<text class="t1">订单状态</text>
+				<text class="t2" v-if="detail.status==0">未付款</text>
+				<text class="t2" v-if="detail.status==1">已付款</text>
+				<text class="t2" v-if="detail.status==2">服务中</text>
+				<text class="t2" v-if="detail.status==3">已完成</text>
+				<text class="t2" v-if="detail.status==4">已关闭</text>
+				<text class="" v-if="detail.refundCount" style="margin-left: 8rpx;">有退款({{detail.refundCount}})</text>
+			</view>
+			<view class="item" v-if="detail.refund_status>0">
+				<text class="t1">退款状态</text>
+				<text class="t2 red" v-if="detail.refund_status==1">审核中,¥{{detail.refund_money}}</text>
+				<text class="t2 red" v-if="detail.refund_status==2">已退款,¥{{detail.refund_money}}</text>
+				<text class="t2 red" v-if="detail.refund_status==3">已驳回,¥{{detail.refund_money}}</text>
+			</view>
+			
+			<view class="item" v-if="detail.balance_price>0">
+				<text class="t1">尾款</text>
+				<text class="t2 red">¥{{detail.balance_price}}</text>
+			</view>
+			<view class="item" v-if="detail.balance_price>0">
+				<text class="t1">尾款状态</text>
+				<text class="t2" v-if="detail.balance_pay_status==1">已支付</text>
+				<text class="t2" v-if="detail.balance_pay_status==0">未支付</text>
+			</view>
+			<view class="item" v-if="detail.status>0 && detail.paytypeid!='4' && detail.paytime">
+				<text class="t1">支付时间</text>
+				<text class="t2">{{detail.paytime}}</text>
+			</view>
+			<view class="item" v-if="detail.paytypeid">
+				<text class="t1">支付方式</text>
+				<text class="t2">{{detail.paytype}}</text>
+			</view>
+			<view class="item" v-if="detail.status>1 && detail.send_time">
+				<text class="t1">派单时间</text>
+				<text class="t2">{{detail.send_time}}</text>
+			</view>
+			<view class="item" v-if="detail.status>1 && detail.addmoney>0">
+				<text class="t1">补差价</text>
+				<text class="t2 red">￥{{detail.addmoney}}</text>
+			</view>
+			<view class="item" v-if="detail.status==3 && detail.collect_time">
+				<text class="t1">完成时间</text>
+				<text class="t2">{{detail.collect_time}}</text>
+			</view>
+		</view>
+		
+		<view class="orderinfo">
+			<view class="title">顾客信息</view>
+			<view class="item">
+				<text class="t1">姓名</text>
+				<text class="t2">{{detail.linkman}}</text>
+			</view>
+			<view class="item">
+				<text class="t1">手机号</text>
+				<text class="t2">{{detail.tel}}</text>
+			</view>
+		</view>
+		
+		<view style="width:100%;height:120rpx"></view>
+
+	</block>
+	<loading v-if="loading"></loading>
+	<dp-tabbar :opt="opt"></dp-tabbar>
+	<popmsg ref="popmsg"></popmsg>
+</view>
+</template>
+
+<script>
+var app = getApp();
+var interval = null;
+
+export default {
+  data() {
+    return {
+			opt:{},
+			loading:false,
+      isload: false,
+			menuindex:-1,
+			
+			pre_url:app.globalData.pre_url,
+      prodata: '',
+      iscommentdp: "",
+      detail: "",
+			workerinfo:{},
+      storeinfo: "",
+			selectExpressShow:false,
+			express_content:'',
+    };
+  },
+
+  onLoad: function (opt) {
+		this.opt = app.getopts(opt);
+		this.getdata();
+  },
+	onPullDownRefresh: function () {
+		this.getdata();
+	},
+  onUnload: function () {
+    clearInterval(interval);
+  },
+  methods: {
+		getdata: function () {
+			var that = this;
+			that.loading = true;
+			app.get('ApiYueke/workerorderdetail', {id: that.opt.id}, function (res) {
+				that.loading = false;
+				that.iscommentdp = res.iscommentdp,
+				that.detail = res.detail;
+				that.workerinfo = res.workerinfo;
+				that.storeinfo = res.storeinfo;
+				that.payorder = res.payorder;
+				that.loaded();
+			});
+		}
+  }
+};
+</script>
+<style>
+.ordertop{width:100%;height:452rpx;padding:50rpx 0 0 70rpx; justify-content: space-between;}
+.ordertop .f1{color:#fff}
+.ordertop .f1 .t1{font-size:40rpx;height:60rpx;line-height:60rpx;}
+.ordertop .f1 .t2{font-size:26rpx; margin-top: 20rpx;}
+
+.container .orderinfotop{ position: relative; margin-top: -200rpx;}
+
+.product{width:96%;margin:0 2%;border-radius:8rpx;margin-top:16rpx;padding: 14rpx 3%;background: #FFF;}
+.product .content{display:flex;position:relative;width: 100%; padding:16rpx 0px;border-bottom: 1px #e5e5e5 dashed;}
+.product .content:last-child{ border-bottom: 0; }
+.product .content image{ width: 140rpx; height: 140rpx;}
+.product .content .detail{display:flex;flex-direction:column;margin-left:14rpx;flex:1}
+
+.product .content .detail .t1{font-size:26rpx;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}
+.product .content .detail .t2{color: #999;font-size: 26rpx;margin-top: 10rpx;}
+.product .content .detail .t3{display:flex;color: #ff4246;margin-top: 10rpx;}
+.product .content .detail .t4{margin-top: 10rpx;}
+
+.product .content .detail .x1{ flex:1}
+.product .content .detail .x2{ width:100rpx;font-size:32rpx;text-align:right;margin-right:8rpx}
+.product .content .comment{position:absolute;top:64rpx;right:10rpx;border: 1px #ffc702 solid; border-radius:10rpx;background:#fff; color: #ffc702;  padding: 0 10rpx; height: 46rpx; line-height: 46rpx;}
+.product .content .comment2{position:absolute;top:64rpx;right:10rpx;border: 1px #ffc7c2 solid; border-radius:10rpx;background:#fff; color: #ffc7c2;  padding: 0 10rpx; height: 46rpx; line-height: 46rpx;}
+
+.orderinfo{width:96%;margin:0 2%;border-radius:8rpx;margin-top:16rpx;padding: 14rpx 3%;background: #FFF;}
+.orderinfo .title,.product .title{ font-weight: bold; font-size: 30rpx; line-height: 60rpx; margin-bottom: 15rpx;}
+.orderinfo .item{display:flex;width:100%;padding:20rpx 0;border-bottom:1px dashed #ededed;overflow:hidden}
+.orderinfo .item:last-child{ border-bottom: 0;}
+.orderinfo .item .t1{width:200rpx;flex-shrink:0}
+.orderinfo .item .t2{flex:1;text-align:right}
+.orderinfo .item .t3{ margin-top: 3rpx;}
+.orderinfo .item .red{color:red}
+
+.bottom{ width: 100%; padding: 16rpx 20rpx;background: #fff; position: fixed; bottom: 0px;left: 0px;display:flex;justify-content:flex-end;align-items:center;}
+
+.btn1{margin-left:20rpx;min-width:160rpx;padding: 0 20rpx;height:60rpx;line-height:60rpx;color:#fff;border-radius:3px;text-align:center;}
+.btn2{margin-left:20rpx;width:160rpx;height:60rpx;line-height:60rpx;color:#333;background:#fff;border:1px solid #cdcdcd;border-radius:3px;text-align:center;}
+.btn3{font-size:24rpx;width:120rpx;height:50rpx;line-height:50rpx;color:#333;background:#fff;border:1px solid #cdcdcd;border-radius:3px;text-align:center}
+
+.btitle{ width:100%;height:100rpx;background:#fff;padding:0 20rpx;border-bottom:1px solid #f5f5f5}
+.btitle .comment{border: 1px #ffc702 solid;border-radius:10rpx;background:#fff; color: #ffc702;  padding: 0 10rpx; height: 46rpx; line-height: 46rpx;}
+.btitle .comment2{border: 1px #ffc7c0 solid;border-radius:10rpx;background:#fff; color: #ffc7c0;  padding: 0 10rpx; height: 46rpx; line-height: 46rpx;}
+
+.orderx image{ width:124rpx ; height: 124rpx; margin-right: 60rpx;}
+
+</style>

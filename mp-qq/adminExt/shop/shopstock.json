@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "录入库存",
+  "enablePullDownRefresh": true,
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading"
+  }
+}

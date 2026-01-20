@@ -1,0 +1,1 @@
+<view class="container"><block qq:if="{{loading}}"><loading vue-id="89c7d03c-1" bind:__l="__l"></loading></block><dp-tabbar vue-id="89c7d03c-2" opt="{{opt}}" bind:__l="__l"></dp-tabbar><popmsg class="vue-ref" vue-id="89c7d03c-3" data-ref="popmsg" bind:__l="__l"></popmsg><wxxieyi vue-id="89c7d03c-4" bind:__l="__l"></wxxieyi></view>

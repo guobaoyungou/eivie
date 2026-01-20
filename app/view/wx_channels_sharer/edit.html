@@ -1,0 +1,267 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>创建优惠券</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					优惠券<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+				</div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w6" lay-filter="">
+						<input type="hidden" name="id" value="{$info['id']}">
+						{if $info && $info['coupon_id']}
+						<div class="layui-form-item">
+							<label class="layui-form-label">优惠券ID：</label>
+							<div class="layui-form-mid">{$info.coupon_id}</div>
+						</div>
+						{/if}
+						<div class="layui-form-item">
+							<label class="layui-form-label">名称：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[name]" value="{$info.name}" class="layui-input" />
+							</div>
+							<div class="layui-form-mid">最长10个字符</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">商品件数门槛：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[product_cnt]" value="{$info.product_cnt}" class="layui-input" />
+							</div>
+							<div class="layui-form-mid">不能和价格门槛同时设置</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">商品价格门槛：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[product_price]" value="{$info.product_price}" class="layui-input" />
+							</div>
+							<div class="layui-form-mid">不能和件数门槛同时设置</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">商品列表：</label>
+							<div class="layui-input-inline" style="width:auto; ">
+								<table class="layui-table choose-level" style="width:500px;" id="choose-level">
+									<thead>
+									<tr>
+										<th>商品ID</th>
+										<th>商品名称</th>
+										<th>操作</th>
+									</tr>
+									</thead>
+									{foreach $brand_list as $k=>$v}
+									<tr class="choose-tr-list">
+										<td>{$v.product_id}<input type="hidden" value='{$v.product_id}' name="info[product_ids][]"></td>
+										<td>{$v.name}</td>
+										<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="delChooseTr(this,{$ff.id})">删除</button></td>
+									</tr>
+									{/foreach}
+
+									<tr class="choose-tr-add">
+										<td colspan="5" align="center"><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="showChoosProduct(1)">添加</button></td>
+									</tr>
+								</table>
+							</div>
+							<script>
+								var chooseLevelLayer;
+								function showChoosProduct(type){
+									chooseLevelLayer = layer.open({type:2,title:'选择产品',content:"{:url('WxChannelsProduct/chooseproduct')}/args/"+type,area:['1000px','600px'],shadeClose:true});
+								}
+								function chooseChannelsProduct(res,type){
+									console.log(type);
+									var detail = res;
+									if(type==2){
+										$('input[name="info[jump_product_id]"]').val(detail.product_id)
+									}else{
+										var chooseClassName = '.choose-level';
+										layer.close(chooseLevelLayer);
+										var objIds = [];
+										var isadd = 0;
+										$(chooseClassName).find('.choose-tr-list').each(function(){
+											var thisfid = $(this).find('td:eq(0)').html();
+											if(thisfid == detail.brand_id){
+												isadd = 1
+												dialog('该项已添加过了');
+											}
+											objIds.push(thisfid)
+										});
+										if(isadd == 0){
+											objIds.push(detail.id)
+											var html='';
+											html+='<tr class="choose-tr-list">';
+											html+='<td>'+detail.product_id+'</td>';
+											html+='<td>'+detail.name+'<input type="hidden" value='+detail.brand_id+' name="info[product_ids][]"></td>';
+											html+= '<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="delChooseTr(this,'+detail.id+')">删除</button></td></tr>';
+											$(chooseClassName).find('.choose-tr-add').before(html);
+										}
+										layui.form.render();
+									}
+
+								}
+								function delChooseTr(obj,fid){
+									$(obj).closest('.choose-tr-list').remove();
+									var objIds = [];
+									$('#choose-level').find('.choose-tr-list').each(function(){
+										objIds.push($(this).find('td:eq(0)').html())
+									})
+								}
+							</script>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">优惠减免金额：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[discount_fee]" value="{$info.discount_fee}" class="layui-input" />
+							</div>
+							<div class="layui-form-mid">不可超过200元，同时如果是商品券，适用商品优惠后不可低于原价2折，如果是店铺满减券，不可低于价格门槛的2折</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">优惠减免折扣数：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[discount_num]" value="{$info.discount_num}" class="layui-input" />
+							</div>
+							<div class="layui-form-mid">优惠减免折扣数，换算规则，5000=5折，7000=7折，范围是1000-10000，必须是100的整数，不可低于2折</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">跳转商品id：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[jump_product_id]" value="{$info.jump_product_id}" class="layui-input" />
+							</div>
+							<div class="layui-input-inline">
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="showChoosProduct(2)">选择商品</button>
+							</div>
+							<div class="layui-form-mid">商品折扣券领取后跳转的商品id</div>
+						</div>
+
+						<div class="layui-form-item">
+							<label class="layui-form-label">备注信息：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[notes]" value="{$info.notes}" class="layui-input" />
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">推广类型：</label>
+							<div class="layui-input-inline">
+								<select name="info[promote_type]">
+									{foreach $promote_type_arr as $promote_k=>$promote_name}
+									<option value="{$promote_k}">{$promote_name}</option>
+									{/foreach}
+								</select>
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">优惠券领用时间：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[receive_info_time]" class="layui-input" id="receive_info_time" />
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">单人限领张数：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[limit_num_one_person]" class="layui-input" value="{$info['limit_num_one_person']}" />
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">优惠券领用总数：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[total_num]" class="layui-input" value="{$info['total_num']}" />
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">优惠券有效期类型：</label>
+							<div class="layui-input-inline" style="width:500px">
+								<input type="radio" name="info[valid_type]" value="1" {if !$info || $info['valid_type']==1}checked{/if} title="指定时间范围" lay-filter="change_valid_type">
+								<input type="radio" name="info[valid_type]" value="2" {if $info['valid_type']==2}checked{/if} title="生效天数" lay-filter="change_valid_type">
+							</div>
+						</div>
+						<div class="layui-form-item" id="valid_type_1" {if $info && $info['valid_type']!=1}style="display:none;"{/if}>
+							<label class="layui-form-label">优惠券有效期：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[valid_time]" class="layui-input" id="valid_time" />
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						<div class="layui-form-item" id="valid_type_2" {if $info['valid_type']!=2}style="display:none;"{/if}>
+							<label class="layui-form-label">优惠券有效期(天)：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[valid_day_num]" class="layui-input" value="{$info['valid_day_num']}" />
+							</div>
+							<div class="layui-form-mid"></div>
+						</div>
+						  <div class="layui-form-item">
+							  <label class="layui-form-label">自动生效：</label>
+							  <div class="layui-input-inline">
+								  <select name="info[promote_type]">
+									  {foreach $auto_valid_type_arr as $auto_valid_k=>$auto_valid_name}
+									  <option value="{$auto_valid_k}">{$auto_valid_name}</option>
+									  {/foreach}
+								  </select>
+							  </div>
+							  <div class="layui-form-mid"></div>
+						  </div>
+
+
+
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">确定修改</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		var index = layer.load();
+		$.post("{:url('edit')}",field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status==1){
+				setTimeout(function(){
+					parent.layer.closeAll();
+					parent.tableIns.reload();
+				},1000)
+			}
+		})
+	})
+		layui.form.on('radio(change_valid_type)', function(data){
+			if(data.value == '1'){
+				$('#valid_type_1').show();
+				$('#valid_type_2').hide();
+			}else{
+				$('#valid_type_1').hide();
+				$('#valid_type_2').show();
+			}
+		})
+	layui.laydate.render({
+		elem: '#receive_info_time',
+		trigger: 'click',
+		type: 'datetime',
+		range: '~' //或 range: '~' 来自定义分割字符
+	});
+	layui.laydate.render({
+		elem: '#valid_time',
+		trigger: 'click',
+		type: 'datetime',
+		range: '~' //或 range: '~' 来自定义分割字符
+	});
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

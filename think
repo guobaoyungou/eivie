@@ -1,0 +1,12 @@
+#!/usr/bin/env php
+<?php
+namespace think;
+define('ROOT_PATH', __DIR__ . '/');
+//命令行模式下无法通过$_SERVER获取当前页面链接，这里直接写死，否则消息通知生成m_url时无法生成链接
+//define('PRE_URL','https://v2d.diandashop.de');
+// 命令行入口文件
+// 加载基础文件
+require __DIR__ . '/vendor/autoload.php';
+
+// 应用初始化
+(new App())->console->run();

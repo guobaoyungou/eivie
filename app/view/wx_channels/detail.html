@@ -1,0 +1,157 @@
+<!--custom_file(wx_channels)-->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>绑定视频号小店</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+<div class="layui-fluid">
+  <div class="layui-row layui-col-space15">
+    <div class="layui-card layui-col-md12">
+      <div class="layui-card-header">
+        绑定视频号小店
+        <i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+      </div>
+      <div class="layui-card-body" pad15>
+        <div class="layui-form form-label-w10" lay-filter="" style="margin-top:20px">
+          <div class="layui-form-item">
+            <div style="padding-left:20px;font-weight:bold">一、填写视频号小店信息</div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">AppID：</label>
+            <div class="layui-input-inline" style="width:280px">
+              <input type="text" name="info[appid]" value="{$info.appid}" class="layui-input">
+            </div>
+            <div class="layui-form-mid layui-word-aux">可在「视频号小店 - <a href="https://channels.weixin.qq.com/shop/servicemarket/home" target="_blank">服务市场 - 经营工具</a> -
+              自研」页中获得。（需要已完成店铺开通，且账号没有异常状态）
+              <div class="layui-popover layui-default-link layui-inline">
+                示例
+                <div class="layui-popover-div" style="left:-880px;top:30px;">
+                  <img src="__STATIC__/admin/img/dianda_wxchannel.png" style="width: 800px" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">AppSecret：</label>
+            <div class="layui-input-inline" style="width:280px">
+              <input type="text" name="info[appsecret]" value="{$info.appsecret}" class="layui-input">
+            </div>
+            <div class="layui-form-mid layui-word-aux"></div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">视频号ID：</label>
+            <div class="layui-input-inline" style="width:280px">
+              <input type="text" name="info[sph_id]" value="{$info.sph_id}" class="layui-input">
+            </div>
+            <div class="layui-form-mid layui-word-aux">视频号ID，以“sph”开头的ID，可在「视频号助手」获取</div>
+          </div>
+          {if $info.id>0}
+          <div class="layui-form-item">
+            <label class="layui-form-label">店铺名称：</label>
+            <div class="layui-form-mid">{$info.nickname}</div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">店铺类型：</label>
+            <div class="layui-form-mid">{$info.subject_type}</div>
+          </div>
+<!--          <div class="layui-form-item">-->
+<!--            <label class="layui-form-label">状态：</label>-->
+<!--            <div class="layui-form-mid">{$info.status}</div>-->
+<!--          </div>-->
+          {/if}
+          <div class="layui-form-item">
+            <label class="layui-form-label">小店头像：</label>
+            <input type="hidden" name="info[headimg]" id="headimg" lay-verType="tips" class="layui-input" value="{$info.headimg}">
+            <button style="float:left;" type="button" class="layui-btn layui-btn-primary" upload-input="headimg" upload-preview="headimgPreview" onclick="uploader(this)">上传图片</button>
+            <div id="headimgPreview" class="picsList-class-padding">
+              <div class="layui-imgbox" style="width:100px;"><div class="layui-imgbox-img"><img src="{$info.headimg}"/></div></div>
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">二维码：</label>
+            <input type="hidden" name="info[qrcode]" id="qrcode" lay-verType="tips" class="layui-input" value="{$info.qrcode}">
+            <button style="float:left;" type="button" class="layui-btn layui-btn-primary" upload-input="qrcode" upload-preview="qrcodePreview" onclick="uploader(this)">上传图片</button>
+            <div id="qrcodePreview" class="picsList-class-padding">
+              <div class="layui-imgbox" style="width:100px;"><div class="layui-imgbox-img"><img src="{$info.qrcode}"/></div></div>
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <div style="padding-left:20px;font-weight:bold">二、配置服务器地址、消息推送</div>
+          </div>
+          <div class="layui-form-item" style="margin-bottom:0">
+            <div class="layui-form-mid" style="margin-left:40px;">
+              登录视频号小店后台后，在「服务市场」-「自研」-「消息推送」中，启用消息服务，填写服务器地址、Token令牌 和
+              消息密钥 等信息。（仅小店超级管理员可以操作）
+              <br/>
+              <div class="layui-popover layui-default-link layui-inline">
+                示例
+                <div class="layui-popover-div">
+                  <img src="__STATIC__/admin/img/dianda_wxchannel.png" style="width: 800px" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="layui-form-item" style="margin-bottom:5px">
+            <div class="layui-form-mid" style="margin-left:40px;color:red">
+              注意：填写完成以下信息后需先点击下方保存按钮，再在小店后台点击提交按钮，否则会校验失败
+            </div>
+          </div>
+          <div class="layui-form-item" style="margin-bottom:5px">
+            <label class="layui-form-label">服务器地址：</label>
+            <div class="layui-form-mid" style="width:700px;font-weight:bold" id="fwqurl">
+              {$Think.const.PRE_URL2}/?s=/ApiWechat/channels/appid/{$info.appid}
+            </div>
+            <div class="layui-form-mid layui-word-aux"></div>
+          </div>
+          <div class="layui-form-item" style="margin-bottom:5px">
+            <label class="layui-form-label">Token令牌：</label>
+            <div class="layui-input-inline" style="width:400px">
+              <input type="text" name="info[token]" value="{$info.token}" class="layui-input">
+            </div>
+            <div class="layui-form-mid layui-word-aux"></div>
+          </div>
+          <div class="layui-form-item" style="margin-bottom:5px">
+            <label class="layui-form-label">消息密钥：</label>
+            <div class="layui-input-inline" style="width:400px">
+              <input type="text" name="info[key]" value="{$info.key}" class="layui-input">
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label"></label>
+            <div class="layui-input-inline" style="width:500px">
+              <input type="hidden" name="info[id]" value="{$info.id}">
+              <button class="layui-btn layui-btn-normal" lay-submit lay-filter="submit_reg">保 存</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{include file="public/js"/}
+<script>
+
+    $(".layui-form input[name='info[appid]']").bind("input change propertychange", function (event) {
+        var appid = $(this).val();
+        $('#fwqurl').text('{$Think.const.PRE_URL2}/?s=/ApiWechat/channels/appid/' + appid);
+    })
+    layui.form.on('submit(submit_reg)', function (obj) {
+        var field = obj.field
+        $.post('{:url("detail")}', field, function (res) {
+          if(res.status==1){
+            dialog(res.msg, res.status, '{:url(\'bind\')}');
+          }else{
+            dialog(res.msg, res.status);
+          }
+        })
+    })
+</script>
+{include file="public/copyright"/}
+</body>
+</html>

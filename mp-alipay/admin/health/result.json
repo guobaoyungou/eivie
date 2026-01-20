@@ -1,0 +1,9 @@
+{
+  "defaultTitle": "评测结果",
+  "pullRefresh": true,
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

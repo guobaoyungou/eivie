@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "证书列表",
+  "pullRefresh": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata"
+  }
+}

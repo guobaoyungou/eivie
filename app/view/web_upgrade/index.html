@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>版本更新</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-body" pad15>
+					 <div style="padding:20px 10px;font-size:16px">
+						{if $needupgrade == 1}
+						<div style="padding:10px 0;color:#333">最新版本：V{$newversion}，您的当前版本为：V{$myversion}，请点击升级按钮进行升级</div>
+						{if $remark}<div style="padding:20px 0;"><span style="color:#333;height:40px;line-height:40px">V{$newversion} 版本说明：</span><br>{:nl2br($remark)}</div>{/if}
+						<button class="layui-btn layui-btn-normal" style="margin-top:20px" onclick="getfilllist()">立即升级</button>
+						<button class="layui-btn layui-btn-primary" style="margin-top:20px" onclick="showupgradelog()">查看更新记录</button>
+						{else}
+						<div style="padding:10px 0;color:#666">最新版本为：{$newversion}，您当前版本为最新版，无须升级！</div>
+						<button class="layui-btn layui-btn-primary" style="margin-top:20px" onclick="showupgradelog()">查看更新记录</button>
+						<button class="layui-btn layui-btn-primary" style="margin-top:20px" onclick="getfilllist()">检查更新</button>
+						{/if}
+						{if $_SERVER['HTTP_HOST'] == 'v2d.diandashop.com'}
+						<button class="layui-btn layui-btn-primary" style="margin-top:20px" onclick="updateh5()">更新H5</button>
+						<button class="layui-btn layui-btn-primary" style="margin-top:20px" onclick="updatesql()">升级数据库</button>
+						{/if}
+					 </div>
+				</div>
+			</div>
+		</div>
+  </div>
+	<div style="display:none;position:absolute;top:20px;height:50px;padding-left:20px;line-height:50px;width:700px;left:50%;margin-left:-350px;background:#555;color:#fff;border-radius:5px;z-index:99891015;font-size:16px" id="upfiledialog"></div>
+	{include file="public/js"/}
+	<script>
+	var numindex = 0;
+	function getfilllist(){
+		layer.confirm('更新前请先备份！！！关闭服务器防火墙、防篡改等安全软件防止误拦截！确认您的服务器可用磁盘空间大于1G！！！',{icon: 7, title:'操作确认'}, function(index){
+			//var index = layer.load();
+			var loadingdialog = layer.open({type:1,content:'<div style="padding:10px 5px"><div class="flex-y-center"><img src="__STATIC__/admin/img/loading.gif"/><span style="font-size:20px;padding-left:15px">正在对比升级文件...</span></div></div>',area:'300px',title:false,closeBtn:false});
+			$.ajax({
+				url:"{:url('getfilllist')}",
+				type:'POST',
+				data:{},
+				success:function(res){
+					layer.close(loadingdialog);
+					if(res.status != 1){
+						dialog(res.msg?res.msg:'网络请求超时，请重试',res.status);return;
+					}
+					var newfileArr = res.newfileArr
+					var modifyfileArr = res.modifyfileArr
+					var allfile = res.allfile;
+					var html = '';
+					if(newfileArr.length > 0){
+						html += '<div style="color:#000">新增的文件：</div>';
+						html += '<div style="color:green">';
+						for(var i in newfileArr){
+							html += newfileArr[i] + '<br/>';
+						}
+						html += '</div>';
+					}
+					if(modifyfileArr.length > 0){
+						html += '<div style="color:#000">变更的文件：</div>';
+						html += '<div style="color:red">';
+						for(var i in modifyfileArr){
+							html += modifyfileArr[i] + '<br/>';
+						}
+						html += '</div>';
+					}
+
+					if(newfileArr.length == 0 && modifyfileArr.length == 0){
+						var loadingdialog2 = layer.open({type:1,content:'<div style="padding:10px 5px"><div class="flex-y-center"><img src="__STATIC__/admin/img/loading.gif"/><span style="font-size:20px;padding-left:15px">暂无更新文件，检查数据库更新...</span></div></div>',area:'300px',title:false,closeBtn:false});
+						$.post("{:url('doupsql')}",{},function(res){
+							layer.close(loadingdialog2);
+							dialog(res.msg)
+						});
+					}else{
+						var querenlayer = layer.open({title:'升级操作确认',area:['600px','400px'],type:0,content:html,btn:['确认升级','取消'],yes:function(){
+								layer.close(querenlayer);
+								numindex = 0;
+								$('#upfiledialog').show();
+								updatefile(allfile);
+								/*
+                                var loadingdialog = layer.open({type:1,content:'<div style="padding:10px 5px"><div class="flex-y-center"><img src="__STATIC__/admin/img/loading.gif"/><span style="font-size:20px;padding-left:15px">正在升级中...</span></div></div>',area:'300px',title:false,closeBtn:false});
+                                $.ajax({
+                                    url:"{:url('doup')}",
+                                    type:'POST',
+                                    data:{},
+                                    success:function(res){
+                                        layer.close(loadingdialog);
+                                        if(res.status != 1){
+                                            dialog(res);return;
+                                        }
+                                        $.post("{:url('doupsql')}",{},function(res){
+                                            layer.alert('升级成功',{icon: 1},function(){
+                                                reload();
+                                            });
+                                        })
+                                    },
+                                    error:function(res){
+                                        layer.close(index)
+                                        layer.open({type:1,title:'升级失败，请重试',area:['auto','80%'],content:res.responseText})
+                                        console.log(res.responseText)
+                                    }
+                                })
+                                */
+							}})
+					}
+				},error:function(res){
+					layer.close(index)
+					layer.open({type:1,title:'升级失败，请重试',area:['auto','80%'],content:res.responseText})
+					console.log(res.responseText)
+				}
+			})
+		});
+	}
+	function updatefile(allfile){
+		$('#upfiledialog').html('<img src="__STATIC__/admin/img/loading.gif" style="width:30px;height:30px"/>&nbsp;&nbsp;'+numindex+'/'+allfile.length+'&nbsp;&nbsp;正在更新文件：'+allfile[numindex]);
+		$.post("{:url('updatefile')}/xdsw/"+Math.random(),{ filename:allfile[numindex]},function(data){
+			numindex++;
+			if(numindex < allfile.length){
+				updatefile(allfile);
+			}else{
+				$('#upfiledialog').html('<img src="__STATIC__/admin/img/loading.gif" style="width:30px;height:30px"/>&nbsp;&nbsp;正在更新数据库...');
+				$.post("{:url('doupsql')}",{},function(res){
+					$.post("{:url('WebSystem/updateH5QQMapKey')}/from/update",{},function(res2){
+						$('#upfiledialog').hide();
+						if(res2.status != 1){
+							dialog(res2.msg);
+						}else{
+							layer.alert('升级成功',{icon: 1},function(){
+								reload();
+							});
+						}
+					})
+				})
+			}
+		})
+	}
+
+	function updateh5(){
+		$.post("{:url('douph5test')}",{},function(res){
+			dialog(res.msg)
+		});
+	}
+	function updatesql(){
+		$.post("{:url('doupsql')}",{},function(res){
+			dialog(res.msg)
+		});
+	}
+	
+	function showupgradelog(){
+		$.post("{:url('getupgradelog')}",{},function(res){
+			if(res.status == 1){
+				var loglist = res.data
+				var html = '<ul class="layui-timeline">';
+				for(var i in loglist){
+					var m = loglist[i]
+					var remark = m.remark
+					remark = remark.replace(/\r\n/g,"<br>")
+					remark = remark.replace(/\n/g,"<br>");
+					html+='<li class="layui-timeline-item">'
+					html+='	<i class="layui-icon layui-timeline-axis">&#xe63f;</i>';
+					html+='	<div class="layui-timeline-content layui-text">';
+					html+='		<h3 class="layui-timeline-title">版本号：V'+loglist[i].version+'</h3>';
+					html+='		<p style="color:#666;font-size:16px">'+date('Y-m-d',m.createtime)+'</p> ';
+					html+='		<p>';
+					html+=		remark
+					html+='		</p>';
+					html+='	</div>';
+					html+='</li>';
+				}
+				html+='<li class="layui-timeline-item">';
+				html+='	<i class="layui-icon layui-timeline-axis">&#xe63f;</i>';
+				html+='	<div class="layui-timeline-content layui-text">';
+				html+='		<div class="layui-timeline-title">初始版本</div>';
+				html+='	</div>';
+				html+='</li>';
+				html+='</ul>';
+				layer.open({type:1,area:['500px','500px'],content:'<div style="margin:20px">'+html+'</div>',title:false,shadeClose:true})
+			}else{
+				dialog(res)
+			}
+		})
+	}
+  </script>
+</body>
+</html>

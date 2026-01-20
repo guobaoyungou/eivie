@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "消息列表",
+  "component": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading"
+  }
+}

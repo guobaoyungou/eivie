@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "寄存订单",
+  "pullRefresh": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

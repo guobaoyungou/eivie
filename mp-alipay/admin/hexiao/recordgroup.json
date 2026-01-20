@@ -1,0 +1,9 @@
+{
+  "defaultTitle": "我的核销",
+  "pullRefresh": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

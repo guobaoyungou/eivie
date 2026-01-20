@@ -1,0 +1,9 @@
+{
+  "defaultTitle": "报名",
+  "pullRefresh": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

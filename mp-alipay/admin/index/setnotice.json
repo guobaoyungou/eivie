@@ -1,0 +1,6 @@
+{
+  "defaultTitle": "通知管理",
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

@@ -1,0 +1,1 @@
+<view class="page-class"><block wx:if="{{isload}}"><block><view class="title-view-class flex flex-y-center flex-bt"><view class="title-text">{{info.title}}</view><view class="time-text">{{$root.m0}}</view></view><view class="info-text">{{info.content}}</view></block></block></view>

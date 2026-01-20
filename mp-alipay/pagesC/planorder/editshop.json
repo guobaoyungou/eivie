@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "修改店铺",
+  "pullRefresh": true,
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading"
+  }
+}

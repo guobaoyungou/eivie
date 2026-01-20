@@ -1,0 +1,20 @@
+{
+  "navigationBarTitleText": "商品详情",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "buydialog-show": "/components/buydialog-show/buydialog-show",
+    "couponlist": "/components/couponlist/couponlist",
+    "dp": "/components/dp/dp",
+    "dp-product-item": "/components/dp-product-item/dp-product-item",
+    "buydialog-pifa": "/components/buydialog-pifa/buydialog-pifa",
+    "buydialog-pifa2": "/components/buydialog-pifa2/buydialog-pifa2",
+    "buydialog": "/components/buydialog/buydialog",
+    "buydialog-purchase": "/components/buydialog-purchase/buydialog-purchase",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

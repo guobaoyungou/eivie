@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "商家打赏",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

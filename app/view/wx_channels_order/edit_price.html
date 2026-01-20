@@ -1,0 +1,110 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>修改订单价格</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					修改订单价格<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+				</div>
+		  <blockquote class="layui-elem-quote">
+			  1、 目前只支持改低价格， 暂时不支持改高价格；<br/>
+			  2、订单在付款前可以进行最多不超过50次的修改价格操作，同一订单每次新的改价操作执行成功后之前所有的改价操作都将失效。<br/>
+		  </blockquote>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w6" lay-filter="">
+						<input type="hidden" name="id" value="{$info['id']}">
+						
+						<div class="layui-form-item" id="setgg">
+							<label class="layui-form-label">商品信息：</label>
+							<div class="layui-input-inline" style="width:auto">
+								<table id="ggnamediv"  class="layui-table" style="width:900px">
+									<thead>
+									<tr>
+										<th style="width:400px">商品名称</th>
+										<th>规格</th>
+										<th>价格</th>
+									</tr>
+									</thead>
+									{foreach $order_goods as $k=>$goods}
+									<tr>
+										<td>
+											{$goods.product_name}
+											<input type="hidden" name="product_id[]" value="{$goods.product_id}">
+											<input type="hidden" name="sku_id[]" value="{$goods.sku_id}">
+										</td>
+										<td>{$goods.guige_name}</td>
+										<td><input type="text" class="layui-input" name="change_price[]" value="{$goods.real_price}" style="width:80px" /></td>
+									</tr>
+									{/foreach}
+								</table>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">订单ID：</label>
+							<div class="layui-form-mid">{$info.order_id}</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">下单人：</label>
+							<div class="layui-form-mid">{$info.openid}</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">修改运费：</label>
+							<div class="layui-input-inline" style="width:500px">
+								<input type="radio" name="change_express" value="0" checked title="否" lay-filter="change_express">
+								<input type="radio" name="change_express" value="1" title="是" lay-filter="change_express">
+							</div>
+						</div>
+						<div class="layui-form-item" id="change_express" style="display: none;">
+							<label class="layui-form-label">运费：</label>
+							<div class="layui-input-inline"><input type="text" name="express_fee" value="{$info.freight}" class="layui-input" ></div>
+							<div class="layui-form-mid layui-word-aux"></div>
+						</div>
+
+
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">确定修改</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		var index = layer.load();
+		$.post("{:url('edit_price')}",field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status==1){
+				setTimeout(function(){
+					parent.layer.closeAll();
+					parent.tableIns.reload();
+				},1000)
+			}
+		})
+	})
+		layui.form.on('radio(change_express)', function(data){
+			if(data.value == '1'){
+				$('#change_express').show();
+			}else{
+				$('#change_express').hide();
+			}
+		})
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

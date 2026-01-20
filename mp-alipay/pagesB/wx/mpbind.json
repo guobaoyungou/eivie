@@ -1,0 +1,6 @@
+{
+  "defaultTitle": "订阅通知",
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

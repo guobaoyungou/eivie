@@ -1,0 +1,1 @@
+.dp-cover{height:auto;position:relative}.dp-cover-cover{position:fixed;z-index:99999;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden}

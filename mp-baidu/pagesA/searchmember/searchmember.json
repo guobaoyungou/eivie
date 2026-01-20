@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "一键查看",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

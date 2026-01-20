@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "售后录入",
+  "pullRefresh": false,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

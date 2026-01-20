@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>取出记录</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+	<style>
+	.orderdetail{background:#f7f7f8;width: 94%;box-sizing:border-box;margin:0 10px;display:flex;flex-direction:column;}
+	.orderdetail *{box-sizing:border-box;}
+	.address{ display:flex;align-items:center;width: 100%; padding:5px; background: #FFF;}
+	.address .img{width:30px}
+	.address img{width:25px; height:25px;}
+	.address .info{flex:1;display:flex;flex-direction:column;}
+	.address .info .t1{ font-weight:bold}
+
+	.express { width:100%;background: #fff; padding:5px;display:flex;align-items:center;margin-top:5px;}
+	.express .f1{ width:30px;font-size:20px;color:#999}
+	.express .f2{display:flex;flex-direction:column;flex:auto}
+
+	.product{width:100%; padding:5px;background: #FFF;margin-top:5px;}
+	.product .content{display:flex;position:relative;width: 100%; padding:5px 0px;border-bottom: 1px #e5e5e5 dashed;position:relative}
+	.product .content:last-child{ border-bottom: 0; }
+	.product .content img{ width: 70px; height: 70px;}
+	.product .content .detail{display:flex;flex-direction:column;margin-left:7px;flex:1}
+	.product .content .detail .t1{height: 30px;line-height: 15px;color: #000;}
+	.product .content .detail .t2{height: 23px;line-height: 23px;color: #999;overflow: hidden;font-size:13px;}
+	.product .content .detail .t3{display:flex;height:15px;line-height:15px;color: #ff4246;}
+	.product .content .detail .x1{ flex:1}
+	.product .content .detail .x2{ width:50px;font-size:16px;text-align:right;margin-right:4px}
+	.product .content .comment{position:absolute;top:32px;right:5px;border: 1px #ffc702 solid; border-radius:5px;background:#fff; color: #ffc702;  padding: 0 5px; height: 23px; line-height: 23px;}
+
+	.orderinfo{ width:100%;margin-top:5px;padding: 5px;background: #FFF;}
+	.orderinfo .item{display:flex;width:100%;padding:5px 0;border-bottom:1px dashed #ededed;}
+	.orderinfo .item:last-child{ border-bottom: 0;}
+	.orderinfo .item .t1{width:100px;}
+	.orderinfo .item .t2{flex:1;text-align:right}
+	.orderinfo .item .red{color:red}
+
+	</style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-card layui-col-md12">
+          <div class="layui-card-header">
+			<div class="layui-tab layui-tab-brief">
+				<ul class="layui-tab-title">
+					<li {if !input('?param.status') || input('param.status')===''}class="layui-this"{/if} onclick="location.href='{:url('index')}'">全部订单</li>
+					<li {if input('param.status')==='0'}class="layui-this"{/if} onclick="location.href='{:url('index')}/status/0'">待审核</li>
+					<li {if input('param.status')=='1'}class="layui-this"{/if} onclick="location.href='{:url('index')}/status/1'">寄存中</li>
+					<li {if input('param.status')=='2'}class="layui-this"{/if} onclick="location.href='{:url('index')}/status/2'">已完成</li>
+				</ul>
+			</div>
+			{if input('param.isopen')==1}<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>{/if}
+          </div>
+          <div class="layui-card-body" pad15>
+			<div class="layui-col-md12">
+				<div class="layui-col-md3" style="padding-bottom:10px">
+					<button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="location.href='{:url('excel')}'+urlEncode(datawhere)">导出</button>
+				</div>
+				<div class="layui-col-md9 layui-form" style="text-align:right;padding-bottom:10px">
+					<div class="layui-inline layuiadmin-input-useradmin" style="display:none">
+						<label class="layui-form-label" style="width:50px">{:t('会员')}ID</label>
+						<div class="layui-input-block" style="width:120px;margin-left:80px">
+							<input type="text" name="mid" value="{$Request.param.mid}" autocomplete="off" class="layui-input">
+						</div>
+					</div>
+					<div class="layui-inline layuiadmin-input-useradmin">
+						<label class="layui-form-label" style="width:50px">订单号</label>
+						<div class="layui-input-block" style="width:120px;margin-left:80px">
+							<input type="text" name="order_no" autocomplete="off" class="layui-input">
+						</div>
+					</div>
+					<div class="layui-inline">
+						<label class="layui-form-label" style="width:50px">寄存人</label>
+						<div class="layui-input-block" style="width:120px;margin-left:80px">
+							<input type="text" name="linkman" autocomplete="off" class="layui-input">
+						</div>
+					</div>
+					<div class="layui-inline">
+						<label class="layui-form-label" style="width:50px">手机号</label>
+						<div class="layui-input-block" style="width:120px;margin-left:80px">
+							<input type="text" name="tel" autocomplete="off" class="layui-input">
+						</div>
+					</div>
+					<div class="layui-inline">
+						<label class="layui-form-label" style="width:60px;">下单时间</label>
+						<div class="layui-input-block" style="width:180px;margin-left:90px">
+							<input type="text" name="create_time" id="create_time" autocomplete="off" class="layui-input">
+						</div>
+					</div>
+					<div class="layui-inline">
+						<label class="layui-form-label" style="width:30px">状态</label>
+						<div class="layui-input-block" style="width:120px;margin-left:60px;text-align:left">
+							<select name="status">
+								<option value="">全部</option>
+								<option value="0" {if input('param.status')==='0'}selected{/if}>待审核</option>
+								<option value="1" {if input('param.status')==='1'}selected{/if}>已支付</option>
+								<!--<option value="2" {if input('param.status')==='2'}selected{/if}>已发货</option>-->
+								<option value="3" {if input('param.status')==='3'}selected{/if}>已完成</option>
+								<option value="4" {if input('param.status')==='4'}selected{/if}>已关闭</option>
+								<option value="5" {if input('param.status')==='5'}selected{/if}>退款待审核</option>
+								<option value="6" {if input('param.status')==='6'}selected{/if}>已退款</option>
+								<option value="7" {if input('param.status')==='7'}selected{/if}>退款驳回</option>
+							</select>
+						</div>
+					</div>
+					<div class="layui-inline">
+						<button class="layui-btn layuiadmin-btn-replys" lay-submit="" lay-filter="LAY-app-forumreply-search">
+							<i class="layui-icon layui-icon-search layuiadmin-button-btn"></i>
+						</button>
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+				<table id="tabledata" lay-filter="tabledata"></table>
+			</div>
+          </div>
+        </div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+  	var table = layui.table;
+	var datawhere = {};
+	{if input('?param.status') && input('param.status')!==''}
+	datawhere['status'] = "{$Request.param.status}";
+	{/if}
+  //数据表
+  var tableIns = table.render({
+    elem: '#tabledata'
+    ,url: "{$Request.url}" //数据接口
+    ,page: true //开启分页
+		//,size:'sm'
+    ,cols: [[ //表头
+			//{type:"checkbox"},
+      {field: 'id', title: 'ID',  sort: true,width:60},
+      {field: 'goodsdata', title: '物品信息'},
+      {field: 'order_no', title: '流水号/操作时间',sort: true,width:180,templet:function(d){ return d.order_no +'<div style="color:#080">'+ d.create_time+'</div>'}},
+	  {field: 'nickname', title: '用户信息',templet: function(d){return d.member ?'<div><img src="{{d.member.headimg}}" style="width:50px;height:50px"/> {{d.member.nickname}}</div>' : ''},width:150}
+	  ]]
+  });
+	//排序
+	table.on('sort(tabledata)', function(obj){
+		datawhere.field = obj.field;
+		datawhere.order = obj.type;
+		tableIns.reload({
+			initSort: obj,
+			where: datawhere
+		});
+	});
+	//日期范围选择
+	layui.laydate.render({ 
+		elem: '#create_time',
+		trigger: 'click',
+		range: '~' //或 range: '~' 来自定义分割字符
+	});
+	//检索
+	layui.form.on('submit(LAY-app-forumreply-search)', function(obj){
+		var field = obj.field
+		var olddatawhere = datawhere
+		datawhere = field
+		datawhere.field = olddatawhere.field
+		datawhere.order = olddatawhere.order
+		tableIns.reload({
+			where: datawhere,
+			page: {curr: 1}
+		});
+	})
+	//打印小票
+	function wifiPrint(id){
+		layer.confirm('确定要打印小票吗?',{icon: 7, title:'操作确认'}, function(index){
+			layer.close(index);
+			var index = layer.load();
+			$.post("{:url('wifiPrint')}",{id:id},function(data){
+				layer.close(index);
+				dialog(data.msg,data.status);
+			})
+		})
+	}
+	//删除
+	function datadel(id){
+		layer.confirm('确定要删除吗?',{icon: 7, title:'操作确认'}, function(index){
+			//do something
+			layer.close(index);
+			var index = layer.load();
+			$.post("{:url('del')}",{id:id},function(data){
+				layer.close(index);
+				dialog(data.msg,data.status);
+				tableIns.reload()
+			})
+		});
+	}
+	var detailLayer;
+	function showdetail(orderid){
+		var index = layer.load();
+		$.post("{:url('getdetail')}",{orderid:orderid},function(data){
+			layer.close(index);
+			var html = '';
+			//var data = { //数据
+			//	"title":"Layui常用模块",
+			//	"list":[{"modname":"弹层","alias":"layer","site":"layer.layui.com"},{"modname":"表单","alias":"form"}]
+			//}
+			layui.laytpl(detailtpl.innerHTML).render(data, function(html){
+				//view.innerHTML = html;
+				var detailBtn = [];
+				if(data.order.status==0){ //待审核
+					detailBtn.push('驳回');
+					detailBtn.push('审核通过');
+					detailBtn.push('改价');
+				}
+				if(data.order.status==1){ //已支付
+					detailBtn.push('发货');
+					detailBtn.push('配送员配送');
+					detailBtn.push('退款');
+				}
+				if(data.order.status==2){ //已发货
+					detailBtn.push('查物流');
+					//if(data.order.paytype=='货到付款'){
+						detailBtn.push('订单完成');
+					//}
+				}
+				detailBtn.push('删除');
+
+				detailBtn.push('设置备注');
+				detailLayer = layer.open({type:1,title:'订单详情',area:'500px',content:html,resize:true,shadeClose:true,maxmin:true,btn:detailBtn,
+					yes:function(){
+						return btnOperation(detailBtn[0],data);
+					},
+					btn2:function(){
+						return btnOperation(detailBtn[1],data);
+					},
+					btn3:function(){
+						return btnOperation(detailBtn[2],data);
+					},
+					btn4:function(){
+						return btnOperation(detailBtn[3],data);
+					},
+					btn5:function(){
+						return btnOperation(detailBtn[4],data);
+					}
+				});
+			});
+			//layer.open({type:1,area:['600px','600px'],title:false,shadeClose:true,btn: ['发货', '退款审核', '设置备注']});
+		})
+	}
+	function doOperation(orderid,type){
+		$.post("{:url('getdetail')}",{orderid:orderid},function(data){
+			btnOperation(type,data);
+		})
+	}
+
+	</script>
+
+
+
+	<script id="remarktpl" type="text/html">
+	<div class="layui-form-item" style="margin-top:40px;margin-right:20px;">
+		<label class="layui-form-label" style="width:40px">备注</label>
+		<div class="layui-input-inline" style="width:180px">
+			<input type="text" id="remarkcontent" class="layui-input" value="{{d.remark?d.remark : ''}}">
+		</div>
+	</div>
+	</script>
+	<script id="changePricetpl" type="text/html">
+	<div class="layui-form-item" style="margin-top:40px;margin-right:20px;">
+		<label class="layui-form-label" style="width:40px">价格</label>
+		<div class="layui-input-inline" style="width:180px">
+			<input type="text" id="changePricecontent" class="layui-input" value="{{d.totalprice?d.totalprice : ''}}">
+		</div>
+	</div>
+	</script>
+
+	<script id="detailtpl" type="text/html">
+	<div class="orderdetail">
+		<!--<div class="address">
+			<div class="img">
+				<img src="__STATIC__/admin/img/address.png" class="buy-addimg"></img>
+			</div>
+			<div class="info">
+				<span class="t1">{{d.order.linkman}} {{d.order.tel}}</span>
+				<span class="t2">{{d.order.area}}{{d.order.address}}</span>
+			</div>
+		</div>-->
+		{{# if(d.order.send_time && d.order.freight_type!=3){ }}
+		<div class="express">
+			<div class="f1"><i class="fa fa-truck"></i></div>
+			<div class="f2">
+				<span class="log-te1">快递公司：{{d.order.express_com}}</span>
+				<span class="log-te1">快递单号：{{d.order.express_no}}</span>
+			</div>
+		</div>
+		{{# } }}
+		{{# if(d.order.send_time && d.order.freight_type==3){ }}
+		<div class="express">
+			<div class="f1"><i class="fa fa-file-text"></i></div>
+			<div class="f2"><pre>{{d.order.freight_content}}</pre></div>
+		</div>
+		{{# } }}
+
+		<div class="product">
+			{{#  layui.each(d.oglist, function(index, item){ }}
+			<div class="content">
+				<div>
+					<img src="{{item.pic}}"/>
+				</div>
+				<div class="detail">
+					<span class="t1">{{item.name}}</span>
+					<span class="t2">{{item.guige_name}}</span>
+					<div class="t3"><span class="x1 flex1">￥{{item.sell_price}}</span><span class="x2">×{{item.num}}</span></div>
+				</div>
+			</div>
+			{{# }); }}
+		</div>
+		
+		{{#  if(d.order.message || d.order.remark){ }}
+		<div class="orderinfo">
+			{{#  if(d.order.message){ }}
+			<div class="item">
+				<span class="t1">客户备注</span>
+				<span class="t2 red">{{d.order.message ? d.order.message : '无'}}</span>
+			</div>
+			{{# } }}
+			{{#  if(d.order.remark){ }}
+			<div class="item">
+				<span class="t1">后台备注</span>
+				<span class="t2 red">{{d.order.remark ? d.order.remark : '无'}}</span>
+			</div>
+			{{# } }}
+		</div>
+		{{# } }}
+		<div class="orderinfo">
+			<div class="item">
+				<span class="t1">桌号</span>
+				<span class="t2">{{#if(d.order.table){ }}{{d.order.table.name}}{{# } }}</span>
+			</div>
+			<div class="item">
+				<span class="t1">下单人</span>
+				<span class="t2"><img src="{{d.member.headimg}}" style="width:40px"/> {{d.member.nickname}} {{# if(d.member.realname){ }}[{{d.member.realname}} {{d.member.tel}}]{{#} }}</span>
+			</div>
+			<div class="item">
+				<span class="t1">{:t('会员')}ID</span>
+				<span class="t2">{{d.member.id}}</span>
+			</div>
+		</div>
+		<div class="orderinfo">
+			<div class="item">
+				<span class="t1">订单编号</span>
+				<span class="t2">{{d.order.order_no}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">下单时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.order.create_time)}}</span>
+			</div>
+			{{#  if(d.order.status>0 && d.order.pay_time){ }}
+			<div class="item">
+				<span class="t1">支付时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.order.pay_time)}}</span>
+			</div>
+			<div class="item">
+				<span class="t1">支付方式</span>
+				<span class="t2">{{d.order.pay_type}}</span>
+			</div>
+			{{# } }}
+			{{#  if(d.order.status>1 && d.order.send_time){ }}
+			<div class="item">
+				<span class="t1">发货时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.order.send_time)}}</span>
+			</div>
+			{{# } }}
+			{{#  if(d.order.status==3 && d.order.collect_time){ }}
+			<div class="item">
+				<span class="t1">收货时间</span>
+				<span class="t2">{{date('Y-m-d H:i:s',d.order.collect_time)}}</span>
+			</div>
+			{{# } }}
+		</div>
+		<div class="orderinfo">
+			<div class="item">
+				<span class="t1">菜品金额</span>
+				<span class="t2 red">¥{{d.order.product_price}}</span>
+			</div>
+			{{#  if(d.order.leveldk_money > 0){ }}
+			<div class="item">
+				<span class="t1">{:t('会员')}折扣</span>
+				<span class="t2 red">-¥{{d.order.leveldk_money}}</span>
+			</div>
+			{{# } }}
+			{{#  if(d.order.manjian_money > 0){ }}
+			<div class="item">
+				<span class="t1">满减活动</span>
+				<span class="t2 red">-¥{{d.order.manjian_money}}</span>
+			</div>
+			{{# } }}
+			<!--<div class="item">
+				<span class="t1">配送方式</span>
+				<span class="t2">{{d.order.freight_text}}</span>
+			</div>-->
+			{{#  if(d.order.freight_time){ }}
+			<div class="item">
+				<span class="t1">{{d.order.freight_type!=1?'配送':'提货'}}时间</span>
+				<span class="t2">{{d.order.freight_time}}</span>
+			</div>
+			{{# } }}
+			{{#  if(d.order.coupon_money > 0){ }}
+			<div class="item">
+				<span class="t1">{:t('优惠券')}抵扣</span>
+				<span class="t2 red">-¥{{d.order.coupon_money}}</span>
+			</div>
+			{{#  if(d.couponrecord){ }}
+			<div class="item">
+				<span class="t1">{:t('优惠券')}名称</span>
+				<span class="t2">{{d.couponrecord.couponname}}</span>
+			</div>
+			{{# } }}
+			{{# } }}
+			{{#  if(d.order.scoredk_money > 0){ }}
+			<div class="item">
+				<span class="t1">{:t('积分')}抵扣</span>
+				<span class="t2 red">-¥{{d.order.scoredk_money}}</span>
+			</div>
+			{{# } }}
+			<div class="item">
+				<span class="t1">实付款</span>
+				<span class="t2 red">¥{{d.order.totalprice}}</span>
+			</div>
+
+
+			<div class="item">
+				<span class="t1">订单状态</span>
+				{{#  if(d.order.status==0){ }}
+				<span class="t2" style="color:#ff8758">未付款</span>
+				{{# } }}
+				{{#  if(d.order.status==1 && d.order.paytype=='货到付款'){ }}
+				<span class="t2" style="color:#008000">待发货</span>
+				{{# } }}
+				{{#  if(d.order.status==1 && d.order.paytype!='货到付款'){ }}
+				<span class="t2" style="color:#008000">已支付</span>
+				{{# } }}
+				{{#  if(d.order.status==2){ }}
+				<span class="t2" style="color:#ff4246">已发货</span>
+				{{# } }}
+				{{#  if(d.order.status==3){ }}
+				<span class="t2" style="color:#999">已收货</span>
+				{{# } }}
+				{{#  if(d.order.status==4){ }}
+				<span class="t2" style="color:#bbb">已关闭</span>
+				{{# } }}
+			</div>
+			{{#  if(d.order.refund_status>0){ }}
+			<div class="item">
+				<span class="t1">退款状态</span>
+				{{#  if(d.order.refund_status==1){ }}
+				<span class="t2 red">审核中,¥{{d.order.refund_money}}</span>
+				{{# } }}
+				{{#  if(d.order.refund_status==2){ }}
+				<span class="t2 red">已退款,¥{{d.order.refund_money}}</span>
+				{{# } }}
+				{{#  if(d.order.refund_status==3){ }}
+				<span class="t2 red">已驳回,¥{{d.order.refund_money}}</span>
+				{{# } }}
+			</div>
+			{{# } }}
+			{{#  if(d.order.refund_checkremark){ }}
+			<div class="item">
+				<span class="t1">审核备注</span>
+				<span class="t2 red">{{d.order.refund_checkremark}}</span>
+			</div>
+			{{# } }}
+		</div>
+
+	</div>
+	</script>
+	{include file="public/copyright"/}
+</body>
+</html>

@@ -1,0 +1,1 @@
+.btn-add{width:90%;max-width:700px;margin:0 auto;height:96rpx;line-height:96rpx;text-align:center;color:#fff;font-size:30rpx;font-weight:700;border-radius:40rpx;position:fixed;left:0;right:0;bottom:20rpx;background-color:#4caf50}

@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "结算",
+  "pullRefresh": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

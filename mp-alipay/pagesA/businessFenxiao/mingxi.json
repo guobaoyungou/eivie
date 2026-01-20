@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "营业额明细",
+  "pullRefresh": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata"
+  }
+}

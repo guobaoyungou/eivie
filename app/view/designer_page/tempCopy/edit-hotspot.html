@@ -1,0 +1,122 @@
+<style>
+	.slider .layui-slider .layui-slider-bar{background: rgb(55, 114, 232) !important;}
+	.slider .layui-slider .layui-slider-wrap .layui-slider-wrap-btn{border: 2px solid #3772E8 !important;}
+	.dsn-panel-editor-relative {width: auto;height: auto;position: relative;border-bottom: 1px solid #e5e5e5;}
+	.dsn-panel-editor-line {overflow: hidden;background: #fff;border:none;border-radius: 3px;margin-top: 5px;padding: 0px;}
+	.title-div{font-size: 14px;font-weight: bold;color: #2D2D2D;width: 100%;padding: 9px 0;box-sizing: border-box;}
+	.title-div .icon-div {cursor: pointer;}
+	.title-div .icon-div img{width: 10px;height: 10px;}
+	.dsn-panel-editor-line-right {margin-left: 0px}
+	.dsn-panel-editor-line-right .layui-form-item .slider{width: 165px;}
+</style>
+
+<div class="dsn-panel-editor-title">单图设置<span class="tips"></span></div>
+
+<div class="dsn-panel-editor-content">
+	<div class="layui-form-item">
+    <div class="layui-form-label">与上方距离</div>
+    <div class="slider" min="0" max="40" ng-model="Edit.params.margin_y"></div>
+		<span class="slider-span">{{Edit.params.margin_y}} px</span>
+	</div>
+	<div class="layui-form-item">
+		<div class="layui-form-label">背景图片</div>
+		<div class="layui-input-inline flex-y-center" style="background: #F7F7F7;">
+			<input class="layui-input" value="{{Edit.params.imgurl}}" ng-model="Edit.params.imgurl"/>
+			<div class="icon-input" ng-click="uploadImg(Edit.id,'imgurl')">
+				<img src="{$Think.const.PRE_URL}/static/admin/img/diyadd.png"/>
+			</div>
+    </div>
+	</div>
+
+	<div class="layui-form-item">
+    <div class="layui-form-label">左右边距</div>
+    <div class="slider" min="0" max="40" ng-model="Edit.params.margin_x"></div>
+		<span class="slider-span">{{Edit.params.margin_x}} px</span>
+	</div>
+	<!-- <div class="layui-form-item">
+    <div class="layui-form-label">左右内边距</div>
+    <div class="slider" min="0" max="40" ng-model="Edit.params.padding_x"></div>
+		<span class="slider-span"><input ng-model="Edit.params.padding_x"/> px</span>
+	</div>
+	<div class="layui-form-item">
+    <div class="layui-form-label">上下内边距</div>
+		<div class="slider" min="0" max="40" ng-model="Edit.params.padding_y"></div>
+		<span class="slider-span"><input ng-model="Edit.params.padding_y"/> px</span>
+	</div> -->
+	<div class="title-div flex-box">
+		<div>热区设置</div>
+		<div class="icon-div"><img src="{$Think.const.PRE_URL}/static/admin/img/diyadd.png" ng-click="addItemChild('spot', Edit.id)" /></div>
+	</div>
+	<div ng-repeat="spot in Edit.data" class="dsn-panel-editor-relative">
+		<div class="dsn-panel-editor-del" style="right:30px;font-size:12px" title="上移" ng-click="upItemChild(Edit.id,spot.id)"><i class="fa fa-arrow-up"></i></div>
+    <div class="dsn-panel-editor-del" title="移除" ng-click="delItemChild(Edit.id,spot.id)">×</div>
+    <div class="dsn-panel-editor-line flex">
+			<div class="dsn-panel-editor-line-right">
+				<div class="layui-form-item">
+					<div class="layui-form-label">热区链接</div>
+					<div class="layui-input-inline flex-y-center" style="background: #F7F7F7;width:180px">
+						<input class="layui-input" style="width:170px" value="" ng-model="spot.hrefurl" placeholder="热区链接"/>
+						<div class="icon-input" ng-click="chooseUrl(Edit.id, spot.id)">
+							<img src="{$Think.const.PRE_URL}/static/admin/img/diyadd.png"/>
+						</div>
+						<span>{{spot.hrefname}}</span>
+					</div>
+				</div>
+				<div class="layui-form-item">
+					<div class="layui-form-label">热区宽度</div>
+					<div class="slider" min="0" max="340" ng-model="spot.width"></div>
+					<span class="slider-span">{{spot.width}}px</span>
+				</div>
+				<div class="layui-form-item">
+					<div class="layui-form-label">热区高度</div>
+					<div class="slider" min="0" max="340" ng-model="spot.height"></div>
+					<span class="slider-span">{{spot.height}} px</span>
+				</div>
+				<div class="layui-form-item">
+					<div class="layui-form-label">与左方距离</div>
+					<div class="slider" min="0" max="340" ng-model="spot.left"></div>
+					<span class="slider-span">{{spot.left}} px</span>
+				</div>
+				<div class="layui-form-item">
+					<div class="layui-form-label">与上方距离</div>
+					<div class="slider" min="0" max="340" ng-model="spot.top"></div>
+					<span class="slider-span">{{spot.top}} px</span>
+				</div>
+			</div>
+    </div>
+	</div>
+	<hr>
+	
+	{if !$type}
+	<div class="layui-form-item">
+		<div class="layui-form-label">显示平台</div>
+		<div class="layui-input-inline">
+			<input class="checkbox" type="checkbox" lay-skin="primary" title="所有平台" name="{{Edit.id}}_platform['all']" ng-model="Edit.params.platform['all']"/>
+			{foreach $platform as $pl}
+			<input class="checkbox" type="checkbox" lay-skin="primary" title="{:getplatformname($pl)}" name="{{Edit.id}}_platform['{$pl}']" ng-model="Edit.params.platform['{$pl}']"/>
+			{/foreach}
+		</div>
+	</div>
+	<div class="layui-form-item">
+		<div class="layui-form-label">显示范围</div>
+		<div class="layui-input-inline">
+			<input class="checkbox" type="checkbox" lay-skin="primary" title="所有人" name="{{Edit.id}}_quanxian['all']" ng-model="Edit.params.quanxian['all']"/>
+			{foreach $memberlevelList as $lv}
+			<input class="checkbox" type="checkbox" lay-skin="primary" title="{$lv.name}" name="{{Edit.id}}_quanxian[{$lv.id}]" ng-model="Edit.params.quanxian[{$lv.id}]"/>
+			{/foreach}
+		</div>
+	</div>
+	{include file="designer_page/temp/edit-plugin-mendian" /}
+	<div class="layui-form-item" ng-show="!Edit.params.quanxian['all']">
+    <div class="layui-form-label">显示用户</div>
+    <div class="layui-input-inline">
+			<input class="layui-input" ng-model="Edit.params.showmids"/>
+    </div>
+		<div class="layui-form-mid layui-word-aux">填写用户ID，多个用英文标点逗号(,)分割
+	</div>
+	{else}
+		<input class="checkbox" type="hidden" checked='true' lay-skin="primary" title="所有平台" name="{{Edit.id}}_platform['all']" ng-model="Edit.params.platform['all']"/>
+		<input class="checkbox" type="hidden" checked='true' lay-skin="primary" title="所有人" name="{{Edit.id}}_quanxian['all']" ng-model="Edit.params.quanxian['all']"/>
+		<input class="checkbox" type="hidden" checked='true' lay-skin="primary" title="所有门店" name="{{Edit.id}}_mendian['all']" ng-model="Edit.params.mendian['all']"/>
+	{/if}
+</div>

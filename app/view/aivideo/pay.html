@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AI旅拍 - 支付</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <link rel="stylesheet" href="/static/layui/css/layui.css">
+    <style>
+        body {
+            background: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .order-info {
+            padding: 30px;
+            border-bottom: 1px solid #eee;
+        }
+        .order-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        .order-item:last-child {
+            border-bottom: none;
+        }
+        .item-label {
+            color: #666;
+        }
+        .item-value {
+            font-weight: 600;
+            color: #333;
+        }
+        .order-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #667eea;
+        }
+        .total-label {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        .total-price {
+            font-size: 28px;
+            font-weight: 700;
+            color: #ff6b6b;
+        }
+        .payment-methods {
+            padding: 30px;
+        }
+        .payment-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .payment-method {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 2px solid #eee;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .payment-method:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        .payment-method.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .payment-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 15px;
+        }
+        .payment-name {
+            flex: 1;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+        .payment-desc {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        .pay-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 20px;
+        }
+        .pay-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        .pay-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            z-index: 10;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>AI旅拍 - 支付订单</h1>
+    </div>
+    
+    <div class="container">
+        <button class="back-btn" onclick="window.history.back()">← 返回</button>
+        
+        <div id="orderInfo">
+            <!-- 订单信息将通过JavaScript动态加载 -->
+        </div>
+        
+        <div class="payment-methods">
+            <div class="payment-title">选择支付方式</div>
+            
+            <div class="payment-method" onclick="selectPayment('weixin')" id="payment-weixin">
+                <div class="payment-icon">💳</div>
+                <div class="payment-info">
+                    <div class="payment-name">微信支付</div>
+                    <div class="payment-desc">推荐使用</div>
+                </div>
+            </div>
+            
+            <div class="payment-method" onclick="selectPayment('alipay')" id="payment-alipay">
+                <div class="payment-icon">💰</div>
+                <div class="payment-info">
+                    <div class="payment-name">支付宝</div>
+                    <div class="payment-desc">快速便捷</div>
+                </div>
+            </div>
+            
+            <div class="payment-method" onclick="selectPayment('balance')" id="payment-balance">
+                <div class="payment-icon">💎</div>
+                <div class="payment-info">
+                    <div class="payment-name">余额支付</div>
+                    <div class="payment-desc">使用账户余额</div>
+                </div>
+            </div>
+            
+            <button class="pay-btn" id="payBtn" onclick="pay()" disabled>立即支付</button>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        var mid = localStorage.getItem('aivideo_mid');
+        var aid = 1;
+        var ordernum = getQueryParam('ordernum');
+        var selectedPayment = null;
+        var orderInfo = null;
+
+        // 获取URL参数
+        function getQueryParam(name) {
+            var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+            var r = window.location.search.substr(1).match(reg);
+            if (r != null) return unescape(r[2]);
+            return null;
+        }
+
+        // 加载订单信息
+        function loadOrderInfo() {
+            if (!ordernum) {
+                layui.layer.msg('订单号不能为空');
+                return;
+            }
+            
+            layui.$.ajax({
+                url: '/api/aivideo/order_info',
+                type: 'GET',
+                data: {
+                    aid: aid,
+                    mid: mid,
+                    ordernum: ordernum
+                },
+                success: function(res) {
+                    if (res.status === 1) {
+                        orderInfo = res.data;
+                        renderOrderInfo(orderInfo);
+                    } else {
+                        layui.layer.msg(res.msg || '加载失败');
+                    }
+                },
+                error: function() {
+                    layui.layer.msg('网络错误,请稍后重试');
+                }
+            });
+        }
+
+        // 渲染订单信息
+        function renderOrderInfo(order) {
+            var html = '';
+            
+            html += '<div class="order-info">';
+            html += '<div class="order-title">订单信息</div>';
+            
+            html += '<div class="order-item">';
+            html += '<div class="item-label">订单号:</div>';
+            html += '<div class="item-value">' + order.ordernum + '</div>';
+            html += '</div>';
+            
+            html += '<div class="order-item">';
+            html += '<div class="item-label">作品数量:</div>';
+            html += '<div class="item-value">' + order.work_count + '个</div>';
+            html += '</div>';
+            
+            html += '<div class="order-total">';
+            html += '<div class="total-label">应付金额:</div>';
+            html += '<div class="total-price">¥' + order.total_price + '</div>';
+            html += '</div>';
+            
+            html += '</div>';
+            
+            document.getElementById('orderInfo').innerHTML = html;
+        }
+
+        // 选择支付方式
+        function selectPayment(type) {
+            selectedPayment = type;
+            
+            // 移除所有选中状态
+            document.querySelectorAll('.payment-method').forEach(function(el) {
+                el.classList.remove('selected');
+            });
+            
+            // 添加选中状态
+            document.getElementById('payment-' + type).classList.add('selected');
+            
+            // 启用支付按钮
+            document.getElementById('payBtn').disabled = false;
+        }
+
+        // 支付
+        function pay() {
+            if (!selectedPayment) {
+                layui.layer.msg('请选择支付方式');
+                return;
+            }
+            
+            layui.layer.load('正在处理...');
+            
+            // 调用支付接口
+            layui.$.ajax({
+                url: '/api/aivideo/pay',
+                type: 'POST',
+                data: {
+                    aid: aid,
+                    mid: mid,
+                    ordernum: ordernum,
+                    pay_type: selectedPayment
+                },
+                success: function(res) {
+                    layui.layer.closeAll();
+                    
+                    if (res.status === 1) {
+                        // 支付成功
+                        layui.layer.msg('支付成功!', {
+                            icon: 1,
+                            time: 2000
+                        });
+                        
+                        setTimeout(function() {
+                            window.location.href = '/aivideo/work_detail?id=' + orderInfo.work_id;
+                        }, 2000);
+                    } else {
+                        layui.layer.msg(res.msg || '支付失败');
+                    }
+                },
+                error: function() {
+                    layui.layer.closeAll();
+                    layui.layer.msg('网络错误,请稍后重试');
+                }
+            });
+        }
+
+        // 页面加载时初始化
+        layui.use(['layer'], function() {
+            if (!mid) {
+                layui.layer.msg('请先授权登录');
+                window.location.href = '/aivideo/index.html';
+                return;
+            }
+            
+            loadOrderInfo();
+        });
+    </script>
+</body>
+</html>

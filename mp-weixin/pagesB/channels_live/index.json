@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "预约直播",
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

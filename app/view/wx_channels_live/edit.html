@@ -1,0 +1,76 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>编辑-直播列表</title>
+	<meta name="renderer" content="webkit">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+	{include file="public/css"/}
+</head>
+<body>
+<div class="layui-fluid">
+	<div class="layui-row layui-col-space15">
+		<div class="layui-card layui-col-md12">
+			<div class="layui-card-header">
+				{if !$info['id']}<i class="fa fa-plus"></i> 新增直播预告{else}<i class="fa fa-pencil"></i> 编辑直播预告{/if}
+				<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+			</div>
+			<div class="layui-card-body" pad15>
+				<div class="layui-form form-label-w6" lay-filter="">
+					<div class="layui-form-item">
+						<label class="layui-form-label"><span class="redstar">*</span>开播时间：</label>
+						<div class="layui-input-inline" style="width:300px">
+							<input type="hidden" name="id" value="{$info['id']}"/>
+							<input type="hidden" name="shop_id" value="{$shop_id}"/>
+							<input type="text" name="info[live_start_time]" autocomplete="off" value="{$info['live_start_time']}" lay-verify="required" class="layui-input" {if $info['id']} disabled="disabled" {/if} id="liveStartTime"/>
+						</div>
+						<div class="layui-form-mid layui-word-aux">两场预告开播时间最少间隔1小时</div>
+					</div>
+					<div class="layui-form-item">
+						<label class="layui-form-label"><span class="redstar">*</span>直播主题：</label>
+						<div class="layui-input-inline" style="width:300px">
+							<textarea class="layui-textarea" name="info[content]" lay-verify="required" lay-verType="tips">{$info.content}</textarea>
+						</div>
+						<div class="layui-form-mid layui-word-aux">字数限制60字</div>
+					</div>
+					<div class="layui-form-item">
+						<label class="layui-form-label"></label>
+						<div class="layui-input-block">
+							<button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{include file="public/js"/}
+<script>
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		var content = field['info[content]'];
+		if(content.length > 60){
+			layer.msg('【直播主题】字数不能超过60字',{icon:2});
+			return false;
+		}
+		$.post("{:url('save')}",field,function(data){
+			dialog(data.msg,data.status,data.url);
+			if(data.status == 1){
+				setTimeout(function(){
+					parent.layer.closeAll();
+					parent.tableIns.reload()
+				},1000)
+			}
+		})
+	})
+	layui.laydate.render({
+		elem: '#liveStartTime'
+		,type: 'datetime'
+		,range: false,
+		trigger: 'click'
+	});
+</script>
+{include file="public/copyright"/}
+</body>
+</html>

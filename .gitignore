@@ -1,0 +1,12 @@
+runtime/
+vendor/
+.env
+.DS_Store
+Thumbs.db
+*.log
+*.cache
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

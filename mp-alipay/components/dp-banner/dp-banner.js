@@ -1,0 +1,10 @@
+;my.defineComponent || (my.defineComponent = Component);(my["webpackJsonp"]=my["webpackJsonp"]||[]).push([["components/dp-banner/dp-banner"],{"0caf":function(n,t,a){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.default=void 0;var r={data:function(){return{bannerindex:0,bannerbg:""}},props:{params:{},data:{}},created:function(){this.params.navigation_bg&&this.data&&this.data.length>0&&(this.bannerbg=this.data[0].imgurl,this.bannerindex=0)},computed:{bannerStyle:function(){var n=this.params,t="";return n.bgcolor?t+="background-color: ".concat(n.bgcolor,";"):t+="background-color: #fff;",t+="margin: ".concat(2.2*n.margin_y,"rpx ").concat(2.2*n.margin_x,"rpx 0;"),t+="padding: ".concat(2.2*n.padding_y,"rpx ").concat(2.2*n.padding_x,"rpx;"),t},swiperStyle:function(){var n=this.params,t="";return t+="height: ".concat(2.2*n.height,"rpx;"),t}},methods:{bannerchange:function(n){var t=this,a=n.detail.current;t.bannerindex=a}}};t.default=r},2839:function(n,t,a){"use strict";a.r(t);var r=a("0caf"),e=a.n(r);for(var c in r)"default"!==c&&function(n){a.d(t,n,(function(){return r[n]}))}(c);t["default"]=e.a},"319a":function(n,t,a){},de2d1:function(n,t,a){"use strict";var r;a.d(t,"b",(function(){return e})),a.d(t,"c",(function(){return c})),a.d(t,"a",(function(){return r}));var e=function(){var n=this,t=n.$createElement;n._self._c},c=[]},eed1:function(n,t,a){"use strict";a.r(t);var r=a("de2d1"),e=a("2839");for(var c in e)"default"!==c&&function(n){a.d(t,n,(function(){return e[n]}))}(c);a("f55c6");var i,u=a("f0c5"),o=Object(u["a"])(e["default"],r["b"],r["c"],!1,null,null,null,!1,r["a"],i);t["default"]=o.exports},f55c6:function(n,t,a){"use strict";var r=a("319a"),e=a.n(r);e.a}}]);
+;(my["webpackJsonp"] = my["webpackJsonp"] || []).push([
+    'components/dp-banner/dp-banner-create-component',
+    {
+        'components/dp-banner/dp-banner-create-component':(function(module, exports, __webpack_require__){
+            __webpack_require__('c11b')['createComponent'](__webpack_require__("eed1"))
+        })
+    },
+    [['components/dp-banner/dp-banner-create-component']]
+]);

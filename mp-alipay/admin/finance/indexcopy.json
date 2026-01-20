@@ -1,0 +1,6 @@
+{
+  "defaultTitle": "财务copy",
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

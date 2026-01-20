@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "名片详情",
+  "pullRefresh": false,
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

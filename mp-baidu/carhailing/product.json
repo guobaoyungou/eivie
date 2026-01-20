@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "约车详情",
+  "component": true,
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "scrolltop": "/components/scrolltop/scrolltop",
+    "parse": "/components/parse/parse",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

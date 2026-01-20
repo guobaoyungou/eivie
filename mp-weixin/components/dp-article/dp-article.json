@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "waterfall-article": "/components/waterfall-article/waterfall-article"
+  }
+}

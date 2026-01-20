@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "营业额明细",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata"
+  }
+}

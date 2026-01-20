@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AI旅拍 - 订单管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+    <style>
+        .order-status-badge {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-unpaid {
+            background: #faad14;
+            color: white;
+        }
+        .status-paid {
+            background: #52c41a;
+            color: white;
+        }
+        .status-cancelled {
+            background: #999;
+            color: white;
+        }
+        .status-refunded {
+            background: #ff6b6b;
+            color: white;
+        }
+        .pay-type-badge {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .type-weixin {
+            background: #09bb07;
+            color: white;
+        }
+        .type-alipay {
+            background: #1677ff;
+            color: white;
+        }
+        .type-balance {
+            background: #667eea;
+            color: white;
+        }
+        .price-highlight {
+            color: #ff6b6b;
+            font-weight: 700;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-card layui-col-md12">
+                <div class="layui-card-header">
+                    <i class="fa fa-shopping-cart"></i> AI旅拍 - 订单管理
+                </div>
+                <div class="layui-card-body pad15">
+                    <blockquote class="layui-elem-quote">
+                        查看和管理所有订单,包括订单状态、支付方式、金额等信息
+                    </blockquote>
+                    
+                    <div class="layui-col-md6" style="padding-bottom:10px;">
+                        <div class="layui-inline">
+                            <label class="layui-form-label">支付状态:</label>
+                            <div class="layui-input-inline">
+                                <select name="pay_status" lay-filter="pay_status">
+                                    <option value="-1">全部</option>
+                                    <option value="0">待支付</option>
+                                    <option value="1">已支付</option>
+                                    <option value="2">已取消</option>
+                                    <option value="3">已退款</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-col-md12">
+                        <table id="tabledata" lay-filter="tabledata"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {include file="public/js"/}
+    <script>
+        layui.use(['table', 'layer', 'form', 'laydate'], function(){
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            var laydate = layui.laydate;
+            
+            // 数据表
+            var tableIns = table.render({
+                elem: '#tabledata',
+                url: "{:url('order_list')}",
+                page: true,
+                cols: [[
+                    {type: 'checkbox'},
+                    {field: 'id', title: 'ID', width: 80},
+                    {field: 'ordernum', title: '订单号', width: 180},
+                    {field: 'work_count', title: '作品数量', width: 100},
+                    {field: 'total_price', title: '订单金额(元)', width: 120, templet: function(d){
+                        return '<span class="price-highlight">¥' + d.total_price + '</span>';
+                    }},
+                    {field: 'pay_price', title: '实付金额(元)', width: 120, templet: function(d){
+                        return '<span class="price-highlight">¥' + d.pay_price + '</span>';
+                    }},
+                    {field: 'pay_type', title: '支付方式', width: 120, templet: function(d){
+                        var typeClass = '';
+                        var typeText = '';
+                        
+                        if(d.pay_type == 'weixin'){
+                            typeClass = 'type-weixin';
+                            typeText = '微信支付';
+                        } else if(d.pay_type == 'alipay'){
+                            typeClass = 'type-alipay';
+                            typeText = '支付宝';
+                        } else if(d.pay_type == 'balance'){
+                            typeClass = 'type-balance';
+                            typeText = '余额支付';
+                        }
+                        
+                        return '<span class="pay-type-badge ' + typeClass + '">' + typeText + '</span>';
+                    }},
+                    {field: 'pay_status', title: '支付状态', width: 120, templet: function(d){
+                        var statusClass = '';
+                        var statusText = '';
+                        
+                        if(d.pay_status == 0){
+                            statusClass = 'status-unpaid';
+                            statusText = '待支付';
+                        } else if(d.pay_status == 1){
+                            statusClass = 'status-paid';
+                            statusText = '已支付';
+                        } else if(d.pay_status == 2){
+                            statusClass = 'status-cancelled';
+                            statusText = '已取消';
+                        } else if(d.pay_status == 3){
+                            statusClass = 'status-refunded';
+                            statusText = '已退款';
+                        }
+                        
+                        return '<span class="order-status-badge ' + statusClass + '">' + statusText + '</span>';
+                    }},
+                    {field: 'pay_time', title: '支付时间', templet: function(d){
+                        return d.pay_time ? layui.util.toDateString(d.pay_time * 1000, 'yyyy-MM-dd HH:mm:ss') : '-';
+                    }},
+                    {field: 'createtime', title: '创建时间', templet: function(d){
+                        return layui.util.toDateString(d.createtime * 1000, 'yyyy-MM-dd HH:mm:ss');
+                    }},
+                    {fixed: 'right', title: '操作', toolbar: '#tableToolbar', width: 200}
+                ]],
+                page: true,
+                limit: 20,
+                limits: [10, 20, 50, 100],
+                done: function(res, curr, count){
+                    // 数据加载完成
+                }
+            });
+            
+            // 监听支付状态筛选
+            form.on('select(pay_status)', function(data){
+                tableIns.reload({
+                    where: {
+                        pay_status: data.value
+                    }
+                });
+            });
+            
+            // 工具栏
+            table.on('toolbar(tabledata)', function(obj){
+                var checkStatus = table.checkStatus(tabledata);
+                var data = obj.data;
+                
+                if(obj.event === 'del'){
+                    if(checkStatus){
+                        layer.confirm('确定删除选中的订单吗?', function(index){
+                            layui.$.ajax({
+                                url: "{:url('delete')}",
+                                type: 'POST',
+                                data: {ids: data},
+                                success: function(res){
+                                    if(res.status == 1){
+                                        layer.msg('删除成功');
+                                        tableIns.reload();
+                                    } else {
+                                        layer.msg(res.msg || '删除失败');
+                                    }
+                                    layer.close(index);
+                                }
+                            });
+                        });
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

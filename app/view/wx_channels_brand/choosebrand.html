@@ -1,0 +1,99 @@
+<!--custom_file(wx_channels)-->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>选择品牌</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-card layui-col-md12">
+          <div class="layui-card-body" pad15>
+			<div class="layui-form layui-col-md12 layui-form-search" style="padding-bottom:10px">
+				<div class="layui-inline layuiadmin-input-useradmin">
+					<label class="layui-form-label">名称</label>
+					<div class="layui-input-inline">
+						<input type="text" name="name" autocomplete="off" class="layui-input">
+					</div>
+				</div>
+				<div class="layui-inline">
+					<button class="layui-btn layuiadmin-btn-replys" lay-submit="" lay-filter="LAY-app-forumreply-search">
+						<i class="layui-icon layui-icon-search layuiadmin-button-btn"></i>
+					</button>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+				<table id="tabledata" lay-filter="tabledata"></table>
+			</div>
+          </div>
+        </div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+  var table = layui.table;
+	var datawhere = {};
+  //数据表
+  var tableIns = table.render({
+    elem: '#tabledata'
+    ,url: "{:url('index')}/type/{$type}" //数据接口
+    ,page: true //开启分页
+    ,cols: [[ //表头
+			//{type:"checkbox"},
+		  {field: 'id', title: 'ID',  sort: true,width:120},
+		  {field: 'ch_name', title: '中文名称',width:150},
+		  {field: 'en_name', title: '英文名称'},
+		  {if $type==0}
+		  {field: 'status', title: '状态',templet:function(d){
+				  if(d.status==0){
+					  return '审核中';
+				  }else if(d.status==1){
+					  return '<span style="color: green;">审核通过</span>';
+				  }else if(d.status==2){
+					  return '<span style="color: green;">审核拒绝</span>';
+				  }
+
+			  }},
+		  {field: 'reject_reason', title: '审核备注'},
+		  {/if}
+      {field: 'operation', title: '操作',templet: '<div><button class="table-btn" onclick="choosebrand(\'{{d.brand_id}}\')">选择</button></div>',align:'center'}
+    ]]
+  });
+	//排序
+	table.on('sort(tabledata)', function(obj){
+		datawhere.field = obj.field;
+		datawhere.order = obj.type;
+		tableIns.reload({
+			initSort: obj,
+			where: datawhere
+		});
+	});
+	//检索
+	layui.form.on('submit(LAY-app-forumreply-search)', function(obj){
+		var field = obj.field
+		var olddatawhere = datawhere
+		datawhere = field
+		datawhere.field = olddatawhere.field
+		datawhere.order = olddatawhere.order
+		tableIns.reload({
+			where: datawhere,
+			page: {curr: 1}
+		});
+	})
+	function choosebrand(brand_id){
+		var index = layer.load();
+		$.post("{:url('getbrandinfo')}",{brand_id:brand_id},function(res){
+			layer.close(index);
+			window.parent.choosebrand(res.data,"{$Request.param.args}");
+			var index = parent.layer.getFrameIndex(window.name);
+			parent.layer.close(index);
+		});
+	}
+	</script>
+</body>
+</html>

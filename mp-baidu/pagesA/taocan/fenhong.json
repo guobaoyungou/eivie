@@ -1,0 +1,8 @@
+{
+  "enablePullDownRefresh": true,
+  "navigationBarTitleText": "平台分红",
+  "navigationBarBackgroundColor": "#f63337",
+  "navigationBarTextStyle": "white",
+  "component": true,
+  "usingComponents": {}
+}

@@ -1,0 +1,14 @@
+{
+  "navigationBarTitleText": "秒杀商品",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "couponlist": "/components/couponlist/couponlist",
+    "dp": "/components/dp/dp",
+    "scrolltop": "/components/scrolltop/scrolltop",
+    "buydialog": "/components/buydialog/buydialog",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "支出记录",
+  "pullRefresh": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

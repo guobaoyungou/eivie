@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AI旅拍 - 作品详情</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <link rel="stylesheet" href="/static/layui/css/layui.css">
+    <style>
+        body {
+            background: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .work-preview {
+            width: 100%;
+            height: 400px;
+            background: #f0f0f0;
+            position: relative;
+        }
+        .work-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .work-info {
+            padding: 30px;
+        }
+        .work-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .work-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .work-price {
+            font-size: 32px;
+            font-weight: 700;
+            color: #ff6b6b;
+        }
+        .work-status {
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .status-paid {
+            background: #52c41a;
+            color: white;
+        }
+        .status-unpaid {
+            background: #faad14;
+            color: white;
+        }
+        .work-details {
+            margin-bottom: 30px;
+        }
+        .detail-item {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .detail-label {
+            width: 120px;
+            color: #666;
+            font-weight: 600;
+        }
+        .detail-value {
+            flex: 1;
+            color: #333;
+        }
+        .work-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #666;
+            border: 1px solid #ddd;
+        }
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        .btn-disabled {
+            background: #ccc;
+            color: #999;
+            cursor: not-allowed;
+        }
+        .video-player {
+            width: 100%;
+            height: 100%;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #999;
+        }
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>AI旅拍 - 作品详情</h1>
+    </div>
+    
+    <div class="container">
+        <button class="back-btn" onclick="window.location.href='/aivideo/work_list.html'">← 返回列表</button>
+        
+        <div id="workDetail">
+            <!-- 作品详情将通过JavaScript动态加载 -->
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        var mid = localStorage.getItem('aivideo_mid');
+        var aid = 1;
+        var workId = getQueryParam('id');
+        var workDetail = null;
+
+        // 获取URL参数
+        function getQueryParam(name) {
+            var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+            var r = window.location.search.substr(1).match(reg);
+            if (r != null) return unescape(r[2]);
+            return null;
+        }
+
+        // 加载作品详情
+        function loadWorkDetail() {
+            if (!workId) {
+                layui.layer.msg('作品ID不能为空');
+                return;
+            }
+            
+            layui.$.ajax({
+                url: '/api/aivideo/work_detail',
+                type: 'GET',
+                data: {
+                    aid: aid,
+                    mid: mid,
+                    id: workId
+                },
+                success: function(res) {
+                    if (res.status === 1) {
+                        workDetail = res.data;
+                        renderWorkDetail(workDetail);
+                    } else {
+                        layui.layer.msg(res.msg || '加载失败');
+                    }
+                },
+                error: function() {
+                    layui.layer.msg('网络错误,请稍后重试');
+                }
+            });
+        }
+
+        // 渲染作品详情
+        function renderWorkDetail(work) {
+            var html = '';
+            
+            // 预览区域
+            html += '<div class="work-preview">';
+            if (work.is_paid) {
+                // 已支付,显示视频
+                html += '<video class="video-player" controls autoplay muted>';
+                html += '<source src="' + work.work_url + '" type="video/mp4">';
+                html += '您的浏览器不支持视频播放';
+                html += '</video>';
+            } else {
+                // 未支付,显示预览图
+                html += '<img src="' + work.thumbnail_url + '" alt="' + work.work_name + '">';
+            }
+            html += '</div>';
+            
+            // 信息区域
+            html += '<div class="work-info">';
+            html += '<div class="work-title">' + work.work_name + '</div>';
+            
+            html += '<div class="work-meta">';
+            html += '<div class="work-price">¥' + work.price + '</div>';
+            
+            var statusClass = work.is_paid ? 'status-paid' : 'status-unpaid';
+            var statusText = work.is_paid ? '已支付' : '未支付';
+            html += '<div class="work-status ' + statusClass + '">' + statusText + '</div>';
+            html += '</div>';
+            
+            // 详细信息
+            html += '<div class="work-details">';
+            html += '<div class="detail-item">';
+            html += '<div class="detail-label">作品类型:</div>';
+            html += '<div class="detail-value">' + (work.work_type === 'video' ? '视频' : '图片') + '</div>';
+            html += '</div>';
+            
+            if (work.duration) {
+                html += '<div class="detail-item">';
+                html += '<div class="detail-label">视频时长:</div>';
+                html += '<div class="detail-value">' + work.duration + '秒</div>';
+                html += '</div>';
+            }
+            
+            if (work.width && work.height) {
+                html += '<div class="detail-item">';
+                html += '<div class="detail-label">视频尺寸:</div>';
+                html += '<div class="detail-value">' + work.width + 'x' + work.height + '</div>';
+                html += '</div>';
+            }
+            
+            html += '<div class="detail-item">';
+            html += '<div class="detail-label">创建时间:</div>';
+            html += '<div class="detail-value">' + formatTime(work.createtime) + '</div>';
+            html += '</div>';
+            
+            html += '<div class="detail-item">';
+            html += '<div class="detail-label">浏览次数:</div>';
+            html += '<div class="detail-value">' + work.view_count + '次</div>';
+            html += '</div>';
+            
+            html += '</div>';
+            
+            // 操作按钮
+            html += '<div class="work-actions">';
+            
+            if (work.is_paid) {
+                html += '<button class="btn btn-secondary" onclick="downloadWork()">下载作品</button>';
+                html += '<button class="btn btn-secondary" onclick="addToAlbum()">添加到相册</button>';
+            } else {
+                html += '<button class="btn btn-primary" onclick="createOrder()">立即购买</button>';
+            }
+            
+            html += '</div>';
+            html += '</div>';
+            
+            document.getElementById('workDetail').innerHTML = html;
+        }
+
+        // 格式化时间
+        function formatTime(timestamp) {
+            var date = new Date(timestamp * 1000);
+            var year = date.getFullYear();
+            var month = String(date.getMonth() + 1).padStart(2, '0');
+            var day = String(date.getDate()).padStart(2, '0');
+            var hour = String(date.getHours()).padStart(2, '0');
+            var minute = String(date.getMinutes()).padStart(2, '0');
+            var second = String(date.getSeconds()).padStart(2, '0');
+            
+            return year + '-' + month + '-' + day + ' ' + hour + ':' + minute + ':' + second;
+        }
+
+        // 创建订单
+        function createOrder() {
+            layui.$.ajax({
+                url: '/api/aivideo/create_order',
+                type: 'POST',
+                data: {
+                    aid: aid,
+                    mid: mid,
+                    work_ids: workId
+                },
+                success: function(res) {
+                    if (res.status === 1) {
+                        layui.layer.confirm('订单创建成功,订单号:' + res.data.ordernum + ',总金额:¥' + res.data.total_price, {
+                            btn: ['去支付', '取消'],
+                            yes: function(index) {
+                                window.location.href = '/aivideo/pay?ordernum=' + res.data.ordernum;
+                                layer.close(index);
+                            }
+                        });
+                    } else {
+                        layui.layer.msg(res.msg || '创建订单失败');
+                    }
+                },
+                error: function() {
+                    layui.layer.msg('网络错误,请稍后重试');
+                }
+            });
+        }
+
+        // 下载作品
+        function downloadWork() {
+            if (workDetail && workDetail.work_url) {
+                var link = document.createElement('a');
+                link.href = workDetail.work_url;
+                link.download = workDetail.work_name + '.mp4';
+                link.click();
+            }
+        }
+
+        // 添加到相册
+        function addToAlbum() {
+            layui.layer.msg('作品已自动保存到您的相册');
+        }
+
+        // 页面加载时初始化
+        layui.use(['layer'], function() {
+            if (!mid) {
+                layui.layer.msg('请先授权登录');
+                window.location.href = '/aivideo/index.html';
+                return;
+            }
+            
+            loadWorkDetail();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "修改上级",
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

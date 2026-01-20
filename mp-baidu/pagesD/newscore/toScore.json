@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "转入积分",
+  "component": true,
+  "usingComponents": {
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

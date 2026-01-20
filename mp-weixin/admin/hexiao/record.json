@@ -1,0 +1,21 @@
+{
+  "navigationBarTitleText": "我的核销",
+  "enablePullDownRefresh": true,
+  "titleNView": {
+    "searchInput": {
+      "placeholder": "输入用户昵称搜索",
+      "borderRadius": "15px"
+    },
+    "buttons": [
+      {
+        "type": "home"
+      }
+    ]
+  },
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

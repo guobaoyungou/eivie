@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "任务详情",
+  "component": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "帮助中心",
+  "pullRefresh": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore"
+  }
+}

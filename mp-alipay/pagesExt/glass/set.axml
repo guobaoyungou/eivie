@@ -1,0 +1,1 @@
+<block a:if="{{isload}}"><view class="container"><view class="content"><rich-text nodes="{{content}}"></rich-text></view><block a:if="{{loading}}"><loading vue-id="33e3699e-1" onVueInit="__l"></loading></block><popmsg vue-id="33e3699e-2" ref="__r" data-ref="popmsg" onVueInit="__l"></popmsg></view></block>

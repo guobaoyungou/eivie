@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "名片详情",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

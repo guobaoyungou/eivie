@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "门店列表",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading"
+  }
+}

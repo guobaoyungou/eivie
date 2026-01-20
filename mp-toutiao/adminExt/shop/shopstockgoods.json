@@ -1,0 +1,13 @@
+{
+  "navigationBarTitleText": "选择商品",
+  "enablePullDownRefresh": false,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "buydialog": "/components/buydialog/buydialog",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "",
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "loading": "/components/loading/loading"
+  }
+}

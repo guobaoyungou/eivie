@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "工单进度",
+  "pullRefresh": false,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

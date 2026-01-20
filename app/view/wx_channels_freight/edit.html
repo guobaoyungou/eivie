@@ -1,0 +1,571 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>运费模板设置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+	<style>
+	#ggtable .layui-input{ display:inline;height:30px}
+	#ggtable .layui-btn{ margin-top:-3px;margin-left:1px}
+	</style>
+</head>
+<script type="text/javascript">
+	window._AMapSecurityConfig = {
+		securityJsCode:'{$sysset_webinfo["js_code_amap"]}',
+	}
+</script>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					{if !$info['id']}<i class="fa fa-plus"></i> 添加运费模板{else}<i class="fa fa-pencil"></i> 编辑运费模板{/if}
+					<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+				</div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w6" lay-filter="">
+						<input type="hidden" name="info[id]" value="{$info['id']}">
+						<input type="hidden" name="info[template_id]" value="{$info['template_id']}">
+						<div class="layui-form-item">
+							<label class="layui-form-label">模板名称：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[name]" value="{$info['name']}" lay-verify="required" lay-verType="tips" autocomplete="off" class="layui-input">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">计价方式：</label>
+							<div class="layui-input-inline" style="width:500px">
+								{foreach $valuation_type as $key=>$v}
+								<input type="radio" name="info[valuation_type]" value="{$key}" title="{$v}" {if !$info['id'] || $info['valuation_type']==$key}checked{/if} lay-filter="valuation_type">
+								{/foreach}
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">运输方式：</label>
+							<div class="layui-input-inline" style="width:500px">
+								{foreach $delivery_type as $key=>$v}
+								<input type="radio" name="info[delivery_type]" value="{$key}" title="{$v}" {if !$info['id'] || $info['delivery_type']==$key}checked{/if} lay-filter="valuation_type">
+								{/foreach}
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">发货时间期限：</label>
+							<div class="layui-input-inline" style="width:500px">
+								{foreach $send_time as $key=>$v}
+								<input type="radio" name="info[send_time]" value="{$key}" title="{$v}" {if !$info['id'] || $info['send_time']==$key}checked{/if} lay-filter="valuation_type">
+								{/foreach}
+							</div>
+						</div>
+<!--						<div class="layui-form-item">-->
+<!--							<label class="layui-form-label">发货人：</label>-->
+<!--							<div class="layui-input-inline" style="width:200px">-->
+<!--								<input type="text" class="layui-input" name="addressinfo[user_name]" value="{$addressinfo['user_name']}">-->
+<!--							</div>-->
+<!--						</div>-->
+						<div class="layui-form-item">
+							<label class="layui-form-label">发货地址：</label>
+							<div style="display: flex;flex-direction: column;">
+								<div class="areaDiv" style="margin-bottom: 8px">
+									<div class="layui-input-inline" style="width: 150px">
+										<select name="addressinfo[province_name]" id="province" lay-filter="province" lay-verify="required"></select>
+									</div>
+									<div class="layui-input-inline" style="width: 150px">
+										<select name="addressinfo[city_name]" id="city" lay-filter="city"></select>
+									</div>
+									<div class="layui-input-inline" style="width: 150px" style="display:none">
+										<select name="addressinfo[county_name]" id="district"></select>
+									</div>
+								</div>
+								<div class="adressDiv">
+									<div class="layui-input-inline" style="width:500px">
+										<input type="text" id="address" name="addressinfo[detail_info]" class="layui-input layui-input-search" value="{$addressinfo['detail_info']}">
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div id="pstype0_div" >
+							<div class="layui-form-item" id="setcacl">
+								<label class="layui-form-label">计费方法：</label>
+								<div class="layui-input-inline" style="width:auto">
+									<table id="cacldiv"  class="layui-table" style="width:900px">
+										<thead>
+										<tr>
+											<th style="width:300px">区域</th>
+											<th style="width:90px">是否默认运费</th>
+											<th>快递公司</th>
+											<th>首段运费数量</th>
+											<th>首段运费的金额</th>
+											<th>续费的数量</th>
+											<th>续费的金额</th>
+											<th>操作</th>
+										</tr>
+										</thead>
+
+										{if $freight_calc_method_list}
+										{foreach $freight_calc_method_list as $k=>$gg}
+										<tr>
+											<td class="areasettd">
+												<span class="cityshtml">{$gg.region}</span>
+												<input type="hidden" class="citys" name="freight_calc_method_list[address_infos][]" value="{$gg.region}" />
+												<button class="layui-btn layui-btn-sm layui-btn-primary" onclick="editArea(this)"><i class="fa fa-edit"></i> 编辑</button>
+											</td>
+											<td><input type="checkbox" name="freight_calc_method_list[is_default][]" {if $gg['is_default']}checked{/if} value="1" lay-skin="switch" lay-text="是|否"/></td>
+											<td style="width: 300px;">
+<!--												<input type="text" class="layui-input" name="freight_calc_method_list[delivery_id][]" value="{$gg.delivery_id}" style="width:80px"/>-->
+												<select name="freight_calc_method_list[delivery_id][]" lay-search>
+													<option {if $gg['delivery_id']==''}selected{/if} value="">请选择</option>
+													{foreach $delivery_lists as $k=>$v}
+													<option {if $gg['delivery_id']==$v['delivery_id']}selected{/if} value="{$v['delivery_id']}">{$v['delivery_name']}</option>
+													{/foreach}
+												</select>
+											</td>
+											<td><input type="text" class="layui-input" name="freight_calc_method_list[first_val_amount][]" value="{$gg.first_val_amount}" style="width:80px"/></td>
+											<td><input type="text" class="layui-input" name="freight_calc_method_list[first_price][]" value="{$gg.first_price}" style="width:80px"/></td>
+											<td><input type="text" class="layui-input" name="freight_calc_method_list[second_val_amount][]" value="{$gg.second_val_amount}" style="width:80px"/></td>
+											<td><input type="text" class="layui-input" name="freight_calc_method_list[second_price][]" value="{$gg.second_price}" style="width:80px"/></td>
+											{if $k==0}
+											<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="addggtype()">添加</button></td>
+											{else}
+											<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="$(this).parent().parent().remove()">删除</button></td>
+											{/if}
+										</tr>
+										{/foreach}
+										{else}
+										<tr>
+											<td class="areasettd">
+												<span class="cityshtml">{$gg.address_infos}</span>
+												<input type="hidden" class="citys" name="freight_calc_method_list[address_infos][]" value="" />
+												<button class="layui-btn layui-btn-sm layui-btn-primary" onclick="editArea(this)"><i class="fa fa-edit"></i> 编辑</button>
+											</td>
+											<td><input type="checkbox" name="freight_calc_method_list[is_default][]" value="1" lay-skin="switch" lay-text="是|否"/></td>
+											<td><input type="text" class="layui-input" name="freight_calc_method_list[delivery_id][]" value="" style="width:80px"/></td>
+											<td><input type="text" class="layui-input" name="freight_calc_method_list[first_val_amount][]" value="" style="width:80px"/></td>
+											<td><input type="text" class="layui-input" name="freight_calc_method_list[first_price][]" value="" style="width:80px"/></td>
+											<td><input type="text" class="layui-input" name="freight_calc_method_list[second_val_amount][]" value="" style="width:80px"/></td>
+											<td><input type="text" class="layui-input" name="freight_calc_method_list[second_price][]" value="" style="width:80px"/></td>
+											{if $k==0}
+											<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="addggtype()">添加</button></td>
+											{else}
+											<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="$(this).parent().parent().remove()">删除</button></td>
+											{/if}
+										</tr>
+										{/if}
+									</table>
+									<div class="layui-word-aux" id="caclaux1"></div>
+								</div>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">包邮条件：</label>
+							<div class="layui-input-inline" style="width:500px">
+								{foreach $shipping_method as $key=>$v}
+								<input type="radio" name="info[shipping_method]" value="{$key}" title="{$v}" {if !$info['id'] || $info['shipping_method']==$key}checked{/if} lay-filter="valuation_type">
+								{/foreach}
+							</div>
+						</div>
+
+						<div>
+							<div class="layui-form-item" >
+								<label class="layui-form-label">包邮条件：</label>
+								<div class="layui-input-inline" style="width:auto">
+									<table id="ggnamediv"  class="layui-table" style="width:900px">
+										<thead>
+										<tr id="ggtitle1">
+											<th style="width:300px">区域</th>
+											<th style="width:90px">最低件数</th>
+											<th>最低重量(千克)</th>
+											<th>最低金额(元)</th>
+											<th>操作</th>
+										</tr>
+										</thead>
+
+										{if $condition_free_detail_list}
+										{foreach $condition_free_detail_list as $k=>$gg}
+										<tr>
+											<td class="areasettd">
+												<span class="cityshtml">{$gg.region}</span>
+												<input type="hidden" class="citys" name="condition_free_detail_list[address_infos][]" value="{$gg.region}" />
+												<button class="layui-btn layui-btn-sm layui-btn-primary" onclick="editArea(this)"><i class="fa fa-edit"></i> 编辑</button>
+											</td>
+											<td><input type="text" class="layui-input" name="condition_free_detail_list[min_piece][]" value="{$gg.min_piece}" style="width:80px"/></td>
+											<td><input type="text" class="layui-input" name="condition_free_detail_list[min_weight][]" value="{$gg.min_weight}" style="width:80px"/></td>
+											<td><input type="text" class="layui-input" name="condition_free_detail_list[min_amount][]" value="{$gg.min_amount}" style="width:80px"/></td>
+											{if $k==0}
+											<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="addcontype()">添加</button></td>
+											{else}
+											<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="$(this).parent().parent().remove()">删除</button></td>
+											{/if}
+										</tr>
+										{/foreach}
+										{else}
+										<tr>
+											<td class="areasettd">
+												<span class="cityshtml"></span>
+												<input type="hidden" class="citys" name="condition_free_detail_list[address_infos][]" value="" />
+												<button class="layui-btn layui-btn-sm layui-btn-primary" onclick="editArea(this)"><i class="fa fa-edit"></i> 编辑</button>
+											</td>
+											<td><input type="text" class="layui-input" name="condition_free_detail_list[min_piece][]" value="" style="width:80px"/></td>
+											<td><input type="text" class="layui-input" name="condition_free_detail_list[min_weight][]" value="" style="width:80px"/></td>
+											<td><input type="text" class="layui-input" name="condition_free_detail_list[min_amount][]" value="" style="width:80px"/></td>
+											{if $k==0}
+											<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="addcontype()">添加</button></td>
+											{else}
+											<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="$(this).parent().parent().remove()">删除</button></td>
+											{/if}
+										</tr>
+										{/if}
+									</table>
+									<div class="layui-word-aux" id="ggaux1"></div>
+								</div>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">不发货地址：</label>
+							<div class="layui-input-inline">
+								<span class="cityshtml">{$not_send_area}</span>
+								<input type="hidden" class="citys" name="info[not_send_area]" value="{$not_send_area}" />
+								<button class="layui-btn layui-btn-sm layui-btn-primary" onclick="editArea(this)"><i class="fa fa-edit"></i> 编辑</button>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">是否默认模板：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[is_default]"   value="1" title="是" {if !$info['id'] || $info['is_default']==1}checked{/if}>
+								<input type="radio" name="info[is_default]"   value="0" title="否" {if $info['id'] && $info['is_default']==0}checked{/if}>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+							</div>
+						</div>
+					</div>
+					
+				</div>
+			</div>
+		</div>
+  </div>
+	<style type='text/css'>
+	.modal-areas .layui-layer-content{ position:static;overflow:visible;height:300px}
+	.province { float:left; position:relative;width:210px; height:35px; line-height:35px;border:1px solid #fff;}
+	.province:hover { border:1px solid #f7e4a5;border-bottom:1px solid #fffec6; background:#fffec6;}
+	.province .cityall { margin-top:10px;}
+	.province ul { list-style: outside none none;position:absolute;padding:0;background:#fffec6;border:1px solid #f7e4a5;display:none;width:auto; width:300px; z-index:999999;left:-1px;top:32px;}
+	.province ul li  { float:left;min-width:60px;margin-left:20px; height:30px;line-height:30px; position:relative; }
+	.province ul li dl { list-style: outside none none;position:absolute;padding:0;background:#fee993;border:1px solid #f7e4a5;display:none;width:auto; width:220px; z-index:9999999;left:-1px;top:0px; margin-left:60px;}
+	.province dl dd  { float:left;min-width:60px;margin-left:20px; height:30px;line-height:30px; }
+	</style>
+	<div id="modal-areas" style="display:none">
+	</div> 
+	{include file="public/js"/}
+  <script src="__STATIC__/admin/js/channels_address3.js"></script>
+  <script src="__STATIC__/admin/js/channels_area.js"></script>
+  <script>
+	  address3('province','city','district',"{$addressinfo.province_name}","{$addressinfo.city_name}","{$addressinfo.county_name}",['台湾省','香港特别行政区','澳门特别行政区']);
+  </script>
+	<script>
+	$(function(){
+		var regiondata = '';
+		for(var i in provinceList){
+			if(i>0){
+				var province = provinceList[i];
+				regiondata+='<div class="province">';
+				regiondata+='			<label class="checkbox-inline" style="margin-left:20px;">';
+				regiondata+='				<input type="checkbox" class="cityall" province="'+province.name+'"/> '+province.name;
+				regiondata+='				<span class="citycount" style="color:#ff6600"></span>';
+				regiondata+='			</label>';
+				if(province.cityList){
+					regiondata+='		<ul>';
+					for(var j in province.cityList){
+						var city = province.cityList[j];
+						regiondata+='		<li class="cityli">';
+						regiondata+='			<label class="checkbox-inline">';
+						regiondata+='				<input type="checkbox" class="city areaall" style="margin-top:8px;" city="'+city.name+'" /> '+city.name;
+						regiondata+='				<span class="areacount" style="color:#ff6600"></span>';
+						regiondata+='			</label>';
+						if(city.areaList){
+							regiondata+='		<dl>';
+							for(var ar in city.areaList){
+								var area = city.areaList[ar];
+								regiondata+='		<dd>';
+								regiondata+='			<label class="checkbox-inline">';
+								regiondata+='				<input type="checkbox" class="area" style="margin-top:8px;" area="'+area+'" /> '+area;
+								regiondata+='			</label>';
+								regiondata+='		</dd>';
+							}
+							regiondata+='		</dl>';
+						}
+						regiondata+='		</li>';
+					}
+					regiondata+='		</ul>';
+				}
+				regiondata+='		</div>';
+			}
+		}
+		$('#modal-areas').html(regiondata);
+		$('.province').mouseover(function(){
+			$(this).find('ul').show();
+		}).mouseout(function(){
+			$(this).find('ul').hide();
+		});
+		$('.cityli').mouseover(function(){
+			$(this).find('dl').show();
+		}).mouseout(function(){
+			$(this).find('dl').hide();
+		});
+		$('.cityall').click(function(){
+			var checked = $(this).get(0).checked;
+			var citys = $(this).parent().parent().find('.city');
+			citys.each(function(){
+				$(this).get(0).checked = checked;
+			});
+			var count = 0;
+			if(checked){
+				count =  $(this).parent().parent().find('.city:checked').length;
+			}
+			if(count>0){
+				$(this).next().html("(" + count + ")")    ;
+			}else{
+				$(this).next().html("");
+			}
+		});
+		$('.city').click(function(){
+			var checked = $(this).get(0).checked;
+			var cityall = $(this).parent().parent().parent().parent().find('.cityall');
+			if(checked){
+				cityall.get(0).checked = true;
+			}
+			var count = cityall.parent().parent().find('.city:checked').length;
+			if(count>0){
+				cityall.next().html("(" + count + ")")    ;
+			}else{
+				cityall.next().html("");
+			}
+		});
+
+	})
+	
+	function addggtype(){
+		var gghtml = '<tr>';
+		gghtml += '<td class="areasettd">';
+		gghtml += '<span class="cityshtml"></span>';
+		gghtml += '<input type="hidden" class="citys" name="freight_calc_method_list[address_infos][]" value="" />';
+		gghtml += '<button class="layui-btn layui-btn-sm layui-btn-primary" onclick="editArea(this)"><i class="fa fa-edit"></i> 编辑</button>';
+		gghtml += '</td>'
+		gghtml += '<td><input type="checkbox" name="freight_calc_method_list[is_default][]" value="1" lay-skin="switch" lay-text="是|否"/></td>'
+		gghtml += '<td><input type="text" class="layui-input" name="freight_calc_method_list[delivery_id][]" value="0" style="width:80px"/></td>';
+		gghtml += '<td><input type="text" class="layui-input" name="freight_calc_method_list[first_val_amount][]" value="0" style="width:80px"/></td>';
+		gghtml += '<td><input type="text" class="layui-input" name="freight_calc_method_list[first_price][]" value="0" style="width:80px"/></td>';
+		gghtml += '<td><input type="text" class="layui-input" name="freight_calc_method_list[second_val_amount][]" value="0" style="width:80px"/></td>';
+		gghtml += '<td><input type="text" class="layui-input" name="freight_calc_method_list[second_price][]" value="0" style="width:80px"/></td>';
+		gghtml += '<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="$(this).parent().parent().remove()">删除</button></td>';
+		gghtml += '</tr>';
+		$('#cacldiv').append(gghtml);
+		layui.form.render('checkbox');
+	}
+	function addcontype(){
+		var gghtml = '<tr>';
+		gghtml += '<td class="areasettd">';
+		gghtml += '<span class="cityshtml"></span>';
+		gghtml += '<input type="hidden" class="citys" name="condition_free_detail_list[address_infos][]" value="" />';
+		gghtml += '<button class="layui-btn layui-btn-sm layui-btn-primary" onclick="editArea(this)"><i class="fa fa-edit"></i> 编辑</button>';
+		gghtml += '</td>'
+		gghtml += '<td><input type="text" class="layui-input" name="condition_free_detail_list[min_piece][]" value="0" style="width:80px"/></td>';
+		gghtml += '<td><input type="text" class="layui-input" name="condition_free_detail_list[min_weight][]" value="0" style="width:80px"/></td>';
+		gghtml += '<td><input type="text" class="layui-input" name="condition_free_detail_list[min_amount][]" value="0" style="width:80px"/></td>';
+		gghtml += '<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="$(this).parent().parent().remove()">删除</button></td>';
+		gghtml += '</tr>';
+		$('#ggnamediv').append(gghtml);
+		layui.form.render('checkbox');
+	}
+	
+	function editArea(btn){
+		//current = $(btn).attr('random');
+		var areasettd = $(btn).parent();
+		clearSelects();
+		var old_citys = $(btn).prev().val().split('];');
+		console.log(old_citys);
+		var arealevel = 2;
+		//$('.cityall').each(function(){
+			if(arealevel == 1){
+				for(var i in old_citys){
+				if(old_citys[i] == '') continue;
+				var provincecity = old_citys[i].split('[');
+				$('input[province='+provincecity[0]+']').prop('checked',true);
+				if(provincecity[1] == '全部地区'){
+					$('input[province='+provincecity[0]+']').parent().parent().find('.city').prop('checked',true);
+					$('input[province='+provincecity[0]+']').next('.citycount').html('('+$('input[province='+provincecity[0]+']').parent().parent().find('.city').length+')');
+				}else{
+					var citys = provincecity[1].split(',');
+					var citycount = 0;
+					for(var j in citys){
+						var citylist = citys[j].split('|');	
+						citycount++;
+						$('input[province='+provincecity[0]+']').parent().parent().find('.city[city='+citylist[0]+']').prop('checked',true);
+					}
+					$('input[province='+provincecity[0]+']').next('.citycount').html('('+citycount+')');
+				}
+			}
+			}
+			if(arealevel == 2){
+				for(var i in old_citys){
+				if(old_citys[i] == '') continue;
+				var provincecity = old_citys[i].split('[');
+				//console.log(provincecity);
+				$('input[province='+provincecity[0]+']').prop('checked',true);
+				if(provincecity[1] == '全部地区'){
+					$('input[province='+provincecity[0]+']').parent().parent().find('.city').prop('checked',true);
+					$('input[province='+provincecity[0]+']').next('.citycount').html('('+$('input[province='+provincecity[0]+']').parent().parent().find('.city').length+')');
+					var citys = $('input[province='+provincecity[0]+']').parent().parent().find('.city');
+					//console.log(citys);
+					citys.each(function(){
+						var areas = $(this).parent().parent().find('.area');
+						areas.each(function(){
+							$(this).get(0).checked = true;
+						});
+						var countarea = 0;
+						countarea =  $(this).parent().parent().find('.area:checked').length;
+						if(countarea>0){
+							$(this).next().html("(" + countarea + ")")    ;
+						}else{
+							$(this).next().html("");
+						}
+					});
+				}else{
+					var citys = provincecity[1].split(',');
+					//console.log(citys);return;
+					var citycount = 0;
+					for(var j in citys){
+						if(citys[j] == '') continue;
+						citycount++;
+						var citylist = citys[j].split('|');
+
+						if(citylist[1] == '全部县区' || citylist[1] == '' || citylist[1]==undefined){
+							$('input[province='+provincecity[0]+']').parent().parent().find('.city[city='+citylist[0]+']').prop('checked',true);
+							$('input[city='+citylist[0]+']').parent().parent().find('.area').prop('checked',true);
+							$('input[city='+citylist[0]+']').next('.areacount').html('('+$('input[city='+citylist[0]+']').parent().parent().find('.area').length+')');
+						}else{
+							$('input[city='+citylist[0]+']').parent().parent().find('.city[city='+citylist[0]+']').prop('checked',true);
+							if(citylist[1] == ''|| citylist[1]==undefined) continue;
+							var arealsit = citylist[1].split('-');
+							//console.log(arealsit);
+							var areacount = 0;
+							for(var ar in arealsit){
+								areacount++;
+								$('input[city='+citylist[0]+']').parent().parent().find('.area[area='+arealsit[ar]+']').prop('checked',true);
+							}
+							$('input[city='+citylist[0]+']').next('.areacount').html('('+areacount+')');
+						}
+
+					}
+					$('input[province='+provincecity[0]+']').next('.citycount').html('('+citycount+')');
+				}
+			}
+			}
+			
+		//})
+		/*
+		$('.city').each(function(){
+			var parentcheck = false;
+			for(var i in old_citys){
+				if(old_citys[i]==$(this).attr('city')){
+					parentcheck = true;
+					$(this).get(0).checked = true;
+					break;
+				}
+			}
+			if(parentcheck){
+				$(this).parent().parent().parent().parent().find('.cityall').get(0).checked=  true;
+			}
+		});*/
+		
+		//$("#modal-areas").modal();
+		var areasLayer = layer.open({type:1,skin:'modal-areas',content:$("#modal-areas"),area:['900px','400px'],offset:'50px',shadeClose:true,title:'选择区域',btn:['确定','关闭'],yes:function(){
+			var arealevel = 2;
+			var citystrs = '';
+			if(arealevel ==1){
+				$('.cityall:checked').each(function(){
+					if($(this).parent().parent().find('.city').length == $(this).parent().parent().find('.city:checked').length){
+						citystrs+=$(this).attr('province') + '[全部地区]' + ';';
+					}else{
+						var citychecked = [];
+						$(this).parent().parent().find('.city:checked').each(function(){              
+							citychecked.push($(this).attr('city'));
+						});
+						citystrs+=$(this).attr('province') + '['+citychecked.join(',')+']' + ';';
+					}
+				})
+			}	
+			//开启县区
+			if(arealevel ==2){
+				var citystrs = '';
+				$('.cityall:checked').each(function(){
+					var areacountall = 0;
+					var areacountchecked = 0;
+
+					$(this).parent().parent().find('.city:checked').each(function(){
+							areacountall +=$(this).parent().parent().find('.area').length;
+							areacountchecked +=$(this).parent().parent().find('.area:checked').length;
+						});
+						console.log(areacountall);
+						console.log('--');
+						console.log(areacountchecked);
+
+					if($(this).parent().parent().find('.city').length == $(this).parent().parent().find('.city:checked').length && areacountall==areacountchecked){
+						citystrs+=$(this).attr('province') + '[全部地区]' + ';';
+					}else{
+						var citychecked = [];
+						$(this).parent().parent().find('.city:checked').each(function(){
+							var areachecked = [];
+							if($(this).parent().parent().find('.area').length == $(this).parent().parent().find('.area:checked').length){
+								citychecked.push($(this).attr('city')+'|全部县区');
+							}else{
+								$(this).parent().parent().find('.area:checked').each(function(){
+									areachecked.push($(this).attr('area'));
+								});
+								citychecked.push($(this).attr('city')+'|'+areachecked.join('-'));
+							}
+						});
+						citystrs+=$(this).attr('province') + '['+citychecked.join(',')+']' + ';';
+					}
+				})
+			}
+			//$('.city:checked').each(function(){
+			//	citystrs+= $(this).attr('city') +";";
+			//});
+			areasettd.find('.cityshtml').html(citystrs);
+			areasettd.find('.citys').val(citystrs);
+			layer.close(areasLayer);
+		}})
+	}
+	var current = '';
+	function clearSelects(){
+		$('.city').attr('checked',false).removeAttr('disabled');
+		$('.cityall').attr('checked',false).removeAttr('disabled');
+		$('.citycount').html('');
+	}
+
+
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		var index = layer.load();
+		$.post("{:url('save')}",field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status==1){
+				setTimeout(function(){
+					parent.layer.closeAll();
+					parent.tableIns.reload();
+				},1000)
+			}
+		})
+	})
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

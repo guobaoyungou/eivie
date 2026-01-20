@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "会员绑定",
+  "component": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

@@ -1,0 +1,209 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>申请类目</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					<i class="fa fa-plus"></i> 申请类目
+					<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+				</div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w6" lay-filter="">
+						<input type="hidden" name="info[id]" value="{$info['id']}">
+						<input type="hidden" name="info[cat_id]" value="{$basic_info['cat_id']}">
+						<div class="layui-form-item">
+							<label class="layui-form-label">审核指引：</label>
+							<div class="layui-form-mid">
+								<a target="_blank" href="https://developers.weixin.qq.com/doc/channels/Operating_Specifications/Category_and_aQualification.html">点击查看</a>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">类目名称：</label>
+							<div class="layui-form-mid">
+								{$basic_info['name']}
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">保证金：</label>
+							<div class="layui-form-mid">
+								{:bcdiv($attr['deposit'],100,2)} 元
+							</div>
+						</div>
+						{foreach $file_type as $field=>$field_name}
+<!--						<div class="layui-form-item">-->
+<!--							<label class="layui-form-label">{$field_name['name']}：</label>-->
+<!--							<input type="hidden" name="info[{$field}]" value="{$info[$field]}" id="{$field}">-->
+<!--							<input type="hidden" name="info[{$field}_ids]" value="{$info[$field.'_ids']}" id="{$field}_ids">-->
+<!--							<button style="float:left;" type="button" class="layui-btn layui-btn-primary" onclick="uploader(this,true,'','channels_qua')" upload-input="{$field}" upload-preview="{$field}List" upload-channel-input="{$field}_ids" >批量上传</button>-->
+<!--							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">{$field_name['desc']}</div>-->
+<!--							<div id="{$field}List" class="picsList-class-padding">-->
+<!--								{if $info[$field]}{php}$pics = explode(',',$info[$field]);{/php}{foreach $pics as $pic}-->
+<!--								<div class="layui-imgbox">-->
+<!--									<a class="layui-imgbox-close" href="javascript:void(0)" onclick="$(this).parent().remove();getpicsval('{$field}','{$field}List')" title="删除"><i class="layui-icon layui-icon-close-fill-opaque"></i></a>-->
+<!--									<span class="layui-imgbox-img"><img src="{$pic}" data-file-id=""></span>-->
+<!--								</div>-->
+<!--								{/foreach}{/if}-->
+<!--							</div>-->
+<!--						</div>-->
+						{/foreach}
+
+						{foreach $qua['cert_group_list'] as $cert_group_list}
+						{foreach $cert_group_list['license_list'] as $license}
+						<fieldset class="layui-elem-field">
+							<legend>{$license['name']}</legend>
+							<div class="layui-form-item" style="margin-top: 20px;">
+								<label class="layui-form-label"></label>
+								<input type="hidden" name="license[{$license['id']}]" value="{$license[$license['id']]}" id="{$license['id']}">
+								<input type="hidden" name="license[{$license['id']}_ids]" value="{$license[$license['id'].'_ids']}" id="{$license['id']}_ids">
+								<button style="float:left;" type="button" class="layui-btn layui-btn-primary" onclick="uploader(this,true,'','channels_qua')" upload-input="{$license['id']}" upload-preview="{$license['id']}List" upload-channel-input="{$license['id']}_ids" >批量上传</button>
+								<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">{if $license['is_necessary']==1}必填{/if}</div>
+								<div id="{$license['id']}List" class="picsList-class-padding">
+									{if $license_pics[$license['id']]}{php}$pics = explode(',',$license_pics[$license['id']]);{/php}{foreach $pics as $pic}
+									<div class="layui-imgbox">
+										<a class="layui-imgbox-close" href="javascript:void(0)" onclick="$(this).parent().remove();getpicsval('{$field}','{$field}List')" title="删除"><i class="layui-icon layui-icon-close-fill-opaque"></i></a>
+										<span class="layui-imgbox-img"><img src="{$pic}" data-file-id=""></span>
+									</div>
+									{/foreach}{/if}
+								</div>
+							</div>
+							{foreach $license['license_field_list'] as $license_field}
+							<div class="layui-form-item">
+								<label class="layui-form-label">{$license_field.field_name}：</label>
+								<div class="layui-input-inline">
+									<input type="text" name="license_field_list[{$license['id']}][{$license_field.field_key}]" value="{$license_field_list[$license['id']][$license_field.field_key]}" lay-verType="tips" autocomplete="off" class="layui-input">
+								</div>
+								<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">{if $license_field['is_necessary']==1}必填，{/if}规则：{$license_field.info}</div>
+							</div>
+							{/foreach}
+						</fieldset>
+						{/foreach}
+						{/foreach}
+
+						<div class="layui-form-item">
+							<label class="layui-form-label">经营平台：</label>
+							<div class="layui-input-inline" style="width:120px">
+								<select name="info[jingyingpingtai]">
+									{foreach $category_plate as $plate_key=>$plate_name}
+									<option value="{$plate_key}"  {if $info['jingyingpingtai']==$plate_key}selected{/if}>{$plate_name}</option>
+									{/foreach}
+								</select>
+							</div>
+							<div class="layui-form-mid" style="width:120px">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">账号名称：</label>
+							<div class="layui-input-inline">
+								<input type="text" name="info[zhanghaomingcheng]" value="{$info['zhanghaomingcheng']}" lay-verType="tips" autocomplete="off" class="layui-input">
+							</div>
+						</div>
+
+						<div class="layui-form-item">
+							<label class="layui-form-label">品牌列表：</label>
+							<div class="layui-input-inline" style="width:auto; ">
+								<table class="layui-table choose-level" style="width:500px;" id="choose-level">
+									<thead>
+									<tr>
+										<th>品牌ID</th>
+										<th>中文名称</th>
+										<th>英文名称</th>
+										<th>操作</th>
+									</tr>
+									</thead>
+									{foreach $brand_list as $k=>$v}
+									<tr class="choose-tr-list">
+										<td>{$v.brand_id}<input type="hidden" value='{$v.brand_id}' name="info[brand_list][]"></td>
+										<td>{$v.ch_name}</td>
+										<td>{$v.en_name}</td>
+										<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="delChooseTr(this,{$ff.id})">删除</button></td>
+									</tr>
+									{/foreach}
+
+									<tr class="choose-tr-add">
+										<td colspan="5" align="center"><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="showChoosBrand()">添加</button></td>
+									</tr>
+								</table>
+							</div>
+							<script>
+								var chooseLevelLayer;
+								function showChoosBrand(){
+									chooseLevelLayer = layer.open({type:2,title:'选择品牌',content:"{:url('WxChannelsBrand/choosebrand')}",area:['1000px','600px'],shadeClose:true});
+								}
+								function choosebrand(res){
+									var detail = res;
+									var chooseClassName = '.choose-level';
+									layer.close(chooseLevelLayer);
+									var objIds = [];
+									var isadd = 0;
+									$(chooseClassName).find('.choose-tr-list').each(function(){
+										var thisfid = $(this).find('td:eq(0)').html();
+										if(thisfid == detail.brand_id){
+											isadd = 1
+											dialog('该项已添加过了');
+										}
+										objIds.push(thisfid)
+									});
+									if(isadd == 0){
+										objIds.push(detail.id)
+										var html='';
+										html+='<tr class="choose-tr-list">';
+										html+='<td>'+detail.brand_id+'</td>';
+										html+='<td>'+detail.ch_name+'<input type="hidden" value='+detail.brand_id+' name="info[brand_list][]"></td>';
+										html+='<td>'+detail.en_name+'</td>';
+										html+= '<td><button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="delChooseTr(this,'+detail.id+')">删除</button></td></tr>';
+
+										$(chooseClassName).find('.choose-tr-add').before(html);
+									}
+									layui.form.render();
+								}
+								function delChooseTr(obj,fid){
+									$(obj).closest('.choose-tr-list').remove();
+									var objIds = [];
+									$('#choose-level').find('.choose-tr-list').each(function(){
+										objIds.push($(this).find('td:eq(0)').html())
+									})
+								}
+							</script>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+							</div>
+						</div>
+					</div>
+					
+				</div>
+			</div>
+		</div>
+  </div>
+	</div>
+	{include file="public/js"/}
+	<script>
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		var index = layer.load();
+		$.post("{:url('save')}",field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status==1){
+				setTimeout(function(){
+					parent.layer.closeAll();
+					parent.tableIns.reload();
+				},1000)
+			}
+		})
+	})
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

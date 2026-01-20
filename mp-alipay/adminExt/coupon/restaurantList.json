@@ -1,0 +1,10 @@
+{
+  "defaultTitle": "餐饮优惠券列表",
+  "pullRefresh": false,
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading",
+    "nodata": "/components/nodata/nodata"
+  }
+}

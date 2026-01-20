@@ -1,0 +1,1 @@
+<view><block s-if="{{type=='normal'}}"><view class="nodata"><image class="nodata-img" src="{{pic}}"></image><view class="nodata-text">{{text}}</view></view></block><block s-if="{{type=='small'}}"><view class="nodataS"><image class="nodataS-img" src="{{pic}}"></image><view class="nodataS-text">{{text}}</view></view></block></view>

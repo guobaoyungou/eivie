@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "审核结果",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

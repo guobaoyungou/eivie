@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "系统消息",
+  "pullRefresh": true,
+  "usingComponents": {
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

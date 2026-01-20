@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "随行付入驻记录",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

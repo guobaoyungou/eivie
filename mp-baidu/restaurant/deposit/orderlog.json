@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "存取记录",
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

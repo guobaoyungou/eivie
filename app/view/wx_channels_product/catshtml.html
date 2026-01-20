@@ -1,0 +1,61 @@
+<!--custom_file(wx_channels)-->
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>选择分类</title>
+	<link href="__STATIC__/admin/layui2.11.4/css/layui.css?v=2025" rel="stylesheet">
+</head>
+<body>
+<button class="layui-btn" id="select-wx-cat" style="display: none;">
+	选择分类
+</button>
+<script type="text/javascript" src="__STATIC__/admin/layui2.11.4/layui.js?v=2025"></script>
+<script type="text/javascript" src="__STATIC__/admin/js/jquery.js?v=2025"></script>
+<script>
+	layui.use(function(){
+		var dropdown = layui.dropdown;
+		var util = layui.util;
+		var data = [];
+		var index = layer.load();
+		$.post("{:url('catshtml')}",{},function(res){
+			layer.close(index);
+			data = res.data;
+			dropdown.render({
+				elem: '#select-wx-cat',
+				data: data,
+				click: function(item, othis, event){
+					console.log(item);
+					var cat_id = item.id;
+					// 查询分类是否可用
+					// $.ajax({
+					// 	url: '{:url("getCatDetail")}',
+					// 	type: 'post',
+					// 	dataType: 'json',
+					// 	data: {id: cat_id, proid: product_id},
+					// 	success: function (res) {
+					// 		console.log(res);
+					// 		if (!res.status) {
+					// 			$('#cat3').val('');
+					// 			layui.form.render('select');
+					// 			layer.msg(res.msg);
+					// 			return;
+					// 		}
+					// 	}
+					// })
+					window.parent.choosewxcats(item,"{$Request.param.args}");
+					var index = parent.layer.getFrameIndex(window.name);
+					parent.layer.close(index);
+					// return false;
+				},
+				onClickOutside:function(event){
+					return false;
+				}
+			});
+			$('#select-wx-cat').trigger('click');
+		})
+	});
+</script>
+</body>
+</html>

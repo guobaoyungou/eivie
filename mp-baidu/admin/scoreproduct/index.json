@@ -1,0 +1,23 @@
+{
+  "navigationBarTitleText": "兑换商品管理",
+  "enablePullDownRefresh": true,
+  "titleNView": {
+    "searchInput": {
+      "placeholder": "输入关键字搜索",
+      "borderRadius": "15px"
+    },
+    "buttons": [
+      {
+        "type": "home"
+      }
+    ]
+  },
+  "component": true,
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "loading": "/components/loading/loading",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

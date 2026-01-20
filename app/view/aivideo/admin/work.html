@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AI旅拍 - 作品管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+    <style>
+        .work-preview {
+            width: 150px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 5px;
+            border: 1px solid #eee;
+        }
+        .work-status-badge {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-paid {
+            background: #52c41a;
+            color: white;
+        }
+        .status-unpaid {
+            background: #faad14;
+            color: white;
+        }
+        .price-input {
+            width: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-card layui-col-md12">
+                <div class="layui-card-header">
+                    <i class="fa fa-video-camera"></i> AI旅拍 - 作品管理
+                </div>
+                <div class="layui-card-body pad15">
+                    <blockquote class="layui-elem-quote">
+                        管理AI生成的作品,设置价格,查看订单情况
+                    </blockquote>
+                    
+                    <div class="layui-col-md6" style="padding-bottom:10px">
+                        <button class="layui-btn layuiadmin-btn-list" onclick="refreshWorks()">
+                            <i class="fa fa-refresh"></i> 刷新作品
+                        </button>
+                    </div>
+                    
+                    <div class="layui-col-md12">
+                        <table id="tabledata" lay-filter="tabledata"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {include file="public/js"/}
+    <script>
+        layui.use(['table', 'layer', 'form'], function(){
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            
+            // 数据表
+            var tableIns = table.render({
+                elem: '#tabledata',
+                url: "{:url('work_list')}",
+                page: true,
+                cols: [[
+                    {type: 'checkbox'},
+                    {field: 'id', title: 'ID', width: 80},
+                    {field: 'work_name', title: '作品名称'},
+                    {field: 'work_type', title: '类型', width: 80, templet: function(d){
+                        return d.work_type == 'video' ? '视频' : '图片';
+                    }},
+                    {field: 'thumbnail_url', title: '预览图', width: 120, templet: function(d){
+                        return '<img src="' + d.thumbnail_url + '" class="work-preview">';
+                    }},
+                    {field: 'duration', title: '时长(秒)', width: 80},
+                    {field: 'price', title: '价格(元)', width: 100, templet: function(d){
+                        return '<input type="number" class="layui-input price-input" value="' + d.price + '" onchange="updatePrice(' + d.id + ', this.value)">';
+                    }},
+                    {field: 'view_count', title: '浏览次数', width: 100},
+                    {field: 'download_count', title: '下载次数', width: 100},
+                    {field: 'createtime', title: '创建时间', templet: function(d){
+                        return layui.util.toDateString(d.createtime * 1000, 'yyyy-MM-dd HH:mm:ss');
+                    }},
+                    {fixed: 'right', title: '操作', toolbar: '#tableToolbar', width: 200}
+                ]],
+                page: true,
+                limit: 20,
+                limits: [10, 20, 50, 100],
+                done: function(res, curr, count){
+                    // 数据加载完成
+                }
+            });
+            
+            // 工具栏
+            table.on('toolbar(tabledata)', function(obj){
+                var checkStatus = table.checkStatus(tabledata);
+                var data = obj.data;
+                
+                if(obj.event === 'del'){
+                    if(checkStatus){
+                        layer.confirm('确定删除选中的作品吗?', function(index){
+                            layui.$.ajax({
+                                url: "{:url('delete')}",
+                                type: 'POST',
+                                data: {ids: data},
+                                success: function(res){
+                                    if(res.status == 1){
+                                        layer.msg('删除成功');
+                                        tableIns.reload();
+                                    } else {
+                                        layer.msg(res.msg || '删除失败');
+                                    }
+                                    layer.close(index);
+                                }
+                            });
+                        });
+                    }
+                }
+            });
+            
+            // 刷新作品
+            function refreshWorks(){
+                layer.load('正在刷新...');
+                layui.$.ajax({
+                    url: "{:url('refresh')}",
+                    type: 'POST',
+                    success: function(res){
+                        layer.closeAll();
+                        if(res.status == 1){
+                            layer.msg('刷新成功');
+                            tableIns.reload();
+                        } else {
+                            layer.msg(res.msg || '刷新失败');
+                        }
+                    }
+                });
+            }
+            
+            // 更新价格
+            function updatePrice(workId, price){
+                layui.$.ajax({
+                    url: "{:url('update_price')}",
+                    type: 'POST',
+                    data: {
+                        id: workId,
+                        price: price
+                    },
+                    success: function(res){
+                        if(res.status == 1){
+                            layer.msg('价格更新成功');
+                        } else {
+                            layer.msg(res.msg || '更新失败');
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

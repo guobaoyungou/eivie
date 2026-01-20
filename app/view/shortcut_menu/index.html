@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>快捷菜单管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .selected-menu-box {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .selected-menu-box .selected-menu-header {
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        align-items: baseline;
+    }
+    .selected-menu-box .selected-menu-header h3 {
+        color: #303030;
+    }
+    .selected-menu-box .selected-menu-header .desc {
+        color: #999;
+        margin-left: 10px;
+    }
+    .selected-menu-content {
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    .selected-menu-item {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding: 5px 15px;
+        box-sizing: border-box;
+        border: 1px solid #dedede;
+        border-radius: 6px;
+        margin-left: 10px;
+        margin-top: 10px;
+        background: #fff;
+        cursor: move;
+    }
+    .selected-menu-item .fa-close {
+        margin-left: 10px;
+        cursor: pointer;
+    }
+    .menu-box-title {
+        color: #303030;
+        margin-bottom: 20px;
+    }
+    .menu-box {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .menu-item {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .menu-item + .menu-item {
+        margin-top: 10px;
+    }
+    .menu-title {
+        color:#303030;
+        font-size: 14px;
+        font-weight: bolder;
+        margin-bottom: 10px;
+    }
+    .sub-menu-item {
+        width: 100%;
+        margin: 10px 0;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .sub-menu-title {
+        color:#303030;
+        font-size: 13px;
+        font-weight:bold;
+    }
+    .sub-menu-list {
+        flex-grow: 1;
+        padding-left: 10px;
+    }
+    .submit-box {
+        margin-top: 20px;
+        width: 200px;
+    }
+  </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-card layui-col-md12">
+                <div class="layui-card-header">快捷菜单管理</div>
+                <div class="layui-card-body" pad15>
+                    <div class="selected-menu-box">
+                        <div class="selected-menu-header">
+                            <h3>已选菜单</h3>
+                            <span class="desc">按住菜单标签可以对菜单进行排序，可选菜单基于您的权限动态显示，仅支持选择系统左侧的二级和三级菜单；快捷菜单配置仅对当前登录账号生效。</span>
+                        </div>
+                        <div class="selected-menu-content">
+                            {foreach $menus as $menu}
+                            <div data-value="{$menu.value}" data-label="{$menu.label}" class="selected-menu-item">
+                                <span>{$menu.label}</span>
+                                <i class="fa fa-close" onclick="removeSelectMenu('{$menu.value}')"></i>
+                            </div>
+                            {/foreach}
+                        </div>
+                    </div>
+                    <h3 class="menu-box-title">选择菜单</h3>
+                    <div class="layui-form menu-box" lay-filter="">
+                        {foreach $menudata as $k=>$v}
+                        <div class="menu-item">
+                            <div class="menu-title">{$v['name']}</div>
+                            <div style="margin-left:20px">
+                                {foreach $v['child'] as $k1=>$v1}
+                                {if !$v1['authdata'] && $v1['child']}
+                                <div class="sub-menu-item">
+                                    <div class="sub-menu-title">{$v1['name']}</div>
+                                    <div class="sub-menu-list">
+                                        {foreach $v1['child'] as $v2}
+                                        {if !$v2['hide']}
+                                        <input type="checkbox" value="{$v2['path']}" {if in_array($v2['path'],$menuValues)}checked{/if} title="{$v2['name']}" lay-skin="primary"/>
+                                        {/if}
+                                        {/foreach}
+                                    </div>
+                                </div>
+                                {/if}
+                                {if (!$v1['child'] || $v1['authdata']) && !$v1['hide']}
+                                <input type="checkbox" value="{$v1.path}" {if in_array($v1['path'],$menuValues)}checked{/if} title="{$v1['name']}" lay-skin="primary"/>
+                                {/if}
+                                {/foreach}
+                            </div>
+                        </div>
+                        {/foreach}
+
+
+						<div class="layui-form-item submit-box">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+							</div>
+						</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+{include file="public/js"/}
+<script>
+    $(function() {
+        $(".selected-menu-content").sortable();
+        $(".selected-menu-content").disableSelection();
+    });
+    function removeSelectMenu(name) {
+        $(`[data-value="${name}"]`).remove();
+        // 取消选择项
+        $(`input[value="${name}"]`).prop('checked', false);
+
+        // 重新渲染表单，让 UI 同步更新
+        layui.form.render('checkbox');
+    }
+    layui.form.on('checkbox', function(data){
+        if (data.elem.checked) {
+            let html = `<div data-value="${data.value}" data-label="${$(data.elem).prop("title")}" class="selected-menu-item">`;
+            html += `<span>${$(data.elem).prop("title")}</span>`;
+            html += `<i class="fa fa-close" onclick="removeSelectMenu('${data.value}')"></i>`;
+            html += "</div>";
+            $('.selected-menu-content').append(html);
+        } else {
+            $(`[data-value="${data.value}"]`).remove();
+        }
+    }); 
+	layui.form.on('submit(formsubmit)', function(obj){
+        // 选中的菜单
+        const menus = [];
+        $('.selected-menu-content').children().each(function(index, element) {
+            menus.push({
+                value: $(element).data("value"),
+                label: $(element).data("label")
+            })
+        });
+		var index = layer.load();
+		$.post("{:url('save')}",{menus},function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status == 1){
+				setTimeout(function(){
+					parent.layer.closeAll();
+                    parent.location.reload();
+				},1000)
+			}
+		})
+	})
+</script>
+</html>

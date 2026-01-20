@@ -1,0 +1,14 @@
+{
+  "navigationBarTitleText": "课程列表",
+  "enablePullDownRefresh": false,
+  "usingComponents": {
+    "uni-drawer": "/components/uni-drawer/uni-drawer",
+    "dp-kecheng-item": "/components/dp-kecheng-item/dp-kecheng-item",
+    "dp-kecheng-itemlist": "/components/dp-kecheng-itemlist/dp-kecheng-itemlist",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

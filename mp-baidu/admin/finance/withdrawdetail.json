@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

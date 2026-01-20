@@ -1,0 +1,1 @@
+<view class="addressadd"><block a:if="{{isload}}"><block><image style="width:100%;" src="{{poster}}" data-url="{{poster}}" mode="widthFix" data-event-opts="{{[['tap',[['previewImage',['$event']]]]]}}" onTap="__e"></image></block></block></view>

@@ -1,0 +1,18 @@
+@font-face {
+  font-family: "iconfont"; /* Project id 4721357 */
+  src: url('iconfont.woff?t=1729732071195') format('woff'),
+       url('iconfont.ttf?t=1729732071195') format('truetype');
+}
+
+.iconfont {
+  font-family: "iconfont" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-shaixuan:before {
+  content: "\e609";
+}
+

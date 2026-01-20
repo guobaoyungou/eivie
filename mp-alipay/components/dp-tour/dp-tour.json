@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "dp-tour-item": "/components/dp-tour-item/dp-tour-item"
+  }
+}

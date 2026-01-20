@@ -1,0 +1,8 @@
+{
+  "component": true,
+  "usingComponents": {
+    "dp-tuangou-item": "/components/dp-tuangou-item/dp-tuangou-item",
+    "dp-tuangou-itemlist": "/components/dp-tuangou-itemlist/dp-tuangou-itemlist",
+    "dp-tuangou-itemline": "/components/dp-tuangou-itemline/dp-tuangou-itemline"
+  }
+}

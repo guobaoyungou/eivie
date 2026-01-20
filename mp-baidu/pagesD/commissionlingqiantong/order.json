@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "收益明细",
+  "component": true,
+  "usingComponents": {
+    "dd-tab": "/components/dd-tab/dd-tab",
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading"
+  }
+}

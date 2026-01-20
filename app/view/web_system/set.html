@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>系统设置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+	<style>
+		.layui-popover{padding: 0px 10px;}
+	</style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					{if $childmenu}
+					<div class="layui-tab layui-tab-brief">
+						<ul class="layui-tab-title">
+							{foreach $childmenu as $child}
+							<li {if $child['path'] == $thispath}class="layui-this"{/if} onclick="location.href='{:url($child['path'])}'">{$child['name']}</li>
+							{/foreach}
+						</ul>
+					</div>
+					{else}
+					{$menuname}
+					{/if}
+				{if input('param.isopen')==1}<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>{/if}
+				</div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w8" lay-filter="">
+						<blockquote class="layui-elem-quote" style="color:#333">
+							<p>系统配置说明：</p>
+							<p>一、添加计划任务（用于订单自动收货、订单超时取消、拼团成功失败、消息通知、分账等）</p>
+							<div class="flex-y-center">在宝塔面板的计划任务中添加任务，类型为“访问URL”（新版宝塔为：访问URL-GET），执行周期选择每分钟执行一次，URL地址为：<b>{$autourl}</b>
+								<div class="layui-popover layui-default-link layui-inline" onclick="copyText('{$autourl}')">复制</div>
+								<div class="layui-popover layui-default-link layui-inline">
+									示例
+									<div class="layui-popover-div">
+										<img src="__STATIC__/admin/img/dianda_crontab.png" style="width: 600px" />
+									</div>
+								</div>
+							</div>
+							<div class="flex-y-center">二、配置客服系统（必须为https协议，php{$phpversion}如果禁用了pcntl开头的函数需要解除禁用
+							<div class="layui-popover layui-default-link layui-inline">
+								示例
+								<div class="layui-popover-div">
+									<img src="__STATIC__/admin/img/dianda_set_dis_fun.png" style="width: 600px" />
+								</div>
+							</div>
+								，用于实时接收用户的在线咨询消息，公众号窗口消息、商城内客服页面消息、小程序客服消息）</div>
+
+							{if $servertype=='apache'}
+							<p>Apache环境在宝塔控制面板中点击[网站]-[设置]-[配置文件]，找到：SSLHonorCipherOrder On处，在下方增加：
+<pre style="color:#000">
+ProxyRequests Off
+ProxyPass /wss ws://127.0.0.1:{$kfport}
+
+ProxyPassReverse /wss ws://127.0.0.1:{$kfport}
+</pre>
+							{else}
+							<p>Nginx环境在宝塔控制面板中点击[网站]-[设置]-[配置文件]，增加以下两项信息
+							<div>1、在最上方增加：
+								<pre style="color:#000">upstream websocket{$kfport}{ server 127.0.0.1:{$kfport}; }</pre>
+								<div class="layui-popover layui-default-link layui-inline" onclick="copyText('upstream websocket{$kfport}{server 127.0.0.1:{$kfport};}')">复制</div>
+								<div class="layui-popover layui-default-link layui-inline">
+									示例
+									<div class="layui-popover-div">
+										<img src="__STATIC__/admin/img/dianda_siteset_1.png" style="width: 700px" />
+									</div>
+								</div>
+							</div>
+							<div>2、在server内最下方的access_log上方增加：
+<pre style="color:#000">
+location /wss{
+    proxy_pass http://websocket{$kfport};
+    proxy_read_timeout 60s;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real_IP $remote_addr;
+    proxy_set_header X-Forwarded-for $remote_addr;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'Upgrade';
+}
+</pre>
+<div class="layui-popover layui-default-link layui-inline" 
+	onclick="copyText(`location /wss{ proxy_pass http://websocket{$kfport};proxy_read_timeout 60s;proxy_set_header Host $host;proxy_set_header X-Real_IP $remote_addr;proxy_set_header X-Forwarded-for $remote_addr;proxy_http_version 1.1;proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection 'Upgrade';}`)">复制</div>
+							<div class="layui-popover layui-default-link layui-inline">
+								示例
+								<div class="layui-popover-div">
+									<img src="__STATIC__/admin/img/dianda_siteset_2.png" style="width: 600px" />
+								</div>
+							</div>
+							</div>
+							{/if}
+							<p>3、启动客服系统： 
+							<div class="flex-y-center">如果安装了多个php版本，在宝塔面板[网站]-[PHP命令行版本] 切换为您的网站php版本:{$phpversion}<div class="layui-popover layui-default-link layui-inline">
+							示例
+							<div class="layui-popover-div">
+								<img src="__STATIC__/admin/img/dianda_siteset_3.png" style="width: 600px" />
+							</div>
+						</div></div>
+							<p>在宝塔面板用宝塔SSH终端软件进入终端，执行命令： 
+							<div class="flex-y-center">
+								<pre style="color:#000">php {$Think.const.ROOT_PATH}think worker:server -d</pre>
+								<div class="layui-popover layui-default-link layui-inline" onclick="copyText('php {$Think.const.ROOT_PATH}think worker:server -d')">复制</div>
+							</div>
+							看到Start success.字样代表启动成功，如果出现setsid fail等字样请检查php{$phpversion}的禁用函数中是否有pcntl_开头的函数,如果有请删除后重新执行
+							<p>接收客服消息通知需要绑定公众号,并且配置公众号模板消息,由管理员绑定的微信端接收
+							<p>如果要停止客服系统可执行<span style="color:#000;padding-left:10px">php {$Think.const.ROOT_PATH}think worker:server stop</span><span class="layui-popover layui-default-link layui-inline" onclick="copyText('php {$Think.const.ROOT_PATH}think worker:server stop')">复制</span></p>
+							<!-- <p>如未安装宝塔，Linux系统执行crontab -e 加入 */1 * * * * curl {$autourl} -->
+							<!-- <p>三、异步消息通知（可选配置）：</p>
+							<p>如果需要开启异步消息通知，在宝塔面板用宝塔SSH终端软件进入终端，执行命令：</p>
+							<pre style="color:#000">启动 nohup php {$Think.const.ROOT_PATH}think queue:listen --queue notification_job_queue >/dev/null</pre>
+							<pre style="color:#000">停止 php {$Think.const.ROOT_PATH}think queue:restart</pre> -->
+
+						</blockquote>
+						<div class="layui-form-item" style="margin-top:30px">
+							<label class="layui-form-label">系统名称</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[webname]" value="{$info.webname}" lay-verify="required" lay-verType="tips" class="layui-input">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">LOGO</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[logo]" id="logo" class="layui-input" value="{$info['logo']}">
+							</div>
+							<button style="float:left;" type="button" class="layui-btn layui-btn-primary" onclick="uploader(this)" upload-input="logo" upload-preview="logoPreview">上传图片</button>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">建议尺寸：108×108像素</div>
+							<div id="logoPreview" style="float:left;padding-top:10px;margin-left:160px;clear: both;">
+								<div class="layui-imgbox"><div class="layui-imgbox-img"><img src="{$info['logo']}"/></div></div>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">ico图标</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[ico]" id="ico" class="layui-input" value="{$info['ico']}">
+							</div>
+							<button style="float:left;" type="button" class="layui-btn layui-btn-primary" onclick="uploader(this)" upload-input="ico" upload-preview="icoPreview">上传图片</button>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;"></div>
+							<div id="icoPreview" style="float:left;padding-top:10px;margin-left:160px;clear: both;">
+								<div class="layui-imgbox" style="width:44px;height:44px"><div class="layui-imgbox-img"><img src="{$info['ico']}"/></div></div>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">登录页背景图</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[adminloginbg]" id="adminloginbg" class="layui-input" value="{$info['adminloginbg']}">
+							</div>
+							<button style="float:left;" type="button" class="layui-btn layui-btn-primary" onclick="uploader(this)" maxwidth="2500" maxheight="2000" upload-input="adminloginbg" upload-preview="adminloginbgPreview">上传图片</button>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">建议尺寸：1920×1080像素</div>
+							<div id="adminloginbgPreview" style="float:left;padding-top:10px;margin-left:160px;clear: both;">
+								<div class="layui-imgbox" style="width:144px;height:90px"><div class="layui-imgbox-img"><img src="{$info['adminloginbg']}"/></div></div>
+							</div>
+						</div>
+						
+						<div class="layui-form-item">
+							<label class="layui-form-label">版权设置</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[copyright]" class="layui-input" value="{$info.copyright}"/>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">备案号</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[beian]" class="layui-input" value="{$info.beian}"/>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">公安备案文字</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[copyright2]" class="layui-input" value="{$info.copyright2}" placeholder="公网安备1001号"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">官网底部显示</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">公安备案号</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[beian2]" class="layui-input" value="{$info.beian2}" placeholder="1001"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">点击“公安备案文字”跳转链接，拼接此备案号</div>
+						</div>
+
+						<div class="layui-form-item">
+							<label class="layui-form-label">官网：</label>
+							<div class="layui-input-inline" style="width:400px">
+								<input type="radio" name="info[showweb]" value="1" {if $info['showweb']==1}checked{/if} title="模板一" lay-filter="showweb">
+								<input type="radio" name="info[showweb]" value="2" {if $info['showweb']==2}checked{/if} title="模板二" lay-filter="showweb">
+								<input type="radio" name="info[showweb]" value="0" {if $info['showweb']==0}checked{/if} title="关闭" lay-filter="showweb">
+							</div>
+							<div class="layui-form-mid layui-word-aux"></div>
+						</div>
+						<div id="showwebset" style="{if $info['showweb']==0}display:none{/if}">
+
+							<div class="layui-form-item">
+								<label class="layui-form-label">企业名称</label>
+								<div class="layui-input-inline" style="width:300px">
+									<input type="text" name="info[company]" class="layui-input" value="{$info.company}"/>
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">地址</label>
+								<div class="layui-input-inline" style="width:300px">
+									<input type="text" name="info[address]" class="layui-input" value="{$info.address}"/>
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">邮箱</label>
+								<div class="layui-input-inline" style="width:300px">
+									<input type="text" name="info[email]" class="layui-input" value="{$info.email}"/>
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">电话</label>
+								<div class="layui-input-inline" style="width:300px">
+									<input type="text" name="info[tel]" class="layui-input" value="{$info.tel}"/>
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">微信</label>
+								<div class="layui-input-inline" style="width:300px">
+									<input type="text" name="info[weixin]" class="layui-input" value="{$info.weixin}"/>
+								</div>
+							</div>
+						</div>
+						{if getcustom('article_news_pc')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">网站地图：</label>
+							<input type="hidden" name="info[sitemap]" value="{$info['sitemap']}" id="sitemap"/>
+							<button style="float:left;" type="button" class="layui-btn layui-btn-primary uploadfile" upload-input="sitemap" upload-preview="certPreview">上传</button>
+							<div id="certPreview" class="layui-form-mid" style="margin-left:20px;">{if $info['sitemap']}已上传{/if}</div>
+						</div>
+						{/if}
+						{if $component['status']==1}
+						<div class="layui-form-item">
+							<label class="layui-form-label">快速注册小程序 </label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="radio" name="info[fastregxcx]" value="1" {if $info['fastregxcx']!=2}checked{/if}
+									title="开启">
+								<input type="radio" name="info[fastregxcx]" value="2" {if $info['fastregxcx']==2}checked{/if}
+									title="关闭">
+							</div>
+						</div>
+						{/if}
+						{if(!getcustom('admin_user_hide'))}
+						<div class="layui-form-item">
+							<label class="layui-form-label">开启注册 </label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="radio" name="info[reg_open]" value="1" {if $info['reg_open']==1}checked{/if}
+								title="开启" lay-filter="regopen">
+								<input type="radio" name="info[reg_open]" value="0" {if $info['reg_open']==0}checked{/if}
+								title="关闭" lay-filter="regopen">
+							</div>
+						</div>
+						<div id="regopenset" style="{if $info['reg_open']==0}display:none{/if}">
+							<div class="layui-form-item">
+								<label class="layui-form-label">注册协议链接</label>
+								<div class="layui-input-inline" style="width:300px">
+									<input type="text" name="info[reg_user_agreement_url]" class="layui-input" value="{$info.reg_user_agreement_url}"/>
+								</div>
+								<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">请填写链接地址</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">注册会员有效期</label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="number" min="1" max="365" name="info[reg_user_time]" class="layui-input" value="{$info.reg_user_time}"/>
+								</div>
+								<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">天</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">注册短信验证码 </label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="radio" name="info[sms_open]" value="1" {if $info['sms_open']==1}checked{/if}
+										title="开启" lay-filter="sms_open">
+									<input type="radio" name="info[sms_open]" value="0" {if $info['sms_open']==0}checked{/if}
+										title="关闭" lay-filter="sms_open">
+								</div>
+								<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">短信配置请在客户端[系统]-[短信设置]中配置</div>
+							</div>
+
+							<!-- <div class="layui-form-item">
+								<label class="layui-form-label">消息通知 </label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="radio" name="info[notification_queue]" value="0" {if $info['notification_queue']==0 || $info['notification_queue']==''}checked{/if}
+									title="同步" >
+									<input type="radio" name="info[notification_queue]" value="1" {if $info['notification_queue']==1}checked{/if}
+									title="异步" >
+								</div>
+								<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">异步消息通知可提高性能，选择异步需要按照上方第三条说明执行服务器命令</div>
+							</div> -->
+						</div>
+						{/if}
+						{if getcustom('admin_login_page')}
+							<div class="layui-form-item">
+								<label class="layui-form-label">开启独立登录地址 </label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="radio" name="info[open_login_page]" value="1" {if $info['open_login_page']==1}checked{/if}
+										title="开启" lay-filter="open_login_page">
+									<input type="radio" name="info[open_login_page]" value="0" {if $info['open_login_page']==0}checked{/if}
+										title="关闭" lay-filter="open_login_page">
+								</div>
+								<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">开启后在用户列表里编辑独立登录编码，用户可配置自己的系统信息。登录地址为<a href="javascript:void(0)" >{$Think.const.PRE_URL2}/?s=/Login/index&lc=独立登录编码</a> 忘记登录编码，主账号可用系统配置authkey做为独立登录编码</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">独立入口强制编码 </label>
+								<div class="layui-input-inline" style="width:200px">
+									<input type="radio" name="info[check_login_page]" value="1" {if $info['check_login_page']==1}checked{/if}
+										title="开启" lay-filter="check_login_page">
+									<input type="radio" name="info[check_login_page]" value="0" {if $info['check_login_page']==0}checked{/if}
+										title="关闭" lay-filter="check_login_page">
+								</div>
+								<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">开启后强制编码验证，所有用户都必须加上编码 无编码不能访问, 关闭可以无编码访问</div>
+							</div>
+						{/if}
+						{if getcustom('admin_login_sms_verify')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">开启短信登录 </label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="radio" name="info[sms_login]" value="1" {if $info['sms_login']==1}checked{/if} title="开启">
+								<input type="radio" name="info[sms_login]" value="0" {if $info['sms_login']==0}checked{/if} title="关闭">
+								<input type="radio" name="info[sms_login]" value="2" {if $info['sms_login']==2}checked{/if} title="强制开启">
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">登录时需要短信验证 开启：短信登录、密码登录；关闭：密码登录；强制开启：短信登录<br>开启后登录时需要短信验证 短信配置请在客户端[系统]-[短信设置]中配置</div>
+						</div>
+						{/if}
+
+						<div class="layui-form-item">
+							<label class="layui-form-label">快递查询AppCode</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[ali_appcode]" class="layui-input" value="{$info.ali_appcode}"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">用于用户查询快递物流状态，请先在阿里云购买快递查询接口，然后在[阿里云控制台 - 云市场 - 已购买的服务]中查找AppCode，<a href="https://market.aliyun.com/detail/cmapi021863#sku=yuncode1586300006?source=5176.29345612&userCode=v0rzgh25" target="_blank">去购买</a></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">腾讯地图key</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[map_key_qq]" class="layui-input" value="{$info.map_key_qq}"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">必须，[腾讯位置服务控制台 - 应用管理 - 我的应用]中创建应用，添加 key，勾选“WebServiceAPI” <a href="https://lbs.qq.com/webApi/javascriptGL/glGuide/glBasic" target="_blank">使用帮助</a>，<br>并设置配额管理【腾讯地图控制台-配额管理-账户额度-配额分配】（逆地址解析，地址解析，骑行（电动车）路线规划，关键词输入提示，地点搜索，坐标转换）<a href="https://lbs.qq.com/service/webService/webServiceGuide/webServiceQuota" target="_blank">配额限制说明</a> </div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">高德地图key</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[map_key_amap]" class="layui-input" value="{$info.map_key_amap}"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">必须，[高德开放平台控制台 - 应用管理 - 我的应用]中创建应用，添加 key，服务平台选择 Web端(JS API) <a href="https://lbs.amap.com/api/javascript-api-v2/prerequisites" target="_blank">使用帮助</a></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">高德地图安全密钥</label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="text" name="info[js_code_amap]" class="layui-input" value="{$info.js_code_amap}"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">必须，高德自2021年12月02日升级，升级之后所申请的 key 必须配备安全密钥(jscode)一起使用，升级之前申请的key不需要配置安全密钥(jscode)<a target="_blank" href="https://lbs.amap.com/api/javascript-api/guide/abc/prepare">使用帮助</a></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">分红结算方式 </label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="radio" name="info[jiesuan_fenhong_type]" value="1" {if $info['jiesuan_fenhong_type']==1}checked{/if}
+								title="异步模式">
+								<input type="radio" name="info[jiesuan_fenhong_type]" value="0" {if $info['jiesuan_fenhong_type']==0}checked{/if}
+								title="同步模式">
+							</div>
+							<div class="layui-form-mid layui-word-aux layui-clear" >
+								一、同步模式：创建订单后立即同步预结算分红数据<br/>
+								优点：可实时预结算分红数据<br/>
+								缺点：如果网体可获取分红会员数量过大会导致提交订单页面卡顿，甚至执行超时页面报错从而无法提交订单。<br/>
+								二、异步模式：正常创建订单，订单支付成功之后通过计划任务shell脚本进行异步预结算分红数据。<br/>
+								优点：不影响页面用户体验<br/>
+								缺点：需要设置计划任务脚本配合使用，结算分红时间会略有延迟。<br/>
+								异步计划任务设置方式：登录宝塔-计划任务-添加任务-任务类型选择shell脚本-执行周期设置每分钟执行一次，<br/>
+								脚本内容：{$crons}<div class="layui-popover layui-default-link layui-inline" onclick="copyText('{$crons}')">复制</div>
+								<div class="layui-popover layui-default-link layui-inline">
+									示例
+									<div class="layui-popover-div">
+										<img src="__STATIC__/admin/img/dianda_jiesuan.png" style="width: 600px" />
+									</div>
+								</div>
+								<br/>
+							</div>
+
+						</div>
+						{if getcustom('member_levelup_async')}
+						<div class="layui-form-item">
+							<label class="layui-form-label">会员升级方式 </label>
+							<div class="layui-input-inline" style="width:300px">
+								<input type="radio" name="info[member_levelup_type]" value="1" {if $info['member_levelup_type']==1}checked{/if}
+								title="异步模式">
+								<input type="radio" name="info[member_levelup_type]" value="0" {if $info['member_levelup_type']==0}checked{/if}
+								title="同步模式">
+							</div>
+							<div class="layui-form-mid layui-word-aux layui-clear" >
+								一、同步模式：订单支付成功后立即处理会员升级<br/>
+								优点：可达到实时升级会员级别<br/>
+								缺点：如果会员网体较大，配置的升级条件复杂 会导致升级处理时间较长，从而导致会员支付订单时停留支付页面时间变长。<br/>
+								二、异步模式：正常创建订单，订单支付成功之后通过计划任务shell脚本进行异步处理会员升级流程。<br/>
+								优点：不影响页面用户体验<br/>
+								缺点：需要设置计划任务脚本配合使用，升级时间会略有延迟，从而可能会导致分销分红发等一系列奖金的发放比例获取不到最新级别比例。<br/>
+								异步计划任务设置方式：登录宝塔-计划任务-添加任务-任务类型选择shell脚本-执行周期设置每分钟执行一次，<br/>
+								脚本内容：{$crons_member_levelup}<div class="layui-popover layui-default-link layui-inline" onclick="copyText('{$crons_member_levelup}')">复制</div>
+								<div class="layui-popover layui-default-link layui-inline">
+									示例
+									<div class="layui-popover-div">
+										<img src="__STATIC__/admin/img/dianda_jiesuan.png" style="width: 600px" />
+									</div>
+								</div>
+							</div>
+						</div>
+						{/if}
+
+						{if getcustom('member_tag_age')}
+							<div class="layui-form-item">
+								<label class="layui-form-label">每月初会员标签赠送积分 </label>
+								<div class="layui-input-inline" style="width:800px;padding-top: 7px">
+									异步计划任务设置方式：登录宝塔-计划任务-添加任务-任务类型选择shell脚本-执行周期设置每分钟执行一次，<br/>
+									脚本内容：{$member_tag_age_async}<div class="layui-popover layui-default-link layui-inline" onclick="copyText('{$member_tag_age_async}')">复制</div>
+									<div class="layui-popover layui-default-link layui-inline">
+										示例
+										<div class="layui-popover-div">
+											<img src="__STATIC__/admin/img/dianda_jiesuan.png" style="width: 600px" />
+										</div>
+									</div>
+								</div>
+							</div>
+						{/if}
+
+						{if getcustom('extend_hanglvfeike')}
+              <fieldset class="layui-elem-field">
+                <legend>机票接口设置</legend>
+	              <div class="layui-form-item">
+	                <label class="layui-form-label" >商户ID：</label>
+	                <div class="layui-input-inline" style="width:300px">
+	                  <input type="text" name="hlinfo[partnerId]" lay-verify="required" lay-verType="tips" value="{$hlinfo['partnerId']}" class="layui-input"/>
+	                </div>
+	                <div class="layui-form-mid layui-word-aux">在航旅飞客工作人员取得</div>
+	              </div>
+	              <div class="layui-form-item">
+	                <label class="layui-form-label" >Secret：</label>
+	                <div class="layui-input-inline" style="width:300px">
+	                  <input type="text" name="hlinfo[secret]" lay-verify="required" lay-verType="tips" value="{$hlinfo['secret']}" class="layui-input"/>
+	                  {if $hlinfo['secret']}<div style="position: absolute;left: 0;top: 0;right: 0;bottom: 0; background: #fff;padding: .35rem .7rem;border: 1px solid rgba(0, 0, 0, .15);border-radius: .15rem;color: #636c72;" onclick="$(this).hide()">已隐藏内容，点击查看或编辑</div>{/if}
+	                </div>
+	                <div class="layui-form-mid layui-word-aux">在航旅飞客工作人员取得</div>
+	              </div>
+	              <div class="layui-form-item">
+	                <label class="layui-form-label" >接口域名：</label>
+	                <div class="layui-input-inline" style="width:300px">
+	                  <input type="text" name="hlinfo[apiurl]" lay-verify="required" lay-verType="tips" value="{$hlinfo['apiurl']}" class="layui-input"/>
+	                </div>
+	                <div class="layui-form-mid layui-word-aux"> 域名： https://open.hanglvfeike.com/v1/gateway</div>
+	              </div>
+             </fieldset>
+            {/if}
+            {if getcustom('supply_yongsheng')}
+              <div class="layui-form-item">
+                <label class="layui-form-label" >盛唐玖信：</label>
+                <div class="layui-input-inline" style="width:300px">
+                  <input type="text"  name="info[ysname]" lay-verify="required" lay-verType="tips" value="{$info['ysname']}" class="layui-input"/>
+                </div>
+								<div class="layui-form-mid layui-word-aux"> 免费开通api接口：刘总 17788269127</div>
+              </div>
+            {/if}
+            {if getcustom('system_admin_default')}
+              <fieldset class="layui-elem-field">
+                <legend>平台默认设置</legend>
+                <div class="layui-form-item">
+                  <label class="layui-form-label">版权设置</label>
+                  <div class="layui-input-inline" style="width:300px">
+                    <input type="text" id="admindefault_copyright" name="adinfo[admindefault_copyright]" class="layui-input" value="{$adinfo.admindefault_copyright}"/>
+                  </div>
+                </div>
+                {if getcustom('copyright_link')}
+                <div class="layui-form-item">
+                  <label class="layui-form-label">版权链接</label>
+                  <div class="layui-input-inline" style="width:300px">
+                    <input type="text" id="admindefault_copyright_link" name="adinfo[admindefault_copyright_link]" class="layui-input" value="{$adinfo.admindefault_copyright_link}"/>
+                  </div>
+                  <a href="javascript:vodi(0)" class="layui-btn layui-btn-primary" onclick="chooseUrl('admindefault_copyright_link')">选择链接</a>
+                </div>
+                {/if}
+                <div class="layui-form-item">
+                  <div class="layui-form-mid layui-word-aux layui-clear">
+                      注意：设置后仅添加新平台时读取默认设置，已添加过的平台需要手动编辑，或使用下方的一键同步全部平台功能;
+                      <br>
+                      一键同步全部平台功能仅限同步平台，主平台需要自己手动设置
+                  </div>
+                </div>
+                <div class="layui-form-item">
+                  <label class="layui-form-label"></label>
+                  <div class="layui-input-block">
+                    <button class="layui-btn" onclick="admindefaultTongbu(1)">一键同步全部平台</button>
+                  </div>
+                </div>
+                {if getcustom('wx_fws_liuliangzhu')}
+                <div class="layui-form-item">
+                  <label class="layui-form-label">小程序广告分成</label>
+                  <div class="layui-input-inline layui-module-itemR">
+                    <input style="width: 190px;" id="admindefault_ad_ratio" type="text" name="adinfo[admindefault_ad_ratio]" value="{$adinfo['admindefault_ad_ratio']}" autocomplete="off" class="layui-input">
+                    <div>%</div>
+                  </div>
+                  <button style="float:left;" type="button" class="layui-btn " onclick="admindefaultTongbu(2)" upload-input="logo" upload-preview="logoPreview">同步全部平台</button>
+                  <div class="layui-form-mid layui-word-aux layui-clear">
+                    此小程序广告分成设置受开放平台设置及实际请求接口设置影响，并不一定能设置成功，建议同步完后去平台编辑内再查看一番
+                  </div>
+                </div>
+                {/if}
+             </fieldset>
+            {/if}
+            {if getcustom('system_admin_payaftertourl_set')}
+              <fieldset class="layui-elem-field">
+                <legend>平台支付后跳转设置</legend>
+                <div class="layui-form-item">
+                  <label class="layui-form-label">屏蔽平台支付跳转</label>
+                  <div class="layui-input-inline">
+										<input type="radio" name="patinfo[status]" value="0" {if !$patinfo['status'] || $patinfo['status']==0}checked{/if}
+										title="关闭">
+										<input type="radio" name="patinfo[status]" value="1" {if $patinfo['status']==1}checked{/if}
+										title="开启">
+									</div>
+									<div class="layui-form-mid layui-word-aux layui-clear">
+										开启屏蔽后，{if getcustom('payaftertourl')}商城商品详情、{/if}{if getcustom('payaftergive')}营销-支付后赠送、{/if}买单支付后跳转支付跳转将被屏蔽，走下方的总支付后跳转或其他链接设置;<br>
+										可单独设置：{if getcustom('payaftertourl')}商城商品支付、{/if}{if getcustom('payaftergive')}营销-支付后赠送、{/if}买单支付后跳转链接；<br>
+										优先级：单独设置>总支付后跳转，若跳转地址都留空为未设置，走为原支付跳转；
+									</div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">总支付后跳转链接</label>
+                    <div class="layui-input-inline">
+                        <input type="text" id="payaftertourl_allurl" name="patinfo[allurl]" value="{$patinfo['allurl']?$patinfo['allurl']:''}" class="layui-input">
+                    </div>
+                    <div class="layui-btn layui-btn-primary" style="float:left" onclick="chooseUrl('payaftertourl_allurl')">选择链接</div>
+                    <div class="layui-form-mid layui-word-aux">
+	                    设置后，收银台所有支付后跳转都跳转此链接
+	                  </div>
+                </div>
+                {if getcustom('payaftertourl')}
+                <div class="layui-form-item">
+                    <label class="layui-form-label">商城商品跳转链接</label>
+                    <div class="layui-input-inline">
+                        <input type="text" id="payaftertourl_shopproducturl" name="patinfo[shopproducturl]" value="{$patinfo['shopproducturl']?$patinfo['shopproducturl']:''}" class="layui-input">
+                    </div>
+                    <div class="layui-btn layui-btn-primary" style="float:left" onclick="chooseUrl('payaftertourl_shopproducturl')">选择链接</div>
+                    <div class="layui-form-mid layui-word-aux">
+	                    设置后，收银台商城商品支付后都跳转此链接
+	                  </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">商城商品订单详情页跳转按钮文字</label>
+                    <div class="layui-input-inline">
+                        <input type="text" id="payaftertourl_shopproductbtntext" name="patinfo[shopproductbtntext]" value="{$patinfo['shopproductbtntext']?$patinfo['shopproductbtntext']:''}" class="layui-input">
+                    </div>
+                    <div class="layui-form-mid layui-word-aux">
+	                    设置后，用户所有的商城商品订单详情页显示按钮文字，跳转商城商品跳转链接，不设置不显示此按钮
+	                  </div>
+                </div>
+                {/if}
+                {if getcustom('payaftergive')}
+                <div class="layui-form-item">
+                    <label class="layui-form-label">营销-支付后赠送跳转链接</label>
+                    <div class="layui-input-inline">
+                        <input type="text" id="payaftertourl_payaftergiveurl" name="patinfo[payaftergiveurl]" value="{$patinfo['payaftergiveurl']?$patinfo['payaftergiveurl']:''}" class="layui-input">
+                    </div>
+                    <div class="layui-btn layui-btn-primary" style="float:left" onclick="chooseUrl('payaftertourl_payaftergiveurl')">选择链接</div>
+                    <div class="layui-form-mid layui-word-aux">
+	                    设置后，收银台支付后赠送跳转都跳转此链接
+	                  </div>
+                </div>
+                {/if}
+                <div class="layui-form-item">
+                    <label class="layui-form-label">买单支付跳转链接</label>
+                    <div class="layui-input-inline">
+                        <input type="text" id="payaftertourl_maidanurl" name="patinfo[maidanurl]" value="{$patinfo['maidanurl']?$patinfo['maidanurl']:''}" class="layui-input">
+                    </div>
+                    <div class="layui-btn layui-btn-primary" style="float:left" onclick="chooseUrl('payaftertourl_maidanurl')">选择链接</div>
+                    <div class="layui-form-mid layui-word-aux">
+	                    设置后，收银台买单支付后都跳转此链接
+	                  </div>
+                </div>
+             </fieldset>
+            {/if}
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="setmypass">保 存</button>
+							</div>
+						</div>
+					</div>
+				</div>
+      </div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+	
+	layui.form.on('radio(showweb)', function(data){
+		if(data.value == '0'){
+			$('#showwebset').hide();
+		}else{
+			$('#showwebset').show();
+		}
+	})
+	layui.form.on('radio(regopen)', function(data){
+		if(data.value == '0'){
+			$('#regopenset').hide();
+		}else{
+			$('#regopenset').show();
+		}
+	})
+
+	layui.form.on('submit(setmypass)', function(obj){
+		var field = obj.field
+		$.post("",obj.field,function(data){
+			dialog(data.msg,data.status,data.url);
+		})
+	})
+
+	{if getcustom('system_admin_default')}
+		function admindefaultTongbu(type = 1){
+			var tongbudata = {};
+			if(type == 1){
+				var msg = '确定要同步全部平台吗？';
+				tongbudata = {
+					'type':1,'admindefault_copyright':'','admindefault_copyright_link':''
+				};
+
+				tongbudata.admindefault_copyright = $('#admindefault_copyright').val();
+				{if getcustom('copyright_link')} tongbudata.admindefault_copyright_link = $('#admindefault_copyright_link').val();{/if}
+			}else if(type == 2){
+				var msg = '确定要同步全部平台小程序广告分成吗？';
+				{if getcustom('wx_fws_liuliangzhu')}
+					tongbudata = {
+						'type':2,'admindefault_ad_ratio':''
+					};
+					tongbudata.admindefault_ad_ratio = $('#admindefault_ad_ratio').val();
+				{/if}
+			}
+			layer.confirm(msg,{icon: 7, title:'操作确认'}, function(index){
+				var index = layer.load();
+				$.post("{:url('admindefaultTongbu')}",tongbudata,function(data){
+					layer.close(index);
+					dialog(data.msg,data.status);
+				})
+			})
+		}
+	{/if}
+
+	var chooseUrlField = '';
+  function chooseUrl(field){
+      chooseUrlField = field;
+      layer.open({type:2,shadeClose:true,area:['1200px', '650px'],'title':'选择链接',content:"{:url('DesignerPage/chooseurl')}&callback=chooseLink"})
+  }
+  function chooseLink(urlname,url){
+      $("#"+chooseUrlField).val(url);
+  }
+  {if getcustom('copyright_link')}
+		function chooseUrl(field){
+			chooseUrlField = field;
+			layer.open({type:2,shadeClose:true,area:['1200px', '650px'],'title':'选择链接',content:"{:url('DesignerPage/chooseurl')}&callback=chooseLink"})
+		}
+		function chooseLink(urlname,url){
+			$("#"+chooseUrlField).val(url);
+		}
+	{/if}
+  </script>
+</body>
+</html>

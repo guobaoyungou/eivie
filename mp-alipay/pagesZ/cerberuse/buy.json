@@ -1,0 +1,9 @@
+{
+  "defaultTitle": "智能开门购买",
+  "usingComponents": {
+    "couponlist": "/components/couponlist/couponlist",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

@@ -1,0 +1,336 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>优惠券管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-card layui-col-md12">
+          <div class="layui-card-header">
+			  <div class="layui-tab layui-tab-brief">
+				  <ul class="layui-tab-title">
+					  {foreach $childmenu as $child}
+					  <li {if $child['path'] == $thispath}class="layui-this"{/if} onclick="location.href='{:url($child['path'])}'">{$child['name']}</li>
+					  {/foreach}
+				  </ul>
+			  </div>
+		  </div>
+          <div class="layui-card-body" pad15>
+				<div class="layui-col-md4" style="padding-bottom:10px">
+					<button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="asyncAllCoupon(0)">同步优惠券</button>
+					<a class="layui-btn layuiadmin-btn-list" href="javascript:void(0)" onclick="openmax('{:url('edit')}')">添加</a>
+				</div>
+				<div class="layui-form layui-col-md8 layui-form-search">
+					<div class="layui-inline layuiadmin-input-useradmin">
+						<label class="layui-form-label">优惠券ID</label>
+						<div class="layui-input-inline">
+							<input type="text" name="coupon_id" autocomplete="off" class="layui-input">
+						</div>
+					</div>
+					<div class="layui-inline layuiadmin-input-useradmin">
+						<label class="layui-form-label">名称</label>
+						<div class="layui-input-inline">
+							<input type="text" name="name" autocomplete="off" class="layui-input">
+						</div>
+					</div>
+					<div class="layui-inline">
+						<label class="layui-form-label">状态</label>
+						<div class="layui-input-inline">
+							<select name="status">
+								<option value="">全部</option>
+								{foreach $coupon_status_arr as $skatus_k=>$status_v}
+								{if $skatus_k!=5}
+								<option value="{$skatus_k}">{$status_v}</option>
+								{/if}
+								{/foreach}
+							</select>
+						</div>
+					</div>
+					<div class="layui-inline">
+						<button class="layui-btn layuiadmin-btn-replys" lay-submit="" lay-filter="LAY-app-forumreply-search">
+							<i class="layui-icon layui-icon-search layuiadmin-button-btn"></i>
+						</button>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<table id="tabledata" lay-filter="tabledata"></table>
+				</div>
+          </div>
+        </div>
+    </div>
+  </div>
+  <div class="layui-form" lay-filter="" style="margin-top:20px; display: none" id="stock">
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">下单时间：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline" style="width:300px;margin-left:0px">
+				  <input type="text" id="create_time_range" autocomplete="off" class="layui-input">
+			  </div>
+			  <div class="layui-form-mid layui-word-aux" style="margin-left:10px;">时间范围最大7天</div>
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">订单状态：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline" style="width:300px;margin-left:0px">
+				  <select id="query_status">
+					  <option value="">全部</option>
+					  {foreach $order_status as $status=>$status_name}
+					  <option value="{$status}">{$status_name}</option>
+					  {/foreach}
+				  </select>
+			  </div>
+		  </div>
+	  </div>
+  </div>
+  <div class="layui-form" lay-filter="" style="margin-top:20px; display: none" id="statuslayer">
+	  <input type="hidden" id="status_id" />
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">优惠券ID：</label>
+		  <div class="layui-form-mid" id="status_coupon_id">
+
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <label class="layui-form-label">状态：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline">
+				  <select name="status" id="status">
+					  {foreach $coupon_status_arr as $status_k=>$status_name}
+					  <option value="{$status_k}">{$status_name}</option>
+					  {/foreach}
+				  </select>
+			  </div>
+		  </div>
+	  </div>
+	  <div class="layui-form-item">
+		  <div class="layui-input-block">
+			  <button class="layui-btn layui-btn-normal" lay-submit lay-filter="formStatus">确定</button>
+		  </div>
+	  </div>
+  </div>
+  <script id="detailtpl" type="text/html">
+	  {include file='wx_channels_coupon/getdetail' /}
+  </script>
+	{include file="public/js"/}
+	<script>
+  var table = layui.table;
+	var datawhere = {};
+  //数据表
+  var tableIns = table.render({
+    elem: '#tabledata'
+    ,url: "{$Request.url}" //数据接口
+    ,page: true //开启分页
+    ,cols: [[ //表头
+			{type:"checkbox"},
+			{field: 'coupon_id', title: '优惠券ID',width:90},
+		  {field: 'name', title: '优惠券名称&渠道',templet:function(d){
+			var html = '<div>'+d.name+'</div>';
+			  html += '<div style="color: #999">'+d.promote_type_str+'</div>';
+			  return html;
+		  }},
+		  {field: 'type_str', title: '类型&面额',templet:function(d){
+			  var html = '<div>'+d.type_str+'</div>';
+			  html += '<div style="color: #999">'+d.money_str+'</div>';
+			  return html;
+		  }},
+		  {field: 'issued_num', title: '领取/ 发放',width:120,templet:function(d){ return d.total_receive+'/'+d.total_num}},
+		  {field: 'valid_type_str', title: '有效期',width:160,templet:function(d){
+			  if(d.valid_type == 2)
+				  var html = '<div>'+d.valid_type_str+'</div>';
+			  else if(d.valid_type == 1)
+				  var html = '起：'+date('Y-m-d H:i',d.valid_start_time)+'<br>'+'止：'+date('Y-m-d H:i',d.valid_end_time);
+				  return html;
+			  }},
+		  // {field: 'valid_day_num', title: '有效天数'},
+		  // {field: 'valid_start_time', title: '有效期开始时间',sort: true,templet:function(d){ return date('Y-m-d H:i',d.valid_start_time)},width:150},
+		  // {field: 'valid_end_time', title: '有效期结束时间',sort: true,templet:function(d){ return date('Y-m-d H:i',d.valid_end_time)},width:150},
+		  // {field: 'receive_num', title: '领用但未使用量'},
+		  // {field: 'discount_num', title: '折扣'},
+		  // {field: 'product_cnt', title: '满 x 件商品可用'},
+		  // {field: 'product_price', title: '价格满 x 可用'},
+		  // {field: 'discount_fee', title: '减少金额'},
+		  // {field: 'coupon_status_str', title: '状态2'},
+		  {field: 'invalid_time', title: '失效时间',sort: true,templet:function(d){ return date('Y-m-d H:i',d.invalid_time)},width:150},
+		  {field: 'limit_num_one_person', title: '每人限领',width:80},
+		  {field: 'product_ids', title: '指定商品ID ',templet:function(d){
+			  var html = '';
+			  if(d.product_ids){
+				  var product_ids_arr = d.product_ids.split(',');
+				  for(var i=0;i<product_ids_arr.length;i++){
+					  html += '<div>'+product_ids_arr[i]+'</div>';
+				  }
+			  }
+			  return html;
+		  }},
+		  {field: 'status_str', title: '状态',width:100},
+			{field: 'operation', title: '操作',width:100,templet:function(d){
+				var html = '<button class="table-btn" onclick="showdetail('+d.id+')">详情</button>';
+				if(d.status==1){
+					html += '<button class="table-btn" onclick="openmax(\'{:url('edit')}/id/'+d.id+'\')">修改</button>';
+				}
+				if(d.status==2){
+					html += '<button class="table-btn" onclick="editstatus('+d.coupon_id+',4)">作废</button>';
+				}
+				if(d.status==1 || d.status==3 || d.status==4){
+					html += '<button class="table-btn" onclick="editstatus('+d.coupon_id+',5)">删除</button>';
+				}
+				return html;
+      }}
+    ]]
+  });
+	//排序
+	table.on('sort(tabledata)', function(obj){
+		datawhere.field = obj.field;
+		datawhere.order = obj.type;
+		tableIns.reload({
+			initSort: obj,
+			where: datawhere
+		});
+	});
+	//检索
+	layui.form.on('submit(LAY-app-forumreply-search)', function(obj){
+		var field = obj.field
+		var olddatawhere = datawhere
+		datawhere = field
+		datawhere.field = olddatawhere.field
+		datawhere.order = olddatawhere.order
+		tableIns.reload({
+			where: datawhere,
+			page: {curr: 1}
+		});
+	});
+	//修改状态
+  var notcelayer
+  function editstatus(coupon_id,status){
+  	var msg = '';
+  		if(status==4){
+  			msg = '确定要作废'+coupon_id+'吗？';
+		}
+	  if(status==5){
+		  msg = '确定要删除'+coupon_id+'吗？';
+	  }
+	  layer.confirm(msg, function () {
+		  $.post("{:url('edit_status')}",{coupon_id:coupon_id,status:status},function(data){
+			  dialog(data.msg,data.status,data.url);
+			  if(data.status==1){
+				  tableIns.reload({
+					  where: datawhere
+				  });
+			  }
+		  })
+	  })
+
+	  // notcelayer = layer.open({type:1,area: ['500px', '280px'],title:'修改状态',content:$('#statuslayer'),shadeClose:true})
+  }
+
+  //详情
+  var detailLayer;
+  function showdetail(id){
+	  var index = layer.load();
+	  $.post("{:url('getdetail')}",{id:id},function(data){
+		  layer.close(index);
+		  var html = '';
+		  layui.laytpl(detailtpl.innerHTML).render(data, function(html){
+			  //view.innerHTML = html;
+			  detailLayer = layer.open({type:1,title:'优惠券详情',area:['1000px','800px'],content:html,resize:true,shadeClose:true,maxmin:true});
+		  });
+	  })
+  }
+  //修改提交
+  layui.form.on('submit(formStatus)', function(obj){
+	  var index= layer.load();
+	  var id =  $('#status_id').val();
+	  var coupon_id = $('#status_coupon_id').val();
+	  var field = obj.field;
+	  field.id = id;
+	  field.coupon_id = coupon_id;
+	  field.status = $('#status').val();
+	  console.log(field);
+	  $.post("{:url('edit_status')}",field,function(data){
+		  layer.close(index);
+		  dialog(data.msg,data.status,data.url);
+		  if(data.status==1){
+			  tableIns.reload({
+				  where: datawhere
+			  });
+		  }
+		  layer.close(notcelayer);
+	  })
+  });
+	</script>
+  <script>
+	  //日期范围选择
+	  layui.laydate.render({
+		  elem: '#create_time_range',
+		  trigger: 'click',
+		  type:'datetime',
+		  range: '~' //或 range: '~' 来自定义分割字符
+	  });
+	  //同步优惠券
+	  var $ = layui.jquery
+	  var next_key = 0;
+	  var percent = 0;
+	  var field = {};
+	  var pagenum = 0;
+	  function asyncAllCoupon(type){
+		  layer.msg('同步中，请勿刷新或关闭页面', {
+			  icon: 16,
+			  shade: 0.01,
+			  time:false
+		  });
+		  pagenum = 0;
+		  _tplsend(field);
+	  }
+	  function _tplsend(field){
+		  pagenum++;
+		  field.pagenum = pagenum
+		  $.ajax({
+			  type:'POST',
+			  url:"{:url('asyncAllCoupon')}/next_key/"+next_key,
+			  dataType:'json',
+			  data:field,
+			  success:function(data){
+				  console.log(data);
+				  if(data.status==1){
+					  next_key = data.next_key;
+					  field.pagenum = pagenum;
+					  layer.msg('正在同步'+next_key+'，请勿刷新或关闭页面', {
+						  icon: 16,
+						  shade: 0.01,
+						  time:false
+					  });
+					  tableIns.reload();
+				  }
+				  // return false;
+				  if(data.status==1 && data.next_key){
+					  field.pagenum = pagenum;
+					  _tplsend(field);
+				  }else{
+					  if(data.status==1){
+						  dialog(data.msg,1);
+					  }else{
+						  dialog(data.msg,data.status);
+					  }
+					  setTimeout(function(){
+						  parent.layer.closeAll();
+						  parent.tableIns.reload()
+					  },2000);
+				  }
+			  },
+			  error:function(){
+				  layer.close(index);
+				  dialog('未知错误',0);
+			  }
+		  })
+	  }
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>用户优惠券管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-card layui-col-md12">
+          <div class="layui-card-header">
+			  <div class="layui-tab layui-tab-brief">
+				  <ul class="layui-tab-title">
+					  {foreach $childmenu as $child}
+					  <li {if $child['path'] == $thispath}class="layui-this"{/if} onclick="location.href='{:url($child['path'])}'">{$child['name']}</li>
+					  {/foreach}
+				  </ul>
+			  </div>
+		  </div>
+          <div class="layui-card-body" pad15>
+						<div class="layui-col-md4" style="padding-bottom:10px">
+							<button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="asyncAllCoupon(0)">同步优惠券</button>
+						</div>
+						<div class="layui-form layui-col-md8 layui-form-search">
+							<div class="layui-inline layuiadmin-input-useradmin">
+								<label class="layui-form-label">优惠券ID</label>
+								<div class="layui-input-inline">
+									<input type="text" name="coupon_id" autocomplete="off" class="layui-input">
+								</div>
+							</div>
+							<div class="layui-inline">
+								<label class="layui-form-label">状态</label>
+								<div class="layui-input-inline">
+									<select name="status">
+										<option value="">全部</option>
+										{foreach $coupon_status_arr as $skatus_k=>$status_v}
+										<option value="{$skatus_k}">{$status_v}</option>
+										{/foreach}
+									</select>
+								</div>
+							</div>
+							<div class="layui-inline">
+								<button class="layui-btn layuiadmin-btn-replys" lay-submit="" lay-filter="LAY-app-forumreply-search">
+									<i class="layui-icon layui-icon-search layuiadmin-button-btn"></i>
+								</button>
+							</div>
+						</div>
+						<div class="layui-col-md12">
+							<table id="tabledata" lay-filter="tabledata"></table>
+						</div>
+          </div>
+        </div>
+    </div>
+  </div>
+  <div class="layui-form" lay-filter="" style="margin-top:20px; display: none" id="coupon">
+	  <div class="layui-form-item">
+		  <label class="layui-form-label" style="width: 100px;">用户openid：</label>
+		  <div class="layui-inline">
+			  <div class="layui-input-inline" style="width:300px;margin-left:0px">
+				  <input type="text" name="openid" id="openid" class="layui-input">
+			  </div>
+		  </div>
+	  </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+  var table = layui.table;
+	var datawhere = {};
+  //数据表
+  var tableIns = table.render({
+    elem: '#tabledata'
+    ,url: "{$Request.url}" //数据接口
+    ,page: true //开启分页
+    ,cols: [[ //表头
+			{type:"checkbox"},
+      {field: 'id', title: 'ID',  sort: true,width:70},
+			{field: 'coupon_id', title: '优惠券id'},
+		  {field: 'user_coupon_id', title: '用户优惠券id'},
+		  {field: 'openid', title: '用户openid'},
+		  {field: 'name', title: '优惠券名称'},
+		  {field: 'type_str', title: '类型&面额',templet:function(d){
+				  var html = '<div>'+d.type_str+'</div>';
+				  html += '<div style="color: #999">'+d.money_str+'</div>';
+				  return html;
+			  }},
+		  {field: 'status_str', title: '状态'},
+
+		  {field: 'create_time', title: '派发时间',sort: true,templet:function(d){ return date('Y-m-d H:i',d.create_time)},width:150},
+		  {field: 'valid_type_str', title: '有效期',width:150,templet:function(d){
+				  var html = '起：'+date('Y-m-d H:i',d.start_time)+'<br>'+'止：'+date('Y-m-d H:i',d.end_time);
+				  return html;
+			  }},
+		  {field: 'use_time', title: '核销时间',sort: true,templet:function(d){ return date('Y-m-d H:i',d.use_time)},width:150},
+
+		  {field: 'order_id', title: '订单id'},
+		  // {field: 'discount_fee', title: '优惠券金额'},
+
+      // {field: 'operation', title: '操作',templet:function(d){
+		// 		var html = '';
+	  //
+		// 		return html;
+      // }}
+    ]]
+  });
+	//排序
+	table.on('sort(tabledata)', function(obj){
+		datawhere.field = obj.field;
+		datawhere.order = obj.type;
+		tableIns.reload({
+			initSort: obj,
+			where: datawhere
+		});
+	});
+	//检索
+	layui.form.on('submit(LAY-app-forumreply-search)', function(obj){
+		var field = obj.field
+		var olddatawhere = datawhere
+		datawhere = field
+		datawhere.field = olddatawhere.field
+		datawhere.order = olddatawhere.order
+		tableIns.reload({
+			where: datawhere,
+			page: {curr: 1}
+		});
+	});
+	//修改备注
+  var notcelayer
+  function editnotice(id,order_id){
+	  $('#notice_id').val(id);
+	  $('#notice_order_id').html(order_id);
+	  notcelayer = layer.open({type:1,area: ['500px', '280px'],title:'修改备注',content:$('#notcelayer'),shadeClose:true})
+  }
+  //充值提交
+  layui.form.on('submit(formNotice)', function(obj){
+	  var index= layer.load();
+	  var id =  $('#notice_id').val();
+	  var notice = $('#notice').val();
+	  var filed = obj.field;
+	  filed.id = id;
+	  filed.notice = notice;
+	  console.log(filed);
+	  $.post("{:url('edit_notice')}",filed,function(data){
+		  layer.close(index);
+		  dialog(data.msg,data.status,data.url);
+		  if(data.status==1){
+			  tableIns.reload({
+				  where: datawhere
+			  });
+		  }
+		  layer.close(notcelayer);
+	  })
+  });
+  //获取库存
+  function getstock(id){
+	  layer.confirm('确定要撤回审核吗?',{icon: 7, title:'操作确认'}, function(index){
+		  //do something
+		  layer.close(index);
+		  var index = layer.load();
+		  $.post("{:url('getstock')}",{id:id},function(data){
+			  layer.close(index);
+			  dialog(data.msg,data.status);
+			  tableIns.reload()
+		  })
+	  });
+  }
+	</script>
+  <script>
+	  //日期范围选择
+	  layui.laydate.render({
+		  elem: '#create_time_range',
+		  trigger: 'click',
+		  type:'datetime',
+		  range: '~' //或 range: '~' 来自定义分割字符
+	  });
+	  //同步品牌库
+	  var $ = layui.jquery
+	  var next_key = 0;
+	  var percent = 0;
+	  var field = {};
+	  var pagenum = 0;
+	  function asyncAllCoupon(type){
+		  var couponLayer = layer.open({type:1,area:['600px','400px'],title:'同步优惠券',content:$("#coupon"),shadeClose:true,btn: ['确定', '取消'],
+			  yes:function(){
+				  pagenum = 0;
+				  var openid = $('#openid').val();
+				  field.openid = openid;
+				  layer.msg('同步中，请勿刷新或关闭页面', {
+					  icon: 16,
+					  shade: 0.01,
+					  time:false
+				  });
+				  _tplsend(field);
+			  }
+		  });
+	  }
+	  function _tplsend(field){
+		  pagenum++;
+		  field.pagenum = pagenum;
+		  $.ajax({
+			  type:'POST',
+			  url:"{:url('asyncAllCoupon')}/next_key/"+next_key,
+			  dataType:'json',
+			  data:field,
+			  success:function(data){
+				  console.log(data);
+
+				  if(data.status==1){
+					  next_key = data.next_key;
+					  field.pagenum = pagenum;
+					  layer.msg('正在同步'+next_key+'，请勿刷新或关闭页面', {
+						  icon: 16,
+						  shade: 0.01,
+						  time:false
+					  });
+					  tableIns.reload();
+				  }
+				  // return false;
+				  if(data.status==1 && data.next_key){
+					  field.pagenum = pagenum;
+					  _tplsend(field);
+				  }else{
+					  if(data.status==1){
+						  dialog(data.msg,1);
+					  }else{
+						  dialog(data.msg,data.status);
+					  }
+					  setTimeout(function(){
+						  parent.layer.closeAll();
+						  parent.tableIns.reload()
+					  },2000);
+				  }
+			  },
+			  error:function(){
+				  layer.close(index);
+				  dialog('未知错误',0);
+			  }
+		  })
+	  }
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

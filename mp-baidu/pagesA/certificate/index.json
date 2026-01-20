@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "证书列表",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata"
+  }
+}

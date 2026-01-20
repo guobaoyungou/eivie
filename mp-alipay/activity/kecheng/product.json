@@ -1,0 +1,15 @@
+{
+  "defaultTitle": "课程详情",
+  "pullRefresh": true,
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "parse": "/components/parse/parse",
+    "dp-kecheng-item": "/components/dp-kecheng-item/dp-kecheng-item",
+    "scrolltop": "/components/scrolltop/scrolltop",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

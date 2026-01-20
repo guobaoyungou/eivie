@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "审核结果",
+  "pullRefresh": false,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

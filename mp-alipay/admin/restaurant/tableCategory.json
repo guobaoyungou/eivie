@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "餐桌分类管理",
+  "pullRefresh": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata"
+  }
+}

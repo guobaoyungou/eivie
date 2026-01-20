@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "餐桌设置",
+  "component": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

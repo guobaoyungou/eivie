@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "口令",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

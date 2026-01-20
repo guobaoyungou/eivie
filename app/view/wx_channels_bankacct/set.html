@@ -1,0 +1,223 @@
+<!--custom_file(wx_channels)-->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>结算账户</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+    <script src="__STATIC__/admin/js/address3.js"></script>
+</head>
+<body>
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-card layui-col-md12">
+            <div class="layui-card-header">
+                <i class="fa fa-pencil"></i> 结算账户
+                <i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+            </div>
+            <div class="layui-card-body" pad15>
+                <div class="layui-form form-label-w8">
+                    <div class="layui-form-item">
+                        <input type="hidden" name="id" value="{$info['id']}" />
+                        <label class="layui-form-label">账户类型：</label>
+                        <div class="layui-input-inline" style="width: 300px;">
+                            <input type="radio" name="info[bank_account_type]" title="公户" value="ACCOUNT_TYPE_BUSINESS" {if $info['bank_account_type']=='ACCOUNT_TYPE_BUSINESS'}checked{/if} lay-filter="bank_account_type"/>
+                            <input type="radio" name="info[bank_account_type]" title="个人" value="ACCOUNT_TYPE_PRIVATE" {if $info['bank_account_type']=='ACCOUNT_TYPE_PRIVATE'}checked{/if} lay-filter="bank_account_type"/>
+                        </div>
+                        <div class="layui-form-mid layui-word-aux"></div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">选择区域：</label>
+                        <input type="hidden" id="province_code" />
+                        <input type="hidden" id="city_code" />
+                        <div class="layui-form-mid" id="bank_area_div"></div>
+                        <div class="layui-btn layui-btn-primary" style="float:left" onclick="showChoosBankarea()">查找区域</div>
+                    </div>
+                    <script>
+                        var chooseBankareaLayer;
+                        function showChoosBankarea(){
+                            chooseBankareaLayer = layer.open({type:2,title:'选择区域',content:"{:url('WxChannelsBankacct/bankarea')}/args/1/level/2",area:['1000px','600px'],shadeClose:true});
+                        }
+                        function choosebankarea(res) {
+                            console.log(res);
+                            var detail = res;
+                            $('#bank_area_div').html(detail.parent_name+'-'+detail.name);
+                            $('#province_code').val(detail.parent_code);
+                            $('#city_code').val(detail.code);
+                            $('input[name="info[bank_address_code]"]').val(detail.bank_address_code);
+                        }
+                    </script>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开户银行省市编码：</label>
+                        <div class="layui-input-inline">
+                            <input type="text" name="info[bank_address_code]" value="{$info['bank_address_code']}" readonly class="layui-input"/>
+                        </div>
+                        <div class="layui-form-mid layui-word-aux">
+                            选择区域后自动补充
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">银行账号：</label>
+                        <div class="layui-input-inline">
+                            <input type="text" name="info[account_number]" value="{$info['account_number']}" onfocusout="querybank()" class="layui-input"/>
+                        </div>
+                        <div class="layui-form-mid layui-word-aux">
+                            输入完成自动检测开户银行
+                        </div>
+<!--                        <div class="layui-btn layui-btn-primary" style="float:left" onclick="querybank()">查找银行</div>-->
+                        <div class="layui-form-mid layui-word-aux layui-clear">
+                            如果检测失败，请使用下方主动查找按钮
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开户银行：</label>
+                        <div class="layui-input-inline">
+                            <input type="text" name="info[account_bank]" value="{$info['account_bank']}" readonly class="layui-input"/>
+                        </div>
+                        <div class="layui-form-mid layui-word-aux">
+                            根据银行卡号自动检测
+                        </div>
+                        <div class="layui-btn layui-btn-primary" style="float:left" onclick="showChoosBankInfo()">查找银行</div>
+                    </div>
+                    <script>
+                        var chooseBankInfoLayer;
+                        function showChoosBankInfo(){
+                            chooseBankInfoLayer = layer.open({type:2,title:'选择银行',content:"{:url('WxChannelsBankacct/banklists')}",area:['1000px','600px'],shadeClose:true});
+                        }
+                        function choosebankinfo(res) {
+                            console.log(res);
+                            var data = res;
+                            $('input[name="info[account_bank]"]').val(data.account_bank)
+                            $('input[name="info[bank_name]"]').val(data.bank_name)
+                            $('input[name="info[bank_code]"]').val(data.bank_code)
+                        }
+                    </script>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开户银行编号：</label>
+                        <div class="layui-input-inline">
+                            <input type="text" name="info[bank_code]" value="{$info['bank_code']}" readonly class="layui-input"/>
+                        </div>
+                        <div class="layui-form-mid layui-word-aux">
+                            根据银行卡号自动检测
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开户银行全称：</label>
+                        <div class="layui-input-inline">
+                            <input type="text" name="info[bank_name]" value="{$info['bank_name']}" readonly class="layui-input"/>
+                        </div>
+                        <div class="layui-form-mid layui-word-aux">
+                            根据银行卡号自动检测
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开户银行联行号：</label>
+                        <div class="layui-input-inline">
+                            <input type="text" name="info[bank_branch_id]" value="{$info['bank_branch_id']}" class="layui-input"/>
+                        </div>
+                        <div class="layui-btn layui-btn-primary" style="float:left" onclick="showChoosBankBranch()">查找支行</div>
+                        <div class="layui-form-mid layui-word-aux" id="branch_name">
+                            支行
+                        </div>
+                    </div>
+                    <script>
+                        var chooseBankBranchLayer;
+                        function showChoosBankBranch(){
+                            var bank_code = $('input[name="info[bank_code]"]').val();
+                            var city_code = $('#city_code').val();
+                            console.log(bank_code);
+                            console.log(city_code);
+                            if(city_code==''){
+                                layer.msg('请先选择区域')
+                                return ;
+                            }
+                            if(bank_code=='' || bank_code==undefined){
+                                layer.msg('请先选择开户银行')
+                                return ;
+                            }
+
+                            chooseBankBranchLayer = layer.open({type:2,title:'选择支行',content:"{:url('WxChannelsBankacct/bankbranch')}/bank_code/"+bank_code+"/city_code/"+city_code,area:['1000px','600px'],shadeClose:true});
+                        }
+                        function choosebankbranch(res) {
+                            console.log(res);
+                            var detail = res;
+                            $('#branch_name').html(detail.branch_name);
+                            $('input[name="info[bank_branch_id]"]').val(detail.branch_id);
+                        }
+                    </script>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">账户名称：</label>
+                        <div class="layui-input-inline" >
+                            <input type="text" name="info[account_name]" value="{$info['account_name']}" class="layui-input"/>
+                        </div>
+                        <div class="layui-form-mid layui-word-aux layui-clear">
+                            对公账户需要与公司名称一致，对私账户需要与法人姓名一致
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <label class="layui-form-label"></label>
+                        <div class="layui-input-block">
+                            <button class="layui-btn layui-btn-danger" lay-submit lay-filter="formsubmit">修 改</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{include file="public/js"/}
+<script>
+    layui.form.verify({
+        positiveWholeNumberRequiredTrue:[/^[+]{0,1}(\d+)$/,'只能填写正整数'],//必填，且只能输入正整数
+        positiveNumberRequiredTrue:[/^(([0-9]+[\.]?[0-9]+)|[1-9])$/,'只能填写正数'],//必填，且只能输入正数
+        positiveNumber5True:[/^([1-9][0-9]*)?[05]$/,'只能是5的倍数'],//必填，5的倍数
+    })
+    layui.form.on('submit(formsubmit)', function(obj){
+        var field = obj.field
+        var index = layer.load();
+        $.post("{:url('set')}",field,function(data){
+            layer.close(index);
+            dialog(data.msg,data.status);
+            if(data.status == 1){
+                setTimeout(function(){
+                    parent.layer.closeAll();
+                    parent.tableIns.reload()
+                },1000)
+            }
+        })
+    })
+    layui.form.on('radio(bank_account_type)', function(data){
+        if(data.value == '1'){
+            $('#midtext').html('元');
+        }else{
+            $('#midtext').html('%');
+        }
+    })
+
+    function querybank(type=0){
+        var index = layer.load();
+        var account_number = $('input[name="info[account_number]"]').val();
+        $.post("{:url('getBankByAccount')}",{account_number:account_number},function(res){
+            layer.close(index);
+            console.log(res);
+            if(!res.status){
+                dialog('查找银行失败：'+res.msg,res.status);
+            }else{
+                var data = res.data;
+                $('input[name="info[account_bank]"]').val(data.account_bank)
+                $('input[name="info[bank_name]"]').val(data.bank_name)
+                $('input[name="info[bank_code]"]').val(data.bank_code)
+            }
+        })
+    }
+
+</script>
+
+</body>
+</html>

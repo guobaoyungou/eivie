@@ -1,0 +1,9 @@
+{
+  "defaultTitle": "我的好友",
+  "pullRefresh": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg",
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

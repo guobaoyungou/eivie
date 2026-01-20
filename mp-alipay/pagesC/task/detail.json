@@ -1,0 +1,8 @@
+{
+  "defaultTitle": "任务详情",
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading"
+  }
+}

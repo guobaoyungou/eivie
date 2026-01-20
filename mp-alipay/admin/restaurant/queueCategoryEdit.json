@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "排队管理",
+  "pullRefresh": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

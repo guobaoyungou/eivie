@@ -1,0 +1,10 @@
+(global["webpackJsonp"]=global["webpackJsonp"]||[]).push([["components/dp-restaurant-product-itemlist/dp-restaurant-product-itemlist"],{"0afb":function(t,a,e){"use strict";var n=e("fc87"),u=e.n(n);u.a},"574a":function(t,a,e){"use strict";e.d(a,"b",(function(){return u})),e.d(a,"c",(function(){return o})),e.d(a,"a",(function(){return n}));var n={buydialog:function(){return e.e("components/buydialog/buydialog").then(e.bind(null,"3a21"))}},u=function(){var t=this,a=t.$createElement,e=(t._self._c,"0"!=t.showprice?t.t("color1"):null);t.$mp.data=Object.assign({},{$root:{m0:e}})},o=[]},"63b7":function(t,a,e){"use strict";e.r(a);var n=e("ab85"),u=e.n(n);for(var o in n)"default"!==o&&function(t){e.d(a,t,(function(){return n[t]}))}(o);a["default"]=u.a},"6e8a":function(t,a,e){"use strict";e.r(a);var n=e("574a"),u=e("63b7");for(var o in u)"default"!==o&&function(t){e.d(a,t,(function(){return u[t]}))}(o);e("0afb");var i,r=e("f0c5"),d=Object(r["a"])(u["default"],n["b"],n["c"],!1,null,null,null,!1,n["a"],i);a["default"]=d.exports},ab85:function(t,a,e){"use strict";Object.defineProperty(a,"__esModule",{value:!0}),a.default=void 0;var n={data:function(){return{buydialogShow:!1,proid:0}},props:{menuindex:{default:-1},saleimg:{default:""},showname:{default:1},namecolor:{default:"#333"},showprice:{default:"1"},showsales:{default:"1"},showcart:{default:"1"},showtype:{default:"0"},cartimg:{default:"/static/imgsrc/cart.svg"},data:{},idfield:{default:"id"}},methods:{buydialogChange:function(t){this.buydialogShow||(this.proid=t.currentTarget.dataset.proid),this.buydialogShow=!this.buydialogShow}}};a.default=n},fc87:function(t,a,e){}}]);
+;(global["webpackJsonp"] = global["webpackJsonp"] || []).push([
+    'components/dp-restaurant-product-itemlist/dp-restaurant-product-itemlist-create-component',
+    {
+        'components/dp-restaurant-product-itemlist/dp-restaurant-product-itemlist-create-component':(function(module, exports, __webpack_require__){
+            __webpack_require__('f266')['createComponent'](__webpack_require__("6e8a"))
+        })
+    },
+    [['components/dp-restaurant-product-itemlist/dp-restaurant-product-itemlist-create-component']]
+]);

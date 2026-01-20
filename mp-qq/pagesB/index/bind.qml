@@ -1,0 +1,1 @@
+<view><block qq:if="{{loading}}"><loading vue-id="534aa837-1" bind:__l="__l"></loading></block></view>

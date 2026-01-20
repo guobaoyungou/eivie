@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "兑换",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

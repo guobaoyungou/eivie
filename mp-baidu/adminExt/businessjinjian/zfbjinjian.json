@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "商户进件",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "uni-data-picker": "/components/uni-data-picker/uni-data-picker",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

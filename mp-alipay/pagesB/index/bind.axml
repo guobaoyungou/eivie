@@ -1,0 +1,1 @@
+<view><block a:if="{{loading}}"><loading vue-id="1603428f-1" onVueInit="__l"></loading></block></view>

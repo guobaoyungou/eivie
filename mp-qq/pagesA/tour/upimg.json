@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "上传图片",
+  "enablePullDownRefresh": false,
+  "usingComponents": {
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

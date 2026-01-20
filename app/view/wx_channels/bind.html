@@ -1,0 +1,131 @@
+<!--custom_file(wx_channels)-->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>小店绑定管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+	<style>
+    .channels-add{
+        width: 350px;
+        height: 170px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        background: #f9f9f9;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+
+    .channels-item{
+        width: 360px;
+        height: 170px;
+        display: flex;
+        /*border: 1px solid #ccc;*/
+        border-radius: 10px;
+        background: #f9f9f9;
+        padding: 12px;
+        box-sizing: border-box;
+        margin-right: 10px;
+        margin-bottom: 10px;
+    }
+    .channels-item .item-logo{
+        width: 80px;
+        height: 80px;
+        margin-right: 10px;
+      cursor: pointer;
+    }
+    .channels-item .item-logo img{
+        width: 100%;
+        height: 100%;
+    }
+    .channels-item .item-info{
+        flex: 1;
+    }
+    .channels-item .item-info p{
+        font-size: 14px;
+    }
+    .channels-item .item-info .item-name{
+        font-size: 20px;
+        font-weight: bold;
+        margin-bottom: 5px;
+      cursor: pointer;
+    }
+    .channels-item .item-btn{
+        font-size: 15px;
+        cursor: pointer;
+    }
+    .item-btn-wrap{
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+    }
+    .btn-danger {
+      color: red;
+    }
+	</style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+          <div class="layui-card-header" style="font-size:20px;color:#333">小店绑定</div>
+            <div class="layui-card-body" pad15>
+              <div class="layui-col-md12" style="font-size:16px;padding:20px 0; display: flex; flex-wrap: wrap;">
+              {foreach $list as $item}
+              <div class="channels-item">
+                <div class="item-logo" onclick="openmax('{:url(\'detail\')}&id={$item.id}')">
+                  <img src="{$item.headimg}" alt="">
+                </div>
+                <div class="item-info">
+                  <p class="item-name" onclick="openmax('{:url(\'detail\')}&id={$item.id}')">{$item.nickname}</p>
+                  <p>APPID：{$item.appid}</p>
+                  <p>店铺类型：{$item.subject_type}</p>
+<!--                  <p>状态：{$item.status}</p>-->
+                  <p>原始ID：{$item.username}</p>
+                  <p>视频号ID：{$item.sph_id}</p>
+                  <div class="item-btn-wrap">
+                    <a href="javascript:;" class="item-btn btn-danger" onclick="removeChannels('{$item.id}', this)">解绑</a>
+                    <a href="javascript:;" class="item-btn" onclick="refreshToken('{$item.id}', this)">刷新Token</a>
+                    <a href="javascript:;" class="item-btn" onclick="openmax('{:url(\'WxChannelsLive/liveList\')}&id={$item.id}')">直播预告</a>
+                  </div>
+                </div>
+              </div>
+              {/foreach}
+              {if !$list}
+                <div class="channels-add" onclick="openmax('{:url(\'detail\')}')">
+                  <div class="layui-icon layui-icon-add-circle" style="font-size: 30px; margin-bottom: 10px;"></div>
+                  添加视频号小店
+                </div>
+              {/if}
+            </div>
+          </div>
+      </div>
+    </div>
+  </div>
+
+	{include file="public/js"/}
+	<script type="text/javascript">
+      var layer = layui.layer, $ = layui.$;
+      function removeChannels(id, o) {
+          layer.confirm('确定解绑当前小店？', function () {
+            $.post('{:url("removeBind")}', {id:id}, function (res) {
+                dialog(res.msg, res.status, '{:url(\'bind\')}');
+            })
+          })
+      }
+      function refreshToken(id, o) {
+          layer.confirm('确定刷新当前小店Token？', function () {
+              $.post('{:url("refreshToken")}', {id:id}, function (res) {
+                  dialog(res.msg, res.status, '{:url(\'bind\')}');
+              })
+          })
+      }
+
+	</script>
+</body>
+</html>

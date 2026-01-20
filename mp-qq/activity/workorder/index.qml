@@ -1,0 +1,1 @@
+<view class="container"><block qq:if="{{isload}}"><block></block></block></view>

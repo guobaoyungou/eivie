@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "订单确认",
+  "usingComponents": {
+    "couponlist": "/components/couponlist/couponlist",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

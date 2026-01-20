@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "营业报表",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading",
+    "uni-datetime-picker": "/pagesB/admin/uni-datetime-picker/uni-datetime-picker"
+  }
+}

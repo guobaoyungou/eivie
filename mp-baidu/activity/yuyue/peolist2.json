@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "师傅列表",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {}
+}

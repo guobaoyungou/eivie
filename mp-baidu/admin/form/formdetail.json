@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "表单提交记录",
+  "component": true,
+  "usingComponents": {
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "uni-popup-dialog": "/components/uni-popup-dialog/uni-popup-dialog",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

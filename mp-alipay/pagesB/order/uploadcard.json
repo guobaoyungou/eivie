@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "海关资料补充",
+  "pullRefresh": false,
+  "usingComponents": {
+    "uni-data-picker": "/components/uni-data-picker/uni-data-picker"
+  }
+}

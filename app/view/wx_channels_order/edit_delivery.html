@@ -1,0 +1,178 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>修改物流</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					修改物流<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+				</div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w6" lay-filter="">
+						<input type="hidden" name="id" value="{$info['id']}">
+						<div class="layui-form-item">
+							<label class="layui-form-label">订单ID：</label>
+							<div class="layui-form-mid">{$info.order_id}</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">下单人：</label>
+							<div class="layui-form-mid">{$info.openid}</div>
+						</div>
+
+<!--						<div class="layui-form-item" id="change_express" style="display: none;">-->
+<!--							<label class="layui-form-label">运费：</label>-->
+<!--							<div class="layui-form-mid">{$info.freight}</div>-->
+<!--						</div>-->
+						{if $info['deliver_method']==0}
+						<div class="layui-form-item">
+							<label class="layui-form-label">收货人姓名：</label>
+							<div class="layui-form-mid" style="width:200px">
+								{$addressinfo['user_name']}
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">收货地址：</label>
+							<div style="display: flex;flex-direction: column;">
+								<div class="areaDiv" style="margin-bottom: 8px">
+									<div class="layui-form-mid" style="width: 150px">
+										{$addressinfo['province_name']}-{$addressinfo['city_name']}-{$addressinfo['county_name']} {$addressinfo['detail_info']}
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">邮编：</label>
+							<div class="layui-form-mid" style="width:200px">
+								{$addressinfo['postal_code']}
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">联系方式：</label>
+							<div class="layui-form-mid" style="width:200px">
+								{$addressinfo['tel_number']}
+							</div>
+						</div>
+						{else}
+						<div class="layui-form-item">
+							<label class="layui-form-label">联系方式：</label>
+							<div class="layui-form-mid" style="width:200px">
+								{$addressinfo['virtual_order_tel_number']}
+							</div>
+						</div>
+						{/if}
+
+						<div class="layui-form-item" id="setgg">
+							<label class="layui-form-label">商品信息：</label>
+							<div class="layui-input-inline" style="width:500px">
+								<table id="ggnamediv"  class="layui-table" style="width:900px">
+									<thead>
+									<tr>
+										<th>商品名称</th>
+										<th>规格</th>
+										<th>价格</th>
+										<th>总数量</th>
+										<th>已发货数量</th>
+										<th>发货数量</th>
+									</tr>
+									</thead>
+									{foreach $order_goods as $k=>$goods}
+									<tr>
+										<td>
+											{$goods.product_name}
+										</td>
+										<td>{$goods.guige_name}</td>
+										<td>{$goods.real_price}</td>
+										<td>{$goods.sku_cnt}</td>
+										<td>{$goods.product_cnt}</td>
+										<td><input type="text" class="layui-input" name="delivery_num[{$goods['id']}]" value="{$goods.delivery_num}"></td>
+									</tr>
+									{/foreach}
+								</table>
+							</div>
+						</div>
+						{if $info['deliver_method']==0}
+						<div class="layui-form-item">
+							<label class="layui-form-label">发货方式：</label>
+							<div class="layui-form-mid">
+								自己联系物流公司下单，上传快递单号完成发货。
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">快递公司</label>
+							<div class="layui-input-inline">
+								<select name="delivery_id" lay-search>
+									{foreach $delivery_lists as $k=>$v}
+									<option value="{$v['delivery_id']}">{$v['delivery_name']}</option>
+									{/foreach}
+								</select>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">物流单号</label>
+							<div class="layui-input-inline">
+								<div class="layui-input-inline">
+									<input type="text" name="waybill_id" autocomplete="off" class="layui-input">
+									<input type="hidden" name="id" value="{$info['id']}" />
+								</div>
+							</div>
+						</div>
+						{/if}
+
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" lay-submit lay-filter="formsubmit">
+									{if $info['status']==30}
+									确定修改
+									{else}
+									发货
+									{/if}
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+    </div>
+  </div>
+	{include file="public/js"/}
+  <script src="__STATIC__/admin/js/channels_address3.js"></script>
+  <script src="__STATIC__/admin/js/channels_area.js"></script>
+  <script>
+	  address3('province','city','district',"{$addressinfo.province_name}","{$addressinfo.city_name}","{$addressinfo.county_name}");
+  </script>
+	<script>
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		console.log(field);
+		var index = layer.load();
+		$.post("{:url('edit_delivery')}",field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status==1){
+				setTimeout(function(){
+					parent.layer.closeAll();
+					parent.tableIns.reload();
+				},1000)
+			}
+		})
+	})
+		layui.form.on('radio(change_express)', function(data){
+			if(data.value == '1'){
+				$('#change_express').show();
+			}else{
+				$('#change_express').hide();
+			}
+		})
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

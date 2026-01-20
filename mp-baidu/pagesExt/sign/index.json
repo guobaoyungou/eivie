@@ -1,0 +1,13 @@
+{
+  "navigationBarTitleText": "签到",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "parse": "/components/parse/parse",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg",
+    "uni-calendar": "/pagesExt/sign/uni-calendar/uni-calendar"
+  }
+}

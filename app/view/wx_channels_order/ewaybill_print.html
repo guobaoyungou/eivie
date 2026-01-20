@@ -1,0 +1,354 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>打印电子面单</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+				<div class="layui-card-header">
+					打印电子面单
+					<i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+				</div>
+				<div class="layui-card-body" pad15>
+					<div class="layui-form form-label-w6" lay-filter="">
+						<input type="hidden" name="id" value="{$info['id']}">
+
+						<div class="layui-form-item" id="setgg">
+							<label class="layui-form-label">商品信息：</label>
+							<div class="layui-input-inline" style="width:auto">
+								<table id="ggnamediv"  class="layui-table" style="width:900px">
+									<thead>
+									<tr>
+										<th style="width:400px">商品名称</th>
+										<th>规格</th>
+										<th>价格</th>
+									</tr>
+									</thead>
+									{foreach $order_goods as $k=>$goods}
+									<tr>
+										<td>
+											{$goods.product_name}
+										</td>
+										<td>{$goods.guige_name}</td>
+										<td>{$goods.real_price}</td>
+									</tr>
+									{/foreach}
+								</table>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">订单ID：</label>
+							<div class="layui-form-mid">{$info.order_id}</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">下单人：</label>
+							<div class="layui-form-mid">{$info.openid}</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">运费：</label>
+							<div class="layui-form-mid">{$info.freight}</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">电子面单订单id：</label>
+							<div class="layui-form-mid">{$ewaybill_order['ewaybill_order_id']}</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">快递公司 ：</label>
+							<div class="layui-form-mid">{$ewaybill_order['delivery_name']}</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">快递单号 ：</label>
+							<div class="layui-form-mid">{$ewaybill_order['waybill_id']}</div>
+						</div>
+						<div class="layui-form-item">
+							<input type="hidden" name="id" value="{$info['id']}" />
+							<label class="layui-form-label">模板类型：</label>
+							<div class="layui-input-inline" style="width: 300px;">
+								<input type="hidden" id="template_config" value="{$template_config}" />
+								<input type="radio" name="template_type" title="标准模板" checked value="0" lay-filter="template_type"/>
+								<input type="radio" name="template_type" title="后台模板" value="1" lay-filter="template_type"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux"></div>
+						</div>
+						<div class="layui-form-item" id="templave_div" style="display: none;">
+							<label class="layui-form-label">面单模板：</label>
+							<input type="hidden" name="template_id" />
+							<div class="layui-form-mid" id="template_name">
+
+							</div>
+							<div class="layui-btn layui-btn-primary" style="float:left" onclick="showChoosTemplate()">选择模板</div>
+						</div>
+						<script>
+							var chooseChoosTemplateLayer;
+							function showChoosTemplate(){
+								var bank_code = $('input[name="bank_code"]').val();
+								var city_code = $('#city_code').val();
+								if(city_code==''){
+									layer.msg('请先选择区域')
+									return ;
+								}
+								if(bank_code==''){
+									layer.msg('请先选择开户银行')
+									return ;
+								}
+								chooseChoosTemplateLayer = layer.open({type:2,title:'选择产品',content:"{:url('WxChannelsEwaybill/choosetemplate')}",area:['1000px','600px'],shadeClose:true});
+							}
+							function choosetemplate(res) {
+								console.log(res);
+								var detail = res;
+								$('#template_name').html(detail.template_name+'-'+detail.template_id);
+								$('input[name="template_id"]').val(detail.template_id);
+							}
+						</script>
+
+						<div class="layui-form-item">
+							<label class="layui-form-label">打印机列表：</label>
+							<div class="layui-input-inline">
+								<select name="print_select" id="print_select">
+									<option value="{$delivery['delivery_id']}">选择打印机</option>
+								</select>
+							</div>
+							<div class="layui-form-mid layui-word-aux"><a target="_blank" href="https://support.weixin.qq.com/cgi-bin/mmsupportacctnodeweb-bin/pages/e4TWKgMu17AalV2l">打印组件下载链接</a></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-input-block">
+								<button class="layui-btn" onclick="preview()">预览</button>
+								<button class="layui-btn" onclick="print()">打印电子面单</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+    </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+		var ewaybill_order_id = '{$info["ewaybill_order_id"]}';
+		if(!ewaybill_order_id){
+			dialog('请先取号',0,"{:url('ewaybill')}/id/{$info['id']}");
+		}
+	layui.form.on('submit(formsubmit)', function(obj){
+		var field = obj.field
+		var index = layer.load();
+		$.post("{:url('ewaybill')}",field,function(data){
+			layer.close(index);
+			dialog(data.msg,data.status);
+			if(data.status==1){
+				setTimeout(function(){
+					parent.layer.closeAll();
+					parent.tableIns.reload();
+				},1000)
+			}
+		})
+	})
+	layui.form.on('radio(template_type)', function(data){
+		if(data.value == '1'){
+			$('#templave_div').show();
+		}else{
+			$('#templave_div').hide();
+		}
+	})
+  </script>
+  <script>
+	  //面单模板
+	  var template_url = '';
+	  var template_type = $('input[name="template_type"]').val();
+	  if(template_type==0){
+		  template_url = $('#template_config').val();
+	  }else{
+		  template_url = $('input[name="template_id"]').val();
+	  }
+	  //产品信息
+	  // var order_goods = '{$order_goods_json}';
+	  var order_goods = eval({$order_goods_json});
+	  console.log(order_goods);
+	  var product_info = [];
+	  // for(var i=0;i<order_goods.length;i++){
+		//   console.log(order_goods[i]);
+		//   var arr = [];
+		//   arr.name = order_goods[i].product_name;
+		//   arr.count = order_goods[i].sku_cnt;
+		//   arr.code = order_goods[i].sku_id;
+		//   product_info.push(arr);
+	  // }
+	  $.each(order_goods, function (index, item) {
+	  		console.log(item);
+			var arr = {};
+			arr.name = item.product_name;
+			arr.count = item.sku_cnt;
+			arr.code = item.sku_id;
+		  product_info.push(arr);
+	  })
+	  console.log('产品信息');
+	  console.log(product_info);
+
+	  const ws = new WebSocket('ws://127.0.0.1:12705');
+	  ws.onopen = () => {
+		  console.log('与打印组件建立连接成功: ');
+		  ws.send(JSON.stringify({
+			  requestID: '1234',
+			  command: 'getPrinterList'
+		  }))
+	  };
+	  ws.onerror = function(evt) {
+		  console.log("error!!!");
+	  };
+	  ws.onmessage = (e) => {
+		  const resp = JSON.parse(e.data || '{}')
+		  //获取打印机列表
+		  if (resp.command === 'getPrinterList') {
+			  console.log('打印机列表: ', resp.printerList);
+			  var printerList = resp.printerList;
+			  var html = '';
+			  $.each(printerList, function(index, value) {
+				  html += '<option value="'+value.name+'">'+value.displayName+'</option>';
+			  })
+			  $('#print_select').html(html);
+			  layui.form.render('select');
+		  }
+		  //预览
+		  if (resp.command === 'preview') {
+			  console.log('预览结果: ', resp);
+			  if(resp.previewUrl){
+				  layer.open({type:2,title:'选择发货地址',content:resp.previewUrl,area:['1000px','600px'],shadeClose:true});
+			  }
+		  }
+		  //打印
+		  if (resp.command === 'print') {
+			  console.log('打印结果: ', resp);
+			  $.each(resp.results, function(index, value) {
+			  	  if(value.success==false){
+			  	  		layer.msg(value.failureReason);
+				  }
+			  })
+		  }
+	  };
+	  //预览
+	  function preview(){
+		  console.log('打印模板');
+		  console.log(template_url);
+		  if(!template_url){
+			  layer.msg('请选择模板',0);return
+		  }
+	  	var requestID = new Date().getTime();
+	  	console.log(requestID);
+		  ws.send(JSON.stringify({
+			  command: 'preview',
+			  requestID: requestID, //调用方保证唯一
+			  taskList: [{
+				  taskID: requestID, //String, 调用方保证唯一
+				  printInfo: '', // String, [获取打印报文]接口返回的print_info
+				  printNum: {
+					  curNum: 1, // 打印计数-当前张数
+					  sumNum: 2, // 打印计数-总张数
+				  },
+				  // 自定义模板信息，没有自定义模板需求可不传
+				  // 参考模板url：https://res.wx.qq.com/shop/public/2023-09-12/c39e49ba-9c0e-4912-91c1-5386fdd08f80.xml
+				  customInfo: {
+					  templateUrl: template_url, // 自定义模板url
+					  // 模板里面定义的数据字段
+					  data: {
+						  shopName: '{$shop_info["nickname"]}',
+						  productInfo: product_info,
+						  imgSrc: '{$shop_info["headimg"]}'
+					  }
+				  },
+				  // 面单补充信息，用来覆盖寄件人信息，没有这种需求可以不传
+				  extendData: {
+					  sender: {
+						  address: {
+							  provinceName: "广东省",
+							  cityName: "广州市",
+							  countyName: "海珠区",
+							  detailInfo: "TiT创意园"
+						  },
+						  userName: "张三",
+						  telNumber: "1311111111"
+					  }
+				  }
+			  }]
+		  }))
+	  }
+	  //打印
+	  function print(){
+		  console.log(template_url);
+		  if(!template_url){
+			  layer.msg('请选择模板',0);return
+		  }
+		  var requestID = new Date().getTime();
+		  var printer = $('#print_select').val();
+		  console.log(printer);
+		  ws.send(JSON.stringify({
+			  command: 'print',
+			  version: '2.0', // 必传
+			  requestID: '1234', // String, 调用方保证唯一
+			  taskList: [{
+				  taskID: '1234', // String, 调用方保证唯一
+				  printInfo: '', // String, [获取打印报文]接口返回的print_info
+				  printNum: {
+					  curNum: 1, // 打印计数-当前张数
+					  sumNum: 2, // 打印计数-总张数
+				  },
+				  splitControl: 0, // 可不传， 默认为0， 根据自定义内容自动分页；1，禁止分页；2；强制分页， 内容打印在第二页
+				  showDeliveryLogo: 0, // 可不传， 默认为1， 传0时不展示快递公司logo
+				  // 自定义模板信息，没有自定义模板需求可不传
+				  // 参考模板url：https://mmec-shop-1258344707.cos.ap-shanghai.myqcloud.com/shop/public/2023-11-10/a80c0110-3fb8-4190-bdcc-10124b7dd0ce.html
+				  customInfo: {
+					  templateUrl: template_url, // 自定义模板url
+					  // 模板里面定义的数据字段
+					  // 模板里使用{{{}}}，数据可以通过<br>换行
+					  data: {
+						  shopName: '{$shop_info["nickname"]}',
+						  productInfo: product_info,
+						  imgSrc: '{$shop_info["headimg"]}',
+						  productQRcode: "https://www.tencent.com/zh-cn/",
+						  productBarcode: "product1"
+					  }
+				  },
+				  // 面单补充信息，用来覆盖寄件人信息，没有这种需求可以不传
+				  extendData: {
+					  sender: {
+						  address: {
+							  provinceName: "广东省",
+							  cityName: "广州市",
+							  countyName: "海珠区",
+							  detailInfo: "TiT创意园"
+						  },
+						  userName: "张三",
+						  telNumber: "1311111111"
+					  }
+				  },
+			  }],
+			  printType: 1, // Number 打印类型，默认为 1，打印固定高度的面单；如果为2，则打印任意自定义内容，需要传递 size 参数指定纸张尺寸，printInfo 改为传递 base64 格式的 html
+			  size: {
+				  width: 76, // 纸张尺寸，单位毫米，printType 为 2 时必传
+				  height: 130
+			  },
+			  printer: printer, // 选中的打印机，printer.name
+		  }))
+	  }
+	  //获取打印信息
+	  function getPrintInfo(){
+		  $.post("{:url('getPrintInfo')}",field,function(data){
+			  layer.close(index);
+			  dialog(data.msg,data.status);
+			  if(data.status==1){
+				  setTimeout(function(){
+					  parent.layer.closeAll();
+					  parent.tableIns.reload();
+				  },1000)
+			  }
+		  })
+	  }
+  </script>
+	{include file="public/copyright"/}
+</body>
+</html>

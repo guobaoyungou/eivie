@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "wxface": "/components/wxface/wxface"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "充值记录",
+  "usingComponents": {
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "nodata": "/components/nodata/nodata",
+    "nomore": "/components/nomore/nomore",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

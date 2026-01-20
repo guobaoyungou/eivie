@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "餐桌分类设置",
+  "component": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

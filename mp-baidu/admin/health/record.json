@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "填写记录",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

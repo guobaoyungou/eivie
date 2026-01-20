@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "查看图片",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "nodata": "/components/nodata/nodata",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

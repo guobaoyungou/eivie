@@ -1,0 +1,17 @@
+{
+  "navigationBarTitleText": "订单列表",
+  "enablePullDownRefresh": false,
+  "titleNView": {
+    "searchInput": {
+      "placeholder": "输入关键字搜索",
+      "borderRadius": "15px"
+    },
+    "buttons": [
+      {
+        "type": "home"
+      }
+    ]
+  },
+  "component": true,
+  "usingComponents": {}
+}

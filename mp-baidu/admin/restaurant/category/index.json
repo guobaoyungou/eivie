@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "菜品分类管理",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata"
+  }
+}

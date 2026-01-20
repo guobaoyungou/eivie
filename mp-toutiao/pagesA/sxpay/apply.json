@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "随行付入驻",
+  "enablePullDownRefresh": false,
+  "usingComponents": {
+    "uni-data-picker": "/components/uni-data-picker/uni-data-picker",
+    "loading": "/components/loading/loading",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

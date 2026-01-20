@@ -1,0 +1,10 @@
+{
+  "component": true,
+  "usingComponents": {
+    "dp-product-item": "/components/dp-product-item/dp-product-item",
+    "dp-product-itemlist": "/components/dp-product-itemlist/dp-product-itemlist",
+    "dp-product-itemline": "/components/dp-product-itemline/dp-product-itemline",
+    "dp-product-waterfall": "/components/dp-product-waterfall/dp-product-waterfall",
+    "dp-product-yx-itemlist": "/components/dp-product-yx-itemlist/dp-product-yx-itemlist"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "添加核销人员",
+  "component": true,
+  "usingComponents": {
+    "popmsg": "/components/popmsg/popmsg",
+    "loading": "/components/loading/loading"
+  }
+}

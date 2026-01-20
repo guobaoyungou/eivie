@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "dp-kecheng-item": "/components/dp-kecheng-item/dp-kecheng-item",
+    "dp-kecheng-itemlist": "/components/dp-kecheng-itemlist/dp-kecheng-itemlist"
+  }
+}

@@ -1,0 +1,294 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>商品类目</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+    <style>
+        .layui-table-body .layui-table .layui-table-cell {
+            height: auto;
+            line-height: auto
+        }
+    </style>
+    <link rel="stylesheet" type="text/css" href="__STATIC__/admin/layui/lay/modules/treetable-lay/treetable.css"
+          media="all">
+</head>
+
+<body>
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-card layui-col-md12">
+            <div class="layui-card-header">
+                <div class="layui-tab layui-tab-brief">
+                    <ul class="layui-tab-title">
+                        <li {if input('param.type', 0)==0}class="layui-this"{/if} onclick="location.href='{:url('index')}&type=0'">可使用类目</li>
+                        <li {if input('param.type')=='1'}class="layui-this"{/if}  onclick="location.href='{:url('index')}&type=1'">视频号小店平台类目</li>
+                        <li {if input('param.type')=='2'}class="layui-this"{/if}  onclick="location.href='{:url('apply_lists')}'">申请列表</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="layui-card-body" pad15>
+                <div class="layui-col-md8" style="padding-bottom:10px">
+                    {if input('param.type', 0)==0}<button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="asyncCat(0)">同步类目</button>{/if}
+                    {if input('param.type', 0)==1}<button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="asyncAllCat(0)">同步类目</button>{/if}
+<!--                    <button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="updateAllCat(0)">查询类目保证金</button>-->
+                    <button class="layui-btn layuiadmin-btn-list" id="btn-expand">全部展开</button>
+                    <button class="layui-btn layuiadmin-btn-list" id="btn-fold">全部折叠</button>
+                    <button class="layui-btn layuiadmin-btn-list" id="btn-refresh">刷新</button>
+                </div>
+<!--                <div class="layui-form layui-col-md4 layui-form-search">-->
+<!--                    <div class="layui-inline layuiadmin-input-useradmin">-->
+<!--                        <label class="layui-form-label">分类名称</label>-->
+<!--                        <div class="layui-input-inline">-->
+<!--                            <input type="text" name="name" autocomplete="off" class="layui-input" value="">-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                    <div class="layui-inline">-->
+<!--                        <label class="layui-form-label">需要申请</label>-->
+<!--                        <div class="layui-input-inline">-->
+<!--                            <select name="need_to_apply">-->
+<!--                                <option value="">全部</option>-->
+<!--                                <option value="1">是</option>-->
+<!--                                <option value="0">否</option>-->
+<!--                            </select>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                    <div class="layui-inline">-->
+<!--                        <button class="layui-btn layuiadmin-btn-replys" lay-submit="" lay-filter="LAY-app-forumreply-search">-->
+<!--                            <i class="layui-icon layui-icon-search layuiadmin-button-btn"></i>-->
+<!--                        </button>-->
+<!--                    </div>-->
+<!--                </div>-->
+                <div class="xm-d2-hang2">
+                    <table id="tabledata" class="layui-table" lay-filter="tabledata"></table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{include file="public/js"/}
+<script>
+    var renderTable = '';
+    var table = layui.table;
+    layui.config({
+        base: "__STATIC__/admin/layui/lay/modules/"
+    }).extend({
+        treetable: "treetable-lay/treetable"
+    }).use(['layer', 'table', 'treetable'], function () {
+        var $ = layui.jquery;
+        var layer = layui.layer;
+        var treetable = layui.treetable;
+        // 渲染表格
+        renderTable = function () {
+            layer.load(2);
+            var tableIns = treetable.render({
+                treeColIndex: 2,//树形图标显示在第几列
+                treeSpid: 0,//最上级的父级id
+                treeIdName: 'id',//id字段的名称
+                treePidName: 'pid',//pid字段的名称
+                treeDefaultClose: false,//是否默认折叠
+                treeLinkage: true,//父级展开时是否自动展开所有子级
+                elem: '#tabledata',
+                url: "{$Request.url}",
+                // url: "{:url('ShopCategory/index')}",
+                height:"full-150",
+                where:{
+                    type:"{$type}"
+                },
+                page: false,
+                cols: [[ //表头
+                    {type: "checkbox"},
+                    {field: 'id', title: 'ID', width: 120},
+                    {field: 'name', title: '名称'},
+                    {if $type==1}
+                    {
+                        field: 'need_to_apply', title: '是否需要申请', width: 200, templet: function (d) {
+                            if(d.need_to_apply==1){
+                                return '<span style="color:red;">是</span>';
+                            }else{
+                                return '否';
+                            }
+                        }
+                    },
+                    {/if}
+                    // {field: 'deposit', title: '保证金'},
+                    {
+                        field: 'operation', title: '操作', templet: function (d) {
+                            var html = '';
+                            if(d.level==3){
+                                html += '<button class="table-btn" onclick="openmax(\'{:url('view')}/id/' + d.id + '\')">查看</button>';
+                            }
+                            if(d.need_to_apply==1){
+                                html += '<button class="table-btn" onclick="openmax(\'{:url('apply')}/id/' + d.id + '\')">申请</button>';
+                            }
+
+                            return html;
+                        }, width: 250
+                    }
+                ]],
+                done: function () {
+                    layer.closeAll('loading');
+                }
+            });
+        };
+        renderTable();
+        //触发三个button按钮
+        $('#btn-expand').click(function () {
+            treetable.expandAll('#tabledata');
+        });
+        $('#btn-fold').click(function () {
+            treetable.foldAll('#tabledata');
+        });
+        $('#btn-refresh').click(function () {
+            renderTable();
+        });
+        //排序
+        table.on('sort(tabledata)', function (obj) {
+            datawhere.field = obj.field;
+            datawhere.order = obj.type;
+            renderTable();
+        });
+        //检索
+        layui.form.on('submit(LAY-app-forumreply-search)', function (obj) {
+            var field = obj.field
+            var olddatawhere = datawhere
+            datawhere = field
+            datawhere.field = olddatawhere.field
+            datawhere.order = olddatawhere.order
+            renderTable();
+        })
+    })
+</script>
+<script>
+
+    function asyncAllCat() {
+        layer.confirm('确认同步全部类目？', function () {
+            layer.load();
+            $.post("{:url('asyncAllCate')}", {}, function (res) {
+                layer.closeAll('loading');
+                dialog(res.msg, res.status);
+                renderTable();
+            })
+        })
+    }
+
+    var last_id = 0;
+    function asyncCat() {
+        layer.confirm('确认同步全部类目？', function () {
+            layer.load();
+            $.post("{:url('asyncCate')}", {}, function (res) {
+                layer.closeAll('loading');
+                dialog(res.msg, res.status);
+                renderTable();
+            })
+        })
+        // layer.confirm('确认同步可使用类目？', function () {
+        //    // layer.open({type:1,area: ['500px', '280px'],title:'进度',content:$('.show-loading'),shadeClose:true})
+        //     var field = {};
+        //     field.last_id = last_id;
+        //     _tplsend(field);
+        // });
+    }
+
+    function _tplsend(field){
+        var index = layer.load();
+        $.ajax({
+            type:'POST',
+            url:"{:url('asyncCate')}",
+            dataType:'json',
+            data:field,
+            success:function(data){
+                console.log(data);
+                layer.close(index);
+                if(data.status==1){
+                    //sucnum = data.sucnum;
+                    last_id = data.last_id;
+                    //percent = data.percent;
+                    //element.progress('demo', percent+'%');
+                    field.last_id = last_id;
+                    layer.msg('正在同步'+data.cat_name+'，请勿刷新或关闭页面', {
+                        icon: 16,
+                        shade: 0.01,
+                        time:false
+                    });
+                    //renderTable();
+                }
+                // return false;
+                if(data.status==1){
+                    _tplsend(field);
+                }else{
+                    //element.progress('demo', '100%');
+                    dialog(data.msg,1);
+                    setTimeout(function(){
+                        layer.closeAll();
+                        renderTable();
+                    },2000);
+                }
+            },
+            error:function(){
+                layer.close(index);
+                dialog('未知错误',0);
+            }
+        })
+    }
+
+    var last_id = 0;
+    function updateAllCat() {
+        layer.confirm('确认查询所有查询类目保证金？', function () {
+            // layer.open({type:1,area: ['500px', '280px'],title:'进度',content:$('.show-loading'),shadeClose:true})
+            var field = {};
+            field.last_id = last_id;
+            _tplsend2(field);
+        });
+    }
+
+    function _tplsend2(field){
+        var index = layer.load();
+        $.ajax({
+            type:'POST',
+            url:"{:url('updateAllCate')}",
+            dataType:'json',
+            data:field,
+            success:function(data){
+                console.log(data);
+                layer.close(index);
+                if(data.status==1){
+                    //sucnum = data.sucnum;
+                    last_id = data.last_id;
+                    //percent = data.percent;
+                    //element.progress('demo', percent+'%');
+                    field.last_id = last_id;
+                    layer.msg('正在同步'+data.cat_name+'，请勿刷新或关闭页面', {
+                        icon: 16,
+                        shade: 0.01,
+                        time:false
+                    });
+                    renderTable();
+                }
+                // return false;
+                if(data.status==1){
+                    _tplsend2(field);
+                }else{
+                    //element.progress('demo', '100%');
+                    dialog(data.msg,1);
+                    setTimeout(function(){
+                        parent.layer.closeAll();
+                        parent.tableIns.reload()
+                    },2000);
+                }
+            },
+            error:function(){
+                layer.close(index);
+                dialog('未知错误',0);
+            }
+        })
+    }
+</script>
+{include file="public/copyright"/}
+</body>
+
+</html>

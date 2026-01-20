@@ -1,0 +1,13 @@
+{
+  "navigationBarTitleText": "目录详情",
+  "enablePullDownRefresh": false,
+  "component": true,
+  "usingComponents": {
+    "dp": "/components/dp/dp",
+    "nomore": "/components/nomore/nomore",
+    "nodata": "/components/nodata/nodata",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar",
+    "popmsg": "/components/popmsg/popmsg"
+  }
+}

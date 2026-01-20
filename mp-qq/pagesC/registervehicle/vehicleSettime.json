@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "时间修改",
+  "usingComponents": {
+    "wxxieyi": "/components/wxxieyi/wxxieyi"
+  }
+}

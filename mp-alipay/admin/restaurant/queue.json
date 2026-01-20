@@ -1,0 +1,7 @@
+{
+  "defaultTitle": "排队叫号",
+  "pullRefresh": true,
+  "usingComponents": {
+    "loading": "/components/loading/loading"
+  }
+}

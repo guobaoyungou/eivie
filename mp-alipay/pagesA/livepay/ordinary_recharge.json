@@ -1,0 +1,11 @@
+{
+  "defaultTitle": "充值",
+  "pullRefresh": false,
+  "usingComponents": {
+    "uni-data-picker": "/components/uni-data-picker/uni-data-picker",
+    "parse": "/components/parse/parse",
+    "uni-popup": "/components/uni-popup/uni-popup",
+    "loading": "/components/loading/loading",
+    "dp-tabbar": "/components/dp-tabbar/dp-tabbar"
+  }
+}

@@ -1,0 +1,151 @@
+<!DOCTYPE html><!--custom_file(wx_channels)-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>支行列表</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-card layui-col-md12">
+          <div class="layui-card-header">支行列表</div>
+          <div class="layui-card-body" pad15>
+						<div class="layui-col-md4" style="padding-bottom:10px">
+<!--							<button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="asyncAllArea(0)">同步银行省市编码</button>-->
+						</div>
+<!--						<div class="layui-form layui-col-md8 layui-form-search">-->
+<!--							<div class="layui-inline layuiadmin-input-useradmin">-->
+<!--								<label class="layui-form-label">区域名称</label>-->
+<!--								<div class="layui-input-inline">-->
+<!--									<input type="text" name="name" autocomplete="off" class="layui-input">-->
+<!--								</div>-->
+<!--							</div>-->
+<!--							<div class="layui-inline">-->
+<!--								<button class="layui-btn layuiadmin-btn-replys" lay-submit="" lay-filter="LAY-app-forumreply-search">-->
+<!--									<i class="layui-icon layui-icon-search layuiadmin-button-btn"></i>-->
+<!--								</button>-->
+<!--							</div>-->
+<!--						</div>-->
+						<div class="layui-col-md12">
+							<table id="tabledata" lay-filter="tabledata"></table>
+						</div>
+          </div>
+        </div>
+    </div>
+  </div>
+  <div class="show-loading" style="display: none;">
+	  <div class="layui-progress layui-progress-big" lay-showpercent="true" lay-filter="demo">
+		  <div class="layui-progress-bar layui-bg-red" lay-percent="0%"></div>
+	  </div>
+  </div>
+	{include file="public/js"/}
+	<script>
+  var table = layui.table;
+	var datawhere = {};
+  //数据表
+  var tableIns = table.render({
+    elem: '#tabledata'
+    ,url: "{$Request.url}" //数据接口
+    ,page: true //开启分页
+    ,cols: [[ //表头
+			{type:"checkbox"},
+      {field: 'branch_id', title: '支行联号',width:150},
+			{field: 'branch_name', title: '支行名称'},
+		  {field: 'operation', title: '操作',templet:function (d) {
+				  var html = '';
+				  	html += '<div><button class="table-btn" onclick="choosebankbranch(\''+d.branch_id+'\',\''+d.branch_name+'\')">选择</button></div>';
+				  return html;
+			  } ,align:'center',width:80}
+    ]]
+  });
+	//排序
+	table.on('sort(tabledata)', function(obj){
+		datawhere.field = obj.field;
+		datawhere.order = obj.type;
+		tableIns.reload({
+			initSort: obj,
+			where: datawhere
+		});
+	});
+	//检索
+	layui.form.on('submit(LAY-app-forumreply-search)', function(obj){
+		var field = obj.field
+		var olddatawhere = datawhere
+		datawhere = field
+		datawhere.field = olddatawhere.field
+		datawhere.order = olddatawhere.order
+		tableIns.reload({
+			where: datawhere,
+			page: {curr: 1}
+		});
+	});
+	//同步全部模板
+  function asyncAllArea(){
+	  layer.confirm('确认同步全部省市编码?',{icon: 7, title:'操作确认'}, function(index){
+		  pagenum = 0;
+		  var field = {};
+		  layer.msg('同步中，请勿刷新或关闭页面', {
+			  icon: 16,
+			  shade: 0.01,
+			  time:false
+		  });
+		  _tplsend(field);
+	  });
+  }
+  var $ = layui.jquery
+  var addr_code = 0;
+  var percent = 0;
+  function _tplsend(field){
+	  var index = layer.load();
+	  pagenum++;
+	  $.ajax({
+		  type:'POST',
+		  url:"{:url('asyncArea')}/addr_code/"+addr_code,
+		  dataType:'json',
+		  data:field,
+		  success:function(data){
+			  console.log(data);
+			  layer.close(index);
+			  if(data.status==1){
+				  addr_code = data.next_code;
+				  layer.msg('同步'+data.province_name+'中，请勿刷新或关闭页面', {
+					  icon: 16,
+					  shade: 0.01,
+					  time:false
+				  });
+				  tableIns.reload();
+			  }
+			  // return false;
+			  if(data.status==1){
+				  _tplsend(field);
+			  }else{
+				  if(data.status==2){
+					  dialog(data.msg,1);
+				  }else{
+					  dialog(data.msg,data.status);
+				  }
+				  setTimeout(function(){
+					  parent.layer.closeAll();
+					  parent.tableIns.reload()
+				  },2000);
+			  }
+		  },
+		  error:function(){
+			  layer.close(index);
+			  dialog('未知错误',0);
+		  }
+	  })
+  }
+  function choosebankbranch(branch_id,branch_name){
+	  window.parent.choosebankbranch({branch_id:branch_id,branch_name:branch_name});
+	  var index = parent.layer.getFrameIndex(window.name);
+	  parent.layer.close(index);
+  }
+	</script>
+	{include file="public/copyright"/}
+</body>
+</html>

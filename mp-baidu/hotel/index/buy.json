@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "提交订单",
+  "custom_file": "hotel",
+  "enablePullDownRefresh": false,
+  "navigationStyle": "custom",
+  "component": true,
+  "usingComponents": {
+    "parse": "/components/parse/parse",
+    "couponlist": "/components/couponlist/couponlist",
+    "uni-popup": "/components/uni-popup/uni-popup"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "选择日期",
+  "enablePullDownRefresh": true,
+  "component": true,
+  "usingComponents": {
+    "calendar": "/pagesExt/cycle/mobile-calendar-simple/Calendar"
+  }
+}

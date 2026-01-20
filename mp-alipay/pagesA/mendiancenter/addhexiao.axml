@@ -1,0 +1,1 @@
+<view><block a:if="{{isload}}"><block><view class="content"><view class="label"><text class="t1">邀请员工扫码，完成添加</text></view><view class="qrcode"><image src="{{qrcode}}"></image></view></view></block></block><popmsg vue-id="7fbb49f5-1" ref="__r" data-ref="popmsg" onVueInit="__l"></popmsg><block a:if="{{loading}}"><loading vue-id="7fbb49f5-2" onVueInit="__l"></loading></block></view>
