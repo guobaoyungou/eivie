@@ -1,0 +1,8 @@
+{
+    "simsun": {
+        "normal": "./vendor/dompdf/dompdf/lib/fonts/SimSun",
+        "bold": "./vendor/dompdf/dompdf/lib/fonts/SimSun",
+        "italic": "./vendor/dompdf/dompdf/lib/fonts/SimSun",
+        "bold_italic": "./vendor/dompdf/dompdf/lib/fonts/SimSun"
+    }
+}

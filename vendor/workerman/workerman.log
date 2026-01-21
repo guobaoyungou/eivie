@@ -1,0 +1,86 @@
+2022-03-31 16:23:33 pid:14527 Workerman[think] start in DAEMON mode
+2022-05-09 10:52:49 pid:14529 Workerman[think] stopping ...
+2023-07-05 16:01:54 pid:20435 Workerman[think] start in DAEMON mode
+2023-07-25 13:12:46 pid:20438 think\db\exception\PDOException: SQLSTATE[HY000] [2002] Connection refused in /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php:768
+Stack trace:
+#0 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php(764): think\db\PDOConnection->getPDOStatement()
+#1 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php(688): think\db\PDOConnection->getPDOStatement()
+#2 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php(843): think\db\PDOConnection->pdoQuery()
+#3 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/BaseQuery.php(1127): think\db\PDOConnection->find()
+#4 /www/wwwroot/shop.guobaoyungou.cn/app/common/Worker.php(45): think\db\BaseQuery->find()
+#5 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Connection/TcpConnection.php(656): app\common\Worker->onMessage()
+#6 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Events/Select.php(292): Workerman\Connection\TcpConnection->baseRead()
+#7 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(2408): Workerman\Events\Select->loop()
+#8 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1541): Workerman\Worker->run()
+#9 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1371): Workerman\Worker::forkOneWorkerForLinux()
+#10 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1345): Workerman\Worker::forkWorkersForLinux()
+#11 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(546): Workerman\Worker::forkWorkers()
+#12 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-worker/src/command/Server.php(75): Workerman\Worker::runAll()
+#13 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/framework/src/think/console/Command.php(210): think\worker\command\Server->execute()
+#14 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/framework/src/think/Console.php(655): think\console\Command->run()
+#15 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/framework/src/think/Console.php(314): think\Console->doRunCommand()
+#16 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/framework/src/think/Console.php(251): think\Console->doRun()
+#17 /www/wwwroot/shop.guobaoyungou.cn/think(10): think\Console->run()
+#18 {main}
+2023-07-25 13:12:46 pid:20438 Worker[20438] process terminated
+2023-07-25 13:12:46 pid:20437 worker[none:20438] exit with status 64000
+2023-08-17 16:22:03 pid:20014 think\db\exception\PDOException: SQLSTATE[HY000] [2002] No such file or directory in /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php:768
+Stack trace:
+#0 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php(764): think\db\PDOConnection->getPDOStatement()
+#1 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php(688): think\db\PDOConnection->getPDOStatement()
+#2 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php(843): think\db\PDOConnection->pdoQuery()
+#3 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/BaseQuery.php(1127): think\db\PDOConnection->find()
+#4 /www/wwwroot/shop.guobaoyungou.cn/app/common/Worker.php(45): think\db\BaseQuery->find()
+#5 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Connection/TcpConnection.php(656): app\common\Worker->onMessage()
+#6 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Events/Select.php(292): Workerman\Connection\TcpConnection->baseRead()
+#7 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(2408): Workerman\Events\Select->loop()
+#8 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1541): Workerman\Worker->run()
+#9 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1371): Workerman\Worker::forkOneWorkerForLinux()
+#10 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1345): Workerman\Worker::forkWorkersForLinux()
+#11 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1675): Workerman\Worker::forkWorkers()
+#12 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1624): Workerman\Worker::monitorWorkersForLinux()
+#13 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(548): Workerman\Worker::monitorWorkers()
+#14 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-worker/src/command/Server.php(75): Workerman\Worker::runAll()
+#15 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/framework/src/think/console/Command.php(210): think\worker\command\Server->execute()
+#16 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/framework/src/think/Console.php(655): think\console\Command->run()
+#17 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/framework/src/think/Console.php(314): think\Console->doRunCommand()
+#18 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/framework/src/think/Console.php(251): think\Console->doRun()
+#19 /www/wwwroot/shop.guobaoyungou.cn/think(10): think\Console->run()
+#20 {main}
+2023-08-17 16:22:03 pid:20014 Worker[20014] process terminated
+2023-08-17 16:22:03 pid:20437 worker[none:20014] exit with status 64000
+2023-08-17 16:22:05 pid:24509 think\db\exception\PDOException: SQLSTATE[HY000] [2002] No such file or directory in /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php:768
+Stack trace:
+#0 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/connector/Mysql.php(66): think\db\PDOConnection->getPDOStatement()
+#1 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php(396): think\db\connector\Mysql->getFields()
+#2 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php(336): think\db\PDOConnection->getTableFieldsInfo()
+#3 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php(383): think\db\PDOConnection->getSchemaInfo()
+#4 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/PDOConnection.php(433): think\db\PDOConnection->getTableInfo()
+#5 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/Query.php(291): think\db\PDOConnection->getPk()
+#6 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/concern/WhereQuery.php(442): think\db\Query->getPk()
+#7 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/concern/WhereQuery.php(422): think\db\BaseQuery->whereEq()
+#8 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/concern/WhereQuery.php(386): think\db\BaseQuery->parseWhereItem()
+#9 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-orm/src/db/concern/WhereQuery.php(41): think\db\BaseQuery->parseWhereExp()
+#10 /www/wwwroot/shop.guobaoyungou.cn/app/common/Worker.php(45): think\db\BaseQuery->where()
+#11 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Connection/TcpConnection.php(656): app\common\Worker->onMessage()
+#12 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Events/Select.php(292): Workerman\Connection\TcpConnection->baseRead()
+#13 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(2408): Workerman\Events\Select->loop()
+#14 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1541): Workerman\Worker->run()
+#15 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1371): Workerman\Worker::forkOneWorkerForLinux()
+#16 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1345): Workerman\Worker::forkWorkersForLinux()
+#17 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1675): Workerman\Worker::forkWorkers()
+#18 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(1624): Workerman\Worker::monitorWorkersForLinux()
+#19 /www/wwwroot/shop.guobaoyungou.cn/vendor/workerman/workerman/Worker.php(548): Workerman\Worker::monitorWorkers()
+#20 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/think-worker/src/command/Server.php(75): Workerman\Worker::runAll()
+#21 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/framework/src/think/console/Command.php(210): think\worker\command\Server->execute()
+#22 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/framework/src/think/Console.php(655): think\console\Command->run()
+#23 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/framework/src/think/Console.php(314): think\Console->doRunCommand()
+#24 /www/wwwroot/shop.guobaoyungou.cn/vendor/topthink/framework/src/think/Console.php(251): think\Console->doRun()
+#25 /www/wwwroot/shop.guobaoyungou.cn/think(10): think\Console->run()
+#26 {main}
+2023-08-17 16:22:05 pid:24509 Worker[24509] process terminated
+2023-08-17 16:22:05 pid:20437 worker[none:24509] exit with status 64000
+2025-08-22 14:03:23 pid:495796 Workerman[think] start in DAEMON mode
+2025-12-29 14:36:51 pid:495798 Workerman[think] stopping ...
+2025-12-29 14:36:51 pid:495798 worker[none:495799] exit with status 4991
+2025-12-29 14:36:51 pid:495798 Workerman[think] has been stopped
