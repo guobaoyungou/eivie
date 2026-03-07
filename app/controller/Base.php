@@ -13,212 +13,245 @@
  * =========================================================
  */
 
-
+// +----------------------------------------------------------------------
+// | 基础控制器 - 全局常量定义、系统信息获取
+// +----------------------------------------------------------------------
 namespace app\controller;
 
 use app\BaseController;
 use think\facade\Db;
-use think\facade\Session;
+use think\facade\View;
 
 class Base extends BaseController
 {
-    public $aid = 0;
-    public $mid = 0;
-    public $member = [];
-    public $agent = [];
-    public $platform = '';
-    public $pre_url = '';
-    public $uniacid = 0;
-    public $attachurl = '';
-    public $attachurl_local = '';
-    public $attachurl_cos = '';
-    public $attachurl_oss = '';
-    public $attachurl_qiniu = '';
-    public $webinfo = [];
-    public $pluginfo = [];
-    public $plugconfig = [];
-    public $plugset = [];
-    public $plugsysset = [];
-    public $plugmodule = [];
-    public $plugmoduleinfo = [];
-    public $plugmoduleconfig = [];
-    public $plugmoduleset = [];
-    public $plugmodulesysset = [];
-    public $plugmoduleplug = [];
-    public $plugmodulepluginfo = [];
-    public $plugmoduleplugconfig = [];
-    public $plugmoduleplugset = [];
-    public $plugmodulepluginsysset = [];
-
-    public function __construct(\think\App $app)
+    public $aid;
+    public $mid;
+    public $bid;
+    public $platform;
+    public $sysset;
+    public $admin;
+    public $member;
+    public $business;
+    public $agent;
+    
+    public function initialize()
     {
-        parent::__construct($app);
+        parent::initialize();
         
-        // 初始化平台和URL
-        $this->platform = request()->param('platform/s', 'h5');
-        $this->pre_url = defined('PRE_URL') ? PRE_URL : request()->domain();
+        $request = request();
         
-        // 获取aid（系统ID）
-        $this->aid = request()->param('aid/d', 0);
+        // 获取aid参数
+        $aid = input('param.aid/d');
+        if (!$aid) {
+            $aid = session('ADMIN_AID');
+        }
         
-        // 获取mid（会员ID）
-        $this->mid = request()->param('mid/d', 0);
+        if (!$aid) {
+            $this->error('参数错误');
+        }
         
-        // 定义全局常量
+        $this->aid = $aid;
+        
+        // 定义全局常量aid
         if (!defined('aid')) {
-            define('aid', $this->aid);
-        }
-        if (!defined('mid')) {
-            define('mid', $this->mid);
-        }
-        if (!defined('platform')) {
-            define('platform', $this->platform);
+            define('aid', $aid);
         }
         
-        try {
-            // 获取系统信息
-            $this->getWebInfo();
-            
-            // 获取会员信息
-            if ($this->mid) {
-                $this->getMemberInfo();
-            }
-            
-            // 获取代理商信息
-            if ($this->mid) {
-                $this->getAgentInfo();
-            }
-            
-            // 设置附件URL
-            $this->setAttachUrl();
-            
-            // 检查系统是否关闭
-            $this->checkSystemStatus();
-        } catch (\Exception $e) {
-            // 在调试模式下显示详细错误
-            if (env('app_debug', false) || config('app.app_debug', false)) {
-                throw $e; // 抛出异常以便调试
+        // 获取系统信息
+        $admin = Db::name('admin')->where('id', $aid)->find();
+        if (!$admin) {
+            $this->error('系统信息不存在');
+        }
+        
+        // 检查系统状态
+        if ($admin['status'] == 0) {
+            $this->error('账号未启用');
+        }
+        
+        if ($admin['endtime'] > 0 && $admin['endtime'] < time()) {
+            $this->error('账号已过期');
+        }
+        
+        $this->admin = $admin;
+        
+        // 获取平台参数
+        $platform = input('param.platform', '');
+        if ($platform && !in_array($platform, ['mp', 'wx', 'alipay', 'baidu', 'toutiao', 'qq', 'h5', 'app'])) {
+            $platform = '';
+        }
+        
+        if (!$platform) {
+            if (is_weixin()) {
+                $platform = 'mp';
             } else {
-                // 生产环境下记录错误日志
-                \think\facade\Log::error('Base controller initialization error: ' . $e->getMessage());
+                $platform = 'h5';
             }
         }
-    }
-
-    /**
-     * 获取系统信息
-     */
-    private function getWebInfo()
-    {
-        $sysinfo = Db::name('sysset')->where('name', 'webinfo')->find();
-        if ($sysinfo && $sysinfo['value']) {
-            $this->webinfo = json_decode($sysinfo['value'], true);
-        }
-    }
-
-    /**
-     * 获取会员信息
-     */
-    private function getMemberInfo()
-    {
-        if ($this->aid && $this->mid) {
-            $this->member = Db::name('member')->where('aid', $this->aid)->where('id', $this->mid)->find();
-            if (!$this->member) {
-                $this->mid = 0;
-            }
-        }
-    }
-
-    /**
-     * 获取代理商信息
-     */
-    private function getAgentInfo()
-    {
-        if ($this->aid && $this->mid) {
-            $this->agent = Db::name('agent')->where('aid', $this->aid)->where('mid', $this->mid)->find();
-        }
-    }
-
-    /**
-     * 设置附件URL
-     */
-    private function setAttachUrl()
-    {
-        $this->attachurl = $this->pre_url . '/upload';
-        $this->attachurl_local = $this->attachurl;
         
-        // 根据系统设置确定实际的附件URL
-        $storage_set = Db::name('sysset')->where('name', 'storage')->find();
-        if ($storage_set && $storage_set['value']) {
-            $storage_config = json_decode($storage_set['value'], true);
-            if ($storage_config['type'] == 'cos') {
-                $this->attachurl = $storage_config['cos']['url'];
-                $this->attachurl_cos = $this->attachurl;
-            } elseif ($storage_config['type'] == 'oss') {
-                $this->attachurl = $storage_config['oss']['url'];
-                $this->attachurl_oss = $this->attachurl;
-            } elseif ($storage_config['type'] == 'qiniu') {
-                $this->attachurl = $storage_config['qiniu']['url'];
-                $this->attachurl_qiniu = $this->attachurl;
+        $this->platform = $platform;
+        
+        // 定义全局常量platform
+        if (!defined('platform')) {
+            define('platform', $platform);
+        }
+        
+        // 获取会员ID
+        $mid = input('param.mid/d', 0);
+        if (!$mid) {
+            $mid = session('MID');
+        }
+        $this->mid = $mid;
+        
+        // 定义全局常量mid
+        if (!defined('mid')) {
+            define('mid', $mid);
+        }
+        
+        // 获取商家ID
+        $bid = input('param.bid/d', 0);
+        if (!$bid) {
+            $bid = session('ADMIN_BID');
+        }
+        $this->bid = $bid;
+        
+        // 定义全局常量bid
+        if (!defined('bid')) {
+            define('bid', $bid);
+        }
+        
+        // 获取会员信息
+        if ($mid > 0) {
+            $member = Db::name('member')->where('id', $mid)->where('aid', $aid)->find();
+            if ($member) {
+                $this->member = $member;
             }
         }
-    }
-
-    /**
-     * 检查系统是否关闭
-     */
-    private function checkSystemStatus()
-    {
-        if (isset($this->webinfo['close_shop']) && $this->webinfo['close_shop'] == 1) {
-            $close_msg = $this->webinfo['close_shop_text'] ?? '系统维护中，请稍后访问！';
-            die('<div style="padding: 50px;"><h1>' . $close_msg . '</h1></div>');
+        
+        // 获取商家信息
+        if ($bid > 0) {
+            $business = Db::name('business')->where('id', $bid)->where('aid', $aid)->find();
+            if ($business) {
+                $this->business = $business;
+            }
         }
-    }
-
-    /**
-     * 检查登录状态
-     */
-    protected function checkLogin()
-    {
-        if (!$this->mid || !$this->member) {
-            $this->error('请先登录', $this->pre_url . '/login');
+        
+        // 获取代理商信息
+        $agentid = 0;
+        if (isset($this->member['agentid'])) {
+            $agentid = $this->member['agentid'];
         }
+        if ($agentid > 0) {
+            $agent = Db::name('agent')->where('id', $agentid)->where('aid', $aid)->find();
+            if ($agent) {
+                $this->agent = $agent;
+            }
+        }
+        
+        // 获取系统设置
+        $this->sysset = \app\common\Common::getSysset();
+        
+        // 设置附件URL
+        $this->setAttachUrl();
+        
+        // 传递常用变量到视图
+        View::assign('aid', $this->aid);
+        View::assign('mid', $this->mid);
+        View::assign('bid', $this->bid);
+        View::assign('platform', $this->platform);
     }
-
+    
     /**
-     * 成功提示
+     * 设置附件访问URL
      */
-    protected function success($msg = '', $url = '', $data = [])
+    protected function setAttachUrl()
+    {
+        $admin = $this->admin;
+        
+        // 判断是否使用OSS
+        if (isset($admin['oss']) && $admin['oss'] == 1) {
+            // 阿里云OSS
+            $ossset = Db::name('oss_set')->where('aid', $this->aid)->find();
+            if ($ossset && $ossset['status'] == 1) {
+                define('ATTACH_URL', $ossset['url']);
+                return;
+            }
+        }
+        
+        // 判断是否使用腾讯云COS
+        if (isset($admin['cos']) && $admin['cos'] == 1) {
+            $cosset = Db::name('cos_set')->where('aid', $this->aid)->find();
+            if ($cosset && $cosset['status'] == 1) {
+                define('ATTACH_URL', $cosset['url']);
+                return;
+            }
+        }
+        
+        // 判断是否使用七牛云
+        if (isset($admin['qiniu']) && $admin['qiniu'] == 1) {
+            $qiniuset = Db::name('qiniu_set')->where('aid', $this->aid)->find();
+            if ($qiniuset && $qiniuset['status'] == 1) {
+                define('ATTACH_URL', $qiniuset['url']);
+                return;
+            }
+        }
+        
+        // 使用本地存储
+        define('ATTACH_URL', request()->domain());
+    }
+    
+    /**
+     * 成功返回
+     */
+    protected function success($msg = '操作成功', $data = [], $url = '')
     {
         $result = [
             'status' => 1,
             'msg' => $msg,
-            'url' => $url,
             'data' => $data
         ];
+        
+        if ($url) {
+            $result['url'] = $url;
+        }
+        
         return json($result);
     }
-
+    
     /**
-     * 错误提示
+     * 失败返回
      */
-    protected function error($msg = '', $url = '', $data = [])
+    protected function error($msg = '操作失败', $data = [], $code = 0)
     {
         $result = [
             'status' => 0,
             'msg' => $msg,
-            'url' => $url,
             'data' => $data
         ];
+        
+        if ($code) {
+            $result['code'] = $code;
+        }
+        
         return json($result);
     }
-
+    
     /**
-     * 检查权限
+     * 检查系统是否正常
      */
-    protected function checkAuth($permission = '')
+    protected function checkSystem()
     {
-        // 实现权限检查逻辑
+        if (!$this->admin) {
+            return false;
+        }
+        
+        if ($this->admin['status'] == 0) {
+            return false;
+        }
+        
+        if ($this->admin['endtime'] > 0 && $this->admin['endtime'] < time()) {
+            return false;
+        }
+        
         return true;
     }
 }
