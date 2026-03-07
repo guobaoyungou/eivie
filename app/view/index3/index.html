@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>{$webinfo.webname} - AI创作平台</title>
+    <meta name="keywords" content="{$webinfo.webname},AI图片生成,AI视频生成,AI创作平台,图生图,图生视频">
+    <meta name="description" content="{$webinfo.webname} - AI图片生成与视频生成创作平台，提供丰富的模型和场景模板，一键生成精美作品。">
+    {if $webinfo.ico}<link rel="shortcut icon" type="image/x-icon" href="{$webinfo.ico}">{/if}
+    <!-- 主题CSS -->
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
+    <!-- 组件CSS -->
+    <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=3">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=3">
+    <!-- 主题JS（提前加载防闪烁） -->
+    <script src="/static/index3/js/theme.js?v=1"></script>
+</head>
+<body>
+<div class="layout-wrapper">
+    <!-- 侧边栏 -->
+    {include file="index3/public/sidebar"/}
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+        <!-- 顶部栏 -->
+        {include file="index3/public/header"/}
+
+        <!-- 页面内容 -->
+        <div class="page-content">
+
+            <!-- ====== 模型广场 ====== -->
+            <section class="model-square" aria-label="模型广场">
+                <div class="section-title"><span class="dot"></span>模型广场</div>
+                <div class="model-tab-header" role="tablist" aria-label="模型供应商分类">
+                    <button class="model-tab-card active" data-provider="recommend" role="tab" aria-selected="true" aria-controls="panel-recommend"><span class="mtc-icon">🔥</span><span class="mtc-label">热门模型</span></button>
+                    {if $provider_list}
+                    {foreach $provider_list as $prov}
+                    <button class="model-tab-card" data-provider="{$prov.id}" role="tab" aria-selected="false" aria-controls="panel-provider-{$prov.id}">{if $prov.logo}<img class="mtc-logo" src="{$prov.logo}" alt="" loading="lazy">{/if}<span class="mtc-label">{$prov.provider_name}</span></button>
+                    {/foreach}
+                    {/if}
+                </div>
+                <!-- 热门模型面板（服务端首屏渲染，水平滚动） -->
+                <div class="model-tab-panel active" data-provider="recommend" role="tabpanel" id="panel-recommend" aria-labelledby="tab-recommend">
+                    <div class="model-scroll-wrap">
+                        <button class="scroll-arrow left" aria-label="向左滚动" type="button">‹</button>
+                        <div class="model-scroll" role="list" aria-label="热门模型列表">
+                            {if $recommend_models}
+                            {foreach $recommend_models as $model}
+                            <div class="model-card" data-id="{$model.id}" data-model-code="{$model.model_code}" role="listitem" tabindex="0" aria-label="{$model.model_name} - {$model.provider_name}">
+                                <div class="mc-header">
+                                    {if $model.provider_logo}
+                                    <img class="mc-logo" src="{$model.provider_logo}" alt="" loading="lazy">
+                                    {/if}
+                                    <div>
+                                        <div class="mc-name">{$model.model_name}</div>
+                                        <div class="mc-provider">{$model.provider_name}</div>
+                                    </div>
+                                    {if $model.is_recommend == 1}
+                                    <span class="mc-recommend-badge">🔥</span>
+                                    {/if}
+                                </div>
+                                <div class="mc-desc">{$model.description}</div>
+                                <div class="mc-capabilities">
+                                    {if isset($model.capability_tags) && is_array($model.capability_tags)}
+                                    {foreach $model.capability_tags as $tag}
+                                    {if $i < 3}<span class="mc-capability-tag">{$tag}</span>{/if}
+                                    {/foreach}
+                                    {/if}
+                                </div>
+                                <div class="mc-footer">
+                                    {if $model.type_name}
+                                    <span class="mc-tag">{$model.type_name}</span>
+                                    {/if}
+                                    <span class="mc-action">开始创作 →</span>
+                                </div>
+                            </div>
+                            {/foreach}
+                            {else}
+                            <div class="empty-state" style="flex:1" role="status" aria-live="polite"><div class="empty-icon">🤖</div><p>暂无模型数据</p></div>
+                            {/if}
+                        </div>
+                        <button class="scroll-arrow right" aria-label="向右滚动" type="button">›</button>
+                    </div>
+                </div>
+                <!-- 供应商面板（懒加载，水平滚动） -->
+                {if $provider_list}
+                {foreach $provider_list as $prov}
+                <div class="model-tab-panel" data-provider="{$prov.id}" role="tabpanel" id="panel-provider-{$prov.id}" aria-labelledby="tab-provider-{$prov.id}">
+                    <div class="model-scroll-wrap">
+                        <button class="scroll-arrow left" aria-label="向左滚动" type="button">‹</button>
+                        <div class="model-scroll" role="list" aria-label="{$prov.provider_name}模型列表">
+                            <div class="model-panel-loading" role="status" aria-live="polite">加载中...</div>
+                        </div>
+                        <button class="scroll-arrow right" aria-label="向右滚动" type="button">›</button>
+                    </div>
+                </div>
+                {/foreach}
+                {/if}
+            </section>
+
+            <!-- ====== TAB切换区域 ====== -->
+            <section class="tab-section">
+                <div class="tab-header">
+                    <button class="tab-btn active" data-tab="photo">图片模型</button>
+                    <button class="tab-btn" data-tab="video">视频特效</button>
+                </div>
+
+                <!-- 图片模型面板 -->
+                <div class="tab-panel active" id="panel-photo">
+                    <div class="category-bar" data-type="photo">
+                        <button class="category-tag active" data-id="0">全部</button>
+                        {if $photo_categories}
+                        {foreach $photo_categories as $cat}
+                        <button class="category-tag" data-id="{$cat.id}">{$cat.name}</button>
+                        {/foreach}
+                        {/if}
+                    </div>
+                    <div class="scene-grid">
+                        {if $photo_scenes}
+                        {foreach $photo_scenes as $scene}
+                        <div class="scene-card">
+                            <img class="sc-cover" src="{$scene.cover_image|default='/static/index3/img/placeholder.png'}" alt="{$scene.template_name}" loading="lazy">
+                            <div class="sc-info">
+                                <div class="sc-name">{$scene.template_name}</div>
+                                <div class="sc-desc">{$scene.description}</div>
+                                <div class="sc-meta">
+                                    <span class="sc-price">{if $scene.base_price > 0}¥{$scene.base_price}{else}免费{/if}</span>
+                                    <span class="sc-uses">{$scene.use_count|default=0}次使用</span>
+                                </div>
+                            </div>
+                        </div>
+                        {/foreach}
+                        {else}
+                        <div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📭</div><p>暂无场景模板</p></div>
+                        {/if}
+                    </div>
+                    <div class="load-more-wrap">
+                        <button class="load-more-btn" data-type="photo">加载更多</button>
+                    </div>
+                </div>
+
+                <!-- 视频特效面板 -->
+                <div class="tab-panel" id="panel-video">
+                    <div class="category-bar" data-type="video">
+                        <button class="category-tag active" data-id="0">全部</button>
+                        {if $video_categories}
+                        {foreach $video_categories as $cat}
+                        <button class="category-tag" data-id="{$cat.id}">{$cat.name}</button>
+                        {/foreach}
+                        {/if}
+                    </div>
+                    <div class="scene-grid">
+                        {if $video_scenes}
+                        {foreach $video_scenes as $scene}
+                        <div class="scene-card">
+                            <img class="sc-cover" src="{$scene.cover_image|default='/static/index3/img/placeholder.png'}" alt="{$scene.template_name}" loading="lazy">
+                            <div class="sc-info">
+                                <div class="sc-name">{$scene.template_name}</div>
+                                <div class="sc-desc">{$scene.description}</div>
+                                <div class="sc-meta">
+                                    <span class="sc-price">{if $scene.base_price > 0}¥{$scene.base_price}{else}免费{/if}</span>
+                                    <span class="sc-uses">{$scene.use_count|default=0}次使用</span>
+                                </div>
+                            </div>
+                        </div>
+                        {/foreach}
+                        {else}
+                        <div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📭</div><p>暂无场景模板</p></div>
+                        {/if}
+                    </div>
+                    <div class="load-more-wrap">
+                        <button class="load-more-btn" data-type="video">加载更多</button>
+                    </div>
+                </div>
+            </section>
+
+        </div><!-- .page-content end -->
+    </div><!-- .main-content end -->
+</div><!-- .layout-wrapper end -->
+
+<!-- 生成任务弹窗 Modal（16:9宽屏四排布局） -->
+<div class="task-modal-overlay" id="taskModal" style="display:none">
+    <div class="task-modal">
+        <div class="task-modal-header">
+            <h3>创建生成任务</h3>
+            <button class="task-modal-close" onclick="Index3.closeTaskModal()">&times;</button>
+        </div>
+        <div class="task-modal-body">
+            <!-- Row 1: 模型类型信息 -->
+            <div class="tm-row tm-model-type" id="tmModelType"></div>
+            <!-- Row 2: 模型能力Tab -->
+            <div class="tm-row tm-capabilities" id="tmCapabilities"></div>
+            <!-- Row 3: 参数配置区 -->
+            <div class="tm-row tm-params" id="tmParams"></div>
+            <!-- Row 4: 推荐场景模板 -->
+            <div class="tm-row tm-scenes" id="tmScenes"></div>
+            <!-- 登录提示 -->
+            <div class="task-login-tip" id="taskLoginTip" style="display:none">
+                <p>请先登录后再创建生成任务</p>
+                <a href="/Backstage/index" class="task-login-btn">登录 / 注册</a>
+            </div>
+        </div>
+        <div class="task-modal-footer">
+            <button class="task-submit" id="taskSubmitBtn">立即生成</button>
+            <button class="task-cancel" onclick="Index3.closeTaskModal()">取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- 移动端组件 -->
+{include file="index3/public/tabbar"/}
+
+<!-- JS -->
+<script src="/static/index3/js/api.js?v=2"></script>
+<script src="/static/index3/js/sidebar.js?v=1"></script>
+<script src="/static/index3/js/index.js?v=3"></script>
+</body>
+</html>

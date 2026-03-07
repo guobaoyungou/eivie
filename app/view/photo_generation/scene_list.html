@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>照片场景模板</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          <i class="layui-icon layui-icon-template-1"></i> 照片场景模板
+        </div>
+        <div class="layui-card-body" pad15>
+          <!-- 操作按钮区 -->
+          <div class="layui-col-md4" style="padding-bottom:10px">
+            <a class="layui-btn layuiadmin-btn-list" href="javascript:void(0)" onclick="openmax('{:url(\'scene_edit\')}')">
+              <i class="layui-icon layui-icon-add-1"></i> 新增模板
+            </a>
+            <button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="datadel(0)">批量删除</button>
+          </div>
+          
+          <!-- 搜索区 -->
+          <div class="layui-form layui-col-md8 layui-form-search">
+            <div class="layui-inline layuiadmin-input-useradmin">
+              <label class="layui-form-label">关键词</label>
+              <div class="layui-input-inline">
+                <input type="text" name="keyword" class="layui-input" placeholder="模板名称/标识">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">分类</label>
+              <div class="layui-input-inline" style="width:120px">
+                <input type="text" name="category" class="layui-input" placeholder="分类标签">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">状态</label>
+              <div class="layui-input-inline" style="width:100px">
+                <select name="status">
+                  <option value="">全部</option>
+                  <option value="1">启用</option>
+                  <option value="0">禁用</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn layuiadmin-btn-replys" lay-submit lay-filter="LAY-search">
+                <i class="layui-icon layui-icon-search"></i>
+              </button>
+            </div>
+          </div>
+          
+          <!-- 数据表格 -->
+          <div class="layui-col-md12">
+            <table id="tabledata" lay-filter="tabledata"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  var table = layui.table;
+  var datawhere = {};
+  
+  var tableIns = table.render({
+    elem: '#tabledata',
+    url: "{$Request.url}",
+    page: true,
+    cols: [[
+      {type: "checkbox", width: 50},
+      {field: 'id', title: 'ID', sort: true, width: 70},
+      {field: 'cover_image', title: '封面', width: 80, templet: function(d) {
+        if (d.cover_image) {
+          return '<img src="'+d.cover_image+'" style="width:50px;height:50px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="previewImg(\''+d.cover_image+'\')">';
+        }
+        return '<span style="color:#ccc">-</span>';
+      }},
+      {field: 'template_name', title: '模板名称', minWidth: 150},
+      {field: 'category', title: '分类', width: 100},
+      {field: 'model_name', title: '绑定模型', width: 150},
+      {field: 'use_count', title: '使用次数', width: 90, sort: true, templet: function(d) {
+        return '<span class="layui-badge layui-bg-gray">' + (d.use_count || 0) + '次</span>';
+      }},
+      {field: 'output_quantity', title: '每单输出', width: 90, templet: function(d) {
+        return '<span class="layui-badge layui-bg-blue">' + (d.output_quantity || 1) + '张</span>';
+      }},
+      {field: 'sort', title: '排序', width: 70, sort: true},
+      {field: 'status', title: '状态', width: 90, templet: function(d) {
+        var checked = d.status == 1 ? 'checked' : '';
+        return '<input type="checkbox" name="status" lay-skin="switch" lay-text="启用|禁用" lay-filter="statusSwitch" data-id="'+d.id+'" '+checked+'>';
+      }},
+      {field: 'create_time_text', title: '创建时间', width: 160},
+      {field: 'operation', title: '操作', width: 240, fixed: 'right', templet: function(d) {
+        var html = '';
+        // 使用按钮
+        html += '<button class="table-btn" style="color:#1E9FFF" onclick="useTemplate('+d.id+')"><i class="layui-icon layui-icon-release"></i>使用</button>';
+        // 如果需要转存（封面是第三方URL），显示转存重试按钮
+        if (d.needs_transfer) {
+          html += '<button class="table-btn" style="color:#FF6600" onclick="retryTransfer('+d.id+')"><i class="layui-icon layui-icon-refresh"></i>转存</button>';
+        }
+        html += '<button class="table-btn" onclick="openmax(\'{:url(\'scene_edit\')}/id/'+d.id+'\')">编辑</button>';
+        html += '<button class="table-btn" onclick="datadel('+d.id+')">删除</button>';
+        return html;
+      }}
+    ]]
+  });
+  
+  table.on('sort(tabledata)', function(obj) {
+    datawhere.field = obj.field;
+    datawhere.order = obj.type;
+    tableIns.reload({initSort: obj, where: datawhere});
+  });
+  
+  layui.form.on('submit(LAY-search)', function(obj) {
+    datawhere = obj.field;
+    tableIns.reload({where: datawhere, page: {curr: 1}});
+    return false;
+  });
+  
+  layui.form.on('switch(statusSwitch)', function(obj) {
+    var id = $(this).data('id');
+    var status = obj.elem.checked ? 1 : 0;
+    $.post("{:url('scene_status')}", {id: id, status: status}, function(res) {
+      if (res.status != 1) {
+        layer.msg(res.msg);
+        obj.elem.checked = !obj.elem.checked;
+        layui.form.render('checkbox');
+      }
+    });
+  });
+  
+  function previewImg(url) {
+    layer.photos({photos: {data: [{src: url}]}, anim: 5});
+  }
+  
+  function datadel(id) {
+    var ids = [];
+    if (id == 0) {
+      var checkStatus = table.checkStatus('tabledata');
+      if (checkStatus.data.length === 0) return layer.msg('请选择数据');
+      checkStatus.data.forEach(function(item) { ids.push(item.id); });
+    } else {
+      ids.push(id);
+    }
+    
+    layer.confirm('确定要删除吗？', {icon: 7}, function(index) {
+      layer.close(index);
+      var loadIndex = layer.load();
+      var delCount = 0;
+      ids.forEach(function(id, idx) {
+        $.post("{:url('scene_delete')}", {id: id}, function(res) {
+          if (res.status == 1) delCount++;
+          if (idx == ids.length - 1) {
+            layer.close(loadIndex);
+            layer.msg('成功删除' + delCount + '条');
+            tableIns.reload();
+          }
+        });
+      });
+    });
+  }
+  
+  // 转存重试
+  function retryTransfer(id) {
+    layer.confirm('确定要重新转存该模板的附件吗？', {icon: 3, title: '转存确认'}, function(index) {
+      layer.close(index);
+      var loadIndex = layer.load(2, {shade: [0.3, '#000']});
+      $.post("{:url('scene_retry_transfer')}", {id: id}, function(res) {
+        layer.close(loadIndex);
+        if (res.status == 1) {
+          layer.msg(res.msg, {icon: 1});
+          tableIns.reload();
+        } else {
+          layer.msg(res.msg || '转存失败', {icon: 2});
+        }
+      }).fail(function() {
+        layer.close(loadIndex);
+        layer.msg('请求失败', {icon: 2});
+      });
+    });
+  }
+  
+  // 使用模板
+  function useTemplate(id) {
+    var loadIndex = layer.load(2, {shade: [0.3, '#000']});
+    $.get("{:url('use_template')}", {id: id}, function(res) {
+      layer.close(loadIndex);
+      if (res.status != 1) {
+        layer.msg(res.msg, {icon: 2});
+        return;
+      }
+      var tpl = res.data;
+      openUseTemplatePopup(tpl);
+    }).fail(function() {
+      layer.close(loadIndex);
+      layer.msg('获取模板信息失败', {icon: 2});
+    });
+  }
+  
+  // 打开使用模板弹窗
+  function openUseTemplatePopup(tpl) {
+    var requireImageHtml = '';
+    if (tpl.require_image) {
+      requireImageHtml = '<div class="layui-form-item"><label class="layui-form-label"><span class="layui-badge-dot layui-bg-red"></span> 参考图</label><div class="layui-input-block"><div id="useTemplateRefImg" style="display:flex;flex-wrap:wrap;gap:10px;"></div><input type="hidden" name="ref_image" id="useTemplateRefImgInput"><button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="uploadRefImage()" style="margin-top:10px"><i class="layui-icon layui-icon-upload"></i> 上传图片</button></div></div>';
+    }
+    
+    var content = '<div style="padding:20px;">' +
+      '<div style="display:flex;margin-bottom:20px;">' +
+        '<img src="'+tpl.cover_image+'" style="width:120px;height:120px;object-fit:cover;border-radius:8px;background:#f5f5f5;">' +
+        '<div style="margin-left:15px;flex:1;">' +
+          '<h3 style="margin:0 0 10px 0;font-size:18px;">'+tpl.template_name+'</h3>' +
+          '<p style="color:#666;margin:0 0 8px 0;">绑定模型：'+tpl.model_name+'</p>' +
+          '<p style="color:#999;margin:0;">'+(tpl.description || '无描述')+'</p>' +
+        '</div>' +
+      '</div>' +
+      '<form class="layui-form" lay-filter="useTemplateForm">' +
+        '<div class="layui-form-item"><label class="layui-form-label"><span class="layui-badge-dot layui-bg-red"></span> 提示词</label><div class="layui-input-block"><textarea name="prompt" class="layui-textarea" placeholder="请输入图像描述" style="height:100px;">'+tpl.default_prompt+'</textarea></div></div>' +
+        requireImageHtml +
+        '<input type="hidden" name="template_id" value="'+tpl.id+'">' +
+      '</form>' +
+    '</div>';
+    
+    layer.open({
+      type: 1,
+      title: '使用模板生成',
+      area: ['600px', '500px'],
+      content: content,
+      btn: ['提交生成', '取消'],
+      yes: function(index, layero) {
+        submitUseTemplate(index, tpl);
+      }
+    });
+    layui.form.render();
+  }
+  
+  // 上传参考图
+  function uploadRefImage() {
+    layui.upload.render({
+      elem: document.createElement('input'),
+      url: '{:url("/Upload/upload")}',
+      accept: 'images',
+      acceptMime: 'image/*',
+      auto: true,
+      choose: function(obj) {
+        obj.preview(function(index, file, result) {
+          // 自动上传
+        });
+      },
+      done: function(res) {
+        if (res.status == 1 || res.code == 0) {
+          var url = res.url || res.data.src || res.data.url;
+          $('#useTemplateRefImg').html('<div style="position:relative;"><img src="'+url+'" style="width:100px;height:100px;object-fit:cover;border-radius:4px;"><span onclick="$(this).parent().remove();$(\'#useTemplateRefImgInput\').val(\'\')" style="position:absolute;top:-8px;right:-8px;width:20px;height:20px;background:#f00;color:#fff;border-radius:50%;cursor:pointer;text-align:center;line-height:20px;font-size:12px;">×</span></div>');
+          $('#useTemplateRefImgInput').val(url);
+        } else {
+          layer.msg(res.msg || '上传失败', {icon: 2});
+        }
+      },
+      error: function() {
+        layer.msg('上传失败', {icon: 2});
+      }
+    }).upload();
+  }
+  
+  // 提交使用模板
+  function submitUseTemplate(layerIndex, tpl) {
+    var prompt = $('textarea[name="prompt"]').val();
+    var image = $('#useTemplateRefImgInput').val();
+    
+    if (!prompt || prompt.trim().length < 2) {
+      layer.msg('请填写提示词（至少2个字符）', {icon: 2});
+      return;
+    }
+    
+    if (tpl.require_image && !image) {
+      layer.msg('请上传参考图片', {icon: 2});
+      return;
+    }
+    
+    var loadIndex = layer.load(2, {shade: [0.3, '#000']});
+    $.post("{:url('quick_generate')}", {
+      template_id: tpl.id,
+      prompt: prompt,
+      image: image
+    }, function(res) {
+      layer.close(loadIndex);
+      if (res.status == 1) {
+        layer.close(layerIndex);
+        layer.msg('任务已提交，正在生成中...', {icon: 1});
+        // 提示查看生成记录
+        setTimeout(function() {
+          layer.confirm('生成任务已提交，是否跳转到生成记录页面查看进度？', {
+            icon: 3,
+            title: '提示',
+            btn: ['查看进度', '继续停留']
+          }, function(idx) {
+            layer.close(idx);
+            openmax('{:url("record_list")}');
+          });
+        }, 500);
+      } else {
+        layer.msg(res.msg || '提交失败', {icon: 2});
+      }
+    }).fail(function() {
+      layer.close(loadIndex);
+      layer.msg('请求失败', {icon: 2});
+    });
+  }
+  </script>
+</body>
+</html>

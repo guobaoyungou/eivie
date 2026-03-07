@@ -1,0 +1,250 @@
+/* =========================================
+   responsive.css — 响应式断点样式
+   ========================================= */
+
+/* ===== Desktop (1024px – 1439px) ===== */
+@media (max-width: 1439px) {
+    .sidebar { width: 60px; min-width: 60px; }
+    .sidebar .sys-name,
+    .sidebar .nav-text,
+    .sidebar .nav-arrow,
+    .sidebar .sidebar-footer-info { display: none !important; opacity: 0; }
+    .sidebar .nav-link { justify-content: center; padding: 10px 0; }
+    .sidebar .nav-sub { display: none !important; }
+    .sidebar .toolbar-btn .btn-text { display: none; }
+    .sidebar .sidebar-toolbar { flex-direction: column; gap: 2px; }
+    .sidebar .toolbar-btn { padding: 8px; }
+    .sidebar .collapse-btn { display: none !important; }
+    .sidebar .sidebar-logo { justify-content: center; cursor: pointer; }
+
+    /* collapsed hover tooltips */
+    .sidebar .nav-item[data-tooltip]:hover::after {
+        content: attr(data-tooltip);
+        position: absolute; left: 64px; top: 50%; transform: translateY(-50%);
+        background: var(--bg-tooltip); color: var(--text-inverse);
+        padding: 4px 10px; border-radius: 4px;
+        font-size: 12px; white-space: nowrap; z-index: 2001; pointer-events: none;
+    }
+    .sidebar .nav-item.has-sub:hover::after { display: none; }
+    .sidebar .nav-item .nav-float-sub {
+        display: none; position: absolute; left: 60px; top: 0;
+        background: var(--bg-card); border-radius: 8px;
+        box-shadow: var(--shadow-dropdown); padding: 6px; min-width: 140px; z-index: 2000;
+    }
+    .sidebar .nav-item:hover .nav-float-sub { display: block; }
+    .nav-float-sub .nav-link { padding: 8px 14px; justify-content: flex-start; }
+    .nav-float-sub .nav-link .nav-text { display: inline !important; opacity: 1 !important; width: auto !important; }
+
+    .main-content { margin-left: 60px; }
+    .scene-grid { grid-template-columns: repeat(3, 1fr); }
+    .model-card { flex: 0 0 200px; }
+    .model-tab-card { padding: 8px 14px; }
+}
+
+/* ===== Desktop-L (≥1440px) — sidebar expanded ===== */
+@media (min-width: 1440px) {
+    .sidebar { width: 10vw; min-width: 140px; max-width: 220px; }
+    .main-content { margin-left: 10vw; }
+    .sidebar.collapsed { width: 60px; min-width: 60px; }
+    .sidebar.collapsed ~ .main-content { margin-left: 60px; }
+    .scene-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* ===== Tablet (768px – 1023px) ===== */
+@media (max-width: 1023px) {
+    .sidebar {
+        width: 280px;
+        transform: translateX(-100%);
+        box-shadow: none;
+        z-index: 1100;
+    }
+    .sidebar.drawer-open {
+        transform: translateX(0);
+        box-shadow: 4px 0 24px rgba(0,0,0,.15);
+    }
+    .sidebar .sys-name,
+    .sidebar .nav-text,
+    .sidebar .nav-arrow { display: inline !important; opacity: 1 !important; width: auto !important; }
+    .sidebar .sidebar-footer-info { display: block !important; }
+    .sidebar .nav-link { justify-content: flex-start; padding: 10px 12px; }
+    .sidebar .nav-sub { display: block; }
+    .sidebar .toolbar-btn .btn-text { display: inline; }
+    .sidebar .sidebar-toolbar { flex-direction: row; }
+    .sidebar .collapse-btn { display: none !important; }
+    .sidebar-overlay.show { display: block; }
+    .drawer-user { display: flex; align-items: center; gap: 10px; }
+    .drawer-close-btn { display: flex !important; }
+
+    .main-content { margin-left: 0 !important; }
+    .header-hamburger { display: flex; }
+
+    .header-search { display: none; }
+    .header-search-icon-mobile { display: flex; }
+
+    .scene-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .model-card { flex: 0 0 180px; }
+    .model-card:hover { transform: none; box-shadow: var(--shadow-card); }
+    .scene-card:hover { transform: none; box-shadow: var(--shadow-card); }
+
+    .model-tab-card { padding: 8px 12px; font-size: 13px; }
+    .model-tab-card:hover { background: var(--bg-card); border-color: var(--border-color); }
+    .model-tab-header { gap: 10px; }
+
+    .scroll-arrow { display: none; }
+
+    /* 弹窗平板端适配 */
+    .task-modal {
+        max-width: 90%;
+        aspect-ratio: auto;
+        max-height: 85vh;
+    }
+    .tm-model-type .tmt-io { display: none; }
+    .tm-scenes .tms-card { flex: 0 0 110px; }
+
+    .header-btn.hide-tablet { display: none; }
+}
+
+/* ===== Mobile (<768px) ===== */
+@media (max-width: 767px) {
+    .sidebar {
+        width: 80vw;
+        max-width: 320px;
+        transform: translateX(-100%);
+        box-shadow: none;
+        z-index: 1100;
+    }
+    .sidebar.drawer-open {
+        transform: translateX(0);
+        box-shadow: 4px 0 24px rgba(0,0,0,.15);
+    }
+    .sidebar .sys-name,
+    .sidebar .nav-text,
+    .sidebar .nav-arrow { display: inline !important; opacity: 1 !important; width: auto !important; }
+    .sidebar .sidebar-footer-info { display: block !important; }
+    .sidebar .nav-link { justify-content: flex-start; padding: 10px 12px; }
+    .sidebar .nav-sub { display: block; }
+    .sidebar .toolbar-btn .btn-text { display: inline; }
+    .sidebar .sidebar-toolbar { flex-direction: row; }
+    .sidebar .collapse-btn { display: none !important; }
+    .sidebar-overlay.show { display: block; }
+    .drawer-user { display: flex; align-items: center; gap: 10px; }
+    .drawer-close-btn { display: flex !important; }
+
+    .main-content { margin-left: 0 !important; }
+    .header-hamburger { display: flex; }
+    .header-logo-mobile { display: block; }
+    .header-search { display: none; }
+    .header-search-icon-mobile { display: flex; }
+
+    .header { padding: 0 12px; height: 50px; }
+    .header-btn.hide-mobile { display: none; }
+    .header-btn .btn-label { display: none; }
+
+    .page-content { padding: 16px 12px 80px; }
+
+    .scene-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .model-card { 
+        flex: 0 0 calc(50vw - 28px); 
+        min-width: 150px;
+    }
+    .model-card .mc-logo { width: 28px; height: 28px; }
+    .model-card .mc-name { font-size: 13px; }
+    .model-card .mc-provider { font-size: 11px; }
+    .model-card .mc-desc { font-size: 11px; min-height: 33px; }
+    .model-card .mc-capability-tag { font-size: 9px; padding: 2px 4px; }
+    .model-card .mc-tag { font-size: 10px; padding: 2px 6px; }
+    .model-card .mc-action { font-size: 11px; }
+    .model-card:hover { transform: none; box-shadow: var(--shadow-card); }
+    
+    .scene-card:hover { transform: none; box-shadow: var(--shadow-card); }
+
+    .model-tab-header { gap: 8px; }
+    .model-tab-card { padding: 6px 10px; font-size: 12px; border-radius: 8px; gap: 4px; }
+    .model-tab-card:hover { background: var(--bg-card); border-color: var(--border-color); }
+    .model-tab-card .mtc-icon { font-size: 14px; }
+    .model-tab-card .mtc-logo { width: 16px; height: 16px; }
+
+    .scroll-arrow { display: none; }
+    .mobile-tabbar { display: block; }
+
+    .category-tag { font-size: 12px; padding: 5px 12px; }
+    .section-title { font-size: 16px; }
+    .tab-btn { padding: 8px 16px; font-size: 14px; }
+
+    /* 弹窗底部弹出式布局 */
+    .task-modal {
+        max-width: 100%;
+        width: 100%;
+        max-height: 90vh;
+        aspect-ratio: auto;
+        border-radius: 16px 16px 0 0;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+    }
+    .task-modal-overlay {
+        align-items: flex-end;
+    }
+    .task-modal-body {
+        padding: 12px 14px;
+        gap: 10px;
+    }
+    .task-modal-header {
+        padding: 12px 14px 10px;
+    }
+    .task-modal-header h3 {
+        font-size: 15px;
+    }
+    .task-modal-footer {
+        padding: 10px 14px 16px;
+    }
+    /* Row 1 */
+    .tm-model-type .tmt-logo {
+        width: 36px; height: 36px;
+    }
+    .tm-model-type .tmt-name {
+        font-size: 14px;
+    }
+    .tm-model-type .tmt-io {
+        display: none;
+    }
+    /* Row 2 */
+    .tm-capabilities .tmc-tag {
+        padding: 4px 10px;
+        font-size: 11px;
+    }
+    /* Row 3 */
+    .tm-params .tf-input,
+    .tm-params .tf-textarea,
+    .tm-params .tf-select {
+        font-size: 14px;
+        padding: 10px 12px;
+    }
+    .tm-params .tf-textarea {
+        min-height: 56px;
+    }
+    /* Row 4 */
+    .tm-scenes .tms-card {
+        flex: 0 0 100px;
+    }
+    .tm-scenes .tms-card .tms-name {
+        font-size: 10px;
+    }
+    .tm-scenes .tms-card .tms-info {
+        padding: 4px 6px;
+    }
+    
+    /* Toast 移动端适配 */
+    .toast-container {
+        top: 60px;
+        left: 12px;
+        right: 12px;
+        transform: none;
+        width: auto;
+    }
+    .toast {
+        min-width: auto;
+        font-size: 13px;
+    }
+}

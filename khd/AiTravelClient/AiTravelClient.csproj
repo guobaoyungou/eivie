@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+    <AssemblyName>AiTravelClient</AssemblyName>
+    <RootNamespace>AiTravelClient</RootNamespace>
+    <Version>1.0.0</Version>
+    <Authors>AI Travel Photo Team</Authors>
+    <Company>Your Company</Company>
+    <Product>AI旅拍商家Windows客户端</Product>
+    <Description>AI旅拍商家Windows客户端 - 自动监控文件夹并上传照片</Description>
+    <Copyright>Copyright © 2024</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="System.Management" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="config.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

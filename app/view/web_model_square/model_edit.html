@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{if $info.id}编辑{else}新增{/if}模型</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .json-area { font-family: Consolas, monospace; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          {if $info.id}<i class="fa fa-pencil"></i> 编辑模型{else}<i class="fa fa-plus"></i> 新增模型{/if}
+          <i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer;float:right" onclick="closeself()"></i>
+        </div>
+        <div class="layui-card-body" pad15>
+          <div class="layui-form form-label-w8">
+            <input type="hidden" name="info[id]" value="{$info.id}">
+            
+            <fieldset class="layui-elem-field">
+              <legend>基本信息</legend>
+              <div class="layui-field-box">
+                <div class="layui-form-item">
+                  <label class="layui-form-label"><span class="required">*</span>模型名称</label>
+                  <div class="layui-input-inline" style="width:350px">
+                    <input type="text" name="info[model_name]" value="{$info.model_name}" lay-verify="required" lay-verType="tips" class="layui-input" placeholder="如：通义万相-文生图V2">
+                  </div>
+                </div>
+                
+                <div class="layui-form-item">
+                  <label class="layui-form-label"><span class="required">*</span>模型标识</label>
+                  <div class="layui-input-inline" style="width:350px">
+                    <input type="text" name="info[model_code]" value="{$info.model_code}" lay-verify="required" lay-verType="tips" class="layui-input" placeholder="供应商提供的模型ID">
+                  </div>
+                </div>
+                
+                <div class="layui-form-item">
+                  <label class="layui-form-label"><span class="required">*</span>供应商</label>
+                  <div class="layui-input-inline" style="width:250px">
+                    <select name="info[provider_id]" lay-verify="required" lay-verType="tips" lay-search>
+                      <option value="">请选择供应商</option>
+                      {foreach $providers as $p}
+                      <option value="{$p.id}" {if $info.provider_id == $p.id}selected{/if}>{$p.provider_name}</option>
+                      {/foreach}
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="layui-form-item">
+                  <label class="layui-form-label"><span class="required">*</span>模型类型</label>
+                  <div class="layui-input-inline" style="width:250px">
+                    <select name="info[type_id]" lay-verify="required" lay-verType="tips" lay-search>
+                      <option value="">请选择模型类型</option>
+                      {foreach $types as $t}
+                      <option value="{$t.id}" {if $info.type_id == $t.id}selected{/if}>{$t.type_name}</option>
+                      {/foreach}
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="layui-form-item">
+                  <label class="layui-form-label">版本号</label>
+                  <div class="layui-input-inline" style="width:200px">
+                    <input type="text" name="info[model_version]" value="{$info.model_version}" class="layui-input" placeholder="如：v2.0">
+                  </div>
+                </div>
+                
+                <div class="layui-form-item">
+                  <label class="layui-form-label">描述</label>
+                  <div class="layui-input-inline" style="width:500px">
+                    <textarea name="info[description]" class="layui-textarea" placeholder="模型功能描述">{$info.description}</textarea>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+            
+            <fieldset class="layui-elem-field">
+              <legend>接口配置</legend>
+              <div class="layui-field-box">
+                <div class="layui-form-item">
+                  <label class="layui-form-label"><span class="required">*</span>API端点</label>
+                  <div class="layui-input-inline" style="width:500px">
+                    <input type="text" name="info[endpoint_url]" value="{$info.endpoint_url}" lay-verify="required" lay-verType="tips" class="layui-input" placeholder="https://api.example.com/v1/models/...">
+                  </div>
+                </div>
+                
+                <div class="layui-form-item">
+                  <label class="layui-form-label">任务类型</label>
+                  <div class="layui-input-inline" style="width:200px">
+                    <select name="info[task_type]">
+                      <option value="sync" {if $info.task_type == 'sync' || !$info.task_type}selected{/if}>同步(sync)</option>
+                      <option value="async" {if $info.task_type == 'async'}selected{/if}>异步(async)</option>
+                    </select>
+                  </div>
+                  <div class="layui-form-mid layui-word-aux">同步：立即返回结果；异步：需要轮询获取结果</div>
+                </div>
+              </div>
+            </fieldset>
+            
+            <fieldset class="layui-elem-field">
+              <legend>参数规范 (JSON格式)</legend>
+              <div class="layui-field-box">
+                <div class="layui-form-item">
+                  <label class="layui-form-label">输入参数</label>
+                  <div class="layui-input-inline" style="width:500px">
+                    <textarea name="info[input_schema]" class="layui-textarea json-area" style="height:120px" placeholder='{"parameters":[{"name":"prompt","label":"提示词","type":"text","required":true}]}'>{if !empty($info['input_schema'])}{:json_encode($info['input_schema'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)}{/if}</textarea>
+                  </div>
+                </div>
+                
+                <div class="layui-form-item">
+                  <label class="layui-form-label">输出格式</label>
+                  <div class="layui-input-inline" style="width:500px">
+                    <textarea name="info[output_schema]" class="layui-textarea json-area" style="height:120px" placeholder='{"type":"image","format":"url"}'>{if !empty($info['output_schema'])}{:json_encode($info['output_schema'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)}{/if}</textarea>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+            
+            <fieldset class="layui-elem-field">
+              <legend>价格与限制 (JSON格式)</legend>
+              <div class="layui-field-box">
+                <div class="layui-form-item">
+                  <label class="layui-form-label">价格配置</label>
+                  <div class="layui-input-inline" style="width:500px">
+                    <textarea name="info[pricing_config]" class="layui-textarea json-area" style="height:100px" placeholder='{"billing_mode":"per_call","cost_price":0.01,"retail_price":0.05,"unit":"次"}'>{if !empty($info['pricing_config'])}{:json_encode($info['pricing_config'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)}{/if}</textarea>
+                  </div>
+                </div>
+                
+                <div class="layui-form-item">
+                  <label class="layui-form-label">限制配置</label>
+                  <div class="layui-input-inline" style="width:500px">
+                    <textarea name="info[limits_config]" class="layui-textarea json-area" style="height:100px" placeholder='{"rate_limit":60,"daily_limit":1000,"timeout":30}'>{if !empty($info['limits_config'])}{:json_encode($info['limits_config'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)}{/if}</textarea>
+                  </div>
+                </div>
+                
+                <div class="layui-form-item">
+                  <label class="layui-form-label">能力标签</label>
+                  <div class="layui-input-inline" style="width:500px">
+                    <textarea name="info[capability_tags]" class="layui-textarea json-area" style="height:60px" placeholder='["文生图","图生图","高清"]'>{if !empty($info['capability_tags'])}{:json_encode($info['capability_tags'], JSON_UNESCAPED_UNICODE)}{/if}</textarea>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">排序</label>
+              <div class="layui-input-inline" style="width:100px">
+                <input type="number" name="info[sort]" value="{$info.sort|default=0}" class="layui-input">
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">是否推荐</label>
+              <div class="layui-input-inline">
+                <input type="checkbox" name="info[is_recommend]" lay-skin="switch" lay-text="推荐|普通" value="1" {if $info.is_recommend == 1}checked{/if}>
+              </div>
+              <div class="layui-form-mid layui-word-aux">推荐模型将在官网「热门模型」Tab中展示</div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">状态</label>
+              <div class="layui-input-inline">
+                <input type="radio" name="info[is_active]" value="1" title="启用" {if $info.is_active != 0}checked{/if}>
+                <input type="radio" name="info[is_active]" value="0" title="禁用" {if $info.is_active == 0}checked{/if}>
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <div class="layui-input-block">
+                <button class="layui-btn layui-btn-danger" lay-submit lay-filter="formsubmit">保 存</button>
+                <button type="button" class="layui-btn layui-btn-primary" onclick="closeself()">取 消</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  // 验证JSON字段
+  function validateJsonField(value, fieldName) {
+    if (!value || !value.trim()) return true;
+    try {
+      JSON.parse(value);
+      return true;
+    } catch(e) {
+      layer.msg(fieldName + '格式不正确，请输入合法的JSON');
+      return false;
+    }
+  }
+  
+  layui.form.on('submit(formsubmit)', function(obj) {
+    var field = obj.field;
+    
+    // 处理推荐开关（未勾选时不会提交该字段）
+    if (!field['info[is_recommend]']) {
+      field['info[is_recommend]'] = '0';
+    }
+    
+    // 验证JSON字段
+    var jsonFields = [
+      {key: 'info[input_schema]', name: '输入参数'},
+      {key: 'info[output_schema]', name: '输出格式'},
+      {key: 'info[pricing_config]', name: '价格配置'},
+      {key: 'info[limits_config]', name: '限制配置'},
+      {key: 'info[capability_tags]', name: '能力标签'}
+    ];
+    for (var i = 0; i < jsonFields.length; i++) {
+      if (!validateJsonField(field[jsonFields[i].key], jsonFields[i].name)) {
+        return false;
+      }
+    }
+    
+    var index = layer.load();
+    $.post("{:url('model_save')}", field, function(data) {
+      layer.close(index);
+      dialog(data.msg, data.status);
+      if (data.status == 1) {
+        setTimeout(function() {
+          parent.layer.close(parent.layer.getFrameIndex(window.name));
+          parent.tableIns.reload();
+        }, 1000);
+      }
+    });
+    return false;
+  });
+  </script>
+</body>
+</html>

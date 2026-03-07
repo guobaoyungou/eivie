@@ -60,6 +60,52 @@
 							</div>
                             <div class="layui-form-mid layui-word-aux">填写该{:t('门店')}所在的社区名称，方便客户寻找；若没有可不用填写</div>
 						</div>
+						<!-- AI旅拍选片URL -->
+						{if $info['id']}
+						<div class="layui-form-item">
+							<label class="layui-form-label">选片URL：</label>
+							<div class="layui-input-inline" style="width:600px">
+								<input type="text" id="xpd_url" readonly class="layui-input" value="" style="background:#f6f6f6">
+							</div>
+							<button type="button" class="layui-btn layui-btn-normal" onclick="copyXpdUrl()">复制链接</button>
+							<button type="button" class="layui-btn layui-btn-primary" onclick="previewXpdUrl()">预览</button>
+							<button type="button" class="layui-btn layui-btn-sm" onclick="showXpdQrcode()"><i class="fa fa-qrcode"></i> 二维码</button>
+							<div class="layui-form-mid layui-word-aux">在门店大屏浏览器中打开此链接，展示AI旅拍选片页面</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">展示模板：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<select name="info[xpd_template]" lay-filter="xpd_template">
+									<option value="template_1" {if !$info['xpd_template'] || $info['xpd_template']=='template_1'}selected{/if}>经典上下布局</option>
+									<option value="template_2" {if $info['xpd_template']=='template_2'}selected{/if}>全屏沉浸式</option>
+									<option value="template_3" {if $info['xpd_template']=='template_3'}selected{/if}>左右分屏</option>
+									<option value="template_4" {if $info['xpd_template']=='template_4'}selected{/if}>栅格多屏</option>
+									<option value="template_5" {if $info['xpd_template']=='template_5'}selected{/if}>轮播卡片</option>
+								</select>
+							</div>
+							<div class="layui-form-mid layui-word-aux">选择适合的展示模板，修改后需重新打开选片页面生效</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">轮播时间设置：</label>
+							<div class="layui-form-mid">单张图片展示</div>
+							<div class="layui-input-inline" style="width:100px">
+								<input type="number" name="info[xpd_image_duration]" class="layui-input" value="{$info.xpd_image_duration|default='1000'}" min="500" max="3000" step="100">
+							</div>
+							<div class="layui-form-mid">毫秒，单组展示</div>
+							<div class="layui-input-inline" style="width:100px">
+								<input type="number" name="info[xpd_group_duration]" class="layui-input" value="{$info.xpd_group_duration|default='5000'}" min="3000" max="10000" step="500">
+							</div>
+							<div class="layui-form-mid">毫秒</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label"></label>
+							<div class="layui-form-mid layui-word-aux">
+								<span style="color:#ff6b6b">提示：</span>客流少时可增加时间，客流多时可减少时间。<br>
+								单张图片：500-3000毫秒（0.5-3秒），默认1000毫秒（1秒）<br>
+								单组展示：3000-10000毫秒（3-10秒），默认5000毫秒（5秒）
+							</div>
+						</div>
+						{/if}
 						{if getcustom('douyin_groupbuy')}
                         <div class="layui-form-item">
 							<label class="layui-form-label">抖音来客门店ID：</label>
@@ -727,6 +773,153 @@
 		</div>
   </div>
 	{include file="public/js"/}
+	<!-- 选片端URL管理脚本 -->
+	<script>
+	// 生成选片URL
+	function generateXpdUrl() {
+		var domain = window.location.protocol + '//' + window.location.host;
+		var aid = '{$_SERVER.aid}' || '1';
+		var bid = '{$_SERVER.bid}' || '0';
+		var mdid = document.querySelector('input[name="info[id]"]').value;
+		var template = document.querySelector('select[name="info[xpd_template]"]').value || 'template_1';
+		
+		if (mdid) {
+			var url = domain + '/xpd/index.html?aid=' + aid + '&bid=' + bid + '&mdid=' + mdid + '&template=' + template;
+			document.getElementById('xpd_url').value = url;
+		}
+	}
+	
+	// 复制URL
+	function copyXpdUrl() {
+		var url = document.getElementById('xpd_url').value;
+		
+		if (!url) {
+			layer.msg('请先保存门店信息生成URL');
+			return;
+		}
+		
+		// 复制到剪贴板
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			navigator.clipboard.writeText(url).then(function() {
+				layer.msg('复制成功');
+			}).catch(function() {
+				// 降级方案
+				fallbackCopyTextToClipboard(url);
+			});
+		} else {
+			// 降级方案
+			fallbackCopyTextToClipboard(url);
+		}
+	}
+	
+	// 降级复制方法
+	function fallbackCopyTextToClipboard(text) {
+		var textArea = document.createElement('textarea');
+		textArea.value = text;
+		textArea.style.position = 'fixed';
+		textArea.style.top = 0;
+		textArea.style.left = 0;
+		textArea.style.width = '2em';
+		textArea.style.height = '2em';
+		textArea.style.padding = 0;
+		textArea.style.border = 'none';
+		textArea.style.outline = 'none';
+		textArea.style.boxShadow = 'none';
+		textArea.style.background = 'transparent';
+		document.body.appendChild(textArea);
+		textArea.focus();
+		textArea.select();
+		
+		try {
+			var successful = document.execCommand('copy');
+			if (successful) {
+				layer.msg('复制成功');
+			} else {
+				layer.msg('复制失败，请手动复制');
+			}
+		} catch (err) {
+			layer.msg('复制失败，请手动复制');
+		}
+		
+		document.body.removeChild(textArea);
+	}
+	
+	// 预览选片页面
+	function previewXpdUrl() {
+		var url = document.getElementById('xpd_url').value;
+		
+		if (!url) {
+			layer.msg('请先保存门店信息生成URL');
+			return;
+		}
+		
+		window.open(url, '_blank');
+	}
+	
+	// 显示二维码
+	function showXpdQrcode() {
+		var url = document.getElementById('xpd_url').value;
+		
+		if (!url) {
+			layer.msg('请先保存门店信息生成URL');
+			return;
+		}
+		
+		layer.open({
+			type: 1,
+			title: '选片端二维码',
+			area: ['320px', '400px'],
+			content: '<div id="qrcode_container" style="padding:20px;text-align:center;"></div>',
+			success: function(layero, index) {
+				// 加载QRCode库
+				if (typeof QRCode === 'undefined') {
+					var script = document.createElement('script');
+					script.src = 'https://cdn.jsdelivr.net/npm/qrcodejs2@0.0.2/qrcode.min.js';
+					script.onload = function() {
+						generateQRCode(url);
+					};
+					document.head.appendChild(script);
+				} else {
+					generateQRCode(url);
+				}
+			}
+		});
+	}
+	
+	// 生成二维码
+	function generateQRCode(url) {
+		var container = document.getElementById('qrcode_container');
+		if (container) {
+			container.innerHTML = '';
+			new QRCode(container, {
+				text: url,
+				width: 256,
+				height: 256,
+				colorDark: '#000000',
+				colorLight: '#ffffff',
+				correctLevel: QRCode.CorrectLevel.H
+			});
+			
+			// 添加提示文字
+			var tip = document.createElement('div');
+			tip.style.cssText = 'margin-top:15px; font-size:14px; color:#666;';
+			tip.textContent = '扫描二维码访问选片页面';
+			container.appendChild(tip);
+		}
+	}
+	
+	// 页面加载时生成URL
+	$(document).ready(function() {
+		if (document.getElementById('xpd_url')) {
+			generateXpdUrl();
+			
+			// 监听模板选择器变化
+			layui.form.on('select(xpd_template)', function(data) {
+				generateXpdUrl();
+			});
+		}
+	});
+	</script>
 	<script charset="utf-8" src="https://map.qq.com/api/js?v=2.exp&key={$sysset_webinfo.map_key_qq}"></script>
 	{if $mendian_upgrade}
 	<script src="__STATIC__/admin/js/area.js"></script>
@@ -829,7 +1022,11 @@
         dialog(data.msg,data.status);
 				setTimeout(function(){
 					parent.layer.close(parent.layer.getFrameIndex(window.name));
-					parent.tableIns.reload()
+					parent.tableIns.reload();
+					// 如果是门店编辑页，刷新URL
+					if (document.getElementById('xpd_url')) {
+						generateXpdUrl();
+					}
 				},1000)
 			}else if(data.status == 2){
         layer.open({

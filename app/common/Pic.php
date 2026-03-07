@@ -318,4 +318,14 @@ class Pic
 			return ['status'=>1,'msg'=>''];
 		}
 	}
+	
+	/**
+	 * 删除OSS文件（别名方法，与deletepic功能相同）
+	 * @param string $picurl 图片URL
+	 * @return bool 删除成功返回true，失败返回false
+	 */
+	public static function deleteoss($picurl){
+		$result = self::deletepic($picurl);
+		return isset($result['status']) && $result['status'] == 1;
+	}
 }

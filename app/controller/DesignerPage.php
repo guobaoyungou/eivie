@@ -2177,6 +2177,102 @@ class DesignerPage extends Common
 			if(!$result) $result = [];
 			return $result;
 		}
+		// 查询图片生成场景模板
+		if(input('param.op') == 'selectPhotoGenTemplate'){
+			$where = [];
+			$where[] = ['aid','=',aid];
+			$where[] = ['generation_type','=',1];
+			$where[] = ['status','=',1];
+			if($_POST['kw']){
+				$where[] = ['template_name','like','%'.$_POST['kw'].'%'];
+			}
+			if($_POST['cid']){
+				$cid = intval($_POST['cid']);
+				if($cid > 0){
+					$where[] = ['category_id','=',$cid];
+				}
+			}
+			if($_POST['giddata']){
+				$_string = array();
+				foreach($_POST['giddata'] as $gid=>$istrue){
+					if($istrue=='true'){
+						if($gid == 'all'){
+							$_string[] = "1=1";
+						}elseif($gid == '0'){
+							$_string[] = "group_ids is null or group_ids=''";
+						}else{
+							$_string[] = "find_in_set({$gid},group_ids)";
+						}
+					}
+				}
+				if(!$_string){
+					$where2 = '0=1';
+				}else{
+					$where2 = implode(" or ",$_string);
+				}
+			}else{
+				$where2 = '1=1';
+			}
+			$order = 'sort desc';
+			if($_POST['sortby'] == 'sort') $order = 'sort desc,id desc';
+			if($_POST['sortby'] == 'createtimedesc') $order = 'create_time desc';
+			if($_POST['sortby'] == 'createtime') $order = 'create_time';
+			if($_POST['sortby'] == 'sales') $order = 'use_count desc,sort desc';
+			if($_POST['sortby'] == 'rand') $order = Db::raw('rand()');
+			$post_proshownum = 6;
+			if($_POST['proshownum'] > 0) $post_proshownum = intval($_POST['proshownum']);
+			$result = Db::name('generation_scene_template')->field('id as proid,template_name as name,cover_image as pic,base_price as sell_price,use_count as sales')->where($where)->where($where2)->order($order)->limit($post_proshownum)->select()->toArray();
+			if(!$result) $result = [];
+			return $result;
+		}
+		// 查询视频生成场景模板
+		if(input('param.op') == 'selectVideoGenTemplate'){
+			$where = [];
+			$where[] = ['aid','=',aid];
+			$where[] = ['generation_type','=',2];
+			$where[] = ['status','=',1];
+			if($_POST['kw']){
+				$where[] = ['template_name','like','%'.$_POST['kw'].'%'];
+			}
+			if($_POST['cid']){
+				$cid = intval($_POST['cid']);
+				if($cid > 0){
+					$where[] = ['category_id','=',$cid];
+				}
+			}
+			if($_POST['giddata']){
+				$_string = array();
+				foreach($_POST['giddata'] as $gid=>$istrue){
+					if($istrue=='true'){
+						if($gid == 'all'){
+							$_string[] = "1=1";
+						}elseif($gid == '0'){
+							$_string[] = "group_ids is null or group_ids=''";
+						}else{
+							$_string[] = "find_in_set({$gid},group_ids)";
+						}
+					}
+				}
+				if(!$_string){
+					$where2 = '0=1';
+				}else{
+					$where2 = implode(" or ",$_string);
+				}
+			}else{
+				$where2 = '1=1';
+			}
+			$order = 'sort desc';
+			if($_POST['sortby'] == 'sort') $order = 'sort desc,id desc';
+			if($_POST['sortby'] == 'createtimedesc') $order = 'create_time desc';
+			if($_POST['sortby'] == 'createtime') $order = 'create_time';
+			if($_POST['sortby'] == 'sales') $order = 'use_count desc,sort desc';
+			if($_POST['sortby'] == 'rand') $order = Db::raw('rand()');
+			$post_proshownum = 6;
+			if($_POST['proshownum'] > 0) $post_proshownum = intval($_POST['proshownum']);
+			$result = Db::name('generation_scene_template')->field('id as proid,template_name as name,cover_image as pic,base_price as sell_price,use_count as sales')->where($where)->where($where2)->order($order)->limit($post_proshownum)->select()->toArray();
+			if(!$result) $result = [];
+			return $result;
+		}
 
 
 	}

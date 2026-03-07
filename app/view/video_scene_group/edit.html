@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>视频场景分组设置</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+    <style>
+        .layui-imgbox .layui-imgbox-close{z-index: 6;}
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-card layui-col-md12">
+                <div class="layui-card-header">
+                    {if !$info['id']}<i class="fa fa-plus"></i> 添加视频场景分组{else}<i class="fa fa-pencil"></i> 编辑视频场景分组{/if}
+                    <i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer" onclick="closeself()"></i>
+                </div>
+                <div class="layui-card-body" pad15>
+                    <div class="layui-form form-label-w6" lay-filter="">
+                        <input type="hidden" name="info[id]" value="{$info.id}">
+                        
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">分组名称：</label>
+                            <div class="layui-input-inline">
+                                <input type="text" name="info[name]" value="{$info.name}" lay-verify="required" lay-verType="tips" autocomplete="off" class="layui-input" placeholder="请输入分组名称">
+                            </div>
+                            <div class="layui-form-mid layui-word-aux" style="margin-left:10px;">如：热门、推荐、新品</div>
+                        </div>
+                        
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">分组图标：</label>
+                            <button style="float:left;" type="button" class="layui-btn layui-btn-primary" upload-input="pic" upload-preview="picPreview" onclick="uploader(this)">上传图片</button>
+                            <div class="layui-form-mid layui-word-aux" style="margin-left:10px;">建议尺寸：200×200像素，可选</div>
+                            <div id="picPreview" class="picsList-class-padding">
+                                <div class="layui-imgbox imgbox-required">
+                                    <a {if $info['pic']}style="display: block;" {else /} style="display: none;" {/if} class="layui-imgbox-close" href="javascript:void(0)" onclick="$(this).parent().find('img').attr('src','').hide();getpicsval('pic','picPreview');$(this).hide();" title="删除"><i class="layui-icon layui-icon-close-fill-opaque"></i></a>
+                                    <div class="layui-imgbox">
+                                        <div class="layui-imgbox-img">
+                                            <img src="{$info.pic}"/>
+                                        </div>
+                                        <input autocomplete='off' type="text" id="pic" name="info[pic]" value="{$info['pic']}" style="cursor:default;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="layui-form-item layui-form-text">
+                            <label class="layui-form-label">描述说明：</label>
+                            <div class="layui-input-block">
+                                <textarea name="info[description]" class="layui-textarea" rows="3" placeholder="可选，简要描述该分组的用途">{$info.description|default=''}</textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">排序：</label>
+                            <div class="layui-input-inline">
+                                <input type="text" name="info[sort]" value="{$info.sort|default=0}" class="layui-input">
+                            </div>
+                            <div class="layui-form-mid layui-word-aux" style="margin-left:10px;">越大越靠前</div>
+                        </div>
+                        
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">状态：</label>
+                            <div class="layui-input-inline">
+                                <input type="radio" name="info[status]" value="1" title="启用" {if $info['status']==1 || !$info['id']}checked{/if}>
+                                <input type="radio" name="info[status]" value="0" title="禁用" {if $info['id'] && $info['status']==0}checked{/if}>
+                            </div>
+                        </div>
+                        
+                        <div class="layui-form-item">
+                            <div class="layui-input-block" style="margin-left:130px;">
+                                <button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {include file="public/js"/}
+    <script>
+    layui.form.on('submit(formsubmit)', function(obj){
+        var field = obj.field;
+        var index = layer.load();
+        $.post("{:url('save')}", field, function(data){
+            layer.close(index);
+            dialog(data.msg, data.status);
+            if(data.status == 1){
+                setTimeout(function(){
+                    parent.layer.closeAll();
+                    parent.renderTable();
+                }, 1000)
+            }
+        })
+    })
+    </script>
+    {include file="public/copyright"/}
+</body>
+</html>

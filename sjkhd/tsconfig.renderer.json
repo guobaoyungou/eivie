@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist/renderer",
+    "types": ["node"],
+    "jsx": "preserve"
+  },
+  "include": ["renderer/**/*"]
+}

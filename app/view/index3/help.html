@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>帮助中心 - {$webinfo.webname}</title>
+    {if $webinfo.ico}<link rel="shortcut icon" type="image/x-icon" href="{$webinfo.ico}">{/if}
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=1">
+    <script src="/static/index3/js/theme.js?v=1"></script>
+    <style>
+        .help-banner { background: var(--accent-light); padding: 48px 24px; text-align: center; border-radius: 16px; margin-bottom: 32px; }
+        .help-banner h1 { font-size: 24px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+        .help-banner p { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
+        .help-search { display: flex; gap: 8px; max-width: 480px; margin: 0 auto; }
+        .help-search input { flex: 1; height: 40px; border: 1px solid var(--border-color); border-radius: 20px; padding: 0 18px; background: var(--bg-card); color: var(--text-primary); font-size: 14px; outline: none; }
+        .help-search input:focus { border-color: var(--accent-color); }
+        .help-search button { padding: 0 24px; height: 40px; background: var(--accent-color); color: #fff; border: none; border-radius: 20px; font-size: 14px; cursor: pointer; }
+        .help-list { list-style: none; }
+        .help-item { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background .15s; border-radius: 8px; }
+        .help-item:hover { background: var(--hover-bg); }
+        .help-item .name { font-size: 14px; color: var(--text-primary); }
+        .help-item .arrow { color: var(--text-tertiary); }
+        .help-page { padding: 24px 0; text-align: center; }
+        .help-page a { display: inline-block; padding: 6px 14px; margin: 0 2px; border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-secondary); font-size: 13px; text-decoration: none; }
+        .help-page a:hover, .help-page .current { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
+        .help-section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary); }
+    </style>
+</head>
+<body>
+<div class="layout-wrapper">
+    {include file="index3/public/sidebar"/}
+    <div class="main-content">
+        {include file="index3/public/header"/}
+        <div class="page-content">
+            <div class="help-banner">
+                <h1>帮助中心</h1>
+                <p>我们与您一起成长！</p>
+                <div class="help-search">
+                    <input type="text" placeholder="请输入关键词搜索" id="keyword" value="{$Request.param.keyword}">
+                    <button onclick="goSearch()">搜索</button>
+                </div>
+            </div>
+
+            <div class="help-section-title">常见问题</div>
+            <ul class="help-list">
+                {foreach $list as $v}
+                <li class="help-item" onclick="location.href='{:url(\'helpdetail\')}/id/{$v.id}'">
+                    <span class="name">{$v.name}</span>
+                    <span class="arrow">›</span>
+                </li>
+                {/foreach}
+            </ul>
+            <div class="help-page">{$page|raw}</div>
+        </div>
+    </div>
+</div>
+{include file="index3/public/tabbar"/}
+<script src="/static/index3/js/api.js?v=1"></script>
+<script src="/static/index3/js/sidebar.js?v=1"></script>
+<script>
+function goSearch(){
+    var keyword = document.getElementById('keyword').value;
+    window.location.href = "{:url('help')}/keyword/" + keyword;
+}
+document.getElementById('keyword').addEventListener('keydown', function(e){
+    if(e.key === 'Enter') goSearch();
+});
+</script>
+</body>
+</html>

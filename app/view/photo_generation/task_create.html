@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>照片生成任务</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .model-card {
+      border: 2px solid #e6e6e6;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: #fff;
+    }
+    .model-card:hover {
+      border-color: #1E9FFF;
+      box-shadow: 0 2px 10px rgba(30,159,255,0.2);
+    }
+    .model-card.active {
+      border-color: #1E9FFF;
+      background: linear-gradient(135deg, #f0f9ff 0%, #fff 100%);
+    }
+    .model-card .model-name { font-size: 16px; font-weight: bold; color: #333; }
+    .model-card .model-provider { font-size: 12px; color: #999; margin-top: 5px; }
+    .model-card .api-status { float: right; font-size: 12px; }
+    .model-card .api-status.configured { color: #5FB878; }
+    .model-card .api-status.not-configured { color: #FF5722; }
+    
+    .capability-card {
+      border: 2px solid #e6e6e6; border-radius: 8px; padding: 12px; margin-bottom: 8px;
+      cursor: pointer; transition: all 0.3s; background: #fff;
+      display: inline-block; width: calc(50% - 8px); margin-right: 8px;
+      vertical-align: top; box-sizing: border-box;
+    }
+    .capability-card:nth-child(2n) { margin-right: 0; }
+    .capability-card:hover { border-color: #5FB878; box-shadow: 0 2px 8px rgba(95,184,120,0.2); }
+    .capability-card.active { border-color: #5FB878; background: linear-gradient(135deg, #f6ffed 0%, #fff 100%); }
+    .capability-card .cap-name { font-size: 14px; font-weight: bold; color: #333; margin-bottom: 4px; }
+    .capability-card .cap-desc { font-size: 12px; color: #999; line-height: 1.4; }
+    .capability-card .cap-icon { font-size: 24px; color: #5FB878; margin-bottom: 8px; }
+    
+    .param-form { background: #f7f7f7; padding: 20px; border-radius: 8px; margin-top: 15px; }
+    .param-form .layui-form-label { width: 120px; }
+    .param-form .layui-input-block { margin-left: 150px; }
+    
+    .section-title {
+      font-size: 14px; font-weight: bold; color: #333; padding: 10px 0 8px;
+      border-bottom: 1px solid #e6e6e6; margin-bottom: 15px; margin-top: 10px;
+    }
+    .section-title i { color: #1E9FFF; margin-right: 5px; }
+    
+    .example-box {
+      background: #fffbe6; border: 1px solid #ffe58f; border-radius: 6px;
+      padding: 15px; margin-top: 15px;
+    }
+    .example-box .example-title { font-weight: bold; color: #d48806; margin-bottom: 10px; }
+    .example-box .example-params {
+      font-size: 12px; color: #666; background: #fff;
+      padding: 10px; border-radius: 4px; font-family: monospace;
+    }
+    
+    .upload-box {
+      border: 2px dashed #d9d9d9; border-radius: 8px; padding: 30px;
+      text-align: center; cursor: pointer; transition: all 0.3s; background: #fafafa;
+    }
+    .upload-box:hover { border-color: #1E9FFF; }
+    .upload-box .upload-icon { font-size: 48px; color: #ccc; }
+    .upload-box .upload-text { color: #999; margin-top: 10px; }
+    
+    .multi-upload-preview { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    .multi-upload-preview .preview-item {
+      width: 90px; border-radius: 4px; overflow: visible;
+      position: relative; border: 1px solid #e6e6e6; background: #fff;
+    }
+    .multi-upload-preview .preview-item .preview-img {
+      width: 90px; height: 90px; border-radius: 4px 4px 0 0; overflow: hidden;
+    }
+    .multi-upload-preview .preview-item .preview-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .multi-upload-preview .preview-item .remove-btn {
+      position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.5);
+      color: #fff; width: 18px; height: 18px; border-radius: 50%; cursor: pointer;
+      font-size: 12px; line-height: 18px; text-align: center; z-index: 2;
+    }
+    .multi-upload-preview .preview-item .remove-btn:hover { background: rgba(255,0,0,0.7); }
+    .multi-upload-preview .preview-item .move-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      height: 24px; background: #f5f5f5; border-radius: 0 0 4px 4px;
+      border-top: 1px solid #e6e6e6;
+    }
+    .multi-upload-preview .preview-item .move-btn {
+      flex: 1; text-align: center; cursor: pointer; color: #999;
+      font-size: 14px; line-height: 24px; user-select: none; transition: all 0.15s;
+    }
+    .multi-upload-preview .preview-item .move-btn:hover { color: #1E9FFF; background: #e8f4ff; }
+    .multi-upload-preview .preview-item .move-btn.disabled { color: #ddd; cursor: not-allowed; }
+    .multi-upload-preview .preview-item .move-btn.disabled:hover { color: #ddd; background: transparent; }
+    .multi-upload-preview .preview-item.dragging { opacity: 0.4; }
+    .multi-upload-preview .preview-item.drag-over { border-color: #1E9FFF; box-shadow: 0 0 8px rgba(30,159,255,0.4); }
+    .multi-upload-preview .preview-item .img-index {
+      position: absolute; top: 2px; left: 2px; background: rgba(0,0,0,0.5);
+      color: #fff; width: 18px; height: 18px; border-radius: 50%;
+      font-size: 11px; line-height: 18px; text-align: center; z-index: 2;
+    }
+    .multi-upload-preview .add-btn {
+      width: 90px; height: 114px; border: 2px dashed #d9d9d9; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 24px; color: #ccc; flex-direction: column;
+    }
+    .multi-upload-preview .add-btn:hover { border-color: #1E9FFF; color: #1E9FFF; }
+    .multi-upload-preview .add-btn .add-text { font-size: 11px; margin-top: 4px; }
+    
+    .step-indicator {
+      display: flex; margin-bottom: 20px; padding: 15px;
+      background: #f0f5ff; border-radius: 8px;
+    }
+    .step-indicator .step { flex: 1; text-align: center; position: relative; }
+    .step-indicator .step:not(:last-child)::after {
+      content: '\2192'; position: absolute; right: 0; top: 50%;
+      transform: translateY(-50%); color: #ccc; font-size: 16px;
+    }
+    .step-indicator .step .step-num {
+      width: 24px; height: 24px; background: #ccc; color: #fff;
+      border-radius: 50%; display: inline-block; line-height: 24px;
+      font-size: 12px; margin-bottom: 5px;
+    }
+    .step-indicator .step.active .step-num { background: #1E9FFF; }
+    .step-indicator .step.done .step-num { background: #5FB878; }
+    .step-indicator .step .step-text { font-size: 12px; color: #999; }
+    .step-indicator .step.active .step-text { color: #1E9FFF; font-weight: bold; }
+    .step-indicator .step.done .step-text { color: #5FB878; }
+    
+    /* 模板选择器 */
+    .template-selector { margin-bottom: 15px; }
+    .template-search { margin-bottom: 10px; }
+    .template-scroll {
+      overflow-x: auto; white-space: nowrap; padding: 5px 0;
+      -webkit-overflow-scrolling: touch;
+    }
+    .template-scroll::-webkit-scrollbar { height: 4px; }
+    .template-scroll::-webkit-scrollbar-thumb { background: #d9d9d9; border-radius: 2px; }
+    .template-card {
+      display: inline-block; width: 120px; margin-right: 10px;
+      border: 2px solid #e6e6e6; border-radius: 8px; padding: 8px;
+      cursor: pointer; transition: all 0.3s; background: #fff;
+      white-space: normal; vertical-align: top; text-align: center;
+    }
+    .template-card:hover { border-color: #1E9FFF; box-shadow: 0 2px 8px rgba(30,159,255,0.15); }
+    .template-card.active { border-color: #1E9FFF; background: #f0f9ff; }
+    .template-card img {
+      width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 4px;
+      display: block; margin: 0 auto 6px;
+    }
+    .template-card .tpl-name {
+      font-size: 12px; color: #333; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px;
+    }
+    .template-card .tpl-count { font-size: 11px; color: #999; }
+    
+    /* Pill/Chip 选择器 */
+    .pill-selector-wrap { margin-bottom: 15px; }
+    .pill-selector-label {
+      font-size: 14px; color: #333; margin-bottom: 8px;
+      font-weight: normal; display: block;
+    }
+    .pill-selector-label .required-star { color: red; margin-left: 2px; }
+    .pill-selector {
+      overflow-x: auto; white-space: nowrap; padding: 2px 0;
+      -webkit-overflow-scrolling: touch;
+    }
+    .pill-selector::-webkit-scrollbar { height: 4px; }
+    .pill-selector::-webkit-scrollbar-thumb { background: #d9d9d9; border-radius: 2px; }
+    .pill-item {
+      display: inline-block; padding: 6px 16px; border-radius: 20px;
+      border: 1px solid #e6e6e6; background: #fff; color: #666;
+      font-size: 13px; cursor: pointer; transition: all 0.2s;
+      margin-right: 8px; user-select: none;
+    }
+    .pill-item:hover { border-color: #1E9FFF; }
+    .pill-item.active {
+      background: #1E9FFF; color: #fff; border-color: #1E9FFF;
+    }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <!-- 步骤指示器 -->
+    <div class="step-indicator">
+      <div class="step" id="step1" data-step="1">
+        <div class="step-num">1</div>
+        <div class="step-text">选择模型</div>
+      </div>
+      <div class="step" id="step2" data-step="2">
+        <div class="step-num">2</div>
+        <div class="step-text">选择能力类型</div>
+      </div>
+      <div class="step" id="step3" data-step="3">
+        <div class="step-num">3</div>
+        <div class="step-text">填写参数</div>
+      </div>
+    </div>
+    
+    <div class="layui-row layui-col-space15">
+      <!-- 左侧：模型选择和能力选择 -->
+      <div class="layui-col-md4">
+        <div class="layui-card">
+          <div class="layui-card-header">
+            <i class="layui-icon layui-icon-template"></i> 选择模型
+          </div>
+          <div class="layui-card-body" style="max-height:400px;overflow-y:auto">
+            {volist name="models" id="model"}
+            <div class="model-card" data-model-id="{$model.id}" data-api-configured="{$model.api_key_configured}">
+              <span class="api-status {if $model.api_key_configured}configured{else}not-configured{/if}">
+                {if $model.api_key_configured}<i class="layui-icon layui-icon-ok"></i> 已配置{else}<i class="layui-icon layui-icon-close"></i> 未配置API Key{/if}
+              </span>
+              <div class="model-name">{$model.model_name}</div>
+              <div class="model-provider">{$model.provider_name} · {$model.type_name}</div>
+            </div>
+            {/volist}
+            {if empty($models)}
+            <div style="text-align:center;padding:50px 0;color:#999">
+              <i class="layui-icon layui-icon-face-cry" style="font-size:48px"></i>
+              <p style="margin-top:10px">暂无可用的图片生成模型</p>
+              <p style="font-size:12px">请先在模型广场中添加图片生成类型的模型</p>
+            </div>
+            {/if}
+          </div>
+        </div>
+        
+        <!-- 能力类型选择 -->
+        <div class="layui-card" style="margin-top:15px" id="capabilityPanel" style="display:none">
+          <div class="layui-card-header">
+            <i class="layui-icon layui-icon-fire"></i> 选择能力类型
+            <span class="layui-badge layui-bg-green" style="float:right" id="capabilityCount">0种能力</span>
+          </div>
+          <div class="layui-card-body" id="capabilityContainer">
+            <div style="text-align:center;padding:30px 0;color:#999;font-size:12px">
+              请先选择模型
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 右侧：参数配置 -->
+      <div class="layui-col-md8">
+        <div class="layui-card">
+          <div class="layui-card-header">
+            <i class="layui-icon layui-icon-edit"></i> 参数配置
+            <span id="selectedInfo" style="margin-left:10px;color:#1E9FFF"></span>
+          </div>
+          <div class="layui-card-body">
+            <form class="layui-form" lay-filter="taskForm">
+              <input type="hidden" name="model_id" id="modelId" value="">
+              <input type="hidden" name="scene_id" id="sceneId" value="">
+              <input type="hidden" name="capability_type" id="capabilityType" value="">
+              
+              <div id="paramContainer">
+                <div style="text-align:center;padding:80px 0;color:#999">
+                  <i class="layui-icon layui-icon-left" style="font-size:36px"></i>
+                  <p style="margin-top:10px">请先选择左侧的模型和能力类型</p>
+                </div>
+              </div>
+              
+              <div id="submitArea" style="display:none;margin-top:20px;text-align:center">
+                <button type="submit" class="layui-btn layui-btn-lg layui-btn-normal" lay-submit lay-filter="submitTask">
+                  <i class="layui-icon layui-icon-release"></i> 提交生成任务
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  var form = layui.form;
+  var modelsData = {$models_json|raw};
+  var currentModelId = 0;
+  var currentCapabilityType = 0;
+  var currentCapabilities = [];
+  var currentFormSchema = null;
+  var currentSelectedTemplate = null;
+  var uploadedImages = {};
+  
+  // 固定选项定义
+  var RATIO_OPTIONS = ['2:3','3:2','3:4','4:3','9:16','16:9','4:5','5:4','21:9'];
+  var QUALITY_OPTIONS = [
+    {value: 'standard', label: '标准'},
+    {value: 'hd', label: '高清'},
+    {value: 'uhd', label: '超清'}
+  ];
+  var COUNT_OPTIONS = [1,2,3,4,5,6,7,8,9];
+  
+  // 更新步骤指示器
+  function updateStepIndicator(step) {
+    $('.step-indicator .step').removeClass('active done');
+    for (var i = 1; i <= 3; i++) {
+      var $step = $('#step' + i);
+      if (i < step) $step.addClass('done');
+      else if (i == step) $step.addClass('active');
+    }
+  }
+  
+  // 选择模型
+  $('.model-card').click(function() {
+    var modelId = $(this).data('model-id');
+    var apiConfigured = $(this).data('api-configured');
+    if (!apiConfigured) { layer.msg('该模型的API Key未配置，请先在API Key配置中添加'); return; }
+    $('.model-card').removeClass('active');
+    $(this).addClass('active');
+    currentModelId = modelId;
+    $('#modelId').val(modelId);
+    $('#capabilityType').val('');
+    currentCapabilityType = 0;
+    currentSelectedTemplate = null;
+    $('#capabilityContainer').html('<div style="text-align:center;padding:30px"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop" style="font-size:30px"></i></div>');
+    $('#paramContainer').html('<div style="text-align:center;padding:80px 0;color:#999"><p>正在加载能力列表...</p></div>');
+    $('#submitArea').hide();
+    updateStepIndicator(1);
+    loadModelCapabilities(modelId);
+  });
+  
+  // 加载模型能力列表
+  function loadModelCapabilities(modelId) {
+    $.get("{:url('get_model_capabilities')}", {model_id: modelId}, function(res) {
+      if (res.status == 1) {
+        currentCapabilities = res.data.capabilities;
+        $('#capabilityCount').text(currentCapabilities.length + '种能力');
+        $('#selectedInfo').text(res.data.model_name);
+        renderCapabilityCards(currentCapabilities);
+        updateStepIndicator(2);
+        if (currentCapabilities.length > 0) {
+          setTimeout(function() { $('.capability-card').first().click(); }, 100);
+        }
+      } else {
+        $('#capabilityContainer').html('<div style="text-align:center;padding:30px;color:#FF5722">' + (res.msg || '加载失败') + '</div>');
+        $('#paramContainer').html('<div style="text-align:center;padding:80px 0;color:#999"><p>请先选择左侧的模型和能力类型</p></div>');
+      }
+    }).fail(function(xhr) {
+      $('#capabilityContainer').html('<div style="text-align:center;padding:30px;color:#FF5722">请求失败(' + xhr.status + ')，请刷新重试</div>');
+      $('#paramContainer').html('<div style="text-align:center;padding:80px 0;color:#FF5722"><p>加载能力列表失败</p></div>');
+    });
+  }
+  
+  // 渲染能力卡片
+  function renderCapabilityCards(capabilities) {
+    if (capabilities.length === 0) {
+      $('#capabilityContainer').html('<div style="text-align:center;padding:30px;color:#999">该模型暂无支持的能力类型</div>');
+      return;
+    }
+    var html = '';
+    var iconMap = {1:'✍️',2:'🖼️',3:'🔄',4:'🎭',5:'🎨',6:'✨'};
+    capabilities.forEach(function(cap) {
+      html += '<div class="capability-card" data-type="' + cap.type + '">';
+      html += '<div class="cap-icon">' + (iconMap[cap.type] || '📷') + '</div>';
+      html += '<div class="cap-name">' + cap.name + '</div>';
+      html += '<div class="cap-desc">' + cap.description + '</div>';
+      html += '</div>';
+    });
+    $('#capabilityContainer').html(html);
+    $('.capability-card').click(function() {
+      var capType = $(this).data('type');
+      $('.capability-card').removeClass('active');
+      $(this).addClass('active');
+      currentCapabilityType = capType;
+      $('#capabilityType').val(capType);
+      currentSelectedTemplate = null;
+      updateStepIndicator(3);
+      loadCapabilityForm(currentModelId, capType);
+    });
+  }
+  
+  // 加载能力表单
+  function loadCapabilityForm(modelId, capabilityType) {
+    var index = layer.load();
+    $.get("{:url('get_capability_form_schema')}", {model_id: modelId, capability_type: capabilityType}, function(res) {
+      layer.close(index);
+      if (res.status == 1) {
+        currentFormSchema = res.data;
+        var capName = '';
+        currentCapabilities.forEach(function(cap) { if (cap.type == capabilityType) capName = cap.name; });
+        $('#selectedInfo').text(res.data.model_name + ' > ' + capName);
+        renderCapabilityForm(res.data);
+        $('#submitArea').show();
+      } else { layer.msg(res.msg || '加载失败'); }
+    }).fail(function(xhr) {
+      layer.close(index);
+      layer.msg('加载表单失败(' + xhr.status + ')，请刷新重试', {icon: 2});
+      $('#paramContainer').html('<div style="text-align:center;padding:80px 0;color:#FF5722"><i class="layui-icon layui-icon-face-cry" style="font-size:36px"></i><p style="margin-top:10px">加载参数配置失败，请刷新页面重试</p></div>');
+    });
+  }
+  
+  // ===========================================================
+  // 渲染能力表单（核心重构）
+  // ===========================================================
+  function renderCapabilityForm(data) {
+    var requiredFields = data.required_fields || [];
+    var optionalFields = data.optional_fields || [];
+    var defaultExample = data.default_example;
+    var templates = data.templates || [];
+    var capType = data.capability_type;
+    uploadedImages = {};
+    
+    // 预分类字段：将参考图(upload)、提示词(prompt)从 required/optional 中提取出来
+    var uploadFields = [];   // 参考图（上传类字段）
+    var promptField = null;  // 提示词
+    var otherRequired = [];  // 其他必填
+    var otherOptional = [];  // 其他可选
+    
+    requiredFields.forEach(function(field) {
+      if (field.name === 'prompt') {
+        promptField = field;
+      } else if (field.type === 'upload_single' || field.type === 'upload_multi') {
+        uploadFields.push(field);
+      } else {
+        otherRequired.push(field);
+      }
+    });
+    optionalFields.forEach(function(field) {
+      if (!promptField && field.name === 'prompt') {
+        promptField = field;
+      } else if (field.type === 'upload_single' || field.type === 'upload_multi') {
+        uploadFields.push(field);
+      } else {
+        otherOptional.push(field);
+      }
+    });
+    // 兜底：若后端未返回 prompt 字段，手动补一个
+    if (!promptField) {
+      promptField = { name: 'prompt', label: '提示词', type: 'textarea', required: true, default: '', placeholder: '请输入图像描述，如：一只可爱的橘猫坐在阳光下的窗台上', height: 120 };
+    }
+    
+    var html = '<div class="param-form">';
+    
+    // ① 模板选择器
+    if (templates.length > 0) {
+      html += '<div class="template-selector">';
+      html += '<div class="section-title"><i class="layui-icon layui-icon-template-1"></i> 选择模板 <span style="font-size:12px;color:#999;font-weight:normal">（可选，选择后自动填充参数）</span></div>';
+      html += '<div class="template-search"><input type="text" id="templateSearchInput" class="layui-input" placeholder="搜索模板名称..." style="height:32px;font-size:12px"></div>';
+      html += '<div class="template-scroll" id="templateScroll">';
+      templates.forEach(function(tpl) {
+        var cover = tpl.cover_image || '/static/images/default_cover.png';
+        html += '<div class="template-card" data-tpl-id="' + tpl.id + '" data-output-quantity="' + (tpl.output_quantity || 1) + '" data-default-params="' + encodeURIComponent(JSON.stringify(tpl.default_params || '{}')) + '" data-prompt="' + encodeURIComponent(tpl.prompt || '') + '">';
+        html += '<img src="' + cover + '" onerror="this.src=\'/static/images/default_cover.png\'">';
+        html += '<div class="tpl-name" title="' + (tpl.template_name || '') + '">' + (tpl.template_name || '未命名') + '</div>';
+        html += '<div class="tpl-count">使用 ' + (tpl.use_count || 0) + ' 次</div>';
+        html += '</div>';
+      });
+      html += '</div></div>';
+    }
+    
+    // ② 参考图（upload 类字段）放在提示词上方
+    if (uploadFields.length > 0) {
+      html += '<div class="section-title"><i class="layui-icon layui-icon-picture"></i> 参考图</div>';
+      uploadFields.forEach(function(field) {
+        html += renderFormField(field);
+      });
+    }
+    
+    // ③ 提示词
+    html += '<div class="section-title"><i class="layui-icon layui-icon-edit"></i> 提示词</div>';
+    html += renderFormField(promptField);
+    
+    // ④ 生成数量 pill_selector（仅能力 2/4/6）
+    if ([2,4,6].indexOf(capType) >= 0) {
+      var defaultCount = 1;
+      html += '<div class="pill-selector-wrap" id="countSelectorWrap">';
+      html += '<span class="pill-selector-label">生成数量<span class="required-star">*</span></span>';
+      html += '<div class="pill-selector" id="countSelector">';
+      COUNT_OPTIONS.forEach(function(n) {
+        var cls = (n === defaultCount) ? 'pill-item active' : 'pill-item';
+        html += '<span class="' + cls + '" data-value="' + n + '">' + n + '</span>';
+      });
+      html += '</div>';
+      html += '<input type="hidden" name="params[max_images]" id="maxImagesInput" value="' + defaultCount + '">';
+      html += '</div>';
+    }
+    
+    // ⑤ 输出比例 pill_selector
+    html += '<div class="pill-selector-wrap">';
+    html += '<span class="pill-selector-label">输出比例</span>';
+    html += '<div class="pill-selector" id="ratioSelector">';
+    RATIO_OPTIONS.forEach(function(r, i) {
+      var cls = (i === 0) ? 'pill-item active' : 'pill-item';
+      html += '<span class="' + cls + '" data-value="' + r + '">' + r + '</span>';
+    });
+    html += '</div>';
+    html += '<input type="hidden" name="params[ratio]" id="ratioInput" value="' + RATIO_OPTIONS[0] + '">';
+    html += '</div>';
+    
+    // ⑥ 输出质量 pill_selector
+    html += '<div class="pill-selector-wrap">';
+    html += '<span class="pill-selector-label">输出质量</span>';
+    html += '<div class="pill-selector" id="qualitySelector">';
+    QUALITY_OPTIONS.forEach(function(q, i) {
+      var cls = (i === 0) ? 'pill-item active' : 'pill-item';
+      html += '<span class="' + cls + '" data-value="' + q.value + '">' + q.label + '</span>';
+    });
+    html += '</div>';
+    html += '<input type="hidden" name="params[quality]" id="qualityInput" value="' + QUALITY_OPTIONS[0].value + '">';
+    html += '</div>';
+    
+    // ⑦ 其他必填参数区
+    if (otherRequired.length > 0) {
+      html += '<div class="section-title"><i class="layui-icon layui-icon-set"></i> 其他必填参数</div>';
+      otherRequired.forEach(function(field) {
+        html += renderFormField(field);
+      });
+    }
+    
+    // ⑧ 可选参数区
+    if (otherOptional.length > 0) {
+      html += '<div class="section-title"><i class="layui-icon layui-icon-slider"></i> 可选参数 <span style="font-size:12px;color:#999;font-weight:normal">（根据需要调整）</span></div>';
+      otherOptional.forEach(function(field) {
+        html += renderFormField(field);
+      });
+    }
+    
+    // 示例卡片
+    if (defaultExample) {
+      html += '<div class="example-box">';
+      html += '<div class="example-title">💡 调用示例：' + defaultExample.name + '</div>';
+      html += '<div style="font-size:12px;color:#666;margin-bottom:10px">' + (defaultExample.description || '') + '</div>';
+      html += '<div class="example-params">';
+      if (defaultExample.params) {
+        for (var key in defaultExample.params) {
+          var val = defaultExample.params[key];
+          if (typeof val === 'object') val = JSON.stringify(val);
+          html += '<div><b>' + key + '</b>: ' + val + '</div>';
+        }
+      }
+      html += '</div>';
+      if (defaultExample.notes) html += '<div style="font-size:12px;color:#d48806;margin-top:10px">⚠️ ' + defaultExample.notes + '</div>';
+      html += '<button type="button" class="layui-btn layui-btn-sm layui-btn-warm" style="margin-top:10px" onclick="applyExample()"><i class="layui-icon layui-icon-edit"></i> 使用此示例</button>';
+      html += '</div>';
+    }
+    
+    html += '</div>';
+    $('#paramContainer').html(html);
+    form.render();
+    
+    // 绑定 pill 选择器事件
+    bindPillSelector('#countSelector', '#maxImagesInput');
+    bindPillSelector('#ratioSelector', '#ratioInput');
+    bindPillSelector('#qualitySelector', '#qualityInput');
+    
+    // 绑定模板选择事件
+    bindTemplateSelector();
+  }
+  
+  // 渲染单个表单字段
+  function renderFormField(field) {
+    var html = '<div class="layui-form-item">';
+    html += '<label class="layui-form-label">' + field.label + (field.required ? '<span style="color:red">*</span>' : '') + '</label>';
+    html += '<div class="layui-input-block">';
+    var value = (field.default !== undefined && field.default !== null) ? field.default : '';
+    
+    switch (field.type) {
+      case 'textarea':
+        var height = field.height || 120;
+        html += '<textarea name="params[' + field.name + ']" class="layui-textarea" style="height:' + height + 'px" placeholder="' + (field.placeholder || '') + '">' + value + '</textarea>';
+        break;
+      case 'upload_single':
+        html += '<div class="upload-box" data-field="' + field.name + '" onclick="uploadSingleImage(\'' + field.name + '\')"><div class="upload-icon"><i class="layui-icon layui-icon-upload-drag"></i></div><div class="upload-text">点击或拖拽上传参考图片</div></div>';
+        html += '<div id="preview_' + field.name + '" style="margin-top:10px"></div>';
+        html += '<input type="hidden" name="params[' + field.name + ']" id="input_' + field.name + '" value="">';
+        break;
+      case 'upload_multi':
+        var maxCount = field.max_count || 10;
+        html += '<div class="multi-upload-preview" id="preview_' + field.name + '" data-max="' + maxCount + '"><div class="add-btn" onclick="addMultiImage(\'' + field.name + '\')">+<span class="add-text">批量上传</span></div></div>';
+        html += '<div style="font-size:12px;color:#999;margin-top:5px">最多上传 ' + maxCount + ' 张图片</div>';
+        html += '<input type="hidden" name="params[' + field.name + ']" id="input_' + field.name + '" value="">';
+        break;
+      case 'number':
+        var min = field.range ? (field.range.min !== undefined ? field.range.min : '') : '';
+        var max = field.range ? (field.range.max !== undefined ? field.range.max : '') : '';
+        var step = (typeof value === 'number' && String(value).indexOf('.') >= 0) ? '0.01' : '1';
+        html += '<input type="number" name="params[' + field.name + ']" class="layui-input" value="' + value + '"';
+        if (min !== '') html += ' min="' + min + '"';
+        if (max !== '') html += ' max="' + max + '"';
+        html += ' step="' + step + '" placeholder="' + (field.placeholder || '') + '">';
+        break;
+      case 'select':
+        html += '<select name="params[' + field.name + ']">';
+        if (field.options) {
+          field.options.forEach(function(opt) {
+            var optVal = (typeof opt === 'object') ? opt.value : opt;
+            var optLabel = (typeof opt === 'object') ? opt.label : opt;
+            var selected = (String(value) == String(optVal)) ? 'selected' : '';
+            html += '<option value="' + optVal + '" ' + selected + '>' + optLabel + '</option>';
+          });
+        }
+        html += '</select>';
+        break;
+      case 'switch':
+        var checked = value ? 'checked' : '';
+        html += '<input type="checkbox" name="params[' + field.name + ']" lay-skin="switch" lay-text="是|否" value="1" ' + checked + '>';
+        break;
+      case 'tag_input':
+        html += '<input type="text" name="params[' + field.name + ']" class="layui-input" value="' + (Array.isArray(value) ? value.join(',') : value) + '" placeholder="' + (field.placeholder || '多个值用英文逗号分隔') + '">';
+        break;
+      default:
+        html += '<input type="text" name="params[' + field.name + ']" class="layui-input" value="' + value + '" placeholder="' + (field.placeholder || '') + '">';
+    }
+    html += '</div></div>';
+    return html;
+  }
+  
+  // Pill 选择器绑定
+  function bindPillSelector(containerSel, hiddenInputSel) {
+    $(containerSel).off('click', '.pill-item').on('click', '.pill-item', function() {
+      $(this).siblings('.pill-item').removeClass('active');
+      $(this).addClass('active');
+      $(hiddenInputSel).val($(this).data('value'));
+    });
+  }
+  
+  // 模板选择器绑定
+  function bindTemplateSelector() {
+    // 搜索筛选
+    $('#templateSearchInput').on('input', function() {
+      var kw = $(this).val().toLowerCase();
+      $('#templateScroll .template-card').each(function() {
+        var name = $(this).find('.tpl-name').text().toLowerCase();
+        $(this).toggle(name.indexOf(kw) >= 0 || kw === '');
+      });
+    });
+    // 点击选择模板
+    $('#templateScroll').off('click', '.template-card').on('click', '.template-card', function() {
+      var $card = $(this);
+      var wasActive = $card.hasClass('active');
+      $('#templateScroll .template-card').removeClass('active');
+      if (wasActive) {
+        currentSelectedTemplate = null;
+        return;
+      }
+      $card.addClass('active');
+      var tplId = $card.data('tpl-id');
+      var outputQty = parseInt($card.data('output-quantity')) || 1;
+      var defaultParamsStr = decodeURIComponent($card.data('default-params') || '{}');
+      var prompt = decodeURIComponent($card.data('prompt') || '');
+      currentSelectedTemplate = { id: tplId, output_quantity: outputQty };
+      
+      // 填充模板参数
+      var params = {};
+      try { params = typeof defaultParamsStr === 'string' ? JSON.parse(defaultParamsStr) : defaultParamsStr; } catch(e) {}
+      if (typeof params === 'string') { try { params = JSON.parse(params); } catch(e) { params = {}; } }
+      
+      // 填充 prompt
+      if (prompt) {
+        $('[name="params[prompt]"]').val(prompt);
+      } else if (params.prompt) {
+        $('[name="params[prompt]"]').val(params.prompt);
+      }
+      // 填充其他参数
+      for (var key in params) {
+        if (key === 'prompt') continue;
+        var $input = $('[name="params[' + key + ']"]');
+        if ($input.length) {
+          var val = params[key];
+          if (typeof val === 'object') val = JSON.stringify(val);
+          if ($input.is('select') || $input.is('input') || $input.is('textarea')) {
+            $input.val(val);
+          }
+        }
+      }
+      
+      // 更新生成数量 pill 默认值
+      if ($('#countSelector').length) {
+        $('#countSelector .pill-item').removeClass('active');
+        $('#countSelector .pill-item').each(function() {
+          if (parseInt($(this).data('value')) === outputQty) {
+            $(this).addClass('active');
+            $('#maxImagesInput').val(outputQty);
+          }
+        });
+        // 若未找到对应值，默认选中1
+        if ($('#countSelector .pill-item.active').length === 0) {
+          $('#countSelector .pill-item').first().addClass('active');
+          $('#maxImagesInput').val(1);
+        }
+      }
+      
+      form.render();
+      layer.msg('已应用模板: ' + $card.find('.tpl-name').text());
+    });
+  }
+  
+  // 应用示例参数
+  function applyExample() {
+    if (!currentFormSchema || !currentFormSchema.default_example) return;
+    var params = currentFormSchema.default_example.params;
+    for (var key in params) {
+      var val = params[key];
+      if (typeof val === 'object') val = JSON.stringify(val);
+      var $input = $('[name="params[' + key + ']"]');
+      if ($input.length) {
+        if ($input.is('textarea') || $input.is('input[type="text"]') || $input.is('input[type="number"]') || $input.is('input[type="hidden"]')) $input.val(val);
+        else if ($input.is('select')) $input.val(val);
+        else if ($input.is('input[type="checkbox"]')) $input.prop('checked', !!val);
+      }
+    }
+    form.render();
+    layer.msg('已应用示例参数');
+  }
+  
+  // 单图上传
+  function uploadSingleImage(fieldName) {
+    fileUploader.show(function(imageObj) {
+      $('#input_' + fieldName).val(imageObj.url);
+      $('#preview_' + fieldName).html('<div style="display:flex;align-items:center"><img src="' + imageObj.url + '" style="width:100px;height:100px;object-fit:cover;border-radius:4px;margin-right:10px"><span style="color:#5FB878">✓ 已上传</span></div>');
+      $('.upload-box[data-field="' + fieldName + '"]').hide();
+    }, { type: 'image', multi: false, tabs: { 'browser': 'active' } });
+  }
+  
+  // 多图上传（支持批量选择多张）
+  function addMultiImage(fieldName) {
+    if (!uploadedImages[fieldName]) uploadedImages[fieldName] = [];
+    var $preview = $('#preview_' + fieldName);
+    var maxCount = parseInt($preview.data('max')) || 10;
+    var currentCount = uploadedImages[fieldName].length;
+    if (currentCount >= maxCount) { layer.msg('最多上传 ' + maxCount + ' 张图片'); return; }
+    fileUploader.show(function(imageArr) {
+      // multi:true 时 callback 返回数组
+      if (!Array.isArray(imageArr)) imageArr = [imageArr];
+      var remaining = maxCount - uploadedImages[fieldName].length;
+      var toAdd = imageArr.slice(0, remaining);
+      toAdd.forEach(function(img) {
+        if (img && img.url) uploadedImages[fieldName].push(img.url);
+      });
+      if (imageArr.length > remaining) {
+        layer.msg('最多上传 ' + maxCount + ' 张，已自动截取前 ' + remaining + ' 张');
+      }
+      updateMultiPreview(fieldName);
+    }, { type: 'image', multi: true, tabs: { 'browser': 'active' } });
+  }
+  function updateMultiPreview(fieldName) {
+    var images = uploadedImages[fieldName] || [];
+    var $preview = $('#preview_' + fieldName);
+    var maxCount = parseInt($preview.data('max')) || 10;
+    var total = images.length;
+    var html = '';
+    images.forEach(function(url, index) {
+      var leftDisabled = (index === 0) ? ' disabled' : '';
+      var rightDisabled = (index === total - 1) ? ' disabled' : '';
+      html += '<div class="preview-item" draggable="true" data-field="' + fieldName + '" data-index="' + index + '">';
+      html += '<span class="img-index">' + (index + 1) + '</span>';
+      html += '<div class="remove-btn" onclick="removeMultiImage(\'' + fieldName + '\', ' + index + ')">×</div>';
+      html += '<div class="preview-img"><img src="' + url + '"></div>';
+      html += '<div class="move-bar">';
+      html += '<span class="move-btn' + leftDisabled + '" onclick="moveMultiImage(\'' + fieldName + '\', ' + index + ', -1)" title="左移">◀</span>';
+      html += '<span class="move-btn' + rightDisabled + '" onclick="moveMultiImage(\'' + fieldName + '\', ' + index + ', 1)" title="右移">▶</span>';
+      html += '</div>';
+      html += '</div>';
+    });
+    if (images.length < maxCount) {
+      html += '<div class="add-btn" onclick="addMultiImage(\'' + fieldName + '\')">+<span class="add-text">批量上传</span></div>';
+    }
+    $preview.html(html);
+    $('#input_' + fieldName).val(images.join(','));
+  }
+  // ===== 拖拽排序 =====
+  var dragState = { fieldName: null, fromIndex: null };
+  $(document).on('dragstart', '.multi-upload-preview .preview-item[draggable]', function(e) {
+    dragState.fieldName = $(this).data('field');
+    dragState.fromIndex = parseInt($(this).data('index'));
+    $(this).addClass('dragging');
+    e.originalEvent.dataTransfer.effectAllowed = 'move';
+    e.originalEvent.dataTransfer.setData('text/plain', dragState.fromIndex);
+  });
+  $(document).on('dragover', '.multi-upload-preview .preview-item[draggable]', function(e) {
+    e.preventDefault();
+    e.originalEvent.dataTransfer.dropEffect = 'move';
+  });
+  $(document).on('dragenter', '.multi-upload-preview .preview-item[draggable]', function(e) {
+    e.preventDefault();
+    $(this).addClass('drag-over');
+  });
+  $(document).on('dragleave', '.multi-upload-preview .preview-item[draggable]', function() {
+    $(this).removeClass('drag-over');
+  });
+  $(document).on('drop', '.multi-upload-preview .preview-item[draggable]', function(e) {
+    e.preventDefault();
+    $(this).removeClass('drag-over');
+    var toIndex = parseInt($(this).data('index'));
+    var fn = dragState.fieldName;
+    var from = dragState.fromIndex;
+    if (fn && from !== null && from !== toIndex && uploadedImages[fn]) {
+      var images = uploadedImages[fn];
+      var moved = images.splice(from, 1)[0];
+      images.splice(toIndex, 0, moved);
+      updateMultiPreview(fn);
+    }
+  });
+  $(document).on('dragend', '.multi-upload-preview .preview-item[draggable]', function() {
+    $(this).removeClass('dragging');
+    $('.multi-upload-preview .preview-item').removeClass('drag-over');
+    dragState = { fieldName: null, fromIndex: null };
+  });
+
+  // 移动图片顺序（direction: -1=左移, 1=右移）
+  function moveMultiImage(fieldName, index, direction) {
+    var images = uploadedImages[fieldName];
+    if (!images) return;
+    var newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= images.length) return;
+    // 交换位置
+    var temp = images[index];
+    images[index] = images[newIndex];
+    images[newIndex] = temp;
+    updateMultiPreview(fieldName);
+  }
+  function removeMultiImage(fieldName, index) {
+    if (uploadedImages[fieldName]) { uploadedImages[fieldName].splice(index, 1); updateMultiPreview(fieldName); }
+  }
+  
+  // 提交任务
+  form.on('submit(submitTask)', function(obj) {
+    if (!$('#modelId').val()) { layer.msg('请先选择模型'); return false; }
+    if (!$('#capabilityType').val()) { layer.msg('请先选择能力类型'); return false; }
+    var formData = obj.field;
+    
+    // 兼容修复：layui 部分版本对动态渲染的 textarea 序列化存在问题，
+    // 手动从 DOM 读取所有 params 表单字段值，确保不遗漏
+    $('#paramContainer').find('input[name^="params["], textarea[name^="params["], select[name^="params["]').each(function() {
+      var name = $(this).attr('name');
+      if (!name) return;
+      // checkbox/switch 特殊处理：checked 时取 value，否则跳过（让 layui 原逻辑处理）
+      if ($(this).is(':checkbox')) {
+        if ($(this).is(':checked')) { formData[name] = $(this).val(); }
+        return;
+      }
+      var val = $(this).val();
+      if (val !== undefined && val !== null && val !== '') {
+        formData[name] = val;
+      }
+    });
+    
+    // 验证提示词
+    var promptVal = formData['params[prompt]'] || '';
+    if (typeof promptVal === 'string') promptVal = promptVal.trim();
+    if (!promptVal) { layer.msg('请填写提示词', {icon: 2}); return false; }
+    
+    // 如果选了模板，添加 scene_id
+    if (currentSelectedTemplate) {
+      formData['scene_id'] = currentSelectedTemplate.id;
+      $('#sceneId').val(currentSelectedTemplate.id);
+    }
+    
+    var index = layer.msg('正在提交并处理生成任务，请稍候...', {icon: 16, shade: [0.3, '#000'], time: 0});
+    $.post("{$Request.url}", formData, function(res) {
+      layer.close(index);
+      if (res.status == 1) { pollTaskStatus(res.record_id); }
+      else { layer.msg(res.msg, {icon: 2}); }
+    }).fail(function() { layer.close(index); layer.msg('请求异常，请稍后重试', {icon: 2}); });
+    return false;
+  });
+  
+  // 轮询任务状态
+  function pollTaskStatus(recordId) {
+    var pollIndex = layer.msg('<div style="padding:15px 0"><i class="layui-icon layui-icon-loading-1 layui-anim layui-anim-rotate layui-anim-loop" style="font-size:24px;color:#1E9FFF"></i><br><span id="pollStatusText">任务已提交，正在处理中...</span></div>', {time: 0, shade: [0.3, '#000'], offset: 'auto', area: ['300px', 'auto']});
+    var pollCount = 0, maxPollCount = 30;
+    var pollTimer = setInterval(function() {
+      pollCount++;
+      $.get("{:url('get_record_status')}", {record_id: recordId}, function(res) {
+        if (res.status == 1) {
+          var data = res.data;
+          if (data.task_status == 2) {
+            clearInterval(pollTimer); layer.close(pollIndex);
+            var outputCount = data.outputs ? data.outputs.length : 0;
+            layer.confirm('✅ 生成成功！共生成 ' + outputCount + ' 个结果，耗时 ' + data.cost_time + ' 秒\n是否前往查看详情？', {
+              icon: 1, title: '生成完成', btn: ['查看详情', '继续生成']
+            }, function() { layer.open({type: 2, title: '记录详情', area: ['900px', '600px'], content: "{:url('record_detail')}/id/" + recordId}); });
+          } else if (data.task_status == 3) {
+            clearInterval(pollTimer); layer.close(pollIndex);
+            layer.msg('❌ 生成失败: ' + (data.error_msg || '未知错误'), {icon: 2, time: 5000});
+          } else if (data.task_status == 4) {
+            clearInterval(pollTimer); layer.close(pollIndex); layer.msg('任务已取消');
+          } else {
+            $('#pollStatusText').text('任务处理中，请稍候... (' + pollCount + '/' + maxPollCount + ')');
+          }
+        }
+      });
+      if (pollCount >= maxPollCount) {
+        clearInterval(pollTimer); layer.close(pollIndex);
+        layer.confirm('任务仍在处理中，可在生成记录中查看结果', {icon: 0, btn: ['查看记录', '关闭']}, function() {
+          location.href = "{:url('record_list')}";
+        });
+      }
+    }, 2000);
+  }
+  
+  $(function() {
+    updateStepIndicator(1);
+    $('#capabilityPanel').show();
+  });
+  </script>
+</body>
+</html>

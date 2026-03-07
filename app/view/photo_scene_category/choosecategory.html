@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>选择照片场景分类</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-card layui-col-md12">
+                <div class="layui-card-header">选择照片场景分类（最多选择{$maxselect}个）</div>
+                <div class="layui-card-body" pad15>
+                    <div class="layui-col-md12" style="padding-bottom:10px">
+                        <a class="layui-btn layuiadmin-btn-list" href="javascript:void(0)" onclick="confirmSelect()">确认选择</a>
+                        <span style="margin-left:15px;color:#666">已选择 <span id="selectedCount" style="color:#1E9FFF;font-weight:bold">0</span> 个分类</span>
+                    </div>
+                    <div class="layui-col-md12">
+                        <table id="tabledata" lay-filter="tabledata"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {include file="public/js"/}
+    <script>
+    var table = layui.table;
+    var datawhere = {};
+    var maxselect = {$maxselect};
+    
+    var tableIns = table.render({
+        elem: '#tabledata',
+        url: "{$Request.url}",
+        page: false,
+        cols: [[
+            { type: "checkbox" },
+            {field: 'id', title: 'ID', width: 80},
+            {field: 'showname', title: '分类名称'},
+            {field: 'pic', title: '图片', templet: '<div>{{# if(d.pic){ }}<img src="{{d.pic}}" style="height:40px;border-radius:4px"/>{{# } }}</div>', width: 80},
+            {field: 'sort', title: '排序', width: 80},
+            {field: 'status', title: '状态', templet: function(d){ return d.status==1?'<span style="color:green">显示</span>':'<span style="color:red">隐藏</span>'}, width: 80}
+        ]]
+    });
+    
+    // 监听复选框选中事件，更新已选数量
+    table.on('checkbox(tabledata)', function(obj){
+        var checkStatus = table.checkStatus('tabledata');
+        var checkData = checkStatus.data;
+        $('#selectedCount').text(checkData.length);
+        
+        // 如果超过最大限制，给予提示
+        if (checkData.length > maxselect) {
+            layer.msg('最多只能选择' + maxselect + '个分类', {icon: 0});
+        }
+    });
+    
+    table.on('sort(tabledata)', function(obj){
+        datawhere.field = obj.field;
+        datawhere.order = obj.type;
+        tableIns.reload({
+            initSort: obj,
+            where: datawhere
+        });
+    });
+    
+    function confirmSelect() {
+        var ids = [];
+        var names = [];
+        var checkStatus = table.checkStatus('tabledata');
+        var checkData = checkStatus.data;
+        if (checkData.length === 0) {
+            return layer.msg('请选择分类');
+        }
+        if (checkData.length > maxselect) {
+            return layer.msg('最多只能选择' + maxselect + '个分类');
+        }
+        for (var i = 0; i < checkData.length; i++) {
+            ids.push(checkData[i]['id']);
+            names.push(checkData[i]['name']);
+        }
+        window.parent.chooseCategories(ids.join(','), names.join(','));
+    }
+    </script>
+</body>
+</html>

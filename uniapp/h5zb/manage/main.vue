@@ -257,7 +257,7 @@ export default {
 		this.deviceType = device.deviceType;
 		this.opt = app.getopts(opt);
 		this.roomid = this.opt.id || 0;
-		this.clientwidth = uni.getSystemInfoSync().windowWidth;
+		this.clientwidth = uni.getWindowInfo().windowWidth;
 		if(this.clientwidth>500){
 			this.clientwidth = 500
 		}

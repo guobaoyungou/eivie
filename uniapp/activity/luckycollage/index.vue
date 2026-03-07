@@ -100,7 +100,7 @@ export default {
 					that.activetime = res.activetime;
 					that.activeindex = res.selected;
 					that.selected = res.selected;
-					that.top_bar_scroll = (res.selected - 2) * uni.getSystemInfoSync().windowWidth / 750 * 150;
+					that.top_bar_scroll = (res.selected - 2) * uni.getWindowInfo().windowWidth / 750 * 150;
 					that.kaituan_duration = res.kaituan_duration;
 					that.nowtime = res.nowtime;
 					that.getDataList();

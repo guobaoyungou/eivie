@@ -5,7 +5,7 @@
 
 return [
     // 应用地址
-    'app_host'         => $_ENV['app.host'] ?? '',
+    'app_host'         => env('app.host', ''),
     // 应用的命名空间
     'app_namespace'    => '',
     // 是否启用路由
@@ -23,14 +23,12 @@ return [
     'deny_app_list'    => [],
 
     // 异常页面的模板文件
-    'exception_tmpl'   => '',
+    'exception_tmpl'   => app()->getThinkPath() . 'tpl/think_exception.tpl',
 
     // 错误显示信息,非调试模式有效
     'error_message'    => '页面错误！请稍后再试～',
     // 显示错误信息
     'show_error_msg'   => true,
-    // 开启调试模式
-    'app_debug'        => true,
 	'upload_type'      =>'jpg,jpeg,png,bmp,gif,webp,ico,pem,mp3,ogg,mp4,avi,mov,rmvb,rm,flv,3gp,mpg,mlv,mpe,mpeg,mpv,xls,xlsx,pdf,pdg,doc,docs,docx,ppt,pptx,zip,7z,rar,crt,cer,pfx',
     'upload_mime'      => 'image/jpeg,image/gif,image/png,image/bmp,image/webp,image/x-icon',
     'upload_type_image_arr'=>['jpg','jpeg','png','bmp','gif','webp','ico'],

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AI旅拍数据统计</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+  .stat-card-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    flex: 1;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+    border-radius: 8px;
+    color: #fff;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  }
+  .stat-card:nth-child(2) {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  }
+  .stat-card:nth-child(3) {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  }
+  .stat-card:nth-child(4) {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  }
+  .stat-card-title {
+    font-size: 14px;
+    opacity: 0.9;
+    margin-bottom: 10px;
+  }
+  .stat-card-value {
+    font-size: 28px;
+    font-weight: bold;
+  }
+  .stat-card-unit {
+    font-size: 14px;
+    margin-left: 5px;
+    opacity: 0.9;
+  }
+  .chart-container {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  }
+  .chart-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e6e6e6;
+  }
+  .hot-scene-list {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  }
+  .hot-scene-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .hot-scene-item:last-child {
+    border-bottom: none;
+  }
+  .hot-scene-rank {
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    text-align: center;
+    border-radius: 50%;
+    background: #f0f0f0;
+    color: #666;
+    font-weight: bold;
+    margin-right: 15px;
+  }
+  .hot-scene-item:nth-child(1) .hot-scene-rank {
+    background: #FFD700;
+    color: #fff;
+  }
+  .hot-scene-item:nth-child(2) .hot-scene-rank {
+    background: #C0C0C0;
+    color: #fff;
+  }
+  .hot-scene-item:nth-child(3) .hot-scene-rank {
+    background: #CD7F32;
+    color: #fff;
+  }
+  .hot-scene-name {
+    flex: 1;
+    font-size: 14px;
+    color: #333;
+  }
+  .hot-scene-count {
+    font-size: 14px;
+    color: #999;
+  }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">AI旅拍数据统计</div>
+        <div class="layui-card-body" pad15>
+          
+          <!-- 今日数据 -->
+          <h3 style="font-size: 16px; margin-bottom: 15px; color: #333;">今日数据</h3>
+          <div class="stat-card-row">
+            <div class="stat-card">
+              <div class="stat-card-title">上传人像数</div>
+              <div class="stat-card-value">{$today_stat.upload_count|default=0}<span class="stat-card-unit">张</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-title">生成图片数</div>
+              <div class="stat-card-value">{$today_stat.generation_count|default=0}<span class="stat-card-unit">张</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-title">生成视频数</div>
+              <div class="stat-card-value">{$today_stat.video_count|default=0}<span class="stat-card-unit">个</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-title">订单金额</div>
+              <div class="stat-card-value">¥{$today_stat.order_amount|default=0}</div>
+            </div>
+          </div>
+          
+          <!-- 本月数据 -->
+          <h3 style="font-size: 16px; margin: 30px 0 15px; color: #333;">本月数据</h3>
+          <div class="stat-card-row">
+            <div class="stat-card">
+              <div class="stat-card-title">上传人像数</div>
+              <div class="stat-card-value">{$month_stat.upload_count|default=0}<span class="stat-card-unit">张</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-title">生成图片数</div>
+              <div class="stat-card-value">{$month_stat.generation_count|default=0}<span class="stat-card-unit">张</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-title">生成视频数</div>
+              <div class="stat-card-value">{$month_stat.video_count|default=0}<span class="stat-card-unit">个</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-title">订单金额</div>
+              <div class="stat-card-value">¥{$month_stat.order_amount|default=0}</div>
+            </div>
+          </div>
+          
+          <!-- 趋势图 -->
+          <div class="chart-container" style="margin-top: 30px;">
+            <div class="chart-title">近7天数据趋势</div>
+            <div id="trendChart" style="width: 100%; height: 400px;"></div>
+          </div>
+          
+          <!-- 热门场景排行 -->
+          <div class="hot-scene-list">
+            <div class="chart-title">热门场景TOP10</div>
+            {if $hot_scenes}
+            {foreach $hot_scenes as $key=>$scene}
+            <div class="hot-scene-item">
+              <div class="hot-scene-rank">{$key + 1}</div>
+              <div class="hot-scene-name">{$scene.name}</div>
+              <div class="hot-scene-count">使用 {$scene.use_count} 次</div>
+            </div>
+            {/foreach}
+            {else}
+            <div style="text-align: center; padding: 50px 0; color: #999;">
+              暂无数据
+            </div>
+            {/if}
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script src="__STATIC__/admin/layui/lay/modules/echarts.js"></script>
+  <script>
+  layui.use(['echarts'], function(){
+    var echarts = layui.echarts;
+    
+    // 趋势图数据
+    var trendData = {$trend_data|json_encode};
+    var dates = [];
+    var uploadCounts = [];
+    var generationCounts = [];
+    var videoCounts = [];
+    
+    trendData.forEach(function(item){
+      dates.push(item.stat_date);
+      uploadCounts.push(item.upload_count);
+      generationCounts.push(item.generation_count);
+      videoCounts.push(item.video_count);
+    });
+    
+    // 初始化图表
+    var trendChart = echarts.init(document.getElementById('trendChart'));
+    
+    var option = {
+      tooltip: {
+        trigger: 'axis'
+      },
+      legend: {
+        data: ['上传人像', '生成图片', '生成视频']
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: dates
+      },
+      yAxis: {
+        type: 'value'
+      },
+      series: [
+        {
+          name: '上传人像',
+          type: 'line',
+          data: uploadCounts,
+          smooth: true,
+          itemStyle: {
+            color: '#667eea'
+          }
+        },
+        {
+          name: '生成图片',
+          type: 'line',
+          data: generationCounts,
+          smooth: true,
+          itemStyle: {
+            color: '#f5576c'
+          }
+        },
+        {
+          name: '生成视频',
+          type: 'line',
+          data: videoCounts,
+          smooth: true,
+          itemStyle: {
+            color: '#4facfe'
+          }
+        }
+      ]
+    };
+    
+    trendChart.setOption(option);
+    
+    // 响应式
+    window.addEventListener('resize', function(){
+      trendChart.resize();
+    });
+  });
+  </script>
+  {include file="public/copyright"/}
+</body>
+</html>

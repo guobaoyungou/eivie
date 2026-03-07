@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{if $info.id}编辑{else}新增{/if}模型类型</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          {if $info.id}<i class="fa fa-pencil"></i> 编辑模型类型{else}<i class="fa fa-plus"></i> 新增模型类型{/if}
+          <i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer;float:right" onclick="closeself()"></i>
+        </div>
+        <div class="layui-card-body" pad15>
+          <div class="layui-form form-label-w8">
+            <input type="hidden" name="info[id]" value="{$info.id}">
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label"><span class="required">*</span>类型名称</label>
+              <div class="layui-input-inline" style="width:300px">
+                <input type="text" name="info[type_name]" value="{$info.type_name}" lay-verify="required" lay-verType="tips" class="layui-input" placeholder="如：图片生成">
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label"><span class="required">*</span>类型标识</label>
+              <div class="layui-input-inline" style="width:300px">
+                <input type="text" name="info[type_code]" value="{$info.type_code}" lay-verify="required" lay-verType="tips" class="layui-input" placeholder="如：image_generation" {if $info.is_system == 1}readonly{/if}>
+              </div>
+              <div class="layui-form-mid layui-word-aux">唯一标识，英文加下划线</div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">图标</label>
+              <div class="layui-input-inline" style="width:300px">
+                <input type="text" name="info[icon]" value="{$info.icon}" class="layui-input" placeholder="layui图标类名">
+              </div>
+              <div class="layui-form-mid layui-word-aux">如：layui-icon-picture</div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label"><span class="required">*</span>输入类型</label>
+              <div class="layui-input-inline" style="width:400px">
+                {foreach $ioTypes as $code=>$name}
+                <input type="checkbox" name="info[input_types][]" value="{$code}" title="{$name}" 
+                  {if $info.input_types && in_array($code, $info.input_types)}checked{/if}>
+                {/foreach}
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label"><span class="required">*</span>输出类型</label>
+              <div class="layui-input-inline" style="width:400px">
+                {foreach $ioTypes as $code=>$name}
+                <input type="checkbox" name="info[output_types][]" value="{$code}" title="{$name}"
+                  {if $info.output_types && in_array($code, $info.output_types)}checked{/if}>
+                {/foreach}
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">描述</label>
+              <div class="layui-input-inline" style="width:500px">
+                <textarea name="info[description]" class="layui-textarea" placeholder="类型描述">{$info.description}</textarea>
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">排序</label>
+              <div class="layui-input-inline" style="width:100px">
+                <input type="number" name="info[sort]" value="{$info.sort|default=0}" class="layui-input">
+              </div>
+              <div class="layui-form-mid layui-word-aux">数字越小越靠前</div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">状态</label>
+              <div class="layui-input-inline">
+                <input type="radio" name="info[status]" value="1" title="启用" {if $info.status != 0}checked{/if}>
+                <input type="radio" name="info[status]" value="0" title="禁用" {if $info.status == 0}checked{/if}>
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <div class="layui-input-block">
+                <button class="layui-btn layui-btn-danger" lay-submit lay-filter="formsubmit">保 存</button>
+                <button type="button" class="layui-btn layui-btn-primary" onclick="closeself()">取 消</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  layui.form.on('submit(formsubmit)', function(obj) {
+    var field = obj.field;
+    var index = layer.load();
+    $.post("{:url('type_save')}", field, function(data) {
+      layer.close(index);
+      dialog(data.msg, data.status);
+      if (data.status == 1) {
+        setTimeout(function() {
+          parent.layer.close(parent.layer.getFrameIndex(window.name));
+          parent.tableIns.reload();
+        }, 1000);
+      }
+    });
+    return false;
+  });
+  </script>
+</body>
+</html>

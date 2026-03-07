@@ -76,7 +76,7 @@
 
 <script>
 var app = getApp();
-var windowWidth = uni.getSystemInfoSync().windowWidth;
+var windowWidth = uni.getWindowInfo().windowWidth;
 
 export default {
   data() {
@@ -110,7 +110,7 @@ export default {
 	},
   onReady: function () {
 		var that = this;
-		var res = uni.getSystemInfoSync();
+		var res = uni.getWindowInfo();
 		that.windowWidth = res.windowWidth;
 		that.windowHeight = res.windowHeight;
 		this.getdata();

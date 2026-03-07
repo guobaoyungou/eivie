@@ -134,7 +134,8 @@ class Business extends Common
 
 		//分类
 		$clist = Db::name('business_category')->Field('id,name')->where('aid',aid)->where('status',1)->order('sort desc,id')->select()->toArray();
-		$menudata = \app\common\Menu::getdata(aid,-1);
+		// 传递 $info['id'] 作为 bid 参数，以便 Menu::getdata 正确判断AI旅拍菜单显示
+		$menudata = \app\common\Menu::getdata(aid,-1,false,0,$info['id']?:0);
 
         $wxauth_data = $uinfo ? json_decode($uinfo['wxauth_data'],true) : array();
         if(!$wxauth_data) $wxauth_data = array();

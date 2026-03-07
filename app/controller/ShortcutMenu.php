@@ -40,7 +40,7 @@ class ShortcutMenu extends Common
             return $menu['value'];
         }, $shortMenu['menus']));
 		
-        $menudata = \app\common\Menu::getdata(aid,uid);
+        $menudata = \app\common\Menu::getdata(aid,uid,false,0,bid);
         // 剔除快捷菜单
         if (!empty($menudata['system'])) {
             $menudata['system']['child'] = array_filter($menudata['system']['child'], function($child) {

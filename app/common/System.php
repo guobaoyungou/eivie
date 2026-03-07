@@ -2337,6 +2337,152 @@ class System
                     $pagecontent[$k]['data'] = $result;
                 }
 			}
+            // 图片生成场景模板列表
+            elseif($v['temp'] == 'photo_generation'){
+                if($v['params']['productfrom'] == 0){//手动选择
+                    $newdata = array();
+                    foreach($v['data'] as $pro){
+                        $newpro = Db::name('generation_scene_template')
+                            ->field('id as proid,template_name as name,cover_image as pic,base_price as sell_price,use_count as sales')
+                            ->where('aid',$aid)
+                            ->where('id',$pro['proid'])
+                            ->where('generation_type',1)
+                            ->where('status',1)
+                            ->find();
+                        if($newpro){
+                            $newpro['id'] = $pro['id'];
+                            $newpro['tourl'] = '/pagesZ/generation/create?id='.$newpro['proid'].'&type=1';
+                            $newdata[] = $newpro;
+                        }
+                    }
+                    $pagecontent[$k]['data'] = $newdata;
+                }else{
+                    $where = [];
+                    $where[] = ['aid','=',$aid];
+                    $where[] = ['generation_type','=',1];
+                    $where[] = ['status','=',1];
+                    if($v['params']['category']){
+                        $cid = intval($v['params']['category']);
+                        if($cid > 0){
+                            $where[] = ['category_id','=',$cid];
+                        }
+                    }
+                    if($v['params']['group']){
+                        $_string = array();
+                        foreach($v['params']['group'] as $gid=>$istrue){
+                            if($istrue=='true'){
+                                if($gid == 'all'){
+                                    $_string[] = "1=1";
+                                }elseif($gid == '0'){
+                                    $_string[] = "group_ids is null or group_ids=''";
+                                }else{
+                                    $_string[] = "find_in_set({$gid},group_ids)";
+                                }
+                            }
+                        }
+                        if(!$_string){
+                            $where2 = '0=1';
+                        }else{
+                            $where2 = implode(" or ",$_string);
+                        }
+                    }else{
+                        $where2 = '1=1';
+                    }
+                    $order = 'sort desc';
+                    if($v['params']['sortby'] == 'sort') $order = 'sort desc,id desc';
+                    if($v['params']['sortby'] == 'createtimedesc') $order = 'create_time desc';
+                    if($v['params']['sortby'] == 'createtime') $order = 'create_time';
+                    if($v['params']['sortby'] == 'sales') $order = 'use_count desc,sort desc';
+                    if($v['params']['sortby'] == 'rand') $order = Db::raw('rand()');
+                    $result = Db::name('generation_scene_template')
+                        ->field('id as proid,template_name as name,cover_image as pic,base_price as sell_price,use_count as sales')
+                        ->where($where)
+                        ->where($where2)
+                        ->order($order)
+                        ->limit(intval($v['params']['proshownum']))
+                        ->select()
+                        ->toArray();
+                    if(!$result) $result = array();
+                    foreach($result as $k2=>$v2){
+                        $result[$k2]['id'] = 'G'.time().rand(10000000,99999999);
+                        $result[$k2]['tourl'] = '/pagesZ/generation/create?id='.$v2['proid'].'&type=1';
+                    }
+                    $pagecontent[$k]['data'] = $result;
+                }
+            }
+            // 视频生成场景模板列表
+            elseif($v['temp'] == 'video_generation'){
+                if($v['params']['productfrom'] == 0){//手动选择
+                    $newdata = array();
+                    foreach($v['data'] as $pro){
+                        $newpro = Db::name('generation_scene_template')
+                            ->field('id as proid,template_name as name,cover_image as pic,base_price as sell_price,use_count as sales')
+                            ->where('aid',$aid)
+                            ->where('id',$pro['proid'])
+                            ->where('generation_type',2)
+                            ->where('status',1)
+                            ->find();
+                        if($newpro){
+                            $newpro['id'] = $pro['id'];
+                            $newpro['tourl'] = '/pagesZ/generation/create?id='.$newpro['proid'].'&type=2';
+                            $newdata[] = $newpro;
+                        }
+                    }
+                    $pagecontent[$k]['data'] = $newdata;
+                }else{
+                    $where = [];
+                    $where[] = ['aid','=',$aid];
+                    $where[] = ['generation_type','=',2];
+                    $where[] = ['status','=',1];
+                    if($v['params']['category']){
+                        $cid = intval($v['params']['category']);
+                        if($cid > 0){
+                            $where[] = ['category_id','=',$cid];
+                        }
+                    }
+                    if($v['params']['group']){
+                        $_string = array();
+                        foreach($v['params']['group'] as $gid=>$istrue){
+                            if($istrue=='true'){
+                                if($gid == 'all'){
+                                    $_string[] = "1=1";
+                                }elseif($gid == '0'){
+                                    $_string[] = "group_ids is null or group_ids=''";
+                                }else{
+                                    $_string[] = "find_in_set({$gid},group_ids)";
+                                }
+                            }
+                        }
+                        if(!$_string){
+                            $where2 = '0=1';
+                        }else{
+                            $where2 = implode(" or ",$_string);
+                        }
+                    }else{
+                        $where2 = '1=1';
+                    }
+                    $order = 'sort desc';
+                    if($v['params']['sortby'] == 'sort') $order = 'sort desc,id desc';
+                    if($v['params']['sortby'] == 'createtimedesc') $order = 'create_time desc';
+                    if($v['params']['sortby'] == 'createtime') $order = 'create_time';
+                    if($v['params']['sortby'] == 'sales') $order = 'use_count desc,sort desc';
+                    if($v['params']['sortby'] == 'rand') $order = Db::raw('rand()');
+                    $result = Db::name('generation_scene_template')
+                        ->field('id as proid,template_name as name,cover_image as pic,base_price as sell_price,use_count as sales')
+                        ->where($where)
+                        ->where($where2)
+                        ->order($order)
+                        ->limit(intval($v['params']['proshownum']))
+                        ->select()
+                        ->toArray();
+                    if(!$result) $result = array();
+                    foreach($result as $k2=>$v2){
+                        $result[$k2]['id'] = 'G'.time().rand(10000000,99999999);
+                        $result[$k2]['tourl'] = '/pagesZ/generation/create?id='.$v2['proid'].'&type=2';
+                    }
+                    $pagecontent[$k]['data'] = $result;
+                }
+            }
             elseif($v['temp'] == 'scoreshop'){//产品列表 获取产品信息
 				if($v['params']['productfrom'] == 0){//手动选择
 					$newdata = array();

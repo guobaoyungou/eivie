@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>选片列表</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">选片列表</div>
+        <div class="layui-card-body" pad15>
+          <!-- 筛选区域 -->
+          <div class="layui-form layui-form-search" style="margin-bottom: 15px;">
+            <div class="layui-inline">
+              <label class="layui-form-label">门店：</label>
+              <div class="layui-input-inline">
+                <select name="mdid" lay-filter="mdidFilter">
+                  <option value="">全部门店</option>
+                  {foreach $mendian_list as $md}
+                  <option value="{$md.id}">{$md.name}</option>
+                  {/foreach}
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">状态：</label>
+              <div class="layui-input-inline">
+                <select name="status" lay-filter="statusFilter">
+                  <option value="">全部状态</option>
+                  <option value="1">有效</option>
+                  <option value="0">已过期</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">日期范围：</label>
+              <div class="layui-input-inline">
+                <input type="text" class="layui-input" id="dateRange" placeholder="选择日期范围">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn" lay-submit lay-filter="searchSubmit">搜索</button>
+              <button type="button" class="layui-btn layui-btn-primary" onclick="resetSearch()">重置</button>
+            </div>
+          </div>
+          
+          <!-- 数据表格 -->
+          <table class="layui-table" id="tabledata" lay-filter="tabledata"></table>
+          
+          <!-- 操作列模板 -->
+          <script type="text/html" id="barTpl">
+            <button class="table-btn" onclick="viewQrcode('{{d.qrcode}}')">查看二维码</button>
+            <button class="table-btn" onclick="viewPortrait({{d.portrait_id}})">查看人像</button>
+          </script>
+        </div>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  var tableIns;
+  var searchParams = {};
+  
+  layui.use(['table', 'form', 'laydate'], function(){
+    var table = layui.table;
+    var form = layui.form;
+    var laydate = layui.laydate;
+    
+    // 日期范围选择器
+    laydate.render({
+      elem: '#dateRange',
+      range: true,
+      done: function(value){
+        if(value){
+          var dates = value.split(' - ');
+          searchParams.start_date = dates[0];
+          searchParams.end_date = dates[1];
+        } else {
+          delete searchParams.start_date;
+          delete searchParams.end_date;
+        }
+      }
+    });
+    
+    // 监听筛选条件变化
+    form.on('select(mdidFilter)', function(data){
+      if(data.value){
+        searchParams.mdid = data.value;
+      } else {
+        delete searchParams.mdid;
+      }
+    });
+    
+    form.on('select(statusFilter)', function(data){
+      if(data.value !== ''){
+        searchParams.status = data.value;
+      } else {
+        delete searchParams.status;
+      }
+    });
+    
+    // 监听搜索按钮
+    form.on('submit(searchSubmit)', function(){
+      renderTable();
+      return false;
+    });
+    
+    // 渲染表格
+    renderTable();
+  });
+  
+  function renderTable() {
+    tableIns = layui.table.render({
+      elem: '#tabledata',
+      url: '{:url('qrcode_list')}',
+      where: searchParams,
+      page: true,
+      limit: 20,
+      cols: [[
+        {field: 'id', title: 'ID', width: 80, sort: true},
+        {field: 'mendian_name', title: '门店', width: 150},
+        {field: 'thumbnail_url', title: '人像', width: 100, templet: function(d){
+          if(d.thumbnail_url){
+            return '<img src="' + d.thumbnail_url + '" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" onclick="previewImage(\'' + d.original_url + '\')">';
+          }
+          return '-';
+        }},
+        {field: 'qrcode', title: '二维码', width: 200, templet: function(d){
+          return '<span style="font-family: monospace; font-size: 12px;">' + d.qrcode + '</span>';
+        }},
+        {field: 'scan_count', title: '扫码次数', width: 100, sort: true},
+        {field: 'status', title: '状态', width: 100, templet: function(d){
+          var now = Math.floor(Date.now() / 1000);
+          if(d.expire_time > now){
+            return '<span style="color:#5FB878;">有效</span>';
+          } else {
+            return '<span style="color:#FF5722;">已过期</span>';
+          }
+        }},
+        {field: 'expire_time', title: '过期时间', width: 160, templet: function(d){
+          return d.expire_time ? date('Y-m-d H:i:s', d.expire_time) : '-';
+        }},
+        {field: 'create_time', title: '创建时间', width: 160, templet: function(d){
+          return d.create_time ? date('Y-m-d H:i:s', d.create_time) : '-';
+        }},
+        {fixed: 'right', title: '操作', width: 200, toolbar: '#barTpl'}
+      ]]
+    });
+  }
+  
+  // 重置搜索
+  function resetSearch() {
+    searchParams = {};
+    $('select[name="mdid"]').val('');
+    $('select[name="status"]').val('');
+    $('#dateRange').val('');
+    layui.form.render('select');
+    renderTable();
+  }
+  
+  // 查看二维码
+  function viewQrcode(qrcode) {
+    layer.open({
+      type: 1,
+      title: '选片二维码',
+      area: ['400px', '500px'],
+      content: '<div style="padding:20px;text-align:center;">' +
+        '<div id="qrcodeContainer"></div>' +
+        '<p style="margin-top:15px;font-size:14px;color:#666;">扫码查看和购买</p>' +
+        '<p style="margin-top:10px;font-size:12px;color:#999;">二维码ID: ' + qrcode + '</p>' +
+        '</div>',
+      success: function(){
+        new QRCode(document.getElementById('qrcodeContainer'), {
+          text: window.location.protocol + '//' + window.location.host + '/api/ai-travel-photo/qrcode-detail?qrid=' + qrcode,
+          width: 256,
+          height: 256,
+          colorDark: '#000000',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      }
+    });
+  }
+  
+  // 查看人像
+  function viewPortrait(portraitId) {
+    layer.open({
+      type: 2,
+      title: '查看人像详情',
+      area: ['90%', '90%'],
+      content: '{:url('portrait_detail')}?id=' + portraitId
+    });
+  }
+  
+  // 图片预览
+  function previewImage(url) {
+    layer.open({
+      type: 1,
+      title: false,
+      closeBtn: 0,
+      area: ['auto', 'auto'],
+      skin: 'layui-layer-nobg',
+      shadeClose: true,
+      content: '<img src="' + url + '" style="max-width:800px;max-height:600px;">'
+    });
+  }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs2@0.0.2/qrcode.min.js"></script>
+  {include file="public/copyright"/}
+</body>
+</html>

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>任务列表</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .task-card {
+      border: 1px solid #e6e6e6;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 15px;
+      background: #fff;
+      transition: box-shadow 0.3s;
+    }
+    .task-card:hover {
+      box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
+    }
+    .task-card-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    .task-thumbnail {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 4px;
+      margin-right: 15px;
+    }
+    .task-info {
+      flex: 1;
+    }
+    .task-stats {
+      text-align: right;
+      min-width: 200px;
+    }
+    .task-detail {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #f0f0f0;
+      display: none;
+    }
+    .task-detail.show {
+      display: block;
+    }
+    .progress-bar {
+      height: 6px;
+      background: #f0f0f0;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      background: #5FB878;
+      transition: width 0.3s;
+    }
+    .stat-item {
+      display: inline-block;
+      margin-right: 20px;
+      color: #666;
+    }
+    .stat-value {
+      color: #333;
+      font-weight: bold;
+      margin-left: 5px;
+    }
+    .badge-success { color: #67C23A; }
+    .badge-warning { color: #E6A23C; }
+    .badge-danger { color: #F56C6C; }
+    .badge-info { color: #409EFF; }
+    .badge-secondary { color: #909399; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">任务列表</div>
+        <div class="layui-card-body" pad15>
+          <!-- 筛选区域 -->
+          <div class="layui-form layui-form-search" style="margin-bottom: 15px;">
+            <div class="layui-inline">
+              <label class="layui-form-label">门店：</label>
+              <div class="layui-input-inline">
+                <select name="mdid" lay-filter="mdidFilter">
+                  <option value="">全部门店</option>
+                  {foreach $mendian_list as $md}
+                  <option value="{$md.id}">{$md.name}</option>
+                  {/foreach}
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">设备：</label>
+              <div class="layui-input-inline">
+                <select name="device_id" lay-filter="deviceFilter">
+                  <option value="">全部设备</option>
+                  {foreach $device_list as $dev}
+                  <option value="{$dev.id}">{$dev.device_name}</option>
+                  {/foreach}
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">任务状态：</label>
+              <div class="layui-input-inline">
+                <select name="task_status" lay-filter="statusFilter">
+                  <option value="">全部状态</option>
+                  <option value="processing">进行中</option>
+                  <option value="completed">已完成</option>
+                  <option value="partial_failed">部分失败</option>
+                  <option value="all_failed">全部失败</option>
+                  <option value="pending">待处理</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">日期范围：</label>
+              <div class="layui-input-inline">
+                <input type="text" name="start_date" id="start_date" placeholder="开始日期" autocomplete="off" class="layui-input">
+              </div>
+              <div class="layui-form-mid">-</div>
+              <div class="layui-input-inline">
+                <input type="text" name="end_date" id="end_date" placeholder="结束日期" autocomplete="off" class="layui-input">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">关键词：</label>
+              <div class="layui-input-inline">
+                <input type="text" name="keyword" placeholder="文件名或MD5" autocomplete="off" class="layui-input">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn" lay-submit lay-filter="searchBtn"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+              <button type="button" class="layui-btn layui-btn-primary" id="refreshBtn"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+            </div>
+          </div>
+          
+          <!-- 数据表格 -->
+          <table class="layui-table" id="tabledata" lay-filter="tabledata"></table>
+          
+          <!-- 操作列模板 -->
+          <script type="text/html" id="barTpl">
+            <button class="layui-btn layui-btn-xs" onclick="viewDetail({{d.portrait_id}})">查看详情</button>
+          </script>
+          
+          <!-- 缩略图模板 -->
+          <script type="text/html" id="thumbnailTpl">
+            {{# if(d.thumbnail_url) { }}
+              <img src="{{d.thumbnail_url}}" style="height:60px;cursor:pointer;" 
+                   onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'60\' height=\'60\'%3E%3Crect width=\'60\' height=\'60\' fill=\'%23ddd\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23999\'%3E加载失败%3C/text%3E%3C/svg%3E\'" 
+                   onclick="if(this.src.indexOf('data:image')==-1){layer.photos({photos: {data: [{src: '{{d.original_url}}'}]}, anim: 5});}">
+            {{# } else { }}
+              -
+            {{# } }}
+          </script>
+          
+          <!-- 进度条模板 -->
+          <script type="text/html" id="progressTpl">
+            <div style="width: 100%;">
+              <div class="progress-bar">
+                <div class="progress-bar-inner" style="width: {{d.progress}}%;"></div>
+              </div>
+              <div style="margin-top: 5px; font-size: 12px; color: #666;">
+                {{d.success_tasks}}/{{d.total_tasks}} ({{d.progress}}%)
+              </div>
+            </div>
+          </script>
+          
+          <!-- 任务统计模板 -->
+          <script type="text/html" id="taskStatsTpl">
+            <div style="font-size: 12px;">
+              <span class="badge-success">✓ {{d.success_tasks}}</span>
+              {{# if(d.failed_tasks > 0) { }}
+                <span class="badge-danger">✗ {{d.failed_tasks}}</span>
+              {{# } }}
+              {{# if(d.processing_tasks > 0) { }}
+                <span class="badge-info">⟳ {{d.processing_tasks}}</span>
+              {{# } }}
+              {{# if(d.pending_tasks > 0) { }}
+                <span class="badge-secondary">⋯ {{d.pending_tasks}}</span>
+              {{# } }}
+            </div>
+          </script>
+        </div>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  var datawhere = {};
+  var tableIns;
+  
+  layui.use(['table', 'form', 'laydate'], function(){
+    var table = layui.table;
+    var form = layui.form;
+    var laydate = layui.laydate;
+    
+    // 日期选择器
+    laydate.render({
+      elem: '#start_date',
+      type: 'date'
+    });
+    
+    laydate.render({
+      elem: '#end_date',
+      type: 'date'
+    });
+    
+    // 渲染表格
+    tableIns = table.render({
+      elem: '#tabledata',
+      url: '{:url('task_list')}',
+      page: true,
+      limit: 20,
+      where: datawhere,
+      cols: [[
+        {field: 'portrait_id', title: 'ID', width: 80, sort: true},
+        {field: 'thumbnail_url', title: '人像缩略图', width: 100, templet: '#thumbnailTpl'},
+        {field: 'file_name', title: '文件名', width: 200, templet: function(d){
+          var html = '<div>' + d.file_name + '</div>';
+          html += '<div style="font-size: 11px; color: #999; margin-top: 3px;">MD5: ' + (d.portrait_md5 ? d.portrait_md5.substr(0, 8) + '...' : '-') + '</div>';
+          return html;
+        }},
+        {field: 'cutout_status_text', title: '抠图状态', width: 100},
+        {field: 'task_status_summary_text', title: '任务状态', width: 110},
+        {field: 'progress', title: '完成进度', width: 150, templet: '#progressTpl'},
+        {field: 'task_stats', title: '任务统计', width: 150, templet: '#taskStatsTpl'},
+        {field: 'device_name', title: '上传设备', width: 120, templet: function(d){
+          return d.device_name || '-';
+        }},
+        {field: 'create_time_text', title: '创建时间', width: 160},
+        {field: 'avg_cost_time_text', title: '平均耗时', width: 100},
+        {fixed: 'right', title: '操作', width: 120, toolbar: '#barTpl'}
+      ]]
+    });
+    
+    // 筛选监听
+    form.on('submit(searchBtn)', function(data){
+      datawhere = data.field;
+      tableIns.reload({
+        where: datawhere,
+        page: {curr: 1}
+      });
+      return false;
+    });
+    
+    form.on('select(mdidFilter)', function(data){
+      datawhere.mdid = data.value;
+      tableIns.reload({
+        where: datawhere,
+        page: {curr: 1}
+      });
+    });
+    
+    form.on('select(deviceFilter)', function(data){
+      datawhere.device_id = data.value;
+      tableIns.reload({
+        where: datawhere,
+        page: {curr: 1}
+      });
+    });
+    
+    form.on('select(statusFilter)', function(data){
+      datawhere.task_status = data.value;
+      tableIns.reload({
+        where: datawhere,
+        page: {curr: 1}
+      });
+    });
+    
+    // 刷新按钮
+    $('#refreshBtn').on('click', function(){
+      tableIns.reload();
+      layer.msg('已刷新');
+    });
+  });
+  
+  // 查看详情
+  function viewDetail(portrait_id) {
+    openmax('{:url('task_detail')}/portrait_id/' + portrait_id);
+  }
+  
+  // 时间格式化函数
+  function date(format, timestamp) {
+    var d = new Date(timestamp * 1000);
+    var year = d.getFullYear();
+    var month = ("0" + (d.getMonth() + 1)).slice(-2);
+    var day = ("0" + d.getDate()).slice(-2);
+    var hour = ("0" + d.getHours()).slice(-2);
+    var minute = ("0" + d.getMinutes()).slice(-2);
+    var second = ("0" + d.getSeconds()).slice(-2);
+    
+    return format.replace('Y', year)
+                 .replace('m', month)
+                 .replace('d', day)
+                 .replace('H', hour)
+                 .replace('i', minute)
+                 .replace('s', second);
+  }
+  </script>
+</body>
+</html>

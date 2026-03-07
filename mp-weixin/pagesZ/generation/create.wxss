@@ -1,0 +1,102 @@
+.container { background: #f5f5f5; min-height: 100vh; padding-bottom: 20rpx; }
+
+/* 模板对比图 */
+.compare-section { background: #fff; margin: 20rpx; border-radius: 16rpx; padding: 30rpx; }
+.compare-row { display: flex; align-items: center; justify-content: center; }
+.compare-item { flex: 1; text-align: center; }
+.compare-img { width: 260rpx; height: 340rpx; border-radius: 12rpx; background: #f0f0f0; }
+.compare-label { font-size: 24rpx; color: #999; margin-top: 12rpx; }
+.compare-arrow { width: 60rpx; display: flex; align-items: center; justify-content: center; }
+.arrow-icon { font-size: 40rpx; color: #FF6B00; font-weight: bold; }
+.template-name-row { display: flex; align-items: center; justify-content: space-between; margin-top: 24rpx; padding-top: 20rpx; border-top: 1rpx solid #f0f0f0; }
+.template-name { font-size: 30rpx; font-weight: bold; color: #333; flex: 1; }
+.use-count { font-size: 24rpx; color: #999; flex-shrink: 0; }
+
+/* 通用区域 */
+.section { background: #fff; margin: 20rpx; border-radius: 16rpx; padding: 30rpx; }
+.section-header { display: flex; align-items: center; justify-content: space-between; }
+.section-title { display: flex; align-items: baseline; }
+.title-text { font-size: 30rpx; font-weight: bold; color: #333; }
+.title-hint { font-size: 24rpx; color: #999; margin-left: 12rpx; }
+.toggle-icon { font-size: 28rpx; color: #999; padding: 10rpx; }
+
+/* 上传图片 */
+.upload-area { margin-top: 20rpx; }
+.upload-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.upload-item { position: relative; width: 200rpx; height: 200rpx; border-radius: 12rpx; overflow: hidden; }
+.uploaded-img { width: 100%; height: 100%; }
+.remove-btn { position: absolute; top: 0; right: 0; width: 44rpx; height: 44rpx; background: rgba(0,0,0,0.5); color: #fff; text-align: center; line-height: 44rpx; font-size: 30rpx; border-radius: 0 0 0 12rpx; }
+.upload-add { width: 200rpx; height: 200rpx; border: 2rpx dashed #ddd; border-radius: 12rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fafafa; }
+.add-plus { font-size: 60rpx; color: #ccc; line-height: 1; }
+.add-text { font-size: 24rpx; color: #999; margin-top: 12rpx; }
+.source-hint { font-size: 20rpx; color: #ccc; margin-top: 6rpx; }
+
+/* 上传进度遮罩 */
+.progress-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12rpx; }
+.progress-overlay.failed { background: rgba(0,0,0,0.6); }
+.progress-text { color: #fff; font-size: 28rpx; font-weight: bold; }
+.retry-icon { color: #fff; font-size: 52rpx; line-height: 1; }
+.retry-text { color: #fff; font-size: 22rpx; margin-top: 4rpx; }
+
+/* 灵感描述 */
+.prompt-wrap { margin-top: 20rpx; background: #f8f8f8; border-radius: 12rpx; padding: 20rpx; }
+.prompt-input { width: 100%; min-height: 120rpx; font-size: 28rpx; line-height: 1.6; color: #333; padding: 0; background: none; }
+.char-count { text-align: right; font-size: 22rpx; color: #ccc; margin-top: 8rpx; }
+
+/* 横向滚动选择 - 通用 */
+.option-scroll { margin-top: 20rpx; width: 100%; }
+.option-scroll-inner { display: inline-flex; gap: 20rpx; padding: 4rpx 4rpx; }
+
+/* 图片比例 - 横向滑动 */
+.ratio-chip { display: inline-flex; align-items: center; padding: 14rpx 28rpx; border-radius: 40rpx; border: 2rpx solid #eee; background: #fafafa; flex-shrink: 0; transition: all 0.2s; }
+.ratio-chip.active { border-color: #FF6B00; background: #FFF8F2; }
+.ratio-chip .ratio-preview { display: flex; align-items: center; justify-content: center; margin-right: 10rpx; }
+.ratio-chip .ratio-inner { background: #ccc; border-radius: 4rpx; }
+.ratio-chip.active .ratio-inner { background: #FF6B00; }
+
+/* 生成张数 - 横向滑动 */
+.count-chip { display: inline-flex; align-items: center; justify-content: center; padding: 14rpx 36rpx; border-radius: 40rpx; border: 2rpx solid #eee; background: #fafafa; flex-shrink: 0; transition: all 0.2s; }
+.count-chip.active { border-color: #FF6B00; background: #FFF8F2; }
+
+/* chip 文字 */
+.chip-label { font-size: 26rpx; color: #666; white-space: nowrap; }
+.ratio-chip.active .chip-label, .count-chip.active .chip-label { color: #FF6B00; font-weight: bold; }
+
+/* 底部操作栏 */
+.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; align-items: center; padding: 20rpx 30rpx; box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05); padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); z-index: 100; }
+.price-display { flex: 1; }
+.total-label { font-size: 26rpx; color: #666; }
+.total-price { font-size: 40rpx; color: #FF6B00; font-weight: bold; margin-left: 4rpx; }
+.price-unit { font-size: 22rpx; color: #999; margin-left: 8rpx; }
+.btn-submit { background: linear-gradient(135deg, #FF6B00, #FF9500); color: #fff; font-size: 32rpx; font-weight: bold; padding: 24rpx 60rpx; border-radius: 44rpx; text-align: center; }
+.btn-submit.disabled { opacity: 0.6; }
+
+/* 加载中 */
+.loading-wrap { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 120rpx 40rpx; }
+.loading-spinner { width: 48rpx; height: 48rpx; border: 4rpx solid #eee; border-top-color: #FF6B00; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 28rpx; color: #999; margin-top: 20rpx; }
+
+/* 证件照拍照指引弹窗 */
+.guide-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 999; display: flex; align-items: center; justify-content: center; }
+.guide-popup { width: 620rpx; background: #fff; border-radius: 24rpx; padding: 40rpx 36rpx; }
+.guide-title { font-size: 34rpx; font-weight: bold; color: #333; text-align: center; margin-bottom: 10rpx; }
+.guide-subtitle { font-size: 26rpx; color: #999; text-align: center; margin-bottom: 30rpx; }
+.guide-content { display: flex; gap: 20rpx; margin-bottom: 30rpx; }
+.guide-col { flex: 1; }
+.guide-label { font-size: 26rpx; font-weight: bold; margin-bottom: 12rpx; padding: 8rpx 0; text-align: center; border-radius: 8rpx; }
+.guide-label.correct { color: #52c41a; background: #f6ffed; }
+.guide-label.wrong { color: #ff4d4f; background: #fff2f0; }
+.guide-tip-item { display: block; font-size: 24rpx; color: #666; line-height: 1.8; }
+.guide-btn { background: linear-gradient(135deg, #FF6B00, #FF9500); color: #fff; font-size: 30rpx; font-weight: bold; text-align: center; padding: 22rpx 0; border-radius: 44rpx; }
+
+/* 隐私授权弹窗 */
+.privacy-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center; }
+.privacy-dialog { width: 80%; background: #fff; border-radius: 20rpx; padding: 0 30rpx; }
+.privacy-title { font-size: 32rpx; font-weight: bold; color: #333; text-align: center; padding: 36rpx 0 20rpx; }
+.privacy-content { font-size: 26rpx; color: #333; line-height: 42rpx; letter-spacing: 2rpx; padding: 0 10rpx; }
+.privacy-link { color: #51B1F5; font-weight: bold; }
+.privacy-btns { display: flex; padding: 30rpx 0; gap: 24rpx; }
+.privacy-btn-reject { flex: 1; font-size: 28rpx; color: #999; background: #f5f5f5; border-radius: 40rpx; padding: 18rpx 0; text-align: center; border: none; line-height: 1.4; }
+.privacy-btn-agree { flex: 1; font-size: 28rpx; color: #fff; background: linear-gradient(135deg, #FF6B00, #FF9500); border-radius: 40rpx; padding: 18rpx 0; text-align: center; border: none; line-height: 1.4; }
+

@@ -51,6 +51,17 @@ class WebSystem extends WebCommon
 			'name'=>'系统设置',
 			'path'=>'WebSystem/set'
 		);
+		// 模型广场菜单
+		$model_square_child = [];
+		$model_square_child[] = ['name'=>'供应商管理','path'=>'WebModelSquare/provider_list'];
+		$model_square_child[] = ['name'=>'模型类型','path'=>'WebModelSquare/type_list'];
+		$model_square_child[] = ['name'=>'模型列表','path'=>'WebModelSquare/model_list'];
+		$menudata['model_square'] = array(
+			'name'=>'模型广场',
+			'fullname'=>'模型广场',
+			'path'=>'WebModelSquare/provider_list',
+			'child'=>$model_square_child
+		);
 		$menudata['remote'] = array(
 			'name'=>'附件设置',
 			'path'=>'WebSystem/remote'

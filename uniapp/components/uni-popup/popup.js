@@ -35,7 +35,7 @@ export default {
 				windowWidth,
 				windowHeight,
 				windowTop
-			} = uni.getSystemInfoSync()
+			} = uni.getWindowInfo()
 			this.popupWidth = windowWidth
 			this.popupHeight = windowHeight + windowTop
 		}

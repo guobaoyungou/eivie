@@ -462,7 +462,7 @@
 		$('.more-shortcut-menu-box').css("width", `${shortcutWidth}px`).css("left", `${leftPosition}px`);
 		var items = container.children('.shortcut-menu');
 		var containerHeight = container.height();
-		var scrollHeight = container.length > 0 ? container[0].scrollHeight : 0;
+		var scrollHeight = container[0].scrollHeight;
 
 		// 按钮位置
 		var buttonLeftPosition = leftPosition + shortcutWidth - 30;
@@ -859,19 +859,68 @@
 		audio.play();
 		layer.tips(datainfo.title + ' ' + datainfo.desc, '#mobileicon');
 	}
-	var websocket =null;
+	var websocket = null;
+	var wsRetryCount = 0;
+	var wsMaxRetries = 10; // 每天最多重试10次
+	var wsRetryDate = new Date().toDateString();
+	
+	// 从localStorage读取今天的重试记录
+	function getRetryCount() {
+		var today = new Date().toDateString();
+		var stored = localStorage.getItem('ws_retry_data');
+		if (stored) {
+			try {
+				var data = JSON.parse(stored);
+				if (data.date === today) {
+					return data.count;
+				}
+			} catch(e) {}
+		}
+		return 0;
+	}
+	
+	// 保存重试次数到localStorage
+	function saveRetryCount(count) {
+		var today = new Date().toDateString();
+		localStorage.setItem('ws_retry_data', JSON.stringify({date: today, count: count}));
+	}
+	
+	// 初始化重试计数
+	wsRetryCount = getRetryCount();
+	
 	function websocketsend(senddata){
 		if(websocket==null || websocket.readyState!=1){
-			//console.log(1)
+			// 检查今天的重试次数
+			var today = new Date().toDateString();
+			if (today !== wsRetryDate) {
+				// 新的一天，重置计数
+				wsRetryDate = today;
+				wsRetryCount = getRetryCount();
+			}
+			
+			if (wsRetryCount >= wsMaxRetries) {
+				console.warn('WebSocket重试次数已达到今日上限(' + wsMaxRetries + '次)，已停止重连');
+				return;
+			}
+			
+			// 增加重试计数
+			wsRetryCount++;
+			saveRetryCount(wsRetryCount);
+			console.log('WebSocket尝试连接... (今日第' + wsRetryCount + '次)');
+			
 			websocket = new WebSocket('wss://{$_SERVER['HTTP_HOST']}/wss');
 			websocket.onopen = function(evt) {
+				console.log('WebSocket连接成功');
+				// 连接成功，重置计数
+				wsRetryCount = 0;
+				saveRetryCount(0);
 				websocket.send(JSON.stringify({ type:'khinit',token:'{$socket_token}',data:{ aid:{$aid},mid:{$socket_mid} } }))
 				if(senddata){
 					websocket.send(JSON.stringify(senddata))
 				}
 			};
 			websocket.onclose = function(evt) {
-					console.log('onclose');
+					console.log('WebSocket连接关闭');
 					console.log(evt);
 			};
 			websocket.onmessage = function(res) {
@@ -882,7 +931,7 @@
 				}catch(e){}
 			};
 			websocket.onerror = function(evt) {
-					console.log('onerror');
+					console.log('WebSocket连接错误 (今日已重试' + wsRetryCount + '次)');
 					console.log(evt);
 			};
 		}else{
@@ -892,6 +941,12 @@
 	}
 	websocketsend('');
 	var interval1 = setInterval(function(){
+		// 检查是否超过重试上限
+		if (wsRetryCount >= wsMaxRetries) {
+			clearInterval(interval1);
+			console.warn('已停止WebSocket心跳，今日重试次数已用完');
+			return;
+		}
 		websocketsend({type:'connect'});
 	},25000)
 	function openmobile(){

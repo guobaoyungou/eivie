@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{if $info.id}编辑{else}新增{/if}API Key配置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .provider-item { display: flex; align-items: center; padding: 8px; cursor: pointer; border: 1px solid #e6e6e6; border-radius: 4px; margin-bottom: 8px; transition: all 0.2s; }
+    .provider-item:hover { border-color: #1E9FFF; background: #f0f9ff; }
+    .provider-item.selected { border-color: #1E9FFF; background: #e8f4ff; }
+    .provider-item img { width: 40px; height: 40px; border-radius: 4px; margin-right: 12px; }
+    .provider-item .no-logo { width: 40px; height: 40px; border-radius: 4px; margin-right: 12px; background: #f5f5f5; display: flex; align-items: center; justify-content: center; color: #999; font-size: 20px; }
+    .provider-item .info { flex: 1; }
+    .provider-item .info .name { font-weight: bold; color: #333; }
+    .provider-item .info .code { font-size: 12px; color: #999; }
+    .provider-item .info .key-count { font-size: 11px; color: #1E9FFF; margin-left: 6px; }
+    .provider-item .check-icon { color: #1E9FFF; font-size: 20px; display: none; }
+    .provider-item.selected .check-icon { display: block; }
+    .auth-fields { background: #fafafa; padding: 15px; border-radius: 4px; margin-top: 10px; }
+    .auth-fields-title { font-weight: bold; color: #333; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #e6e6e6; }
+    .field-tip { color: #999; font-size: 12px; margin-top: 5px; }
+    .provider-selector { max-height: 300px; overflow-y: auto; padding: 10px; border: 1px solid #e6e6e6; border-radius: 4px; background: #fff; }
+    .no-provider-tip { color: #999; text-align: center; padding: 30px; }
+    .pool-config { background: #f8f8f8; border: 1px solid #e6e6e6; border-radius: 4px; padding: 15px; margin-top: 10px; }
+    .pool-config-title { font-weight: bold; color: #333; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #e6e6e6; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          {if $info.id}<i class="fa fa-pencil"></i> 编辑API Key配置{else}<i class="fa fa-plus"></i> 新增API Key配置{/if}
+          <i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer;float:right" onclick="closeself()"></i>
+        </div>
+        <div class="layui-card-body" pad15>
+          <div class="layui-form form-label-w8">
+            <input type="hidden" name="info[id]" value="{$info.id}">
+            <input type="hidden" name="info[provider_id]" id="provider_id" value="{$info.provider_id}">
+            
+            <!-- 供应商选择 -->
+            <div class="layui-form-item">
+              <label class="layui-form-label"><span class="required">*</span>选择供应商</label>
+              <div class="layui-input-block" style="width:600px">
+                <div class="provider-selector" id="providerSelector">
+                  {if count($providers) > 0}
+                    {volist name="providers" id="p"}
+                    <div class="provider-item{if $info.provider_id == $p.id} selected{/if}" data-id="{$p.id}" data-code="{$p.provider_code}" data-name="{$p.provider_name}" data-auth='{$p.auth_config|json_encode}'>
+                      {if $p.logo}
+                      <img src="{$p.logo}" alt="{$p.provider_name}">
+                      {else}
+                      <div class="no-logo"><i class="layui-icon layui-icon-app"></i></div>
+                      {/if}
+                      <div class="info">
+                        <div class="name">{$p.provider_name}{if $p.key_count > 0}<span class="key-count">已配{$p.key_count}个Key</span>{/if}</div>
+                        <div class="code">{$p.provider_code}</div>
+                      </div>
+                      <i class="layui-icon layui-icon-ok-circle check-icon"></i>
+                    </div>
+                    {/volist}
+                  {else}
+                    <div class="no-provider-tip">
+                      <i class="layui-icon layui-icon-face-surprised" style="font-size:48px;color:#ccc"></i>
+                      <p style="margin-top:10px">暂无可配置的供应商</p>
+                      <p style="font-size:12px;color:#999">请先在模型广场添加供应商</p>
+                    </div>
+                  {/if}
+                </div>
+                <div class="field-tip">选择一个供应商，可为同一供应商配置多个API Key实现负载均衡</div>
+              </div>
+            </div>
+            
+            <!-- 动态认证字段区域 -->
+            <div id="authFieldsContainer" style="display:{if $info.provider_id}block{else}none{/if}">
+              <div class="layui-form-item">
+                <label class="layui-form-label"></label>
+                <div class="layui-input-block" style="width:600px">
+                  <div class="auth-fields">
+                    <div class="auth-fields-title"><i class="layui-icon layui-icon-key"></i> 认证信息配置</div>
+                    <div id="authFieldsContent">
+                      <!-- 动态生成的认证字段 -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 配置名称 -->
+            <div class="layui-form-item">
+              <label class="layui-form-label">配置名称</label>
+              <div class="layui-input-inline" style="width:300px">
+                <input type="text" name="info[config_name]" value="{$info.config_name}" class="layui-input" placeholder="可选，便于识别多个Key">
+              </div>
+              <div class="layui-form-mid layui-word-aux">留空则自动命名为"供应商名-KeyN"</div>
+            </div>
+            
+            <!-- Key池配置 -->
+            <div class="layui-form-item">
+              <label class="layui-form-label"></label>
+              <div class="layui-input-block" style="width:600px">
+                <div class="pool-config">
+                  <div class="pool-config-title"><i class="layui-icon layui-icon-engine"></i> Key池配置</div>
+                  <div class="layui-form-item" style="margin-bottom:10px">
+                    <label class="layui-form-label" style="width:100px">最大并发数</label>
+                    <div class="layui-input-inline" style="width:120px">
+                      <input type="number" name="info[max_concurrency]" value="{$info.max_concurrency|default=5}" class="layui-input" min="1" max="100">
+                    </div>
+                    <div class="layui-form-mid layui-word-aux">单Key最大并发数，范围1-100，默认5</div>
+                  </div>
+                  <div class="layui-form-item" style="margin-bottom:0">
+                    <label class="layui-form-label" style="width:100px">负载权重</label>
+                    <div class="layui-input-inline" style="width:120px">
+                      <input type="number" name="info[weight]" value="{$info.weight|default=100}" class="layui-input" min="1" max="100">
+                    </div>
+                    <div class="layui-form-mid layui-word-aux">权重越高被选中概率越大，范围1-100，默认100</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 备注 -->
+            <div class="layui-form-item">
+              <label class="layui-form-label">备注说明</label>
+              <div class="layui-input-inline" style="width:400px">
+                <textarea name="info[remark]" class="layui-textarea" placeholder="可选，备注说明">{$info.remark}</textarea>
+              </div>
+            </div>
+            
+            <!-- 排序 -->
+            <div class="layui-form-item">
+              <label class="layui-form-label">排序</label>
+              <div class="layui-input-inline" style="width:100px">
+                <input type="number" name="info[sort]" value="{$info.sort|default=0}" class="layui-input">
+              </div>
+              <div class="layui-form-mid layui-word-aux">数字越小越靠前</div>
+            </div>
+            
+            <!-- 状态 -->
+            <div class="layui-form-item">
+              <label class="layui-form-label">状态</label>
+              <div class="layui-input-inline">
+                <input type="radio" name="info[is_active]" value="1" title="启用" {if $info.is_active != 0}checked{/if}>
+                <input type="radio" name="info[is_active]" value="0" title="停用" {if $info.is_active == 0}checked{/if}>
+              </div>
+            </div>
+            
+            <!-- 提交按钮 -->
+            <div class="layui-form-item">
+              <div class="layui-input-block">
+                <button class="layui-btn layui-btn-danger" lay-submit lay-filter="formsubmit">保 存</button>
+                <button type="button" class="layui-btn layui-btn-primary" onclick="closeself()">取 消</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  {include file="public/js"/}
+  <script>
+  var providersData = {$providers_json|raw};
+  var currentInfo = {
+    id: "{$info.id|default=0}",
+    provider_id: "{$info.provider_id|default=0}",
+    api_key: "{$info.api_key_decrypted|default=''}",
+    api_secret: "{$info.api_secret_decrypted|default=''}"
+  };
+  
+  // 供应商选择事件
+  $(document).on('click', '.provider-item', function() {
+    if ($(this).hasClass('no-provider-tip')) return;
+    
+    $('.provider-item').removeClass('selected');
+    $(this).addClass('selected');
+    
+    var providerId = $(this).data('id');
+    var providerName = $(this).data('name');
+    var authConfig = $(this).data('auth');
+    
+    $('#provider_id').val(providerId);
+    
+    // 渲染认证字段
+    renderAuthFields(authConfig, providerName);
+  });
+  
+  // 渲染认证字段
+  function renderAuthFields(authConfig, providerName) {
+    var container = $('#authFieldsContent');
+    container.empty();
+    
+    if (!authConfig || !authConfig.fields || authConfig.fields.length === 0) {
+      // 默认显示API Key字段
+      authConfig = {
+        fields: [
+          {name: 'api_key', label: 'API Key', type: 'text', required: true}
+        ]
+      };
+    }
+    
+    var fields = authConfig.fields;
+    var html = '';
+    
+    fields.forEach(function(field) {
+      var fieldType = field.type || 'text';
+      var required = field.required ? '<span class="required">*</span>' : '';
+      var requiredAttr = field.required ? 'lay-verify="required" lay-verType="tips"' : '';
+      var inputType = fieldType === 'password' ? 'password' : 'text';
+      
+      // 获取已有值
+      var fieldValue = '';
+      if (field.name === 'api_key' && currentInfo.api_key) {
+        fieldValue = currentInfo.api_key;
+      } else if (field.name === 'api_secret' && currentInfo.api_secret) {
+        fieldValue = currentInfo.api_secret;
+      }
+      
+      html += '<div class="layui-form-item" style="margin-bottom:15px">';
+      html += '<label class="layui-form-label" style="width:100px">' + required + field.label + '</label>';
+      html += '<div class="layui-input-inline" style="width:350px">';
+      html += '<input type="' + inputType + '" name="info[' + field.name + ']" value="' + fieldValue + '" ' + requiredAttr + ' class="layui-input" placeholder="请输入' + field.label + '">';
+      html += '</div>';
+      if (field.name === 'api_key') {
+        html += '<div class="layui-form-mid layui-word-aux">长度不少于20个字符</div>';
+      }
+      html += '</div>';
+    });
+    
+    container.html(html);
+    $('#authFieldsContainer').show();
+    layui.form.render();
+  }
+  
+  // 页面加载时，如果是编辑模式，渲染已有配置的认证字段
+  $(function() {
+    if (currentInfo.provider_id > 0) {
+      var selectedItem = $('.provider-item[data-id="' + currentInfo.provider_id + '"]');
+      if (selectedItem.length) {
+        var authConfig = selectedItem.data('auth');
+        var providerName = selectedItem.data('name');
+        renderAuthFields(authConfig, providerName);
+      }
+    }
+  });
+  
+  // 表单提交
+  layui.form.on('submit(formsubmit)', function(obj) {
+    var field = obj.field;
+    
+    // 验证供应商选择
+    if (!field['info[provider_id]'] || field['info[provider_id]'] == '0') {
+      layer.msg('请选择供应商');
+      return false;
+    }
+    
+    // 验证API Key
+    var apiKey = field['info[api_key]'];
+    if (!apiKey || apiKey.trim() === '') {
+      layer.msg('请填写API Key');
+      return false;
+    }
+    
+    if (apiKey.length < 20) {
+      layer.msg('API Key长度应不少于20个字符');
+      return false;
+    }
+    
+    var index = layer.load();
+    $.post("{:url('save')}", field, function(data) {
+      layer.close(index);
+      dialog(data.msg, data.status);
+      if (data.status == 1) {
+        setTimeout(function() {
+          parent.layer.close(parent.layer.getFrameIndex(window.name));
+          parent.tableIns.reload();
+        }, 1000);
+      }
+    });
+    return false;
+  });
+  </script>
+</body>
+</html>

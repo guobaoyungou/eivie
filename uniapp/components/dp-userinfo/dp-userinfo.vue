@@ -581,7 +581,7 @@
 		<view class="content">
 			 <view class="item" v-for="(item,index) in params.orderData" @click="optionJump(item.type)" v-if="item.show != 0">
 					<view class="image-view">
-						<image :src="item.imgurl"></image>
+						<image class="c-img" :src="item.imgurl"></image>
 					</view>
 					<view class="t2" v-if="item.num>0">{{item.num}}</view>
 					<text class="t3">{{item.text}}</text>
@@ -612,7 +612,7 @@
 
 	<view class="task_list" :style="{'margin':(params.padding_y*2.2)+'rpx '+(params.padding_x*2.2)+'rpx;'+ (params.padding_y == 0 || params.padding_y > 10 ? 'margin-top:20rpx':'')}" v-if="platform=='wx' && data.sysset.task_banner" @click="totaskbanner">
 		<view class="item" @tap="goto" data-url="moneylog">
-			<view class="f1"><image :src="pre_url+'/static/img/task_banner.png'"></image></view>
+			<view class="f1"><image class="c-img" :src="pre_url+'/static/img/task_banner.png'"></image></view>
 			<view class="f2">广告任务</view>
 			<text class="f3">余量{{sy_count !=''?sy_count:data.sysset.sy_count}}次</text>
 			<image :src="pre_url+'/static/img/arrowright.png'" class="f4"></image>
@@ -621,7 +621,7 @@
 	
 	<view v-if="data.userinfo.show_green_score" class="task_list" :style="{'margin':(params.padding_y*2.2)+'rpx '+(params.padding_x*2.2)+'rpx','marginTop':(params.padding_y == 0 || params.padding_y > 10 ? '20rpx':(params.padding_y*2.2)+'rpx'),'background':'rgba('+t('color1rgb')+',1)'}">
 		<view class="item" @tap="goto" data-url="/pagesB/greenscore/greenscorelognew">
-			<view class="icon-view"><image :src="pre_url+'/static/img/points.png'"></image></view>
+			<view class="icon-view"><image class="c-img" :src="pre_url+'/static/img/points.png'"></image></view>
 			<view class="title-text">{{t('绿色积分')}}</view>
 			<view class="data-num-view flex-col">
 				<view class="top-num-text">{{data.userinfo.green_score}}</view>
@@ -632,7 +632,7 @@
 	</view>
 	<view v-if="data.userinfo.show_cashback" class="task_list" :style="{'margin':(params.padding_y*2.2)+'rpx '+(params.padding_x*2.2)+'rpx','marginTop':(params.padding_y == 0 || params.padding_y > 10 ? '20rpx':(params.padding_y*2.2)+'rpx'),'background':'rgba('+t('color1rgb')+',1)'}">
 		<view class="item" @tap="goto" data-url="/pagesC/releasePoints/details">
-			<view class="icon-view"><image :src="pre_url+'/static/img/releasepoints.png'"></image></view>
+			<view class="icon-view"><image class="c-img" :src="pre_url+'/static/img/releasepoints.png'"></image></view>
 			<view class="title-text">{{t('释放积分')}}</view>
 			<view class="data-num-view flex-col">
 				<view class="top-num-text">{{data.userinfo.cashback_price}}</view>
@@ -643,7 +643,7 @@
 	</view>
 	<view v-if="data.userinfo.show_cashback_multiply" class="task_list" :style="{'margin':(params.padding_y*2.2)+'rpx '+(params.padding_x*2.2)+'rpx','marginTop':(params.padding_y == 0 || params.padding_y > 10 ? '20rpx':(params.padding_y*2.2)+'rpx'),'background':'rgba('+t('color1rgb')+',1)'}">
 		<view class="item" @tap="goto" data-url="/pagesC/releasePoints/cashbacklog">
-			<view class="icon-view"><image :src="pre_url+'/static/img/zengzhi.png'"></image></view>
+			<view class="icon-view"><image class="c-img" :src="pre_url+'/static/img/zengzhi.png'"></image></view>
 			<view class="title-text">{{t('增值释放积分')}}</view>
 			<view class="data-num-view flex-col">
 				<view class="top-num-text">{{data.userinfo.cashback_price_multiply}}</view>
@@ -654,7 +654,7 @@
 	</view>
 	<view v-if="data.userinfo.show_new_score" class="task_list" :style="{'margin':(params.padding_y*2.2)+'rpx '+(params.padding_x*2.2)+'rpx','marginTop':(params.padding_y == 0 || params.padding_y > 10 ? '20rpx':(params.padding_y*2.2)+'rpx'),'background':'rgba('+t('color1rgb')+',1)'}">
 		<view class="item" @tap="goto" data-url="/pagesD/newscore/ogLog">
-			<view class="icon-view"><image :src="pre_url+'/static/img/zengzhi.png'"></image></view>
+			<view class="icon-view"><image class="c-img" :src="pre_url+'/static/img/zengzhi.png'"></image></view>
 			<view class="title-text">{{t('新积分')}}</view>
 			<view class="data-num-view flex-col">
 				<view class="top-num-text">{{data.userinfo.new_score}}</view>
@@ -931,7 +931,7 @@
 .dp-userinfo .banner .user-level{margin-left:5px;color:#b48b36;background-color:#ffefd4;margin-top:2px;width:auto;height:36rpx;border-radius:18rpx;display: flex;align-items: center;}
 .dp-userinfo .banner .user-level .level-img{width:32rpx;height:32rpx;margin-right:3px;border-radius:50%;margin: 0rpx 10rpx;}
 .dp-userinfo .banner .user-level .level-name{font-size:24rpx;max-width: 200rpx;white-space: nowrap;padding-right: 10rpx;}
-.dp-userinfo .banner .user-level image{border-radius:50%;}
+.dp-userinfo .banner .user-level .level-img{border-radius:50%;}
 .dp-userinfo .banner .usercard{position:absolute;right:32rpx;top:28rpx;width:160rpx;height:60rpx;text-align:center;border:1px solid #FFB2B2;border-radius:8rpx;color:#FC4343;font-size:24rpx;font-weight:bold;display:flex;align-items:center;justify-content:center}
 .dp-userinfo .banner .usercard .img{width:30rpx;height:30rpx;margin-right:8rpx;padding-bottom:4rpx}
 
@@ -982,7 +982,7 @@
 .dp-userinfo-order .content .item .t2{display:flex;align-items:center;justify-content:center;background: red;color: #fff;border-radius:50%;padding: 0 10rpx;position: absolute;top: 0px;right:20rpx;width:35rpx;height:35rpx;text-align:center;}
 
 .dp-userinfo-order .content .item .image-view{width: 60rpx;height: 60rpx;}
-.dp-userinfo-order .content .item .image-view image{width: 60rpx;height: 60rpx;}
+.dp-userinfo-order .content .item .image-view .c-img{width: 60rpx;height: 60rpx;}
 
 .parent {padding:20rpx;border-radius:16rpx;justify-content: center;display:flex;align-items:center;font-size:24rpx; margin-bottom: 10rpx;}
 .parent .parentimg{ width: 100rpx; height:100rpx; border-radius: 50%; z-index: 10;}
@@ -992,7 +992,7 @@
 .parent .f2 { padding: 0 30rpx;}
 .parent .handle-img {width: 60rpx; height: 60rpx;}
 .parent .btn-box { padding: 20rpx 0;}
-.parent button { padding: 0 40rpx; color: #fff; border-radius:20rpx; line-height: 60rpx;}
+.parent .c-btn { padding: 0 40rpx; color: #fff; border-radius:20rpx; line-height: 60rpx;}
 
 .tag-renzheng{color:#eeda65;background:#3a3a3a;border-radius: 8rpx;padding: 4rpx 8rpx;margin: 0 4rpx;font-size: 22rpx;}
 .tag-gray{color:#fff;background:#999;border-radius: 8rpx;padding: 4rpx 8rpx;margin: 0 4rpx;font-size: 22rpx;}
@@ -1001,7 +1001,7 @@
 .task_list .item{ height:100rpx;display:flex;align-items:center;border-bottom:1px solid #eee}
 .task_list .item:last-child{border-bottom:0;}
 .task_list .f1{width:50rpx;height:50rpx;line-height:50rpx;display:flex;align-items:center}
-.task_list .f1 image{ width:44rpx;height:44rpx;}
+.task_list .f1 .c-img{ width:44rpx;height:44rpx;}
 .task_list .f1 span{ width:40rpx;height:40rpx;font-size:40rpx}
 .task_list .f2{color:#222}
 .task_list .f3{ color: #666;text-align:right;flex:1}
@@ -1009,7 +1009,7 @@
 
 .task_list .title-text{color: #fff;font-size: 30rpx;font-weight: 500;}
 .task_list .item .icon-view{width: 55rpx;height: 55rpx;margin-right: 15rpx;}
-.task_list .item .icon-view image{width: 100%;height: 100%;}
+.task_list .item .icon-view .c-img{width: 100%;height: 100%;}
 .task_list .data-num-view{flex: 1;justify-content: flex-end;text-align: right;}
 .task_list .data-num-view .top-num-text{color: #fff;font-size: 30rpx;font-weight: 500;}
 .task_list .data-num-view .bot-num-text{color: #ecdd36;font-size: 24rpx;}

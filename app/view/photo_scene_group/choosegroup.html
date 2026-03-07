@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>选择照片场景分组</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-card layui-col-md12">
+                <div class="layui-card-header">选择照片场景分组</div>
+                <div class="layui-card-body" pad15>
+                    <div class="layui-col-md12" style="padding-bottom:10px">
+                        <a class="layui-btn layuiadmin-btn-list" href="javascript:void(0)" onclick="confirmSelect()">确认选择</a>
+                        <span style="margin-left:15px;color:#666">已选择 <span id="selectedCount" style="color:#1E9FFF;font-weight:bold">0</span> 个分组</span>
+                    </div>
+                    <div class="layui-col-md12">
+                        <table id="tabledata" lay-filter="tabledata"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {include file="public/js"/}
+    <script>
+    var table = layui.table;
+    var datawhere = {};
+    
+    var tableIns = table.render({
+        elem: '#tabledata',
+        url: "{$Request.url}",
+        page: false,
+        cols: [[
+            { type: "checkbox" },
+            { field: 'id', title: 'ID', width: 80 },
+            { field: 'pic', title: '图标', width: 80, templet: function(d) {
+                if (d.pic) {
+                    return '<img src="' + d.pic + '" style="height:36px;border-radius:4px"/>';
+                }
+                return '<span style="color:#ccc">-</span>';
+            }},
+            { field: 'name', title: '分组名称' },
+            { field: 'sort', title: '排序', width: 80 },
+            { field: 'status', title: '状态', templet: function(d) {
+                return d.status == 1 ? '<span style="color:green">启用</span>' : '<span style="color:red">禁用</span>';
+            }, width: 80 }
+        ]]
+    });
+    
+    // 监听复选框选中事件
+    table.on('checkbox(tabledata)', function(obj) {
+        var checkStatus = table.checkStatus('tabledata');
+        var checkData = checkStatus.data;
+        $('#selectedCount').text(checkData.length);
+    });
+    
+    table.on('sort(tabledata)', function(obj) {
+        datawhere.field = obj.field;
+        datawhere.order = obj.type;
+        tableIns.reload({
+            initSort: obj,
+            where: datawhere
+        });
+    });
+    
+    function confirmSelect() {
+        var ids = [];
+        var names = [];
+        var checkStatus = table.checkStatus('tabledata');
+        var checkData = checkStatus.data;
+        if (checkData.length === 0) {
+            return layer.msg('请选择分组');
+        }
+        for (var i = 0; i < checkData.length; i++) {
+            ids.push(checkData[i]['id']);
+            names.push(checkData[i]['name']);
+        }
+        window.parent.chooseGroups(ids.join(','), names.join(','));
+    }
+    </script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>计费规则设置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .layui-form-label { width: 120px; }
+    .layui-input-block { margin-left: 150px; }
+    .info-box {
+      background: #f8f8f8;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .info-box .item {
+      margin-bottom: 10px;
+    }
+    .info-box .label {
+      font-weight: bold;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid" style="padding: 20px;">
+    <div class="layui-card">
+      <div class="layui-card-header">
+        <i class="layui-icon layui-icon-dollar"></i> 计费规则设置
+        <i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer;float:right;" onclick="closeself()"></i>
+      </div>
+      <div class="layui-card-body">
+        <!-- API信息 -->
+        <div class="info-box">
+          <div class="item">
+            <span class="label">API名称：</span>{$api.api_name}
+          </div>
+          <div class="item">
+            <span class="label">API代码：</span>{$api.api_code}
+          </div>
+          {if !empty($api.model_instance)}
+          <div class="item">
+            <span class="label">关联模型：</span>{$api.model_instance.model_name}
+          </div>
+          {/if}
+        </div>
+
+        <form class="layui-form" lay-filter="pricing-form">
+          <input type="hidden" name="api_config_id" value="{$api.id}">
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label"><span style="color:red;">*</span> 计费模式：</label>
+            <div class="layui-input-inline">
+              <select name="billing_mode" lay-verify="required" lay-verType="tips">
+                {volist name="billingModes" id="bname" key="bkey"}
+                <option value="{$bkey}" {if !empty($api.pricing) && $api.pricing.billing_mode == $bkey}selected{/if}>
+                  {$bname}
+                </option>
+                {/volist}
+              </select>
+            </div>
+            <div class="layui-form-mid layui-word-aux">选择适合的计费方式</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label"><span style="color:red;">*</span> 计费单位：</label>
+            <div class="layui-input-inline">
+              <select name="unit_type" lay-verify="required" lay-verType="tips">
+                {volist name="unitTypes" id="uname" key="ukey"}
+                <option value="{$ukey}" {if !empty($api.pricing) && $api.pricing.unit_type == $ukey}selected{/if}>
+                  {$uname}
+                </option>
+                {/volist}
+              </select>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label"><span style="color:red;">*</span> 成本价：</label>
+            <div class="layui-input-inline">
+              <input type="text" name="cost_per_unit" 
+                     value="{$api.pricing.cost_per_unit|default='0.00'}" 
+                     placeholder="单位成本价" lay-verify="required|number" lay-verType="tips" 
+                     autocomplete="off" class="layui-input">
+            </div>
+            <div class="layui-form-mid layui-word-aux">元</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label"><span style="color:red;">*</span> 售价：</label>
+            <div class="layui-input-inline">
+              <input type="text" name="price_per_unit" 
+                     value="{$api.pricing.price_per_unit|default='0.00'}" 
+                     placeholder="单位售价" lay-verify="required|number" lay-verType="tips" 
+                     autocomplete="off" class="layui-input">
+            </div>
+            <div class="layui-form-mid layui-word-aux">元</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">利润率：</label>
+            <div class="layui-input-inline">
+              <input type="text" id="profit_rate" value="0%" 
+                     readonly class="layui-input layui-disabled">
+            </div>
+            <div class="layui-form-mid layui-word-aux">自动计算</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">最低收费：</label>
+            <div class="layui-input-inline">
+              <input type="text" name="min_charge" 
+                     value="{$api.pricing.min_charge|default='0.00'}" 
+                     placeholder="最低收费金额" autocomplete="off" class="layui-input">
+            </div>
+            <div class="layui-form-mid layui-word-aux">元（可选）</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">免费额度：</label>
+            <div class="layui-input-inline">
+              <input type="number" name="free_quota" 
+                     value="{$api.pricing.free_quota|default='0'}" 
+                     placeholder="每日免费次数" min="0" autocomplete="off" class="layui-input">
+            </div>
+            <div class="layui-form-mid layui-word-aux">次/天</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">阶梯定价：</label>
+            <div class="layui-input-block" style="width: 600px;">
+              <textarea name="tier_pricing_json" placeholder='JSON格式，如：[{"min_units":0,"max_units":1000,"price":0.10},{"min_units":1001,"max_units":5000,"price":0.08}]' 
+                        class="layui-textarea" style="min-height: 100px;">{$api.pricing.tier_pricing_json|default=''|json_encode}</textarea>
+              <div class="layui-form-mid layui-word-aux">配置不同用量的价格，可选</div>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">是否启用：</label>
+            <div class="layui-input-inline">
+              <input type="radio" name="is_active" value="1" title="启用" 
+                     {if empty($api.pricing) || $api.pricing.is_active == 1}checked{/if}>
+              <input type="radio" name="is_active" value="0" title="停用" 
+                     {if !empty($api.pricing) && $api.pricing.is_active == 0}checked{/if}>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <div class="layui-input-block" style="margin-left:150px;">
+              <button class="layui-btn" lay-submit lay-filter="formsubmit">保 存</button>
+              <button type="button" class="layui-btn layui-btn-primary" onclick="closeself()">取 消</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  layui.use(['form', 'layer'], function(){
+    var form = layui.form;
+    var layer = layui.layer;
+    var $ = layui.$;
+
+    // 计算利润率
+    function calculateProfitRate(){
+      var cost = parseFloat($('input[name="cost_per_unit"]').val()) || 0;
+      var price = parseFloat($('input[name="price_per_unit"]').val()) || 0;
+      
+      if(cost > 0){
+        var profit = price - cost;
+        var rate = (profit / cost * 100).toFixed(2);
+        $('#profit_rate').val(rate + '%');
+      } else {
+        $('#profit_rate').val('0%');
+      }
+    }
+
+    // 监听成本价和售价变化
+    $('input[name="cost_per_unit"], input[name="price_per_unit"]').on('input', function(){
+      calculateProfitRate();
+    });
+
+    // 初始计算
+    calculateProfitRate();
+
+    // 表单提交
+    form.on('submit(formsubmit)', function(data){
+      var loadIndex = layer.load(2);
+      
+      $.ajax({
+        url: '/ApiConfig/pricing?api_config_id={$api.id}&aid={$Request.get.aid ?? 0}',
+        type: 'POST',
+        data: data.field,
+        dataType: 'json',
+        success: function(res){
+          layer.close(loadIndex);
+          if(res.code == 0){
+            layer.msg(res.msg, {icon: 1, time: 1500}, function(){
+              parent.layui.table.reload('apiTable');
+              closeself();
+            });
+          } else {
+            layer.msg(res.msg, {icon: 2});
+          }
+        },
+        error: function(){
+          layer.close(loadIndex);
+          layer.msg('网络错误，请重试', {icon: 2});
+        }
+      });
+      
+      return false;
+    });
+  });
+
+  function closeself(){
+    var index = parent.layer.getFrameIndex(window.name);
+    parent.layer.close(index);
+  }
+  </script>
+</body>
+</html>

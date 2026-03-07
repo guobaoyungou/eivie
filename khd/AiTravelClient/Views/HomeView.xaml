@@ -1,0 +1,235 @@
+<UserControl x:Class="AiTravelClient.Views.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:converters="clr-namespace:AiTravelClient.Converters"
+             mc:Ignorable="d" 
+             d:DesignHeight="680" d:DesignWidth="1000"
+             Background="{StaticResource BackgroundBrush}">
+    
+    <UserControl.Resources>
+        <converters:BoolToColorConverter x:Key="BoolToColor"/>
+        <converters:InverseBoolConverter x:Key="InverseBool"/>
+        <converters:PercentageConverter x:Key="Percentage"/>
+    </UserControl.Resources>
+    
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="{StaticResource PageMargin}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <!-- 顶部控制面板 -->
+            <Border Grid.Row="0" Style="{StaticResource CardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- 控制按钮组 -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <Button Content="开始监控" 
+                               Command="{Binding StartMonitoringCommand}"
+                               Style="{StaticResource SuccessButtonStyle}"
+                               Visibility="{Binding IsMonitoring, Converter={StaticResource InverseBool}}"/>
+                        
+                        <Button Content="停止监控" 
+                               Command="{Binding StopMonitoringCommand}"
+                               Style="{StaticResource DangerButtonStyle}"
+                               Visibility="{Binding IsMonitoring}"/>
+                        
+                        <Button Content="暂停上传" 
+                               Command="{Binding PauseUploadCommand}"
+                               Style="{StaticResource SecondaryButtonStyle}"
+                               Visibility="{Binding IsUploading}"/>
+                        
+                        <Button Content="恢复上传" 
+                               Command="{Binding ResumeUploadCommand}"
+                               Style="{StaticResource PrimaryButtonStyle}"
+                               Visibility="{Binding IsUploading, Converter={StaticResource InverseBool}}"/>
+                        
+                        <Button Content="刷新状态" 
+                               Command="{Binding RefreshStatusCommand}"
+                               Style="{StaticResource TextButtonStyle}"/>
+                    </StackPanel>
+                    
+                    <!-- 状态指示器 -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                            <Ellipse Width="12" Height="12" 
+                                    Fill="{Binding IsMonitoring, Converter={StaticResource BoolToColor}}"
+                                    Margin="0,0,5,0"/>
+                            <TextBlock Text="监控状态" FontSize="12"/>
+                        </StackPanel>
+                        
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="12" Height="12" 
+                                    Fill="{Binding IsUploading, Converter={StaticResource BoolToColor}}"
+                                    Margin="0,0,5,0"/>
+                            <TextBlock Text="上传状态" FontSize="12"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            
+            <!-- 设备信息面板 -->
+            <Border Grid.Row="1" Style="{StaticResource CardStyle}" Margin="0,16,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="设备状态" Style="{StaticResource SecondaryTextStyle}"/>
+                        <TextBlock Text="{Binding DeviceStatus}" 
+                                  Style="{StaticResource SubtitleTextStyle}"
+                                  Margin="0,5,0,0"/>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="最后心跳" Style="{StaticResource SecondaryTextStyle}"/>
+                        <TextBlock Text="{Binding LastHeartbeatTimeText}" 
+                                  Style="{StaticResource BodyTextStyle}"
+                                  Margin="0,5,0,0"/>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="运行时长" Style="{StaticResource SecondaryTextStyle}"/>
+                        <TextBlock Text="{Binding RunningTime}" 
+                                  Style="{StaticResource SubtitleTextStyle}"
+                                  Margin="0,5,0,0"/>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="3">
+                        <TextBlock Text="上传速度" Style="{StaticResource SecondaryTextStyle}"/>
+                        <TextBlock Text="{Binding UploadSpeed}" 
+                                  Style="{StaticResource SubtitleTextStyle}"
+                                  Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            
+            <!-- 统计卡片区 -->
+            <Grid Grid.Row="2" Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- 今日成功卡片 -->
+                <Border Grid.Column="0" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="今日成功" Style="{StaticResource SecondaryTextStyle}"/>
+                        <TextBlock Text="{Binding TodaySuccessCount}" 
+                                  FontSize="{StaticResource FontSizeHuge}"
+                                  FontWeight="Bold"
+                                  Foreground="{StaticResource SuccessBrush}"
+                                  Margin="0,10,0,0"/>
+                        <TextBlock Text="个文件" Style="{StaticResource SecondaryTextStyle}" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 今日失败卡片 -->
+                <Border Grid.Column="1" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="今日失败" Style="{StaticResource SecondaryTextStyle}"/>
+                        <TextBlock Text="{Binding TodayFailedCount}" 
+                                  FontSize="{StaticResource FontSizeHuge}"
+                                  FontWeight="Bold"
+                                  Foreground="{StaticResource ErrorBrush}"
+                                  Margin="0,10,0,0"/>
+                        <TextBlock Text="个文件" Style="{StaticResource SecondaryTextStyle}" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 成功率卡片 -->
+                <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="今日成功率" Style="{StaticResource SecondaryTextStyle}"/>
+                        <TextBlock Text="{Binding TodaySuccessRate, Converter={StaticResource Percentage}}" 
+                                  FontSize="{StaticResource FontSizeHuge}"
+                                  FontWeight="Bold"
+                                  Foreground="{StaticResource PrimaryBrush}"
+                                  Margin="0,10,0,0"/>
+                        <ProgressBar Value="{Binding TodaySuccessRate}" 
+                                    Maximum="100"
+                                    Height="8"
+                                    Margin="0,10,0,0"
+                                    Foreground="{StaticResource SuccessBrush}"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 累计统计卡片 -->
+                <Border Grid.Column="3" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="累计上传" Style="{StaticResource SecondaryTextStyle}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <TextBlock Text="{Binding TotalSuccessCount}" 
+                                      FontSize="{StaticResource FontSizeLarge}"
+                                      FontWeight="Bold"
+                                      Foreground="{StaticResource SuccessBrush}"/>
+                            <TextBlock Text=" / " 
+                                      FontSize="{StaticResource FontSizeLarge}"
+                                      Margin="5,0"/>
+                            <TextBlock Text="{Binding TotalFailedCount}" 
+                                      FontSize="{StaticResource FontSizeLarge}"
+                                      FontWeight="Bold"
+                                      Foreground="{StaticResource ErrorBrush}"/>
+                        </StackPanel>
+                        <TextBlock Text="成功 / 失败" Style="{StaticResource SecondaryTextStyle}" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+            
+            <!-- 队列状态区 -->
+            <Border Grid.Row="3" Style="{StaticResource CardStyle}" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="队列状态" Style="{StaticResource SubtitleTextStyle}" Margin="0,0,0,15"/>
+                    
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <TextBlock Text="等待上传：" Style="{StaticResource BodyTextStyle}"/>
+                                <TextBlock Text="{Binding QueuePendingCount}" 
+                                          Style="{StaticResource SubtitleTextStyle}"
+                                          Foreground="{StaticResource WarningBrush}"
+                                          Margin="10,0,0,0"/>
+                                <TextBlock Text=" 个" Style="{StaticResource BodyTextStyle}"/>
+                            </StackPanel>
+                            
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="正在上传：" Style="{StaticResource BodyTextStyle}"/>
+                                <TextBlock Text="{Binding UploadingCount}" 
+                                          Style="{StaticResource SubtitleTextStyle}"
+                                          Foreground="{StaticResource PrimaryBrush}"
+                                          Margin="10,0,0,0"/>
+                                <TextBlock Text=" 个" Style="{StaticResource BodyTextStyle}"/>
+                            </StackPanel>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Content="清除统计" 
+                                   Command="{Binding ClearStatisticsCommand}"
+                                   Style="{StaticResource TextButtonStyle}"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>API调用日志</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        .status-success { color: #5FB878; }
+        .status-fail { color: #FF5722; }
+        .log-detail { padding: 15px; line-height: 1.8; }
+        .log-detail .info-row { margin-bottom: 10px; }
+        .log-detail .label { font-weight: bold; color: #666; width: 120px; display: inline-block; }
+        .json-content { background: #f8f8f8; padding: 10px; border-radius: 4px; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+<div class="layui-fluid">
+    <div class="layui-card">
+        <div class="layui-card-header">API调用日志</div>
+        <div class="layui-card-body">
+            
+            <!-- 搜索筛选区 -->
+            <form class="layui-form" lay-filter="searchForm">
+                <div class="layui-form-item">
+                    <div class="layui-inline">
+                        <label class="layui-form-label">API配置</label>
+                        <div class="layui-input-inline" style="width: 200px;">
+                            <select name="api_config_id" id="api_config_id">
+                                <option value="">全部API</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-inline">
+                        <label class="layui-form-label">调用状态</label>
+                        <div class="layui-input-inline" style="width: 120px;">
+                            <select name="status">
+                                <option value="">全部状态</option>
+                                <option value="1">成功</option>
+                                <option value="0">失败</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-inline">
+                        <label class="layui-form-label">用户ID</label>
+                        <div class="layui-input-inline" style="width: 120px;">
+                            <input type="text" name="uid" placeholder="用户ID" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-inline">
+                        <label class="layui-form-label">时间范围</label>
+                        <div class="layui-input-inline" style="width: 240px;">
+                            <input type="text" name="daterange" id="daterange" placeholder="选择时间范围" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-inline">
+                        <button type="button" class="layui-btn" lay-submit lay-filter="search">
+                            <i class="layui-icon layui-icon-search"></i> 搜索
+                        </button>
+                        <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                    </div>
+                </div>
+            </form>
+            
+            <!-- 数据表格 -->
+            <table class="layui-hide" id="logTable" lay-filter="logTable"></table>
+        </div>
+    </div>
+</div>
+
+<!-- 工具栏模板 -->
+<script type="text/html" id="toolbarTpl">
+    <div class="layui-btn-container">
+        <button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="batchDelete">
+            <i class="layui-icon layui-icon-delete"></i> 批量删除
+        </button>
+        <button class="layui-btn layui-btn-sm layui-btn-normal" lay-event="export">
+            <i class="layui-icon layui-icon-export"></i> 导出日志
+        </button>
+    </div>
+</script>
+
+<!-- 操作列模板 -->
+<script type="text/html" id="barTpl">
+    <a class="layui-btn layui-btn-xs" lay-event="detail">查看详情</a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+</script>
+
+<!-- 状态列模板 -->
+<script type="text/html" id="statusTpl">
+    {{# if(d.status == 1){ }}
+        <span class="status-success"><i class="layui-icon layui-icon-ok-circle"></i> 成功</span>
+    {{# } else { }}
+        <span class="status-fail"><i class="layui-icon layui-icon-close-fill"></i> 失败</span>
+    {{# } }}
+</script>
+
+<!-- 费用列模板 -->
+<script type="text/html" id="amountTpl">
+    {{# if(d.actual_amount > 0){ }}
+        <span style="color: #FF5722;">¥{{d.actual_amount}}</span>
+    {{# } else { }}
+        <span style="color: #01AAED;">免费</span>
+    {{# } }}
+</script>
+
+<script src="/layui/layui.js"></script>
+<script>
+layui.use(['table', 'form', 'laydate', 'layer'], function(){
+    var table = layui.table;
+    var form = layui.form;
+    var laydate = layui.laydate;
+    var layer = layui.layer;
+    
+    // 初始化日期范围选择器
+    laydate.render({
+        elem: '#daterange',
+        range: true,
+        type: 'datetime'
+    });
+    
+    // 加载API配置下拉列表
+    $.ajax({
+        url: '/ApiConfig/getList',
+        type: 'GET',
+        data: { page: 1, limit: 1000 },
+        success: function(res) {
+            if(res.code === 0 && res.data) {
+                var html = '<option value="">全部API</option>';
+                res.data.forEach(function(item) {
+                    html += '<option value="'+item.id+'">'+item.api_name+'</option>';
+                });
+                $('#api_config_id').html(html);
+                form.render('select');
+            }
+        }
+    });
+    
+    // 渲染数据表格
+    var tableIns = table.render({
+        elem: '#logTable',
+        url: '/ApiCall/logs',
+        toolbar: '#toolbarTpl',
+        defaultToolbar: ['filter', 'exports', 'print'],
+        cols: [[
+            {type: 'checkbox', fixed: 'left'},
+            {field: 'id', title: 'ID', width: 80, sort: true},
+            {field: 'api_name', title: 'API名称', width: 200},
+            {field: 'uid', title: '用户ID', width: 100},
+            {field: 'status', title: '状态', width: 100, templet: '#statusTpl'},
+            {field: 'call_time', title: '调用时间', width: 180, sort: true},
+            {field: 'response_time', title: '响应时长(ms)', width: 120, sort: true},
+            {field: 'actual_amount', title: '消费金额', width: 120, templet: '#amountTpl', sort: true},
+            {field: 'request_tokens', title: '输入Token', width: 120},
+            {field: 'response_tokens', title: '输出Token', width: 120},
+            {field: 'error_msg', title: '错误信息', minWidth: 200},
+            {fixed: 'right', title: '操作', width: 180, toolbar: '#barTpl'}
+        ]],
+        page: true,
+        limit: 20,
+        limits: [10, 20, 50, 100],
+        where: {},
+        response: {
+            statusCode: 0
+        }
+    });
+    
+    // 搜索提交
+    form.on('submit(search)', function(data){
+        var field = data.field;
+        
+        // 处理日期范围
+        if(field.daterange) {
+            var dates = field.daterange.split(' - ');
+            field.start_time = dates[0];
+            field.end_time = dates[1];
+            delete field.daterange;
+        }
+        
+        // 重载表格
+        table.reload('logTable', {
+            where: field,
+            page: {curr: 1}
+        });
+        return false;
+    });
+    
+    // 头工具栏事件
+    table.on('toolbar(logTable)', function(obj){
+        var checkStatus = table.checkStatus(obj.config.id);
+        switch(obj.event){
+            case 'batchDelete':
+                var data = checkStatus.data;
+                if(data.length === 0){
+                    layer.msg('请选择要删除的日志');
+                    return;
+                }
+                layer.confirm('确定删除选中的 '+data.length+' 条日志吗？', function(index){
+                    var ids = data.map(function(item){ return item.id; });
+                    $.ajax({
+                        url: '/ApiCall/batchDeleteLogs',
+                        type: 'POST',
+                        data: { ids: ids },
+                        success: function(res){
+                            if(res.code === 0){
+                                layer.msg('删除成功');
+                                tableIns.reload();
+                            } else {
+                                layer.msg(res.msg || '删除失败');
+                            }
+                        }
+                    });
+                    layer.close(index);
+                });
+                break;
+            case 'export':
+                layer.msg('正在导出，请稍候...');
+                // 导出功能
+                var searchParams = $('.layui-form').serialize();
+                window.open('/ApiCall/exportLogs?' + searchParams);
+                break;
+        }
+    });
+    
+    // 监听行工具事件
+    table.on('tool(logTable)', function(obj){
+        var data = obj.data;
+        if(obj.event === 'detail'){
+            // 查看详情
+            $.ajax({
+                url: '/ApiCall/logDetail',
+                type: 'GET',
+                data: { id: data.id },
+                success: function(res){
+                    if(res.code === 0){
+                        showLogDetail(res.data);
+                    } else {
+                        layer.msg(res.msg || '获取详情失败');
+                    }
+                }
+            });
+        } else if(obj.event === 'del'){
+            // 删除日志
+            layer.confirm('确定删除此条日志吗？', function(index){
+                $.ajax({
+                    url: '/ApiCall/deleteLog',
+                    type: 'POST',
+                    data: { id: data.id },
+                    success: function(res){
+                        if(res.code === 0){
+                            layer.msg('删除成功');
+                            obj.del();
+                        } else {
+                            layer.msg(res.msg || '删除失败');
+                        }
+                    }
+                });
+                layer.close(index);
+            });
+        }
+    });
+    
+    // 显示日志详情
+    function showLogDetail(data) {
+        var content = '<div class="log-detail">';
+        content += '<div class="info-row"><span class="label">日志ID：</span>' + data.id + '</div>';
+        content += '<div class="info-row"><span class="label">API名称：</span>' + data.api_name + '</div>';
+        content += '<div class="info-row"><span class="label">用户ID：</span>' + data.uid + '</div>';
+        content += '<div class="info-row"><span class="label">调用状态：</span>' + (data.status == 1 ? '<span class="status-success">成功</span>' : '<span class="status-fail">失败</span>') + '</div>';
+        content += '<div class="info-row"><span class="label">调用时间：</span>' + data.call_time + '</div>';
+        content += '<div class="info-row"><span class="label">响应时长：</span>' + data.response_time + ' ms</div>';
+        content += '<div class="info-row"><span class="label">消费金额：</span>¥' + data.actual_amount + '</div>';
+        content += '<div class="info-row"><span class="label">输入Token：</span>' + (data.request_tokens || 0) + '</div>';
+        content += '<div class="info-row"><span class="label">输出Token：</span>' + (data.response_tokens || 0) + '</div>';
+        content += '<div class="info-row"><span class="label">总Token：</span>' + (data.total_tokens || 0) + '</div>';
+        
+        if(data.error_msg) {
+            content += '<div class="info-row"><span class="label">错误信息：</span><span style="color: #FF5722;">' + data.error_msg + '</span></div>';
+        }
+        
+        if(data.request_data) {
+            content += '<div class="info-row"><span class="label">请求参数：</span></div>';
+            content += '<div class="json-content"><pre>' + JSON.stringify(JSON.parse(data.request_data), null, 2) + '</pre></div>';
+        }
+        
+        if(data.response_data) {
+            content += '<div class="info-row" style="margin-top: 10px;"><span class="label">响应数据：</span></div>';
+            content += '<div class="json-content"><pre>' + JSON.stringify(JSON.parse(data.response_data), null, 2) + '</pre></div>';
+        }
+        
+        content += '</div>';
+        
+        layer.open({
+            type: 1,
+            title: 'API调用详情',
+            area: ['800px', '600px'],
+            content: content,
+            shadeClose: true
+        });
+    }
+});
+</script>
+
+</body>
+</html>

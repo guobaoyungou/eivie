@@ -14,8 +14,8 @@
 				</view>
 			</view>
 			<view @click="goto" :data-url="item.pagePath" :data-index="index" :data-opentype="index!=0 && getplatform()=='baidu'?'':opentype" v-for="(item,index) in menudata.list" :key="item.id" v-if="index==2" class="dp-tabbar-center" :style="'background-image: radial-gradient(circle at top, rgba(0,0,0,0) 55rpx, ' + menudata.backgroundColor +' 55rpx);'">
-				<image :src="item.iconPath"></image>
-				<view :style="{color:item.color}">{{item.text}}</view>
+				<image class="c-img" :src="item.iconPath"></image>
+				<view class="c-text" :style="{color:item.color}">{{item.text}}</view>
 			</view>
 			<view class="dp-tabbar-sideR dp-tabbar-sideRP" :style="{backgroundColor:menudata.backgroundColor}">
 				<view @click="goto" :data-url="item.pagePath" :data-index="index" :data-opentype="index!=0 && getplatform()=='baidu'?'':opentype" class="dp-tabbar-item" v-for="(item,index) in menudata.list" :key="item.id" v-if="index>=3">
@@ -39,8 +39,8 @@
 				</view>
 			</view>
 			<view @click="goto" :data-url="item.pagePath" :data-index="index" :data-opentype="index!=0 && getplatform()=='baidu'?'':opentype" v-for="(item,index) in menudata.list" :key="item.id" v-if="index==1" class="dp-tabbar-center" :style="'background-image: radial-gradient(circle at top, rgba(0,0,0,0) 55rpx, ' + menudata.backgroundColor +' 55rpx);'">
-				<image :src="item.iconPath"></image>
-				<view :style="{color:item.color}">{{item.text}}</view>
+				<image class="c-img" :src="item.iconPath"></image>
+				<view class="c-text" :style="{color:item.color}">{{item.text}}</view>
 			</view>
 			<view class="dp-tabbar-sideR" :style="{backgroundColor:menudata.backgroundColor}">
 				<view @click="goto" :data-url="item.pagePath" :data-index="index" :data-opentype="index!=0 && getplatform()=='baidu'?'':opentype" class="dp-tabbar-item" v-for="(item,index) in menudata.list" :key="item.id" v-if="index>=2">
@@ -310,7 +310,7 @@
 		height: 100%;
 		margin: 0 -2rpx;
 	}
-	.dp-tabbar-center image{
+	.dp-tabbar-center .c-img{
 		position: absolute;
 		top: -45rpx;
 		left: 0;
@@ -320,7 +320,7 @@
 		width: 90rpx;
 		border-radius: 100rpx;
 	}
-	.dp-tabbar-center view{
+	.dp-tabbar-center .c-text{
 		position: absolute;
 		width: 100%;
 		line-height: 1;

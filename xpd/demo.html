@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>选片端演示预览</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            background: #fff;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        .feature-list {
+            margin: 30px 0;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            background: #f8f9fa;
+            border-radius: 10px;
+            transition: transform 0.3s;
+        }
+        .feature-item:hover {
+            transform: translateX(5px);
+        }
+        .feature-icon {
+            font-size: 24px;
+            margin-right: 15px;
+        }
+        .feature-text {
+            flex: 1;
+        }
+        .feature-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .feature-desc {
+            color: #666;
+            font-size: 14px;
+        }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .btn {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            text-align: center;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: #fff;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+        .btn-secondary:hover {
+            background: #667eea;
+            color: #fff;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .info-box h3 {
+            color: #1976d2;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .info-box p {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .demo-tag {
+            display: inline-block;
+            background: #ff6b6b;
+            color: #fff;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            AI旅拍选片端 
+            <span class="demo-tag">演示模式</span>
+        </h1>
+        <p class="subtitle">无需真实数据，立即预览完整展示效果</p>
+
+        <div class="feature-list">
+            <div class="feature-item">
+                <div class="feature-icon">👆</div>
+                <div class="feature-text">
+                    <div class="feature-title">头像点击切换</div>
+                    <div class="feature-desc">点击任意头像，立即跳转并播放对应人像照片</div>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">🎬</div>
+                <div class="feature-text">
+                    <div class="feature-title">自动轮播展示</div>
+                    <div class="feature-desc">5组人像，11张AI生成照片，自动轮播切换</div>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">👤</div>
+                <div class="feature-text">
+                    <div class="feature-title">头像列表导航</div>
+                    <div class="feature-desc">中间位置高亮显示当前人像，切换同步更新</div>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">📱</div>
+                <div class="feature-text">
+                    <div class="feature-title">二维码展示</div>
+                    <div class="feature-desc">右下角浮动显示，引导游客扫码查看</div>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">🔄</div>
+                <div class="feature-text">
+                    <div class="feature-title">智能降级策略</div>
+                    <div class="feature-desc">无真实数据时自动使用演示数据，60秒后重试</div>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">⚡</div>
+                <div class="feature-text">
+                    <div class="feature-title">即时预览</div>
+                    <div class="feature-desc">无需等待，立即查看选片端的完整功能和效果</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>📌 演示说明</h3>
+            <p>
+                • 图片来源：使用 Picsum Photos 随机图片服务<br>
+                • 数据结构：与真实数据完全一致，展示真实功能<br>
+                • 自动切换：60秒后自动尝试获取真实数据<br>
+                • 提示显示：页面顶部会显示"演示模式"提示条（5秒消失）
+            </p>
+        </div>
+
+        <div class="button-group">
+            <a href="templates/template_1/index.html?aid=1&bid=1&mdid=999" class="btn btn-primary" target="_blank">
+                🚀 立即预览演示效果
+            </a>
+            <a href="README.md" class="btn btn-secondary" target="_blank">
+                📖 查看完整文档
+            </a>
+        </div>
+
+        <div class="info-box" style="margin-top: 30px; background: #fff3e0; border-color: #ff9800;">
+            <h3 style="color: #f57c00;">💡 使用建议</h3>
+            <p>
+                • <strong>首次配置</strong>：使用演示数据快速预览效果<br>
+                • <strong>确认满意</strong>：上传真实人像照片生成AI照片<br>
+                • <strong>正式使用</strong>：真实数据会自动替换演示数据<br>
+                • <strong>开发测试</strong>：无需后端支持，前端独立开发
+            </p>
+        </div>
+    </div>
+
+    <script>
+        console.log('AI旅拍选片端 - 演示预览页面');
+        console.log('点击"立即预览"按钮查看演示效果');
+        console.log('详细文档：/www/wwwroot/eivie/xpd/DEMO_DATA.md');
+    </script>
+</body>
+</html>

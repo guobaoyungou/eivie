@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>场景编辑 - 简化测试</title>
+  <link rel="stylesheet" href="__STATIC__/admin/layui/css/layui.css">
+</head>
+<body>
+  <div class="layui-container" style="padding: 20px;">
+    <h2>场景编辑 - 测试页面</h2>
+    <form class="layui-form">
+      <div class="layui-form-item">
+        <label class="layui-form-label">场景名称</label>
+        <div class="layui-input-block">
+          <input type="text" name="name" value="{$info.name}" class="layui-input" placeholder="请输入场景名称">
+        </div>
+      </div>
+      
+      <div class="layui-form-item">
+        <label class="layui-form-label">场景分类</label>
+        <div class="layui-input-block">
+          <select name="category">
+            <option value="">请选择分类</option>
+            <option value="风景">风景</option>
+            <option value="人物">人物</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="layui-form-item">
+        <div class="layui-input-block">
+          <button class="layui-btn" type="submit">提交测试</button>
+        </div>
+      </div>
+    </form>
+  </div>
+  
+  <script src="__STATIC__/admin/layui/layui.all.js"></script>
+  <script>
+  console.log('页面加载成功');
+  console.log('info数据:', {$info|json_encode});
+  console.log('models数据:', {$models|json_encode});
+  </script>
+</body>
+</html>

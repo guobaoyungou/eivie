@@ -82,7 +82,7 @@ export default {
   onLoad: function (opt) {
 		this.opt = app.getopts(opt);
 		this.getdata();
-		var sysinfo = uni.getSystemInfoSync();
+		var sysinfo = uni.getWindowInfo();
 		this.statusBarHeight = sysinfo.statusBarHeight;
 		this.wxNavigationBarMenu();
   },

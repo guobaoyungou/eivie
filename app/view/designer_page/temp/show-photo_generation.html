@@ -1,0 +1,74 @@
+<div class="dsn-mod dp-product" ng-class="{'dsn-mod-select':Item.id == focus}" ng-style="{'background-color':Item.params.bgcolor,'margin':Item.params.margin_y+'px '+Item.params.margin_x+'px 0','padding':Item.params.padding_y+'px '+Item.params.padding_x+'px'}">
+	<div style="line-height: 170px; text-align: center; color: #999; font-size: 16px;width:100%" ng-show="Item.data == ''">暂无图片生成模板...</div>
+	<!--123排-->
+	<div class="dp-product-item" ng-show="Item.params.style=='1' || Item.params.style=='2' || Item.params.style=='3' || Item.params.style=='waterfall'" ng-style="{gap: (Item.params.card_gap||12)+'px'}">
+		<div class="item" ng-repeat="item in Item.data" ng-init="index = $index" ng-style="{'width': Item.params.style==2 || Item.params.style=='waterfall' ? 'calc(50% - '+(Item.params.card_gap||12)/2+'px)' : (Item.params.style==3 ? 'calc(33.33% - '+(Item.params.card_gap||12)*2/3+'px)' : '100%'), 'background-color':Item.params.probgcolor, 'border-radius': (Item.params.card_radius||8)+'px'}">
+			<div class="product-pic" ng-style="{'background-color':Item.params.probgcolor, 'padding-bottom': Item.params.cover_ratio=='4:3'?'75%':(Item.params.cover_ratio=='3:4'?'133.33%':(Item.params.cover_ratio=='16:9'?'56.25%':(Item.params.cover_ratio=='9:16'?'177.78%':'100%'))), 'border-radius': (Item.params.cover_radius||8)+'px'}">
+				<img class="image" ng-src="{{item.pic}}" style="object-fit:cover" ng-style="{'border-radius': (Item.params.cover_radius||8)+'px'}"/>
+				<img class="saleimg" ng-src="{{Item.params.saleimg}}" ng-if="Item.params.saleimg!=''"/>
+				<!-- 封面上的按钮 -->
+				<div class="cover-btn" ng-class="'btn-' + (Item.params.btn_position||'bottom-right')" ng-if="Item.params.showcart==3 && (Item.params.btn_position=='top-left' || Item.params.btn_position=='top-right' || Item.params.btn_position=='bottom-left' || Item.params.btn_position=='bottom-right')">{{Item.params.carttext||'做同款'}}</div>
+			</div>
+			<div class="product-info" ng-style="{'background-color':Item.params.probgcolor, 'padding': (Item.params.info_padding||12)+'px'}" ng-class="{'info-flex': Item.params.btn_position=='info-right'}" ng-if="Item.params.showname != '0' || Item.params.showprice != '0' || Item.params.showsales!='0'">
+				<div class="p1" ng-if="Item.params.showname == 1">{{item.name}}</div>
+				<div class="p2">
+					<div class="p2-1" ng-if="Item.params.showprice != '0'">
+						<span class="t1" style="color:{:t('color1')}"><span style="font-size:12px">￥</span>{{item.sell_price}}</span>
+					</div>
+				</div>
+				<div class="p3" ng-if="Item.params.showsales=='1'">已用{{item.sales}}次</div>
+				<div class="p4" style="background:rgba({:t('color1rgb')},0.1);color:{:t('color1')}" ng-if="Item.params.showcart==1"><span class="iconfont icon_gouwuche"></span></div>
+				<div class="p4" style="background:rgba({:t('color1rgb')},0.1);color:{:t('color1')}" ng-if="Item.params.showcart==2"><img ng-src="{{Item.params.cartimg}}" class="img"/></div>
+				<!-- 信息区右侧按钮 -->
+				<div class="info-btn" ng-if="Item.params.showcart==3 && Item.params.btn_position=='info-right'">{{Item.params.carttext||'做同款'}}</div>
+				<!-- 默认信息区下方按钮 -->
+				<div class="p4 p4-text" style="background:rgba({:t('color1rgb')},0.1);color:{:t('color1')}" ng-if="Item.params.showcart==3 && Item.params.btn_position!='info-right' && Item.params.btn_position!='top-left' && Item.params.btn_position!='top-right' && Item.params.btn_position!='bottom-left' && Item.params.btn_position!='bottom-right'">{{Item.params.carttext||'做同款'}}</div>
+			</div>
+		</div>
+	</div>
+	<div class="dp-product-itemlist" ng-show="Item.params.style=='list'">
+		<div ng-repeat="item in Item.data" ng-style="{'background-color':Item.params.probgcolor, 'margin-bottom': (Item.params.card_gap||12)+'px', 'border-radius': (Item.params.card_radius||8)+'px', 'overflow':'hidden'}">
+			<div class="item">
+				<div class="product-pic" ng-style="{'background-color':Item.params.probgcolor, 'border-radius': (Item.params.cover_radius||8)+'px'}">
+					<img class="image" ng-src="{{item.pic}}" mode="widthFix" ng-style="{'border-radius': (Item.params.cover_radius||8)+'px'}"/>
+					<img class="saleimg" ng-src="{{Item.params.saleimg}}" ng-if="Item.params.saleimg!=''"/>
+				</div>
+				<div class="product-info" ng-style="{'padding': (Item.params.info_padding||12)+'px'}" ng-class="{'info-flex': Item.params.btn_position=='info-right'}">
+					<div class="p1" ng-if="Item.params.showname == 1">{{item.name}}</div>
+					<div class="p2" ng-if="Item.params.showprice != '0'" style="height: 25px;line-height: 22px;">
+						<span class="t1" style="color:{:t('color1')}"><span style="font-size:12px;padding-right:1px">￥</span>{{item.sell_price}}</span>
+					</div>
+					<div class="p3">
+						<div class="p3-1" ng-if="Item.params.showsales=='1'"><span style="overflow:hidden">已用{{item.sales}}次</span></div>
+					</div>
+					<div ng-if="Item.params.showsales!='1'" style="height: 22px;"></div>
+					<div class="p4" style="background:rgba({:t('color1rgb')},0.1);color:{:t('color1')}" ng-if="Item.params.showcart==1"><span class="iconfont icon_gouwuche"></span></div>
+					<div class="p4" style="background:rgba({:t('color1rgb')},0.1);color:{:t('color1')}" ng-if="Item.params.showcart==2"><img ng-src="{{Item.params.cartimg}}" class="img"/></div>
+					<div class="info-btn" ng-if="Item.params.showcart==3 && Item.params.btn_position=='info-right'">{{Item.params.carttext||'做同款'}}</div>
+					<div class="p4 p4-text" style="background:rgba({:t('color1rgb')},0.1);color:{:t('color1')}" ng-if="Item.params.showcart==3 && Item.params.btn_position!='info-right'">{{Item.params.carttext||'做同款'}}</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="dp-product-itemline" ng-show="Item.params.style=='line'">
+		<div class="item" ng-repeat="item in Item.data" ng-style="{'background-color':Item.params.probgcolor, 'border-radius': (Item.params.card_radius||8)+'px', 'margin-right': (Item.params.card_gap||12)+'px'}" >
+			<div class="product-pic" ng-style="{'background-color':Item.params.probgcolor, 'border-radius': (Item.params.cover_radius||8)+'px'}">
+				<img class="image" ng-src="{{item.pic}}"/>
+				<img class="saleimg" ng-src="{{Item.params.saleimg}}" ng-if="Item.params.saleimg!=''"/>
+			</div>
+			<div class="product-info">
+				<div class="p1" ng-if="Item.params.showname == 1">{{item.name}}</div>
+				<div class="p2">
+					<div class="p2-1" ng-if="Item.params.showprice != '0'" style="height: 25px;line-height: 22px;">
+						<span class="t1" style="color:{:t('color1')}"><span style="font-size:12px">￥</span>{{item.sell_price}}</span>
+					</div>
+				</div>
+				<div class="p3" ng-if="Item.params.showsales=='1'">已用{{item.sales}}次</div>
+				<div ng-if="Item.params.showsales!='1'" style="height: 22px;"></div>
+				<div class="p4" style="background:rgba({:t('color1rgb')},0.1);color:{:t('color1')}" ng-if="Item.params.showcart==1"><span class="iconfont icon_gouwuche"></span></div>
+				<div class="p4" style="background:rgba({:t('color1rgb')},0.1);color:{:t('color1')}" ng-if="Item.params.showcart==2"><img ng-src="{{Item.params.cartimg}}" class="img"/></div>
+				<div class="p4 p4-text" style="background:rgba({:t('color1rgb')},0.1);color:{:t('color1')}" ng-if="Item.params.showcart==3">{{Item.params.carttext||'做同款'}}</div>
+			</div>
+		</div>
+	</div>
+</div>

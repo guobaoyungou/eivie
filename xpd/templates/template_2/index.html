@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI旅拍选片展示 - 全屏沉浸式</title>
+    
+    <!-- Swiper CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: #000;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .selection-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 全屏轮播区 100% */
+        .top-swiper-area {
+            height: 100vh;
+            background: #000;
+            position: relative;
+        }
+
+        .swiper-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        .swiper-slide {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+        }
+
+        .media-item {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .media-item.video {
+            object-fit: contain;
+        }
+
+        /* 底部头像区 - 全屏模式隐藏 */
+        .bottom-avatar-area {
+            display: none;
+        }
+
+        /* 二维码容器 */
+        .qrcode-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .qrcode-container.show {
+            display: flex;
+        }
+
+        .qrcode-container canvas {
+            border-radius: 8px;
+        }
+
+        .qrcode-tip {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+        }
+
+        /* 空数据提示 */
+        .empty-state {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #999;
+        }
+
+        .empty-state.show {
+            display: flex;
+        }
+
+        .empty-state .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state .title {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .empty-state .desc {
+            font-size: 16px;
+        }
+
+        /* 加载动画 */
+        .loading-spinner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #ff6b6b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            z-index: 9999;
+        }
+
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* 响应式优化 */
+        @media (max-width: 1024px) {
+            .qrcode-container {
+                bottom: 20px;
+                right: 20px;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="selection-container">
+            <!-- 上栏轮播区 -->
+            <div class="top-swiper-area">
+                <div class="swiper-container" id="mainSwiper">
+                    <div class="swiper-wrapper"></div>
+                </div>
+                
+                <!-- 空数据提示 -->
+                <div class="empty-state" id="emptyState">
+                    <div class="icon">📸</div>
+                    <div class="title">暂无内容</div>
+                    <div class="desc">请上传人像照片开始生成</div>
+                </div>
+            </div>
+
+            <!-- 下栏头像区 -->
+            <div class="bottom-avatar-area">
+                <div class="avatar-list" id="avatarList"></div>
+            </div>
+
+            <!-- 二维码容器 -->
+            <div class="qrcode-container" id="qrcodeContainer">
+                <canvas id="qrcodeCanvas"></canvas>
+                <div class="qrcode-tip">扫码查看和购买</div>
+            </div>
+        </div>
+
+        <!-- 加载动画 -->
+        <div class="loading-spinner" id="loadingSpinner"></div>
+    </div>
+
+    <!-- Vue 3 -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+    <!-- Axios -->
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <!-- Swiper -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <!-- QRCode -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs2@0.0.2/qrcode.min.js"></script>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    // URL参数
+                    aid: '',
+                    bid: '',
+                    mdid: '0',
+                    
+                    // 数据
+                    dataList: [],
+                    
+                    // 状态管理
+                    currentGroupIndex: 0,
+                    currentImageIndex: 0,
+                    groupStartTime: 0,
+                    isPlaying: false,
+                    
+                    // 配置
+                    config: {
+                        imageDuration: 1000,      // 单张图片展示1秒
+                        groupDuration: 5000,      // 单组展示5秒
+                        refreshInterval: 30000,   // 30秒刷新数据
+                        avatarLimit: 15,          // 显示15个头像
+                        retryCount: 3,            // 重试3次
+                        retryDelay: 5000          // 重试间隔5秒
+                    },
+                    
+                    // Swiper实例
+                    swiper: null,
+                    
+                    // 定时器
+                    playTimer: null,
+                    refreshTimer: null,
+                    
+                    // 二维码实例
+                    qrcodeInstance: null
+                };
+            },
+            
+            mounted() {
+                this.init();
+            },
+            
+            beforeUnmount() {
+                this.cleanup();
+            },
+            
+            methods: {
+                // 初始化
+                init() {
+                    console.log('初始化选片端...');
+                    
+                    // 解析URL参数
+                    this.parseUrlParams();
+                    
+                    // 参数验证
+                    if (!this.aid || !this.bid) {
+                        this.showError('缺少必要参数');
+                        return;
+                    }
+                    
+                    // 初始化Swiper
+                    this.initSwiper();
+                    
+                    // 获取数据
+                    this.fetchData();
+                },
+                
+                // 解析URL参数
+                parseUrlParams() {
+                    const params = new URLSearchParams(window.location.search);
+                    this.aid = params.get('aid') || '';
+                    this.bid = params.get('bid') || '';
+                    this.mdid = params.get('mdid') || '0';
+                    
+                    console.log('参数:', { aid: this.aid, bid: this.bid, mdid: this.mdid });
+                },
+                
+                // 初始化Swiper
+                initSwiper() {
+                    this.swiper = new Swiper('#mainSwiper', {
+                        effect: 'fade',
+                        fadeEffect: {
+                            crossFade: true
+                        },
+                        speed: 800,
+                        allowTouchMove: false,
+                        autoplay: false
+                    });
+                },
+                
+                // 获取演示数据
+                getDemoData() {
+                    return [
+                        {
+                            id: 1,
+                            original_url: 'https://picsum.photos/400/600?random=1',
+                            thumbnail_url: 'https://picsum.photos/80/80?random=1',
+                            results: [
+                                {
+                                    id: 101,
+                                    type: 1,
+                                    watermark_url: 'https://picsum.photos/1920/1080?random=11',
+                                    video_duration: 0
+                                },
+                                {
+                                    id: 102,
+                                    type: 1,
+                                    watermark_url: 'https://picsum.photos/1920/1080?random=12',
+                                    video_duration: 0
+                                },
+                                {
+                                    id: 103,
+                                    type: 1,
+                                    watermark_url: 'https://picsum.photos/1920/1080?random=13',
+                                    video_duration: 0
+                                }
+                            ],
+                            qrcode: 'https://www.example.com/demo1'
+                        },
+                        {
+                            id: 2,
+                            original_url: 'https://picsum.photos/400/600?random=2',
+                            thumbnail_url: 'https://picsum.photos/80/80?random=2',
+                            results: [
+                                {
+                                    id: 201,
+                                    type: 1,
+                                    watermark_url: 'https://picsum.photos/1920/1080?random=21',
+                                    video_duration: 0
+                                },
+                                {
+                                    id: 202,
+                                    type: 1,
+                                    watermark_url: 'https://picsum.photos/1920/1080?random=22',
+                                    video_duration: 0
+                                }
+                            ],
+                            qrcode: 'https://www.example.com/demo2'
+                        },
+                        {
+                            id: 3,
+                            original_url: 'https://picsum.photos/400/600?random=3',
+                            thumbnail_url: 'https://picsum.photos/80/80?random=3',
+                            results: [
+                                {
+                                    id: 301,
+                                    type: 1,
+                                    watermark_url: 'https://picsum.photos/1920/1080?random=31',
+                                    video_duration: 0
+                                },
+                                {
+                                    id: 302,
+                                    type: 1,
+                                    watermark_url: 'https://picsum.photos/1920/1080?random=32',
+                                    video_duration: 0
+                                },
+                                {
+                                    id: 303,
+                                    type: 1,
+                                    watermark_url: 'https://picsum.photos/1920/1080?random=33',
+                                    video_duration: 0
+                                }
+                            ],
+                            qrcode: 'https://www.example.com/demo3'
+                        },
+                        {
+                            id: 4,
+                            original_url: 'https://picsum.photos/400/600?random=4',
+                            thumbnail_url: 'https://picsum.photos/80/80?random=4',
+                            results: [
+                                {
+                                    id: 401,
+                                    type: 1,
+                                    watermark_url: 'https://picsum.photos/1920/1080?random=41',
+                                    video_duration: 0
+                                }
+                            ],
+                            qrcode: 'https://www.example.com/demo4'
+                        },
+                        {
+                            id: 5,
+                            original_url: 'https://picsum.photos/400/600?random=5',
+                            thumbnail_url: 'https://picsum.photos/80/80?random=5',
+                            results: [
+                                {
+                                    id: 501,
+                                    type: 1,
+                                    watermark_url: 'https://picsum.photos/1920/1080?random=51',
+                                    video_duration: 0
+                                },
+                                {
+                                    id: 502,
+                                    type: 1,
+                                    watermark_url: 'https://picsum.photos/1920/1080?random=52',
+                                    video_duration: 0
+                                }
+                            ],
+                            qrcode: 'https://www.example.com/demo5'
+                        }
+                    ];
+                },
+                
+                // 获取数据
+                async fetchData(retryCount = 0) {
+                    try {
+                        console.log('获取数据...', `重试次数: ${retryCount}`);
+                        document.getElementById('loadingSpinner').style.display = 'block';
+                        
+                        const response = await axios.get('/api/ai-travel-photo/selection-list', {
+                            params: {
+                                aid: this.aid,
+                                bid: this.bid,
+                                mdid: this.mdid,
+                                limit: this.config.avatarLimit
+                            },
+                            timeout: 10000
+                        });
+                        
+                        console.log('数据响应:', response.data);
+                        
+                        if (response.data.status === 1 && response.data.data && response.data.data.list) {
+                            this.dataList = response.data.data.list;
+                            
+                            if (this.dataList.length > 0) {
+                                this.renderContent();
+                                this.startPlay();
+                                this.scheduleRefresh();
+                            } else {
+                                // 数据为空时使用演示数据
+                                console.log('数据为空，使用演示数据');
+                                this.useDemoData();
+                            }
+                        } else {
+                            throw new Error('数据格式错误');
+                        }
+                        
+                        document.getElementById('loadingSpinner').style.display = 'none';
+                        
+                    } catch (error) {
+                        console.error('获取数据失败:', error);
+                        document.getElementById('loadingSpinner').style.display = 'none';
+                        
+                        // 重试机制
+                        if (retryCount < this.config.retryCount) {
+                            console.log(`${this.config.retryDelay / 1000}秒后重试...`);
+                            setTimeout(() => {
+                                this.fetchData(retryCount + 1);
+                            }, this.config.retryDelay);
+                        } else {
+                            // 重试失败后使用演示数据
+                            console.log('重试失败，使用演示数据');
+                            this.useDemoData();
+                        }
+                    }
+                },
+                
+                // 使用演示数据
+                useDemoData() {
+                    this.dataList = this.getDemoData();
+                    this.renderContent();
+                    this.startPlay();
+                    
+                    // 显示演示提示
+                    const tip = document.createElement('div');
+                    tip.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(255,107,107,0.9);color:#fff;padding:10px 20px;border-radius:4px;font-size:14px;z-index:10000;';
+                    tip.textContent = '演示模式：当前展示为示例数据';
+                    document.body.appendChild(tip);
+                    
+                    // 5秒后移除提示
+                    setTimeout(() => {
+                        tip.remove();
+                    }, 5000);
+                    
+                    // 60秒后重试获取真实数据
+                    setTimeout(() => {
+                        console.log('尝试重新获取真实数据...');
+                        this.fetchData(0);
+                    }, 60000);
+                },
+                
+                // 渲染内容
+                renderContent() {
+                    console.log('渲染内容...', `共${this.dataList.length}组`);
+                    
+                    // 渲染轮播
+                    this.renderSwiper();
+                    
+                    // 隐藏空状态
+                    document.getElementById('emptyState').classList.remove('show');
+                },
+                
+                // 渲染Swiper
+                renderSwiper() {
+                    const wrapper = document.querySelector('.swiper-wrapper');
+                    wrapper.innerHTML = '';
+                    
+                    this.dataList.forEach((item, index) => {
+                        if (!item.results || item.results.length === 0) return;
+                        
+                        item.results.forEach(result => {
+                            const slide = document.createElement('div');
+                            slide.className = 'swiper-slide';
+                            slide.dataset.groupIndex = index;
+                            
+                            if (result.type === 19) {
+                                // 视频
+                                slide.innerHTML = `
+                                    <video class="media-item video" 
+                                           src="${result.watermark_url}" 
+                                           autoplay 
+                                           muted 
+                                           loop
+                                           playsinline>
+                                    </video>
+                                `;
+                            } else {
+                                // 图片
+                                slide.innerHTML = `
+                                    <img class="media-item" 
+                                         src="${result.watermark_url}" 
+                                         alt="AI旅拍照片">
+                                `;
+                            }
+                            
+                            wrapper.appendChild(slide);
+                        });
+                    });
+                    
+                    this.swiper.update();
+                },
+                
+                // 更新二维码
+                updateQrcode() {
+                    const currentItem = this.dataList[this.currentGroupIndex];
+                    if (!currentItem || !currentItem.qrcode) {
+                        document.getElementById('qrcodeContainer').classList.remove('show');
+                        return;
+                    }
+                    
+                    // 清除旧二维码
+                    const canvas = document.getElementById('qrcodeCanvas');
+                    const container = document.getElementById('qrcodeContainer');
+                    canvas.width = 0;
+                    canvas.height = 0;
+                    
+                    // 生成新二维码
+                    try {
+                        if (this.qrcodeInstance) {
+                            this.qrcodeInstance.clear();
+                        }
+                        
+                        this.qrcodeInstance = new QRCode(canvas, {
+                            text: currentItem.qrcode,
+                            width: 200,
+                            height: 200,
+                            colorDark: '#000000',
+                            colorLight: '#ffffff',
+                            correctLevel: QRCode.CorrectLevel.H
+                        });
+                        
+                        container.classList.add('show');
+                    } catch (error) {
+                        console.error('生成二维码失败:', error);
+                        container.classList.remove('show');
+                    }
+                },
+                
+                // 开始播放
+                startPlay() {
+                    console.log('开始播放...');
+                    this.isPlaying = true;
+                    this.currentGroupIndex = 0;
+                    this.currentImageIndex = 0;
+                    this.groupStartTime = Date.now();
+                    
+                    // 跳转到第一张
+                    this.swiper.slideTo(0, 0);
+                    
+                    // 启动播放定时器
+                    this.playTimer = setInterval(() => {
+                        this.playNext();
+                    }, this.config.imageDuration);
+                },
+                
+                // 播放下一张
+                playNext() {
+                    if (!this.isPlaying || this.dataList.length === 0) return;
+                    
+                    const currentTime = Date.now();
+                    const groupElapsed = currentTime - this.groupStartTime;
+                    
+                    // 判断是否需要切换组
+                    if (groupElapsed >= this.config.groupDuration) {
+                        this.switchToNextGroup();
+                    } else {
+                        // 组内切换
+                        this.switchToNextImage();
+                    }
+                },
+                
+                // 切换到下一张图片
+                switchToNextImage() {
+                    const currentGroup = this.dataList[this.currentGroupIndex];
+                    if (!currentGroup || !currentGroup.results) return;
+                    
+                    const totalImages = currentGroup.results.length;
+                    this.currentImageIndex = (this.currentImageIndex + 1) % totalImages;
+                    
+                    // 计算全局索引
+                    let globalIndex = 0;
+                    for (let i = 0; i < this.currentGroupIndex; i++) {
+                        globalIndex += this.dataList[i].results.length;
+                    }
+                    globalIndex += this.currentImageIndex;
+                    
+                    this.swiper.slideTo(globalIndex);
+                },
+                
+                // 切换到下一组
+                switchToNextGroup() {
+                    this.currentGroupIndex = (this.currentGroupIndex + 1) % this.dataList.length;
+                    this.currentImageIndex = 0;
+                    this.groupStartTime = Date.now();
+                    
+                    // 计算全局索引
+                    let globalIndex = 0;
+                    for (let i = 0; i < this.currentGroupIndex; i++) {
+                        globalIndex += this.dataList[i].results.length;
+                    }
+                    
+                    this.swiper.slideTo(globalIndex);
+                    
+                    // 更新二维码
+                    this.updateQrcode();
+                    
+                    // 如果回到第一组，说明已经循环一轮
+                    if (this.currentGroupIndex === 0) {
+                        console.log('一轮播放完成，等待刷新...');
+                    }
+                },
+                
+                // 调度刷新
+                scheduleRefresh() {
+                    if (this.refreshTimer) {
+                        clearTimeout(this.refreshTimer);
+                    }
+                    
+                    this.refreshTimer = setTimeout(() => {
+                        console.log('自动刷新数据...');
+                        this.stopPlay();
+                        this.fetchData();
+                    }, this.config.refreshInterval);
+                },
+                
+                // 停止播放
+                stopPlay() {
+                    console.log('停止播放');
+                    this.isPlaying = false;
+                    if (this.playTimer) {
+                        clearInterval(this.playTimer);
+                        this.playTimer = null;
+                    }
+                },
+                
+                // 显示空状态
+                showEmpty() {
+                    console.log('显示空状态');
+                    document.getElementById('emptyState').classList.add('show');
+                    document.getElementById('qrcodeContainer').classList.remove('show');
+                },
+                
+                // 显示错误
+                showError(message) {
+                    console.error('错误:', message);
+                    const emptyState = document.getElementById('emptyState');
+                    emptyState.innerHTML = `
+                        <div class="icon">⚠️</div>
+                        <div class="title">加载失败</div>
+                        <div class="desc">${message}</div>
+                    `;
+                    emptyState.classList.add('show');
+                },
+                
+                // 清理
+                cleanup() {
+                    console.log('清理资源...');
+                    this.stopPlay();
+                    if (this.refreshTimer) {
+                        clearTimeout(this.refreshTimer);
+                    }
+                    if (this.swiper) {
+                        this.swiper.destroy();
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

@@ -60,23 +60,18 @@ class Common extends Base
         }
 		$this->aid = session('ADMIN_AID');
 		if(MN == 'business'){
-			$this->uid = session('ADMIN_AUTH_UID');
-			$this->bid = session('ADMIN_AUTH_BID');
+			// 优先使用平台管理员进入商户时的session，如果没有则使用商户直接登录的session
+			$this->uid = session('ADMIN_AUTH_UID') ?: session('ADMIN_UID');
+			$this->bid = session('ADMIN_AUTH_BID') ?: session('ADMIN_BID');
 		}else{
 			$this->uid = session('ADMIN_UID');
 			$this->bid = session('ADMIN_BID');
 		}
 		
 		if(false){}else{
-			if (!defined('aid')) {
-				define('aid', $this->aid);
-			}
-			if (!defined('bid')) {
-				define('bid', $this->bid);
-			}
-			if (!defined('uid')) {
-				define('uid', $this->uid);
-			}
+			define('aid',$this->aid);
+			define('bid',$this->bid);
+			define('uid',$this->uid);
 		}
 		$user = Db::name('admin_user')->where('id',$this->uid)->find();
 		if($user['groupid']){
@@ -103,7 +98,27 @@ class Common extends Base
 				$auth_path = array_merge($auth_path,explode(',',$v));
 			}
 			$thispath = $controller .'/'.$request->action();
+			
+			// 添加权限调试日志
+			\think\facade\Log::info('权限校验', [
+				'controller' => $controller,
+				'action' => $request->action(),
+				'thispath' => $thispath,
+				'has_controller_wildcard' => in_array($controller.'/*',$auth_path),
+				'has_specific_path' => in_array($thispath,$auth_path),
+				'has_bst_session' => session('BST_ID') ? 'yes' : 'no',
+				'auth_path_sample' => array_slice($auth_path, 0, 10)
+			]);
+			
             if(!in_array($controller.'/*',$auth_path) && !in_array($thispath,$auth_path) && !session('BST_ID')){
+                \think\facade\Log::error('访问被拒绝', [
+                    'controller' => $controller,
+                    'action' => $request->action(),
+                    'thispath' => $thispath,
+                    'uid' => $this->uid,
+                    'bid' => $this->bid
+                ]);
+                
                 if(input('param.apifrom')=='vue'){
                     echojson(['status'=>0,'msg'=>'无访问权限']);die();
                 }else{

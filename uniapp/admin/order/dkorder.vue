@@ -390,7 +390,7 @@
 				this.getMemberInfo(this.mid);
 			}
 			this.getpaytype(); //代客下单支付方式
-			var sysinfo = uni.getSystemInfoSync();
+			var sysinfo = uni.getWindowInfo();
 			this.statusBarHeight = sysinfo.statusBarHeight;
 			this.wxNavigationBarMenu();
 			app.get('ApiIndex/getCustom',{}, function (customs) {

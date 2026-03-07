@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>编辑场景模板</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-card">
+      <div class="layui-card-header">{if $info}编辑{else}新增{/if}场景模板</div>
+      <div class="layui-card-body">
+        <form class="layui-form form-label-w8" lay-filter="templateForm">
+          <input type="hidden" name="info[id]" value="{$info.id|default=0}">
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">模板名称<span style="color:red">*</span></label>
+            <div class="layui-input-block">
+              <input type="text" name="info[template_name]" value="{$info.template_name|default=''}" required lay-verify="required" class="layui-input" placeholder="请输入模板名称">
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">模板标识</label>
+            <div class="layui-input-block">
+              <input type="text" name="info[template_code]" value="{$info.template_code|default=''}" class="layui-input" placeholder="留空自动生成">
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">绑定模型<span style="color:red">*</span></label>
+            <div class="layui-input-block">
+              <select name="info[model_id]" id="modelSelect" required lay-verify="required" lay-filter="modelSelect">
+                <option value="">请选择模型</option>
+                {volist name="models" id="m"}
+                <option value="{$m.id}" {if $info.model_id == $m.id}selected{/if}>{$m.model_name} ({$m.provider_name})</option>
+                {/volist}
+              </select>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">所属分类</label>
+            <div class="layui-input-block">
+              <input type="hidden" name="info[category_ids]" id="categoryIds" value="{$info.category_ids|default=''}">
+              <div style="display:flex;align-items:flex-start">
+                <div style="flex:1">
+                  <div id="categoryTags" style="min-height:38px;padding:5px 10px;border:1px solid #e6e6e6;border-radius:2px;background:#fff;line-height:30px"></div>
+                </div>
+                <button type="button" class="layui-btn layui-btn-primary" style="margin-left:10px;flex-shrink:0" onclick="openChooseCategory()"><i class="layui-icon layui-icon-search"></i> 选择分类</button>
+                <button type="button" class="layui-btn layui-btn-danger layui-btn-sm" style="margin-left:5px;flex-shrink:0" onclick="clearAllCategories()"><i class="layui-icon layui-icon-close"></i> 清空</button>
+              </div>
+              <div class="layui-form-mid layui-word-aux">可选择多个场景分类（最多10个），便于管理和筛选</div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">所属分组</label>
+            <div class="layui-input-block">
+              <input type="hidden" name="info[group_ids]" id="groupIds" value="{$info.group_ids|default=''}">
+              <div style="display:flex;align-items:flex-start">
+                <div style="flex:1">
+                  <div id="groupTags" style="min-height:38px;padding:5px 10px;border:1px solid #e6e6e6;border-radius:2px;background:#fff;line-height:30px"></div>
+                </div>
+                <button type="button" class="layui-btn layui-btn-primary" style="margin-left:10px;flex-shrink:0" onclick="openChooseGroup()"><i class="layui-icon layui-icon-search"></i> 选择分组</button>
+                <button type="button" class="layui-btn layui-btn-danger layui-btn-sm" style="margin-left:5px;flex-shrink:0" onclick="clearAllGroups()"><i class="layui-icon layui-icon-close"></i> 清空</button>
+              </div>
+              <div class="layui-form-mid layui-word-aux">可选择多个场景分组，用于批量选择和运营标记</div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">分类标签</label>
+            <div class="layui-input-block">
+              <input type="text" name="info[category]" value="{$info.category|default=''}" class="layui-input" placeholder="如：人像、风景、艺术等（可选）">
+              <div class="layui-form-mid layui-word-aux">文本标签，用于前端筛选显示</div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">封面图</label>
+            <div class="layui-input-block">
+              <div style="display:flex;align-items:center">
+                <input type="text" name="info[cover_image]" id="coverImage" value="{$info.cover_image|default=''}" class="layui-input" style="width:300px" placeholder="封面图URL">
+                <button type="button" class="layui-btn layui-btn-primary" style="margin-left:10px" onclick="uploadCover()">上传</button>
+                {if $info.cover_image}
+                <img src="{$info.cover_image}" id="coverPreview" style="width:50px;height:50px;object-fit:cover;margin-left:10px;border-radius:4px">
+                {else}
+                <img src="" id="coverPreview" style="width:50px;height:50px;object-fit:cover;margin-left:10px;border-radius:4px;display:none">
+                {/if}
+              </div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">模板描述</label>
+            <div class="layui-input-block">
+              <textarea name="info[description]" class="layui-textarea" rows="3" placeholder="简要描述该模板的用途">{$info.description|default=''}</textarea>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">提示词可见</label>
+            <div class="layui-input-block">
+              <input type="checkbox" name="info[prompt_visible]" value="1" lay-skin="switch" lay-text="开启|关闭" lay-filter="promptVisibleSwitch" {if !isset($info['prompt_visible']) || $info.prompt_visible == 1}checked{/if}>
+              <div class="layui-form-mid layui-word-aux">关闭后用户端将隐藏提示词输入框，使用模板默认提示词</div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">证件照模式</label>
+            <div class="layui-input-block">
+              <input type="checkbox" name="info[is_id_photo]" value="1" lay-skin="switch" lay-text="开启|关闭" lay-filter="idPhotoSwitch" {if isset($info['is_id_photo']) && $info.is_id_photo == 1}checked{/if}>
+              <div class="layui-form-mid layui-word-aux">开启后用户上传图片前将展示拍照指引弹窗</div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item" id="idPhotoTypeBox" style="{if !isset($info['is_id_photo']) || $info.is_id_photo != 1}display:none{/if}">
+            <label class="layui-form-label">证件照类型</label>
+            <div class="layui-input-block">
+              <input type="radio" name="info[id_photo_type]" value="1" title="身份证照" {if isset($info['id_photo_type']) && $info.id_photo_type == 1}checked{/if}>
+              <input type="radio" name="info[id_photo_type]" value="2" title="护照/港澳通行证" {if isset($info['id_photo_type']) && $info.id_photo_type == 2}checked{/if}>
+              <input type="radio" name="info[id_photo_type]" value="3" title="驾驶证" {if isset($info['id_photo_type']) && $info.id_photo_type == 3}checked{/if}>
+              <input type="radio" name="info[id_photo_type]" value="4" title="一寸照" {if isset($info['id_photo_type']) && $info.id_photo_type == 4}checked{/if}>
+              <input type="radio" name="info[id_photo_type]" value="5" title="二寸照" {if isset($info['id_photo_type']) && $info.id_photo_type == 5}checked{/if}>
+              <div class="layui-form-mid layui-word-aux">选择证件照类型，用于展示对应的拍照指引</div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">默认参数</label>
+            <div class="layui-input-block">
+              <textarea name="info[default_params]" id="defaultParams" class="layui-textarea" rows="6" placeholder="JSON格式的默认参数">{$info.default_params|json_encode=256}</textarea>
+              <div class="layui-form-mid layui-word-aux">JSON格式，如：{"prompt":"默认提示词","size":"1024x1024"}</div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">是否公开</label>
+            <div class="layui-input-block">
+              <input type="radio" name="info[is_public]" value="0" title="私有" {if $info.is_public != 1}checked{/if}>
+              <input type="radio" name="info[is_public]" value="1" title="公开" {if $info.is_public == 1}checked{/if}>
+            </div>
+          </div>
+          
+          <!-- ========== 生成设置区域 ========== -->
+          <fieldset class="layui-elem-field layui-field-title" style="margin-top:20px">
+            <legend>生成设置</legend>
+          </fieldset>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">使用次数</label>
+            <div class="layui-input-inline" style="width:150px">
+              <input type="number" min="0" name="info[use_count]" value="{$info.use_count|default=0}" class="layui-input" placeholder="0">
+            </div>
+            <div class="layui-form-mid layui-word-aux">次 <i class="layui-icon layui-icon-about" style="color:#1E9FFF"></i> 初始值由管理员设置，每次调用自动+1</div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">每单输出数量</label>
+            <div class="layui-input-inline" style="width:150px">
+              <input type="number" min="1" id="outputQuantity" name="info[output_quantity]" value="{$info.output_quantity|default=1}" class="layui-input" placeholder="1">
+            </div>
+            <div class="layui-form-mid layui-word-aux">张 <span id="outputQuantityTip">{if $model_max_output > 0}(上限: {$model_max_output}){/if}</span> <i class="layui-icon layui-icon-about" style="color:#1E9FFF"></i> 受绑定模型能力限制</div>
+          </div>
+          
+          <!-- 价格设置区域 -->
+          <fieldset class="layui-elem-field layui-field-title" style="margin-top:20px">
+            <legend>价格设置</legend>
+          </fieldset>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">计价单位</label>
+            <div class="layui-input-block">
+              <input type="hidden" name="info[price_unit]" value="per_image">
+              <span class="layui-form-mid" style="padding-left:0">按张计费(元/张)</span>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">基础价格</label>
+            <div class="layui-input-inline" style="width:150px">
+              <input type="number" step="0.01" min="0" name="info[base_price]" value="{$info.base_price|default=0}" class="layui-input" placeholder="0.00">
+            </div>
+            <div class="layui-form-mid layui-word-aux">元（游客/未登录用户价格）</div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">会员价</label>
+            <div class="layui-input-block">
+              <input type="radio" name="info[lvprice]" value="0" title="关闭" lay-filter="lvpriceSwitch" {if $info.lvprice != 1}checked{/if}>
+              <input type="radio" name="info[lvprice]" value="1" title="开启" lay-filter="lvpriceSwitch" {if $info.lvprice == 1}checked{/if}>
+            </div>
+          </div>
+          
+          <div class="layui-form-item" id="lvpriceTable" style="{if $info.lvprice != 1}display:none{/if}">
+            <label class="layui-form-label">等级价格</label>
+            <div class="layui-input-block">
+              {if $levellist}
+              <table class="layui-table" style="margin:0;max-width:500px">
+                <thead>
+                  <tr>
+                    <th style="width:60px">等级ID</th>
+                    <th>会员等级</th>
+                    <th style="width:150px">价格(元)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {volist name="levellist" id="lv"}
+                  <tr>
+                    <td>{$lv.id}</td>
+                    <td>{$lv.name}</td>
+                    <td><input type="number" step="0.01" min="0" name="lvprice_data[{$lv.id}]" value="{$info.lvprice_data[$lv['id']]|default=''}" class="layui-input layui-input-sm" placeholder="留空则使用基础价格"></td>
+                  </tr>
+                  {/volist}
+                </tbody>
+              </table>
+              <div class="layui-form-mid layui-word-aux">各等级价格留空则回退到基础价格</div>
+              {else}
+              <div class="layui-form-mid layui-word-aux" style="color:#FF5722">暂无会员等级数据，请先在会员管理中添加会员等级</div>
+              {/if}
+            </div>
+          </div>
+          
+          <!-- ========== 分销设置区域 ========== -->
+          <fieldset class="layui-elem-field layui-field-title" style="margin-top:20px">
+            <legend>分销设置</legend>
+          </fieldset>
+          <div class="layui-form-mid layui-word-aux" style="padding-left:110px;margin-bottom:10px;color:#666">
+            <i class="layui-icon layui-icon-tips" style="color:#1E9FFF"></i> 设置场景模板的分销佣金计算方式，提成计算均会乘以生成数量
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">分销模式</label>
+            <div class="layui-input-block">
+              <input type="radio" name="info[commissionset]" value="0" title="按会员等级" lay-filter="commissionsetSwitch" {if !isset($info['commissionset']) || $info.commissionset == 0}checked{/if}>
+              <input type="radio" name="info[commissionset]" value="1" title="单独设置提成比例" lay-filter="commissionsetSwitch" {if isset($info['commissionset']) && $info.commissionset == 1}checked{/if}>
+              <input type="radio" name="info[commissionset]" value="2" title="单独设置提成金额" lay-filter="commissionsetSwitch" {if isset($info['commissionset']) && $info.commissionset == 2}checked{/if}>
+              <input type="radio" name="info[commissionset]" value="3" title="分销送积分" lay-filter="commissionsetSwitch" {if isset($info['commissionset']) && $info.commissionset == 3}checked{/if}>
+              <input type="radio" name="info[commissionset]" value="-1" title="不参与分销" lay-filter="commissionsetSwitch" {if isset($info['commissionset']) && $info.commissionset == -1}checked{/if}>
+            </div>
+          </div>
+          
+          <!-- 按会员等级提示 -->
+          <div class="layui-form-item" id="commissiondata0Box" style="{if isset($info['commissionset']) && $info.commissionset != 0}display:none{/if}">
+            <label class="layui-form-label"></label>
+            <div class="layui-input-block">
+              <div class="layui-form-mid layui-word-aux" style="margin-left:0">
+                <i class="layui-icon layui-icon-about" style="color:#1E9FFF"></i>
+                按照会员等级中设置的提成比例进行分配<br>
+                <b>计算公式：</b>提成 = 会员等级提成比例 × 销售价 × 生成数量
+              </div>
+            </div>
+          </div>
+          
+          <!-- 单独设置提成比例 -->
+          <div class="layui-form-item" id="commissiondata1Box" style="{if !isset($info['commissionset']) || $info.commissionset != 1}display:none{/if}">
+            <label class="layui-form-label">提成比例</label>
+            <div class="layui-input-block">
+              <table class="layui-table" style="margin:0;max-width:400px">
+                <thead><tr><th>一级(%)</th><th>二级(%)</th><th>三级(%)</th></tr></thead>
+                <tbody>
+                <tr>
+                  <td><input type="text" name="commissiondata1[bl1]" value="{$info.commissiondata1['bl1']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                  <td><input type="text" name="commissiondata1[bl2]" value="{$info.commissiondata1['bl2']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                  <td><input type="text" name="commissiondata1[bl3]" value="{$info.commissiondata1['bl3']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                </tr>
+                </tbody>
+              </table>
+              <div class="layui-form-mid layui-word-aux" style="margin-left:0">
+                <b>计算公式：</b>提成 = 设置的百分比 × 销售价 × 生成数量
+              </div>
+            </div>
+          </div>
+          
+          <!-- 单独设置提成金额 -->
+          <div class="layui-form-item" id="commissiondata2Box" style="{if !isset($info['commissionset']) || $info.commissionset != 2}display:none{/if}">
+            <label class="layui-form-label">提成金额</label>
+            <div class="layui-input-block">
+              <table class="layui-table" style="margin:0;max-width:400px">
+                <thead><tr><th>一级(元)</th><th>二级(元)</th><th>三级(元)</th></tr></thead>
+                <tbody>
+                <tr>
+                  <td><input type="text" name="commissiondata2[money1]" value="{$info.commissiondata2['money1']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                  <td><input type="text" name="commissiondata2[money2]" value="{$info.commissiondata2['money2']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                  <td><input type="text" name="commissiondata2[money3]" value="{$info.commissiondata2['money3']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                </tr>
+                </tbody>
+              </table>
+              <div class="layui-form-mid layui-word-aux" style="margin-left:0">
+                <b>计算公式：</b>提成 = 提成金额 × 生成数量
+              </div>
+            </div>
+          </div>
+          
+          <!-- 分销送积分 -->
+          <div class="layui-form-item" id="commissiondata3Box" style="{if !isset($info['commissionset']) || $info.commissionset != 3}display:none{/if}">
+            <label class="layui-form-label">提成积分</label>
+            <div class="layui-input-block">
+              <table class="layui-table" style="margin:0;max-width:400px">
+                <thead><tr><th>一级(积分)</th><th>二级(积分)</th><th>三级(积分)</th></tr></thead>
+                <tbody>
+                <tr>
+                  <td><input type="text" name="commissiondata3[score1]" value="{$info.commissiondata3['score1']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                  <td><input type="text" name="commissiondata3[score2]" value="{$info.commissiondata3['score2']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                  <td><input type="text" name="commissiondata3[score3]" value="{$info.commissiondata3['score3']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                </tr>
+                </tbody>
+              </table>
+              <div class="layui-form-mid layui-word-aux" style="margin-left:0">
+                <b>计算公式：</b>积分 = 提成积分 × 生成数量（不给佣金，只给积分）
+              </div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">极差分销</label>
+            <div class="layui-input-block">
+              <input type="radio" name="info[commissionset4]" value="0" title="关闭" {if !isset($info['commissionset4']) || $info.commissionset4 != 1}checked{/if}>
+              <input type="radio" name="info[commissionset4]" value="1" title="开启" {if isset($info['commissionset4']) && $info.commissionset4 == 1}checked{/if}>
+              <div class="layui-form-mid layui-word-aux">开启后按极差方式计算上级佣金</div>
+            </div>
+          </div>
+          
+          <!-- ========== 分红设置区域 ========== -->
+          <fieldset class="layui-elem-field layui-field-title" style="margin-top:20px">
+            <legend>分红设置</legend>
+          </fieldset>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">参与分红</label>
+            <div class="layui-input-block">
+              <input type="radio" name="info[fenhongset]" value="1" title="参与" lay-filter="fenhongsetSwitch" {if !isset($info['fenhongset']) || $info.fenhongset == 1}checked{/if}>
+              <input type="radio" name="info[fenhongset]" value="0" title="不参与" lay-filter="fenhongsetSwitch" {if isset($info['fenhongset']) && $info.fenhongset == 0}checked{/if}>
+            </div>
+          </div>
+          
+          <div id="fenhongDetailBox" style="{if isset($info['fenhongset']) && $info.fenhongset == 0}display:none{/if}">
+          <!-- 团队分红 -->
+          <div class="layui-form-item">
+            <label class="layui-form-label">团队分红</label>
+            <div class="layui-input-block">
+              <input type="radio" name="info[teamfenhongset]" value="0" title="按等级" lay-filter="teamfenhongSwitch" {if !isset($info['teamfenhongset']) || $info.teamfenhongset == 0}checked{/if}>
+              <input type="radio" name="info[teamfenhongset]" value="1" title="比例" lay-filter="teamfenhongSwitch" {if isset($info['teamfenhongset']) && $info.teamfenhongset == 1}checked{/if}>
+              <input type="radio" name="info[teamfenhongset]" value="2" title="金额" lay-filter="teamfenhongSwitch" {if isset($info['teamfenhongset']) && $info.teamfenhongset == 2}checked{/if}>
+              <input type="radio" name="info[teamfenhongset]" value="-1" title="不参与" lay-filter="teamfenhongSwitch" {if isset($info['teamfenhongset']) && $info.teamfenhongset == -1}checked{/if}>
+            </div>
+          </div>
+          
+          <div class="layui-form-item" id="teamfenhongdata1Box" style="{if !isset($info['teamfenhongset']) || $info.teamfenhongset != 1}display:none{/if}">
+            <label class="layui-form-label">团队分红比例</label>
+            <div class="layui-input-block">
+              {if $teamLevelList}
+              <table class="layui-table" style="margin:0;max-width:500px">
+                <thead><tr><th>团队等级</th><th>分红比例(%)</th></tr></thead>
+                <tbody>
+                {volist name="teamLevelList" id="tlv"}
+                <tr>
+                  <td>{$tlv.name}</td>
+                  <td><input type="text" name="teamfenhongdata1[{$tlv.id}][bl]" value="{$info.teamfenhongdata1[$tlv['id']]['bl']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                </tr>
+                {/volist}
+                </tbody>
+              </table>
+              {else}
+              <div class="layui-form-mid layui-word-aux" style="color:#FF5722">暂无团队等级数据</div>
+              {/if}
+            </div>
+          </div>
+          
+          <div class="layui-form-item" id="teamfenhongdata2Box" style="{if !isset($info['teamfenhongset']) || $info.teamfenhongset != 2}display:none{/if}">
+            <label class="layui-form-label">团队分红金额</label>
+            <div class="layui-input-block">
+              {if $teamLevelList}
+              <table class="layui-table" style="margin:0;max-width:500px">
+                <thead><tr><th>团队等级</th><th>分红金额(元)</th></tr></thead>
+                <tbody>
+                {volist name="teamLevelList" id="tlv"}
+                <tr>
+                  <td>{$tlv.name}</td>
+                  <td><input type="text" name="teamfenhongdata2[{$tlv.id}][money]" value="{$info.teamfenhongdata2[$tlv['id']]['money']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                </tr>
+                {/volist}
+                </tbody>
+              </table>
+              {else}
+              <div class="layui-form-mid layui-word-aux" style="color:#FF5722">暂无团队等级数据</div>
+              {/if}
+            </div>
+          </div>
+          
+          <!-- 股东分红 -->
+          <div class="layui-form-item">
+            <label class="layui-form-label">股东分红</label>
+            <div class="layui-input-block">
+              <input type="radio" name="info[gdfenhongset]" value="0" title="按等级" lay-filter="gdfenhongSwitch" {if !isset($info['gdfenhongset']) || $info.gdfenhongset == 0}checked{/if}>
+              <input type="radio" name="info[gdfenhongset]" value="1" title="比例" lay-filter="gdfenhongSwitch" {if isset($info['gdfenhongset']) && $info.gdfenhongset == 1}checked{/if}>
+              <input type="radio" name="info[gdfenhongset]" value="2" title="金额" lay-filter="gdfenhongSwitch" {if isset($info['gdfenhongset']) && $info.gdfenhongset == 2}checked{/if}>
+              <input type="radio" name="info[gdfenhongset]" value="-1" title="不参与" lay-filter="gdfenhongSwitch" {if isset($info['gdfenhongset']) && $info.gdfenhongset == -1}checked{/if}>
+            </div>
+          </div>
+          
+          <div class="layui-form-item" id="gdfenhongdata1Box" style="{if !isset($info['gdfenhongset']) || $info.gdfenhongset != 1}display:none{/if}">
+            <label class="layui-form-label">股东分红比例</label>
+            <div class="layui-input-block">
+              {if $gdLevelList}
+              <table class="layui-table" style="margin:0;max-width:500px">
+                <thead><tr><th>股东等级</th><th>分红比例(%)</th></tr></thead>
+                <tbody>
+                {volist name="gdLevelList" id="glv"}
+                <tr>
+                  <td>{$glv.name}</td>
+                  <td><input type="text" name="gdfenhongdata1[{$glv.id}][bl]" value="{$info.gdfenhongdata1[$glv['id']]['bl']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                </tr>
+                {/volist}
+                </tbody>
+              </table>
+              {else}
+              <div class="layui-form-mid layui-word-aux" style="color:#FF5722">暂无股东等级数据</div>
+              {/if}
+            </div>
+          </div>
+          
+          <div class="layui-form-item" id="gdfenhongdata2Box" style="{if !isset($info['gdfenhongset']) || $info.gdfenhongset != 2}display:none{/if}">
+            <label class="layui-form-label">股东分红金额</label>
+            <div class="layui-input-block">
+              {if $gdLevelList}
+              <table class="layui-table" style="margin:0;max-width:500px">
+                <thead><tr><th>股东等级</th><th>分红金额(元)</th></tr></thead>
+                <tbody>
+                {volist name="gdLevelList" id="glv"}
+                <tr>
+                  <td>{$glv.name}</td>
+                  <td><input type="text" name="gdfenhongdata2[{$glv.id}][money]" value="{$info.gdfenhongdata2[$glv['id']]['money']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                </tr>
+                {/volist}
+                </tbody>
+              </table>
+              {else}
+              <div class="layui-form-mid layui-word-aux" style="color:#FF5722">暂无股东等级数据</div>
+              {/if}
+            </div>
+          </div>
+          
+          <!-- 区域代理分红 -->
+          <div class="layui-form-item">
+            <label class="layui-form-label">区域代理分红</label>
+            <div class="layui-input-block">
+              <input type="radio" name="info[areafenhongset]" value="0" title="按等级" lay-filter="areafenhongSwitch" {if !isset($info['areafenhongset']) || $info.areafenhongset == 0}checked{/if}>
+              <input type="radio" name="info[areafenhongset]" value="1" title="比例" lay-filter="areafenhongSwitch" {if isset($info['areafenhongset']) && $info.areafenhongset == 1}checked{/if}>
+              <input type="radio" name="info[areafenhongset]" value="2" title="金额" lay-filter="areafenhongSwitch" {if isset($info['areafenhongset']) && $info.areafenhongset == 2}checked{/if}>
+              <input type="radio" name="info[areafenhongset]" value="-1" title="不参与" lay-filter="areafenhongSwitch" {if isset($info['areafenhongset']) && $info.areafenhongset == -1}checked{/if}>
+            </div>
+          </div>
+          
+          <div class="layui-form-item" id="areafenhongdata1Box" style="{if !isset($info['areafenhongset']) || $info.areafenhongset != 1}display:none{/if}">
+            <label class="layui-form-label">区域分红比例</label>
+            <div class="layui-input-block">
+              {if $areaLevelList}
+              <table class="layui-table" style="margin:0;max-width:500px">
+                <thead><tr><th>区域等级</th><th>分红比例(%)</th></tr></thead>
+                <tbody>
+                {volist name="areaLevelList" id="alv"}
+                <tr>
+                  <td>{$alv.name}</td>
+                  <td><input type="text" name="areafenhongdata1[{$alv.id}][bl]" value="{$info.areafenhongdata1[$alv['id']]['bl']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                </tr>
+                {/volist}
+                </tbody>
+              </table>
+              {else}
+              <div class="layui-form-mid layui-word-aux" style="color:#FF5722">暂无区域等级数据</div>
+              {/if}
+            </div>
+          </div>
+          
+          <div class="layui-form-item" id="areafenhongdata2Box" style="{if !isset($info['areafenhongset']) || $info.areafenhongset != 2}display:none{/if}">
+            <label class="layui-form-label">区域分红金额</label>
+            <div class="layui-input-block">
+              {if $areaLevelList}
+              <table class="layui-table" style="margin:0;max-width:500px">
+                <thead><tr><th>区域等级</th><th>分红金额(元)</th></tr></thead>
+                <tbody>
+                {volist name="areaLevelList" id="alv"}
+                <tr>
+                  <td>{$alv.name}</td>
+                  <td><input type="text" name="areafenhongdata2[{$alv.id}][money]" value="{$info.areafenhongdata2[$alv['id']]['money']|default=''}" class="layui-input layui-input-sm" placeholder="0"></td>
+                </tr>
+                {/volist}
+                </tbody>
+              </table>
+              {else}
+              <div class="layui-form-mid layui-word-aux" style="color:#FF5722">暂无区域等级数据</div>
+              {/if}
+            </div>
+          </div>
+          </div><!-- end fenhongDetailBox -->
+          
+          <!-- ========== 积分抵扣设置 ========== -->
+          <fieldset class="layui-elem-field layui-field-title" style="margin-top:20px">
+            <legend>积分抵扣</legend>
+          </fieldset>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">抵扣设置</label>
+            <div class="layui-input-block">
+              <input type="radio" name="info[scoredkmaxset]" value="0" title="按系统设置" lay-filter="scoredkmaxSwitch" {if !isset($info['scoredkmaxset']) || $info.scoredkmaxset == 0}checked{/if}>
+              <input type="radio" name="info[scoredkmaxset]" value="1" title="单独设置比例" lay-filter="scoredkmaxSwitch" {if isset($info['scoredkmaxset']) && $info.scoredkmaxset == 1}checked{/if}>
+              <input type="radio" name="info[scoredkmaxset]" value="2" title="单独设置金额" lay-filter="scoredkmaxSwitch" {if isset($info['scoredkmaxset']) && $info.scoredkmaxset == 2}checked{/if}>
+              <input type="radio" name="info[scoredkmaxset]" value="-1" title="不可抵扣" lay-filter="scoredkmaxSwitch" {if isset($info['scoredkmaxset']) && $info.scoredkmaxset == -1}checked{/if}>
+            </div>
+          </div>
+          
+          <div class="layui-form-item" id="scoredkmaxvalBox" style="{if !isset($info['scoredkmaxset']) || $info.scoredkmaxset == 0 || $info.scoredkmaxset == -1}display:none{/if}">
+            <label class="layui-form-label">抵扣上限</label>
+            <div class="layui-input-inline" style="width:150px">
+              <input type="number" step="0.01" min="0" name="info[scoredkmaxval]" value="{$info.scoredkmaxval|default=0}" class="layui-input" placeholder="0.00">
+            </div>
+            <div class="layui-form-mid layui-word-aux" id="scoredkmaxvalTip">
+              {if isset($info['scoredkmaxset']) && $info.scoredkmaxset == 1}最大抵扣比例(%){elseif isset($info['scoredkmaxset']) && $info.scoredkmaxset == 2}最大抵扣金额(元){/if}
+            </div>
+          </div>
+          
+          <!-- ========== 显示/购买条件 ========== -->
+          <fieldset class="layui-elem-field layui-field-title" style="margin-top:20px">
+            <legend>显示与购买条件</legend>
+          </fieldset>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">显示条件</label>
+            <div class="layui-input-block">
+              <input type="checkbox" name="info[showtj][]" value="-1" title="不限" lay-filter="showtjAll" {if !isset($info['showtj']) || $info.showtj == '-1'}checked{/if}>
+              {volist name="levellist" id="lv"}
+              <input type="checkbox" name="info[showtj][]" value="{$lv.id}" title="{$lv.name}" lay-filter="showtjItem" {if isset($info['showtj']) && $info.showtj != '-1' && in_array($lv['id'], explode(',', $info['showtj']))}checked{/if}>
+              {/volist}
+              <div class="layui-form-mid layui-word-aux">选择哪些等级的用户可以看到此模板</div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">购买条件</label>
+            <div class="layui-input-block">
+              <input type="checkbox" name="info[gettj][]" value="-1" title="不限" lay-filter="gettjAll" {if !isset($info['gettj']) || $info.gettj == '-1'}checked{/if}>
+              <input type="checkbox" name="info[gettj][]" value="0" title="关注用户" lay-filter="gettjItem" {if isset($info['gettj']) && $info.gettj != '-1' && in_array('0', explode(',', $info['gettj']))}checked{/if}>
+              {volist name="levellist" id="lv"}
+              <input type="checkbox" name="info[gettj][]" value="{$lv.id}" title="{$lv.name}" lay-filter="gettjItem" {if isset($info['gettj']) && $info.gettj != '-1' && in_array($lv['id'], explode(',', $info['gettj']))}checked{/if}>
+              {/volist}
+              <div class="layui-form-mid layui-word-aux">选择哪些等级的用户可以购买此模板</div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item" id="gettjExtraBox" style="{if !isset($info['gettj']) || $info.gettj == '-1'}display:none{/if}">
+            <label class="layui-form-label">不满足时跳转</label>
+            <div class="layui-input-block">
+              <input type="text" name="info[gettjurl]" value="{$info.gettjurl|default=''}" class="layui-input" placeholder="不满足购买条件时的跳转链接（可选）">
+            </div>
+          </div>
+          
+          <div class="layui-form-item" id="gettjtipBox" style="{if !isset($info['gettj']) || $info.gettj == '-1'}display:none{/if}">
+            <label class="layui-form-label">不满足时提示</label>
+            <div class="layui-input-block">
+              <input type="text" name="info[gettjtip]" value="{$info.gettjtip|default=''}" class="layui-input" placeholder="不满足购买条件时的提示文案（可选）">
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">排序</label>
+            <div class="layui-input-inline" style="width:100px">
+              <input type="number" name="info[sort]" value="{$info.sort|default=0}" class="layui-input">
+            </div>
+            <div class="layui-form-mid layui-word-aux">数字越小越靠前</div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">状态</label>
+            <div class="layui-input-block">
+              <input type="radio" name="info[status]" value="1" title="启用" {if $info.status != 0}checked{/if}>
+              <input type="radio" name="info[status]" value="0" title="禁用" {if $info.status == 0}checked{/if}>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <div class="layui-input-block">
+              <button type="submit" class="layui-btn" lay-submit lay-filter="submitForm">
+                <i class="layui-icon layui-icon-ok"></i> 保存
+              </button>
+              <button type="button" class="layui-btn layui-btn-primary" onclick="closeWindow()">取消</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  var form = layui.form;
+  
+  // 当前模型最大输出能力
+  var currentModelMaxOutput = {$model_max_output|default=0};
+  
+  // 模型切换时，动态更新 output_quantity 上限
+  form.on('select(modelSelect)', function(data) {
+    var modelId = data.value;
+    if (!modelId) {
+      currentModelMaxOutput = 0;
+      $('#outputQuantityTip').text('');
+      return;
+    }
+    $.get("{:url('get_model_max_output')}", {model_id: modelId}, function(res) {
+      if (res.status == 1) {
+        currentModelMaxOutput = res.data.max_output;
+        if (currentModelMaxOutput > 0) {
+          $('#outputQuantityTip').text('(上限: ' + currentModelMaxOutput + ')');
+          // 如果当前 output_quantity 超出新模型上限，自动调整
+          var currentQty = parseInt($('#outputQuantity').val()) || 1;
+          if (currentQty > currentModelMaxOutput) {
+            $('#outputQuantity').val(currentModelMaxOutput);
+            layer.msg('已自动调整输出数量为' + currentModelMaxOutput + '(新模型上限)', {icon: 0});
+          }
+        } else {
+          $('#outputQuantityTip').text('');
+        }
+      }
+    });
+  });
+  
+  // 会员价开关切换
+  form.on('radio(lvpriceSwitch)', function(data){
+    if(data.value == '1'){
+      $('#lvpriceTable').show();
+    } else {
+      $('#lvpriceTable').hide();
+    }
+  });
+  
+  // 证件照模式开关切换
+  form.on('switch(idPhotoSwitch)', function(data){
+    if(data.elem.checked){
+      $('#idPhotoTypeBox').show();
+    } else {
+      $('#idPhotoTypeBox').hide();
+      // 关闭时清空已选的证件照类型
+      $('input[name="info[id_photo_type]"]').prop('checked', false);
+      form.render('radio');
+    }
+  });
+  
+  // ===== 分销设置切换 =====
+  form.on('radio(commissionsetSwitch)', function(data){
+    $('#commissiondata0Box').hide();
+    $('#commissiondata1Box').hide();
+    $('#commissiondata2Box').hide();
+    $('#commissiondata3Box').hide();
+    if(data.value == '0') $('#commissiondata0Box').show();
+    if(data.value == '1') $('#commissiondata1Box').show();
+    if(data.value == '2') $('#commissiondata2Box').show();
+    if(data.value == '3') $('#commissiondata3Box').show();
+  });
+  
+  // ===== 分红设置切换 =====
+  form.on('radio(fenhongsetSwitch)', function(data){
+    if(data.value == '1'){
+      $('#fenhongDetailBox').show();
+    } else {
+      $('#fenhongDetailBox').hide();
+    }
+  });
+  
+  // 团队分红模式切换
+  form.on('radio(teamfenhongSwitch)', function(data){
+    $('#teamfenhongdata1Box').hide();
+    $('#teamfenhongdata2Box').hide();
+    if(data.value == '1') $('#teamfenhongdata1Box').show();
+    if(data.value == '2') $('#teamfenhongdata2Box').show();
+  });
+  
+  // 股东分红模式切换
+  form.on('radio(gdfenhongSwitch)', function(data){
+    $('#gdfenhongdata1Box').hide();
+    $('#gdfenhongdata2Box').hide();
+    if(data.value == '1') $('#gdfenhongdata1Box').show();
+    if(data.value == '2') $('#gdfenhongdata2Box').show();
+  });
+  
+  // 区域分红模式切换
+  form.on('radio(areafenhongSwitch)', function(data){
+    $('#areafenhongdata1Box').hide();
+    $('#areafenhongdata2Box').hide();
+    if(data.value == '1') $('#areafenhongdata1Box').show();
+    if(data.value == '2') $('#areafenhongdata2Box').show();
+  });
+  
+  // ===== 积分抵扣设置切换 =====
+  form.on('radio(scoredkmaxSwitch)', function(data){
+    if(data.value == '1'){
+      $('#scoredkmaxvalBox').show();
+      $('#scoredkmaxvalTip').text('最大抵扣比例(%)');
+    } else if(data.value == '2'){
+      $('#scoredkmaxvalBox').show();
+      $('#scoredkmaxvalTip').text('最大抵扣金额(元)');
+    } else {
+      $('#scoredkmaxvalBox').hide();
+    }
+  });
+  
+  // ===== 显示条件复选框逻辑 =====
+  form.on('checkbox(showtjAll)', function(data){
+    if(data.elem.checked){
+      $('input[name="info[showtj][]"]').not('[value="-1"]').prop('checked', false);
+      form.render('checkbox');
+    }
+  });
+  form.on('checkbox(showtjItem)', function(data){
+    if(data.elem.checked){
+      $('input[name="info[showtj][]"][value="-1"]').prop('checked', false);
+      form.render('checkbox');
+    }
+  });
+  
+  // ===== 购买条件复选框逻辑 =====
+  form.on('checkbox(gettjAll)', function(data){
+    if(data.elem.checked){
+      $('input[name="info[gettj][]"]').not('[value="-1"]').prop('checked', false);
+      $('#gettjExtraBox').hide();
+      $('#gettjtipBox').hide();
+      form.render('checkbox');
+    }
+  });
+  form.on('checkbox(gettjItem)', function(data){
+    if(data.elem.checked){
+      $('input[name="info[gettj][]"][value="-1"]').prop('checked', false);
+      $('#gettjExtraBox').show();
+      $('#gettjtipBox').show();
+      form.render('checkbox');
+    } else {
+      // 检查是否还有其他项被选中
+      var hasChecked = $('input[name="info[gettj][]"]').not('[value="-1"]').filter(':checked').length > 0;
+      if(!hasChecked){
+        $('#gettjExtraBox').hide();
+        $('#gettjtipBox').hide();
+      }
+    }
+  });
+  
+  // 上传封面
+  function uploadCover() {
+    layer.open({
+      type: 1,
+      title: '上传封面图',
+      area: ['400px', '250px'],
+      content: '<div style="padding:30px;text-align:center"><button type="button" class="layui-btn" id="uploadCoverBtn"><i class="layui-icon layui-icon-upload"></i> 选择图片</button></div>',
+      success: function() {
+        layui.upload.render({
+          elem: '#uploadCoverBtn',
+          url: '{:url("Upload/index")}',
+          done: function(res) {
+            if (res.status == 1) {
+              $('#coverImage').val(res.url);
+              $('#coverPreview').attr('src', res.url).show();
+              layer.closeAll();
+            } else {
+              layer.msg(res.msg || '上传失败');
+            }
+          }
+        });
+      }
+    });
+  }
+  
+  // 提交表单
+  form.on('submit(submitForm)', function(obj) {
+    // 验证JSON格式
+    var defaultParams = $('#defaultParams').val();
+    if (defaultParams) {
+      try {
+        JSON.parse(defaultParams);
+      } catch (e) {
+        layer.msg('默认参数JSON格式不正确');
+        return false;
+      }
+    }
+    
+    // 校验 output_quantity
+    var outputQty = parseInt($('#outputQuantity').val()) || 1;
+    if (outputQty < 1) {
+      layer.msg('每单输出数量必须≥1');
+      return false;
+    }
+    if (currentModelMaxOutput > 0 && outputQty > currentModelMaxOutput) {
+      layer.msg('每单输出数量不能超过模型上限(' + currentModelMaxOutput + ')');
+      return false;
+    }
+    
+    // 处理 prompt_visible：layui switch 未勾选时不提交值，需要手动补充
+    if (!obj.field['info[prompt_visible]']) {
+      obj.field['info[prompt_visible]'] = '0';
+    }
+    
+    // 处理 is_id_photo：layui switch 未勾选时不提交值
+    if (!obj.field['info[is_id_photo]']) {
+      obj.field['info[is_id_photo]'] = '0';
+    }
+    
+    // 证件照模式开启时，必须选择类型
+    if (obj.field['info[is_id_photo]'] == '1') {
+      if (!obj.field['info[id_photo_type]'] || obj.field['info[id_photo_type]'] == '0') {
+        layer.msg('请选择证件照类型');
+        return false;
+      }
+    }
+    
+    var index = layer.load();
+    $.post("{:url('scene_save')}", obj.field, function(res) {
+      layer.close(index);
+      if (res.status == 1) {
+        layer.msg('保存成功', {icon: 1}, function() {
+          closeWindow();
+        });
+      } else {
+        layer.msg(res.msg);
+      }
+    });
+    return false;
+  });
+  
+  function closeWindow() {
+    var index = parent.layer.getFrameIndex(window.name);
+    parent.layer.close(index);
+    try { parent.tableIns.reload(); } catch(e) {}
+  }
+  
+  // ===== 多选分类相关 =====
+  var categoryData = {}; // {id: name, ...}
+  
+  // 初始化已有分类标签
+  (function initCategoryTags() {
+    var ids = '{$info.category_ids|default=""}';
+    var names = '{$info.category_names|default=""}';
+    if (ids && ids !== '0') {
+      var idArr = ids.split(',');
+      var nameArr = names.split(',');
+      for (var i = 0; i < idArr.length; i++) {
+        if (idArr[i] && nameArr[i]) {
+          categoryData[idArr[i]] = nameArr[i];
+        }
+      }
+    }
+    renderCategoryTags();
+  })();
+  
+  // 渲染分类标签
+  function renderCategoryTags() {
+    var html = '';
+    var ids = [];
+    for (var id in categoryData) {
+      if (categoryData.hasOwnProperty(id)) {
+        ids.push(id);
+        html += '<span style="display:inline-block;padding:2px 8px;margin:2px 5px 2px 0;background:#e2f0ff;color:#1E9FFF;border-radius:3px;font-size:12px">' 
+             + categoryData[id] 
+             + ' <i class="layui-icon layui-icon-close" style="font-size:12px;cursor:pointer;margin-left:3px" onclick="removeCategory(' + id + ')"></i></span>';
+      }
+    }
+    if (!html) {
+      html = '<span style="color:#999;font-size:13px">点击右侧按钮选择分类</span>';
+    }
+    $('#categoryTags').html(html);
+    $('#categoryIds').val(ids.join(','));
+  }
+  
+  // 移除单个分类
+  function removeCategory(id) {
+    delete categoryData[id];
+    renderCategoryTags();
+  }
+  
+  // 清空所有分类
+  function clearAllCategories() {
+    categoryData = {};
+    renderCategoryTags();
+  }
+  
+  // 打开分类选择弹窗
+  function openChooseCategory() {
+    layer.open({
+      type: 2,
+      title: '选择场景分类',
+      area: ['600px', '500px'],
+      content: '{:url("PhotoSceneCategory/choosecategory")}'
+    });
+  }
+  
+  // 多选分类回调（从choosecategory.html调用）
+  function chooseCategories(ids, names) {
+    var idArr = ids.split(',');
+    var nameArr = names.split(',');
+    // 合并到现有数据（替换模式：以弹窗选择的为准）
+    categoryData = {};
+    for (var i = 0; i < idArr.length; i++) {
+      if (idArr[i] && nameArr[i]) {
+        categoryData[idArr[i]] = nameArr[i];
+      }
+    }
+    // 检查是否超过上限
+    var count = Object.keys(categoryData).length;
+    if (count > 10) {
+      layer.msg('最多只能选择10个分类', {icon: 0});
+      return;
+    }
+    renderCategoryTags();
+    layer.closeAll();
+  }
+  
+  // ===== 多选分组相关 =====
+  var groupData = {}; // {id: name, ...}
+  
+  // 初始化已有分组标签
+  (function initGroupTags() {
+    var ids = '{$info.group_ids|default=""}';
+    var names = '{$info.group_names|default=""}';
+    if (ids && ids !== '0') {
+      var idArr = ids.split(',');
+      var nameArr = names.split(',');
+      for (var i = 0; i < idArr.length; i++) {
+        if (idArr[i] && nameArr[i]) {
+          groupData[idArr[i]] = nameArr[i];
+        }
+      }
+    }
+    renderGroupTags();
+  })();
+  
+  // 渲染分组标签
+  function renderGroupTags() {
+    var html = '';
+    var ids = [];
+    for (var id in groupData) {
+      if (groupData.hasOwnProperty(id)) {
+        ids.push(id);
+        html += '<span style="display:inline-block;padding:2px 8px;margin:2px 5px 2px 0;background:#fff3e0;color:#ff9800;border-radius:3px;font-size:12px">' 
+             + groupData[id] 
+             + ' <i class="layui-icon layui-icon-close" style="font-size:12px;cursor:pointer;margin-left:3px" onclick="removeGroup(' + id + ')"></i></span>';
+      }
+    }
+    if (!html) {
+      html = '<span style="color:#999;font-size:13px">点击右侧按钮选择分组</span>';
+    }
+    $('#groupTags').html(html);
+    $('#groupIds').val(ids.join(','));
+  }
+  
+  // 移除单个分组
+  function removeGroup(id) {
+    delete groupData[id];
+    renderGroupTags();
+  }
+  
+  // 清空所有分组
+  function clearAllGroups() {
+    groupData = {};
+    renderGroupTags();
+  }
+  
+  // 打开分组选择弹窗
+  function openChooseGroup() {
+    layer.open({
+      type: 2,
+      title: '选择场景分组',
+      area: ['600px', '500px'],
+      content: '{:url("PhotoSceneGroup/choosegroup")}'
+    });
+  }
+  
+  // 多选分组回调（从choosegroup.html调用）
+  function chooseGroups(ids, names) {
+    var idArr = ids.split(',');
+    var nameArr = names.split(',');
+    groupData = {};
+    for (var i = 0; i < idArr.length; i++) {
+      if (idArr[i] && nameArr[i]) {
+        groupData[idArr[i]] = nameArr[i];
+      }
+    }
+    renderGroupTags();
+    layer.closeAll();
+  }
+  </script>
+</body>
+</html>

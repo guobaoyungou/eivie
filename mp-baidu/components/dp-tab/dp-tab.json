@@ -45,6 +45,8 @@
     "dp-carhailing": "/components/dp-carhailing/dp-carhailing",
     "dp-tour": "/components/dp-tour/dp-tour",
     "dp-formdata": "/components/dp-formdata/dp-formdata",
+    "dp-photo-generation": "/components/dp-photo-generation/dp-photo-generation",
+    "dp-video-generation": "/components/dp-video-generation/dp-video-generation",
     "loading": "/components/loading/loading"
   }
 }

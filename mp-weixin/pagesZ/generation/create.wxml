@@ -1,0 +1,158 @@
+<view class="container">
+<block wx:if="{{isload}}">
+  <!-- 模板对比图 -->
+  <view class="compare-section">
+    <view class="compare-row">
+      <view class="compare-item">
+        <image src="{{detail.ref_image || detail.cover_image}}" class="compare-img" mode="aspectFill" bindtap="previewCompare" data-type="ref"></image>
+        <view class="compare-label">原图</view>
+      </view>
+      <view class="compare-arrow">
+        <text class="arrow-icon">→</text>
+      </view>
+      <view class="compare-item">
+        <image src="{{detail.cover_image}}" class="compare-img" mode="aspectFill" bindtap="previewCompare" data-type="result"></image>
+        <view class="compare-label">效果图</view>
+      </view>
+    </view>
+    <view class="template-name-row">
+      <text class="template-name">{{detail.template_name}}</text>
+      <text class="use-count">{{detail.use_count}}人已使用</text>
+    </view>
+  </view>
+
+  <!-- 上传图片 -->
+  <view class="section">
+    <view class="section-title">
+      <text class="title-text">上传照片</text>
+      <text class="title-hint">从相册/拍照/微信会话中选择</text>
+    </view>
+    <view class="upload-area">
+      <view class="upload-grid">
+        <!-- 已上传的图片 -->
+        <view class="upload-item" wx:for="{{refImages}}" wx:key="*this">
+          <image src="{{item}}" class="uploaded-img" mode="aspectFill" bindtap="previewUploadImage" data-url="{{item}}"></image>
+          <view class="remove-btn" catchtap="removeImage" data-idx="{{index}}">×</view>
+        </view>
+        <!-- 正在上传的文件 -->
+        <view class="upload-item" wx:for="{{uploadingFiles}}" wx:key="tempPath">
+          <image src="{{item.tempPath}}" class="uploaded-img" mode="aspectFill"></image>
+          <view class="progress-overlay" wx:if="{{item.status == 'uploading'}}">
+            <text class="progress-text">{{item.progress}}%</text>
+          </view>
+          <view class="progress-overlay failed" wx:if="{{item.status == 'failed'}}">
+            <view class="retry-icon" catchtap="retryUpload" data-path="{{item.tempPath}}">↻</view>
+            <text class="retry-text">点击重试</text>
+          </view>
+          <view class="remove-btn" catchtap="removeUploadingFile" data-path="{{item.tempPath}}" wx:if="{{item.status == 'failed'}}">×</view>
+        </view>
+        <!-- 添加按钮 -->
+        <view class="upload-add" wx:if="{{refImages.length + uploadingFiles.length < maxImages}}" bindtap="onUploadTap">
+          <text class="add-plus">+</text>
+          <text class="add-text">点击上传照片</text>
+          <text class="source-hint">支持相册/拍照/微信会话</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 灵感描述（提示词）——仅当 promptVisible=true 时显示 -->
+  <view class="section" wx:if="{{promptVisible}}">
+    <view class="section-header" bindtap="togglePrompt">
+      <view class="section-title">
+        <text class="title-text">灵感描述</text>
+        <text class="title-hint">可修改提示词优化效果</text>
+      </view>
+      <text class="toggle-icon">{{promptExpanded ? '∧' : '∨'}}</text>
+    </view>
+    <view class="prompt-wrap" wx:if="{{promptExpanded}}">
+      <textarea class="prompt-input" value="{{prompt}}" bindinput="onPromptInput" placeholder="请输入描述，越详细效果越好" maxlength="2000" auto-height></textarea>
+      <view class="char-count">{{prompt.length}}/2000</view>
+    </view>
+  </view>
+
+  <!-- 图片比例选择（仅图片生成） -->
+  <view class="section" wx:if="{{generationType == 1}}">
+    <view class="section-title">
+      <text class="title-text">图片比例</text>
+    </view>
+    <scroll-view class="option-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+      <view class="option-scroll-inner">
+        <view class="ratio-chip {{selectedRatio == item.value ? 'active' : ''}}" wx:for="{{ratioOptions}}" wx:key="value" bindtap="selectRatio" data-value="{{item.value}}">
+          <view class="ratio-preview">
+            <view class="ratio-inner" style="width:{{item.w > item.h ? 28 : 28*item.w/item.h}}rpx;height:{{item.h > item.w ? 36 : 36*item.h/item.w}}rpx;"></view>
+          </view>
+          <text class="chip-label">{{item.label}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 生成张数选择 -->
+  <view class="section" wx:if="{{generationType == 1}}">
+    <view class="section-title">
+      <text class="title-text">生成张数</text>
+    </view>
+    <scroll-view class="option-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+      <view class="option-scroll-inner">
+        <view class="count-chip {{quantity == item ? 'active' : ''}}" wx:for="{{countOptions}}" wx:key="*this" bindtap="selectCount" data-value="{{item}}">
+          <text class="chip-label">{{item}}张</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 证件照拍照指引弹窗 -->
+  <view class="guide-mask" wx:if="{{showIdPhotoGuide}}" bindtap="closeIdPhotoGuide">
+    <view class="guide-popup" catchtap="">
+      <view class="guide-title">证件照拍摄指引</view>
+      <view class="guide-subtitle">{{idPhotoTypeName}}拍摄要求</view>
+      <view class="guide-content">
+        <view class="guide-col">
+          <view class="guide-label correct">✅ 正确示例</view>
+          <view class="guide-tips">
+            <text wx:for="{{idPhotoCorrectTips}}" wx:key="*this" class="guide-tip-item">• {{item}}</text>
+          </view>
+        </view>
+        <view class="guide-col">
+          <view class="guide-label wrong">❌ 错误示例</view>
+          <view class="guide-tips">
+            <text wx:for="{{idPhotoWrongTips}}" wx:key="*this" class="guide-tip-item">• {{item}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="guide-btn" bindtap="confirmIdPhotoGuide">我知道了</view>
+    </view>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar">
+    <view class="price-display">
+      <text class="total-label">合计</text>
+      <text class="total-price">￥{{totalPrice}}</text>
+      <text class="price-unit" wx:if="{{detail.price_unit_text}}">{{detail.price_unit_text}}</text>
+    </view>
+    <view class="btn-submit {{submitting?'disabled':''}}" bindtap="submitGeneration">
+      {{submitting ? '提交中...' : '立即生成'}}
+    </view>
+  </view>
+  <view style="height: 140rpx;"></view>
+</block>
+
+<view wx:if="{{loading}}" class="loading-wrap">
+  <view class="loading-spinner"></view>
+  <text class="loading-text">加载中...</text>
+</view>
+
+<!-- 隐私授权弹窗（原生 WXML，不依赖 wxxieyi 组件） -->
+<view class="privacy-mask" wx:if="{{showPrivacyDialog}}" catchtouchmove="">
+  <view class="privacy-dialog">
+    <view class="privacy-title">隐私保护提示</view>
+    <view class="privacy-content">在使用当前小程序服务之前，请仔细阅读<text class="privacy-link" bindtap="openPrivacyContract">《隐私保护协议》</text>。如你同意，请点击“同意”开始使用。</view>
+    <view class="privacy-btns">
+      <button class="privacy-btn-reject" bindtap="handleRejectPrivacy">拒绝</button>
+      <button class="privacy-btn-agree" id="agree-btn" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="handleAgreePrivacy">同意</button>
+    </view>
+  </view>
+</view>
+</view>

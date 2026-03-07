@@ -767,4 +767,678 @@ class ApiAivideo extends ApiCommon
             ]
         ]);
     }
+    
+    /**
+     * 获取场景模板列表（含价格信息）
+     * 根据用户会员等级返回对应价格
+     * @return string
+     */
+    public function scene_template_list()
+    {
+        $bid = input('param.bid/d', 0);
+        $generationType = input('param.generation_type/d', 1); // 1=图片 2=视频
+        $categoryId = input('param.category_id/d', 0);
+        $groupId = input('param.group_id/d', 0);
+        
+        if (!$bid) {
+            return jsonEncode(['status' => 0, 'msg' => '缺少商户ID']);
+        }
+        
+        // 获取用户会员等级
+        $memberLevelId = 0;
+        if ($this->mid > 0) {
+            $member = Db::name('member')
+                ->where('aid', $this->aid)
+                ->where('id', $this->mid)
+                ->field('id,levelid')
+                ->find();
+            if ($member) {
+                $memberLevelId = intval($member['levelid']);
+            }
+        }
+        
+        // 新增关键词搜索参数
+        $keyword = input('param.keyword', '');
+        
+        // 构建额外查询条件
+        $extraWhere = [];
+        if ($categoryId > 0) {
+            $extraWhere[] = ['', 'exp', Db::raw("FIND_IN_SET({$categoryId}, category_ids)")];
+        }
+        if ($groupId > 0) {
+            $extraWhere[] = ['', 'exp', Db::raw("FIND_IN_SET({$groupId}, group_ids)")];
+        }
+        if (!empty($keyword)) {
+            $extraWhere[] = ['template_name', 'like', '%' . $keyword . '%'];
+        }
+        
+        $service = new \app\service\GenerationService();
+        $list = $service->getTemplateListWithPrice($this->aid, $bid, $generationType, $memberLevelId, $extraWhere);
+        
+        return jsonEncode([
+            'status' => 1,
+            'msg' => '获取成功',
+            'data' => [
+                'list' => $list,
+                'member_level_id' => $memberLevelId
+            ]
+        ]);
+    }
+    
+    /**
+     * 获取场景模板详情（含价格信息）
+     * @return string
+     */
+    public function scene_template_detail()
+    {
+        $templateId = input('param.template_id/d', 0);
+        
+        if (!$templateId) {
+            return jsonEncode(['status' => 0, 'msg' => '缺少模板ID']);
+        }
+        
+        $template = Db::name('generation_scene_template')
+            ->where('id', $templateId)
+            ->where('status', 1)
+            ->find();
+        
+        if (!$template) {
+            return jsonEncode(['status' => 0, 'msg' => '模板不存在或已下架']);
+        }
+        
+        // 获取用户会员等级
+        $memberLevelId = 0;
+        if ($this->mid > 0) {
+            $member = Db::name('member')
+                ->where('aid', $this->aid)
+                ->where('id', $this->mid)
+                ->field('id,levelid')
+                ->find();
+            if ($member) {
+                $memberLevelId = intval($member['levelid']);
+            }
+        }
+        
+        $service = new \app\service\GenerationService();
+        $priceInfo = $service->calculateTemplatePrice($template, $memberLevelId);
+        
+        // 获取所有等级价格用于展示对比
+        $allPrices = [];
+        if ($template['lvprice'] == 1) {
+            $lvpriceData = is_string($template['lvprice_data']) 
+                ? json_decode($template['lvprice_data'], true) 
+                : ($template['lvprice_data'] ?: []);
+            
+            // 查询等级名称
+            if (!empty($lvpriceData)) {
+                $levelIds = array_keys($lvpriceData);
+                $levels = Db::name('member_level')
+                    ->where('id', 'in', $levelIds)
+                    ->column('name', 'id');
+                foreach ($lvpriceData as $lid => $lprice) {
+                    $allPrices[] = [
+                        'level_id' => $lid,
+                        'level_name' => $levels[$lid] ?? '未知等级',
+                        'price' => floatval($lprice)
+                    ];
+                }
+            }
+        }
+        
+        // 解析默认参数
+        $defaultParams = is_string($template['default_params']) 
+            ? json_decode($template['default_params'], true) 
+            : ($template['default_params'] ?: []);
+        
+        // 获取参考图（原图）
+        $refImage = '';
+        if (!empty($defaultParams['image'])) {
+            $refImage = $defaultParams['image'];
+        } elseif (!empty($defaultParams['first_frame_image'])) {
+            $refImage = $defaultParams['first_frame_image'];
+        }
+        
+        // 获取模型能力信息
+        $modelCapability = [
+            'max_images' => 1,
+            'supported_ratios' => ['1:1'],
+            'supported_sizes' => []
+        ];
+        if (!empty($template['model_id'])) {
+            $modelInfo = Db::name('model_info')
+                ->where('id', $template['model_id'])
+                ->field('id, model_code, model_name, input_schema')
+                ->find();
+            if ($modelInfo) {
+                $inputSchema = is_string($modelInfo['input_schema']) 
+                    ? json_decode($modelInfo['input_schema'], true) 
+                    : ($modelInfo['input_schema'] ?: []);
+                
+                // 检查是否支持n参数（多张生成）
+                $props = $inputSchema['properties'] ?? $inputSchema;
+                if (isset($props['n'])) {
+                    $maxN = intval($props['n']['maximum'] ?? $props['n']['max'] ?? 9);
+                    $modelCapability['max_images'] = $maxN > 0 ? $maxN : 9;
+                }
+                // 检查支持的尺寸/比例
+                if (isset($props['size'])) {
+                    $sizeEnum = $props['size']['enum'] ?? $props['size']['options'] ?? [];
+                    $modelCapability['supported_sizes'] = $sizeEnum;
+                }
+                
+                // 从模型 size 枚举解析支持的比例
+                if (!empty($sizeEnum)) {
+                    $parsedRatios = $this->parseSupportedRatiosFromSizes($sizeEnum);
+                    if (!empty($parsedRatios)) {
+                        $modelCapability['supported_ratios'] = $parsedRatios;
+                    }
+                }
+                // 如果模型支持图生图，标记
+                $modelCapability['model_name'] = $modelInfo['model_name'] ?? '';
+                $modelCapability['model_code'] = $modelInfo['model_code'] ?? '';
+            }
+        }
+        
+        // 若模型 supported_ratios 仍为默认值（仅 1:1），则补全为完整默认列表
+        if (count($modelCapability['supported_ratios']) <= 1) {
+            $modelCapability['supported_ratios'] = ['1:1','2:3','3:2','3:4','4:3','9:16','16:9','4:5','5:4','21:9'];
+        }
+        
+        // 从源生成记录获取结果示例图
+        $sampleImages = [];
+        if (!empty($template['source_record_id'])) {
+            $outputs = Db::name('generation_output')
+                ->where('record_id', $template['source_record_id'])
+                ->field('output_url, thumbnail_url, output_type')
+                ->limit(4)
+                ->select()->toArray();
+            foreach ($outputs as $out) {
+                $sampleImages[] = $out['thumbnail_url'] ?: $out['output_url'];
+            }
+        }
+        
+        $result = [
+            'id' => $template['id'],
+            'template_name' => $template['template_name'],
+            'cover_image' => $template['cover_image'],
+            'ref_image' => $refImage,
+            'description' => $template['description'],
+            'prompt' => $defaultParams['prompt'] ?? '',
+            'generation_type' => intval($template['generation_type'] ?? 1),
+            'price' => $priceInfo['price'],
+            'base_price' => $priceInfo['base_price'],
+            'price_unit' => $priceInfo['price_unit'],
+            'price_unit_text' => $priceInfo['price_unit_text'],
+            'is_member_price' => $priceInfo['is_member_price'],
+            'use_count' => intval($template['use_count'] ?? 0),
+            'output_quantity' => intval($template['output_quantity'] ?? 1),
+            'prompt_visible' => intval($template['prompt_visible'] ?? 1),
+            'is_id_photo' => intval($template['is_id_photo'] ?? 0),
+            'id_photo_type' => intval($template['id_photo_type'] ?? 0),
+            'id_photo_type_name' => $this->getIdPhotoTypeName(intval($template['id_photo_type'] ?? 0), intval($template['is_id_photo'] ?? 0)),
+            'all_prices' => $allPrices,
+            'sample_images' => $sampleImages,
+            'model_capability' => $modelCapability,
+            'default_params' => $defaultParams
+        ];
+        
+        return jsonEncode([
+            'status' => 1,
+            'msg' => '获取成功',
+            'data' => $result
+        ]);
+    }
+
+    // =====================================================
+    // 生成订单与退款申请 API
+    // =====================================================
+
+    /**
+     * 创建生成订单
+     * POST: scene_id, generation_type, bid
+     */
+    public function generation_order_create()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $sceneId = input('post.scene_id/d', 0);
+        $generationType = input('post.generation_type/d', 1);
+        $bid = input('post.bid/d', 0);
+
+        if (!$sceneId) {
+            return jsonEncode(['status' => 0, 'msg' => '请选择场景模板']);
+        }
+
+        // 获取用户会员等级
+        $memberLevelId = 0;
+        $member = Db::name('member')
+            ->where('aid', $this->aid)
+            ->where('id', $this->mid)
+            ->field('id,levelid')
+            ->find();
+        if ($member) {
+            $memberLevelId = intval($member['levelid']);
+        }
+
+        $orderService = new \app\service\GenerationOrderService();
+        $result = $orderService->createOrder([
+            'aid' => $this->aid,
+            'bid' => $bid,
+            'mid' => $this->mid,
+            'scene_id' => $sceneId,
+            'generation_type' => $generationType,
+            'member_level_id' => $memberLevelId
+        ]);
+
+        return jsonEncode($result);
+    }
+
+    /**
+     * 获取用户生成订单列表
+     * GET: generation_type(0=全部), status(-1=全部/0=待支付/1=生成中/2=已完成/3=退款相关)
+     */
+    public function generation_order_list()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $generationType = input('param.generation_type/d', 0);
+        $status = input('param.status/d', -1);
+        $page = input('param.page/d', 1);
+        $limit = input('param.limit/d', 20);
+
+        $orderService = new \app\service\GenerationOrderService();
+        $result = $orderService->getUserOrderList(
+            $this->aid,
+            $this->mid,
+            $generationType,
+            $status,
+            $page,
+            $limit
+        );
+
+        return jsonEncode([
+            'status' => 1,
+            'msg' => '获取成功',
+            'data' => [
+                'list' => $result['data'],
+                'total' => $result['count']
+            ]
+        ]);
+    }
+
+    /**
+     * 获取生成订单详情
+     * GET: order_id
+     */
+    public function generation_order_detail()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $orderId = input('param.order_id/d', 0);
+        if (!$orderId) {
+            return jsonEncode(['status' => 0, 'msg' => '参数错误']);
+        }
+
+        // 查询订单并验证归属
+        $order = Db::name('generation_order')
+            ->alias('o')
+            ->leftJoin('generation_scene_template t', 'o.scene_id = t.id')
+            ->field('o.*, t.template_name, t.cover_image, t.description as scene_description')
+            ->where('o.id', $orderId)
+            ->where('o.aid', $this->aid)
+            ->where('o.mid', $this->mid)
+            ->where('o.status', 1)
+            ->find();
+
+        if (!$order) {
+            return jsonEncode(['status' => 0, 'msg' => '订单不存在']);
+        }
+
+        // 格式化
+        $order['createtime_text'] = $order['createtime'] ? date('Y-m-d H:i:s', $order['createtime']) : '';
+        $order['pay_time_text'] = $order['pay_time'] ? date('Y-m-d H:i:s', $order['pay_time']) : '';
+        $order['generation_type_text'] = $order['generation_type'] == 1 ? '照片生成' : '视频生成';
+        
+        // 是否可以退款：已支付 && 任务失败 && 未退款/已驳回
+        $order['can_refund'] = ($order['pay_status'] == 1 && $order['task_status'] == 3 && in_array($order['refund_status'], [0, 3]));
+        // 是否可以撤销退款申请
+        $order['can_cancel_refund'] = ($order['refund_status'] == 1);
+
+        // 获取生成记录和输出
+        if ($order['record_id'] > 0) {
+            $record = Db::name('generation_record')
+                ->where('id', $order['record_id'])
+                ->find();
+            if ($record) {
+                $record['status_text'] = $this->getTaskStatusText($record['status']);
+                $record['outputs'] = Db::name('generation_output')
+                    ->where('record_id', $record['id'])
+                    ->select()
+                    ->toArray();
+            }
+            $order['record'] = $record;
+        }
+
+        return jsonEncode([
+            'status' => 1,
+            'msg' => '获取成功',
+            'data' => $order
+        ]);
+    }
+
+    /**
+     * 用户提交退款申请
+     * POST: order_id, refund_reason
+     */
+    public function generation_refund_apply()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $orderId = input('post.order_id/d', 0);
+        $refundReason = input('post.refund_reason', '');
+
+        if (!$orderId) {
+            return jsonEncode(['status' => 0, 'msg' => '参数错误']);
+        }
+        if (!$refundReason) {
+            return jsonEncode(['status' => 0, 'msg' => '请填写退款原因']);
+        }
+
+        $orderService = new \app\service\GenerationOrderService();
+        $result = $orderService->applyRefund($orderId, $this->mid, $refundReason);
+
+        return jsonEncode($result);
+    }
+
+    /**
+     * 用户撤销退款申请
+     * POST: order_id
+     */
+    public function generation_refund_cancel()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $orderId = input('post.order_id/d', 0);
+        if (!$orderId) {
+            return jsonEncode(['status' => 0, 'msg' => '参数错误']);
+        }
+
+        $orderService = new \app\service\GenerationOrderService();
+        $result = $orderService->cancelRefund($orderId, $this->mid);
+
+        return jsonEncode($result);
+    }
+
+    /**
+     * 获取任务状态文本
+     */
+    private function getTaskStatusText($status)
+    {
+        $map = [
+            0 => '待处理',
+            1 => '处理中',
+            2 => '成功',
+            3 => '失败',
+            4 => '已取消'
+        ];
+        return $map[$status] ?? '未知';
+    }
+    
+    /**
+     * 获取证件照类型名称
+     * @param int $idPhotoType 证件照类型编号
+     * @param int $isIdPhoto 是否为证件照模式
+     * @return string 类型名称
+     */
+    private function getIdPhotoTypeName($idPhotoType, $isIdPhoto = 1)
+    {
+        if ($isIdPhoto != 1) {
+            return '';
+        }
+        $map = [
+            0 => '',
+            1 => '身份证照',
+            2 => '护照/港澳通行证',
+            3 => '驾驶证',
+            4 => '一寸照',
+            5 => '二寸照'
+        ];
+        return $map[$idPhotoType] ?? '';
+    }
+    
+    /**
+     * 从模型size枚举解析支持的比例列表
+     * @param array $sizeEnum size枚举值列表，如 ['1024x1024','1024x1536',...]
+     * @return array 比例列表，如 ['1:1','2:3',...]
+     */
+    private function parseSupportedRatiosFromSizes($sizeEnum)
+    {
+        $knownSizeRatioMap = [
+            '512x512' => '1:1', '1024x1024' => '1:1', '2048x2048' => '1:1',
+            '512x768' => '2:3', '1024x1536' => '2:3', '2048x3072' => '2:3',
+            '768x512' => '3:2', '1536x1024' => '3:2', '3072x2048' => '3:2',
+            '384x512' => '3:4', '768x1024' => '3:4', '1536x2048' => '3:4',
+            '512x384' => '4:3', '1024x768' => '4:3', '2048x1536' => '4:3',
+            '360x640' => '9:16', '720x1280' => '9:16', '1440x2560' => '9:16',
+            '640x360' => '16:9', '1280x720' => '16:9', '2560x1440' => '16:9',
+            '512x640' => '4:5', '1024x1280' => '4:5', '2048x2560' => '4:5',
+            '640x512' => '5:4', '1280x1024' => '5:4', '2560x2048' => '5:4',
+            '1260x540' => '21:9', '2520x1080' => '21:9', '3780x1620' => '21:9',
+        ];
+        $ratios = [];
+        foreach ($sizeEnum as $size) {
+            $size = str_replace('*', 'x', strtolower(trim($size)));
+            if (isset($knownSizeRatioMap[$size]) && !in_array($knownSizeRatioMap[$size], $ratios)) {
+                $ratios[] = $knownSizeRatioMap[$size];
+            }
+        }
+        return $ratios;
+    }
+
+    // =====================================================
+    // 小程序端生成任务相关接口
+    // =====================================================
+
+    /**
+     * 创建生成订单（支持自定义参数）
+     * POST: template_id, generation_type, prompt, ref_images[], quantity
+     */
+    public function create_generation_order()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $templateId = input('post.template_id/d', 0);
+        $generationType = input('post.generation_type/d', 1);
+        $prompt = input('post.prompt', '');
+        $refImages = input('post.ref_images/a', []);
+        $quantity = input('post.quantity/d', 0);
+        $ratio = input('post.ratio', '');
+        $quality = input('post.quality', '');
+        $bid = input('post.bid/d', 0);
+
+        if (!$templateId) {
+            return jsonEncode(['status' => 0, 'msg' => '请选择场景模板']);
+        }
+
+        // 验证提示词
+        $prompt = trim($prompt);
+        if (mb_strlen($prompt) < 2) {
+            return jsonEncode(['status' => 0, 'msg' => '请填写提示词（至少2个字符）']);
+        }
+        if (mb_strlen($prompt) > 2000) {
+            return jsonEncode(['status' => 0, 'msg' => '提示词不能超过2000个字符']);
+        }
+
+        // 获取用户会员等级
+        $memberLevelId = 0;
+        $member = Db::name('member')
+            ->where('aid', $this->aid)
+            ->where('id', $this->mid)
+            ->field('id,levelid')
+            ->find();
+        if ($member) {
+            $memberLevelId = intval($member['levelid']);
+        }
+
+        $orderService = new \app\service\GenerationOrderService();
+        $result = $orderService->createOrderWithParams([
+            'aid' => $this->aid,
+            'bid' => $bid,
+            'mid' => $this->mid,
+            'scene_id' => $templateId,
+            'generation_type' => $generationType,
+            'member_level_id' => $memberLevelId,
+            'user_prompt' => $prompt,
+            'ref_images' => $refImages,
+            'quantity' => $quantity,
+            'ratio' => $ratio,
+            'quality' => $quality
+        ]);
+
+        return jsonEncode($result);
+    }
+
+    /**
+     * 提交生成任务（支付后调用）
+     * POST: order_id
+     */
+    public function submit_generation_task()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $orderId = input('post.order_id/d', 0);
+        if (!$orderId) {
+            return jsonEncode(['status' => 0, 'msg' => '参数错误']);
+        }
+
+        $orderService = new \app\service\GenerationOrderService();
+        $result = $orderService->submitTask($orderId, $this->mid);
+
+        return jsonEncode($result);
+    }
+
+    /**
+     * 查询生成任务状态
+     * GET: order_id 或 record_id
+     */
+    public function generation_task_status()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $orderId = input('param.order_id/d', 0);
+        $recordId = input('param.record_id/d', 0);
+
+        if (!$orderId && !$recordId) {
+            return jsonEncode(['status' => 0, 'msg' => '参数错误']);
+        }
+
+        // 通过订单查找记录ID
+        if ($orderId > 0) {
+            $order = Db::name('generation_order')
+                ->where('id', $orderId)
+                ->where('mid', $this->mid)
+                ->field('id,record_id,task_status')
+                ->find();
+            if (!$order) {
+                return jsonEncode(['status' => 0, 'msg' => '订单不存在']);
+            }
+            $recordId = $order['record_id'];
+        }
+
+        if (!$recordId) {
+            return jsonEncode(['status' => 1, 'data' => ['task_status' => 0, 'status_text' => '待处理', 'finished' => false]]);
+        }
+
+        // 查询生成记录状态
+        $generationService = new \app\service\GenerationService();
+        $result = $generationService->getRecordStatus($recordId);
+
+        return jsonEncode($result);
+    }
+
+    /**
+     * 获取生成结果
+     * GET: order_id 或 record_id
+     */
+    public function generation_task_result()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $orderId = input('param.order_id/d', 0);
+        $recordId = input('param.record_id/d', 0);
+
+        if (!$orderId && !$recordId) {
+            return jsonEncode(['status' => 0, 'msg' => '参数错误']);
+        }
+
+        // 通过订单查找记录ID
+        if ($orderId > 0) {
+            $order = Db::name('generation_order')
+                ->where('id', $orderId)
+                ->where('mid', $this->mid)
+                ->field('id,record_id,scene_id,scene_name,generation_type')
+                ->find();
+            if (!$order) {
+                return jsonEncode(['status' => 0, 'msg' => '订单不存在']);
+            }
+            $recordId = $order['record_id'];
+        }
+
+        if (!$recordId) {
+            return jsonEncode(['status' => 0, 'msg' => '任务尚未开始']);
+        }
+
+        // 获取生成记录详情
+        $generationService = new \app\service\GenerationService();
+        $record = $generationService->getRecordDetail($recordId);
+
+        if (!$record) {
+            return jsonEncode(['status' => 0, 'msg' => '记录不存在']);
+        }
+
+        // 返回结果
+        $result = [
+            'record_id' => $record['id'],
+            'status' => $record['status'],
+            'status_text' => $this->getTaskStatusText($record['status']),
+            'generation_type' => $record['generation_type'],
+            'create_time' => $record['create_time_text'],
+            'finish_time' => $record['finish_time_text'],
+            'outputs' => []
+        ];
+
+        // 格式化输出
+        if (!empty($record['outputs'])) {
+            foreach ($record['outputs'] as $output) {
+                $result['outputs'][] = [
+                    'type' => $output['output_type'] ?? 'image',
+                    'url' => $output['output_url'],
+                    'thumbnail' => $output['thumbnail_url'] ?? $output['output_url'],
+                    'width' => $output['width'] ?? 0,
+                    'height' => $output['height'] ?? 0,
+                    'duration' => $output['duration'] ?? 0
+                ];
+            }
+        }
+
+        return jsonEncode(['status' => 1, 'data' => $result]);
+    }
 }

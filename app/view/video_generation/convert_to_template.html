@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>转为场景模板</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-card">
+      <div class="layui-card-header">转为场景模板</div>
+      <div class="layui-card-body">
+        <form class="layui-form" lay-filter="templateForm">
+          <input type="hidden" name="record_id" value="{$record.id}">
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">来源记录</label>
+            <div class="layui-input-block">
+              <div style="padding:9px 0;color:#666">
+                #{$record.id} - 模型: {$record.model_name} - 创建时间: {$record.create_time_text}
+              </div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">提示词</label>
+            <div class="layui-input-block">
+              <textarea name="prompt" class="layui-textarea" rows="4" placeholder="原始提示词，可编辑修改后保存到模板">{$prompt}</textarea>
+              <div class="layui-form-mid layui-word-aux">此提示词将保存到模板的默认参数中，使用模板时会自动填充</div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">模板名称<span style="color:red">*</span></label>
+            <div class="layui-input-block">
+              <input type="text" name="template_name" required lay-verify="required" class="layui-input" placeholder="请输入模板名称">
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">所属分类</label>
+            <div class="layui-input-block">
+              <input type="hidden" name="category_ids" id="categoryIds" value="">
+              <div style="display:flex;align-items:flex-start">
+                <div style="flex:1">
+                  <div id="categoryTags" style="min-height:38px;padding:5px 10px;border:1px solid #e6e6e6;border-radius:2px;background:#fff;line-height:30px">
+                    <span style="color:#999;font-size:13px">点击右侧按钮选择分类</span>
+                  </div>
+                </div>
+                <button type="button" class="layui-btn layui-btn-primary" style="margin-left:10px;flex-shrink:0" onclick="openChooseCategory()"><i class="layui-icon layui-icon-search"></i> 选择分类</button>
+                <button type="button" class="layui-btn layui-btn-danger layui-btn-sm" style="margin-left:5px;flex-shrink:0" onclick="clearAllCategories()"><i class="layui-icon layui-icon-close"></i> 清空</button>
+              </div>
+              <div class="layui-form-mid layui-word-aux">最多可选择10个分类</div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">分类标签</label>
+            <div class="layui-input-block">
+              <input type="text" name="category" class="layui-input" placeholder="如：人像、风景、艺术等">
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">封面（成品视频）</label>
+            <div class="layui-input-block">
+              <div style="display:flex;align-items:flex-start">
+                {if $record.outputs}
+                {php}$firstOutput = $record['outputs'][0] ?? null;{/php}
+                {if $firstOutput}
+                {if $first_output_type == 'video'}
+                <video src="{$firstOutput.output_url}" controls style="width:200px;max-height:150px;border-radius:6px;margin-right:10px"></video>
+                {else/}
+                <img src="{$firstOutput.output_url}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;margin-right:10px">
+                {/if}
+                <input type="hidden" name="cover_image" value="{$firstOutput.output_url}">
+                <div style="padding-top:4px">
+                  <span style="color:#999;font-size:12px">自动使用生成的成品视频作为封面</span>
+                </div>
+                {/if}
+                {else}
+                <input type="text" name="cover_image" class="layui-input" placeholder="封面URL">
+                {/if}
+              </div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">原图片（首帧）</label>
+            <div class="layui-input-block">
+              <div style="display:flex;align-items:center">
+                {if $original_image}
+                <img src="{$original_image}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;margin-right:10px">
+                <span style="color:#999;font-size:12px">来源记录使用的原始图片，已保存到模板默认参数中</span>
+                {else/}
+                <span style="color:#999;font-size:12px">无原始图片（纯文生视频模式）</span>
+                {/if}
+              </div>
+            </div>
+          </div>
+          
+          <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">模板描述</label>
+            <div class="layui-input-block">
+              <textarea name="description" class="layui-textarea" rows="3" placeholder="简要描述该模板的用途"></textarea>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">关联门店</label>
+            <div class="layui-input-block">
+              <select name="mdid">
+                <option value="0">不限门店（通用模板）</option>
+                {volist name="mendian_list" id="md"}
+                <option value="{$md.id}">{$md.name}</option>
+                {/volist}
+              </select>
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <label class="layui-form-label">是否公开</label>
+            <div class="layui-input-block">
+              <input type="radio" name="is_public" value="0" title="私有" checked>
+              <input type="radio" name="is_public" value="1" title="公开">
+            </div>
+          </div>
+          
+          <div class="layui-form-item">
+            <div class="layui-input-block">
+              <button type="submit" class="layui-btn" lay-submit lay-filter="submitForm">
+                <i class="layui-icon layui-icon-ok"></i> 确认创建
+              </button>
+              <button type="button" class="layui-btn layui-btn-primary" onclick="parent.layer.closeAll()">取消</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  var form = layui.form;
+  
+  // ===== 多选分类相关 =====
+  var categoryData = {}; // {id: name, ...}
+  
+  // 渲染分类标签
+  function renderCategoryTags() {
+    var html = '';
+    var ids = [];
+    for (var id in categoryData) {
+      if (categoryData.hasOwnProperty(id)) {
+        ids.push(id);
+        html += '<span style="display:inline-block;padding:2px 8px;margin:2px 5px 2px 0;background:#e2f0ff;color:#1E9FFF;border-radius:3px;font-size:12px">' 
+             + categoryData[id] 
+             + ' <i class="layui-icon layui-icon-close" style="font-size:12px;cursor:pointer;margin-left:3px" onclick="removeCategory(' + id + ')"></i></span>';
+      }
+    }
+    if (!html) {
+      html = '<span style="color:#999;font-size:13px">点击右侧按钮选择分类</span>';
+    }
+    $('#categoryTags').html(html);
+    $('#categoryIds').val(ids.join(','));
+  }
+  
+  // 移除单个分类
+  function removeCategory(id) {
+    delete categoryData[id];
+    renderCategoryTags();
+  }
+  
+  // 清空所有分类
+  function clearAllCategories() {
+    categoryData = {};
+    renderCategoryTags();
+  }
+  
+  // 打开分类选择弹窗
+  function openChooseCategory() {
+    layer.open({
+      type: 2,
+      title: '选择场景分类',
+      area: ['600px', '500px'],
+      content: '{:url("VideoSceneCategory/choosecategory")}'
+    });
+  }
+  
+  // 多选分类回调（从choosecategory.html调用）
+  function chooseCategories(ids, names) {
+    var idArr = ids.split(',');
+    var nameArr = names.split(',');
+    categoryData = {};
+    for (var i = 0; i < idArr.length; i++) {
+      if (idArr[i] && nameArr[i]) {
+        categoryData[idArr[i]] = nameArr[i];
+      }
+    }
+    var count = Object.keys(categoryData).length;
+    if (count > 10) {
+      layer.msg('最多只能选择10个分类', {icon: 0});
+      return;
+    }
+    renderCategoryTags();
+    layer.closeAll();
+  }
+  
+  form.on('submit(submitForm)', function(obj) {
+    var index = layer.load();
+    $.post("{:url('convert_to_template')}", obj.field, function(res) {
+      layer.close(index);
+      if (res.status == 1) {
+        layer.msg('模板创建成功', {icon: 1}, function() {
+          parent.layer.closeAll();
+        });
+      } else {
+        layer.msg(res.msg);
+      }
+    });
+    return false;
+  });
+  </script>
+</body>
+</html>

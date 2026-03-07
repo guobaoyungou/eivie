@@ -50,6 +50,8 @@
     "dp-formdata": "/components/dp-formdata/dp-formdata",
     "dp-livepay": "/components/dp-livepay/dp-livepay",
     "dp-hotel": "/components/dp-hotel/dp-hotel",
-    "dp-hotel-room": "/components/dp-hotel-room/dp-hotel-room"
+    "dp-hotel-room": "/components/dp-hotel-room/dp-hotel-room",
+    "dp-photo-generation": "/components/dp-photo-generation/dp-photo-generation",
+    "dp-video-generation": "/components/dp-video-generation/dp-video-generation"
   }
 }

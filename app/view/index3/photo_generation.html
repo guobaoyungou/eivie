@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>图片生成 - {$webinfo.webname}</title>
+    <meta name="keywords" content="{$webinfo.webname},AI图片生成,图生图,智能创作">
+    <meta name="description" content="{$webinfo.webname} - AI图片生成创作平台，提供多种模型和场景模板。">
+    {if $webinfo.ico}<link rel="shortcut icon" type="image/x-icon" href="{$webinfo.ico}">{/if}
+    <!-- 主题CSS -->
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
+    <!-- 组件CSS -->
+    <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=3">
+    <link rel="stylesheet" href="/static/index3/css/generation.css?v=4">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=3">
+    <!-- 主题JS（提前加载防闪烁） -->
+    <script src="/static/index3/js/theme.js?v=1"></script>
+</head>
+<body>
+<div class="layout-wrapper">
+    <!-- 侧边栏 -->
+    {include file="index3/public/sidebar"/}
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+        <!-- 顶部栏 -->
+        {include file="index3/public/header"/}
+
+        <!-- 页面内容 -->
+        <div class="page-content">
+            <section class="generation-container" data-page-type="photo">
+                <!-- 居中创作卡片 -->
+                <div class="generation-form-wrapper">
+                    <div class="generation-form-card">
+                        <div class="gf-header">
+                            <h2 class="gf-title">图片创作</h2>
+                            <p class="gf-subtitle">百变风格 超多模型供你选择</p>
+                        </div>
+
+                        <!-- 单一流式表单 -->
+                        <div class="gf-form">
+                            <!-- ① 提示词输入 -->
+                            <div class="gf-field">
+                                <label class="gf-label"><span class="gf-required">*</span>输入提示词</label>
+                                <textarea class="gf-textarea" id="promptInput" placeholder="请输入您想生成的画面描述，例如：唯美风格，一个女孩站在樱花树下，粉色花瓣飘落，夕阳余晖"></textarea>
+                            </div>
+
+                            <!-- ② 图片上传（可选） -->
+                            <div class="gf-field">
+                                <label class="gf-label">参考图片（可选）</label>
+                                <div class="gf-image-upload" id="imageUpload">
+                                    <div class="gf-upload-placeholder">
+                                        <span class="gf-upload-icon">📷</span>
+                                        <span class="gf-upload-text">点击上传参考图片</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ③ 参数行 -->
+                            <div class="gf-param-row">
+                                <!-- 模型选择 -->
+                                <div class="gf-param-item">
+                                    <label class="gf-label">模型</label>
+                                    <div class="gf-model-card" id="modelCard">
+                                        <span class="gf-model-card-text">选择模型</span>
+                                        <span class="gf-model-card-arrow">▾</span>
+                                    </div>
+                                    <input type="hidden" id="selectedModelId" value="">
+                                </div>
+                                <!-- 图片比例 -->
+                                <div class="gf-param-item">
+                                    <label class="gf-label">图片比例</label>
+                                    <div class="gf-popover-wrap">
+                                        <div class="gf-popover-card has-value" data-param="ratio" data-value="1:1">
+                                            <span class="gf-popover-card-text">1:1</span>
+                                            <span class="gf-popover-card-arrow">▾</span>
+                                        </div>
+                                        <div class="gf-popover-dropdown" data-param="ratio">
+                                            <div class="gf-popover-option active" data-value="1:1">1:1</div>
+                                            <div class="gf-popover-option" data-value="3:4">3:4</div>
+                                            <div class="gf-popover-option" data-value="4:3">4:3</div>
+                                            <div class="gf-popover-option" data-value="16:9">16:9</div>
+                                            <div class="gf-popover-option" data-value="9:16">9:16</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- 生成数量 -->
+                                <div class="gf-param-item">
+                                    <label class="gf-label">生成数量</label>
+                                    <div class="gf-popover-wrap">
+                                        <div class="gf-popover-card has-value" data-param="count" data-value="1">
+                                            <span class="gf-popover-card-text">1 张</span>
+                                            <span class="gf-popover-card-arrow">▾</span>
+                                        </div>
+                                        <div class="gf-popover-dropdown grid-layout" data-param="count">
+                                            <div class="gf-popover-option active" data-value="1">1</div>
+                                            <div class="gf-popover-option" data-value="2">2</div>
+                                            <div class="gf-popover-option" data-value="3">3</div>
+                                            <div class="gf-popover-option" data-value="4">4</div>
+                                            <div class="gf-popover-option" data-value="5">5</div>
+                                            <div class="gf-popover-option" data-value="6">6</div>
+                                            <div class="gf-popover-option" data-value="7">7</div>
+                                            <div class="gf-popover-option" data-value="8">8</div>
+                                            <div class="gf-popover-option" data-value="9">9</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- 输出质量 -->
+                                <div class="gf-param-item">
+                                    <label class="gf-label">输出质量</label>
+                                    <div class="gf-pill-group" data-param="quality">
+                                        <span class="gf-pill active" data-value="standard">标准</span>
+                                        <span class="gf-pill" data-value="hd">高清</span>
+                                        <span class="gf-pill" data-value="uhd">超高清</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ④ 生成按钮 -->
+                        <button class="gf-submit" id="generateBtn">
+                            <span class="gf-submit-text">✨ 立即生成</span>
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- 底部横排模板推荐栏（适配 main-content 全宽） -->
+            <div class="generation-template-bar" id="templateBar">
+                <div class="template-bar-header">
+                    <div class="template-bar-title">
+                        <span class="gt-icon">🔥</span>
+                        <span>来试试一键模版吧</span>
+                    </div>
+                    <button class="template-bar-close" id="templateBarClose" title="收起">&times;</button>
+                </div>
+                <div class="template-bar-scroll">
+                    <button class="template-bar-arrow left" id="tplArrowLeft">‹</button>
+                    <div class="template-bar-body" id="templateBarBody">
+                        {if $recommend_templates}
+                        {foreach $recommend_templates as $template}
+                        <div class="gt-item" data-template-id="{$template.id}">
+                            <div class="gt-cover">
+                                <img src="{$template.cover_image|default='/static/index3/img/placeholder.png'}" alt="{$template.template_name}" loading="lazy">
+                            </div>
+                            <div class="gt-info">
+                                <div class="gt-name">{$template.template_name}</div>
+                            </div>
+                        </div>
+                        {/foreach}
+                        {else}
+                        <div class="template-bar-empty">📭 暂无推荐模板</div>
+                        {/if}
+                    </div>
+                    <button class="template-bar-arrow right" id="tplArrowRight">›</button>
+                </div>
+            </div>
+
+            <!-- 模板栏折叠态展开按钮 -->
+            <div class="template-bar-toggle" id="templateBarToggle">
+                <button class="template-bar-toggle-btn">📋 模板</button>
+            </div>
+
+            <!-- 模型选择弹窗 -->
+            <div class="model-select-modal" id="modelModal">
+                <div class="model-modal-overlay"></div>
+                <div class="model-modal-body">
+                    <div class="model-modal-header">
+                        <span class="model-modal-title">选择模型</span>
+                        <button class="model-modal-close" id="modelModalClose">&times;</button>
+                    </div>
+                    <div class="model-modal-content">
+                        <div class="model-modal-grid" id="modelModalGrid">
+                            <div class="model-modal-loading">加载中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div><!-- .page-content end -->
+    </div><!-- .main-content end -->
+</div><!-- .layout-wrapper end -->
+
+<!-- 移动端组件 -->
+{include file="index3/public/tabbar"/}
+
+<!-- JS -->
+<script src="/static/index3/js/api.js?v=2"></script>
+<script src="/static/index3/js/sidebar.js?v=1"></script>
+<script src="/static/index3/js/generation.js?v=4"></script>
+</body>
+</html>

@@ -4,7 +4,13 @@
 		<view class="dp-product-item" v-for="(item,index) in data" :key="item.id" :style="{backgroundColor:probgcolor}">
 		<view class="item" @click="toDetail(index)">
 			<view class="product-pic">
-				<image class="image" :src="item.pic" mode="widthFix"/>
+				<block v-if="covertype=='video'">
+					<video class="cover-video" :src="item.pic" :autoplay="false" :loop="false" :muted="true" :controls="false" :show-center-play-btn="false" :show-play-btn="false" :show-fullscreen-btn="false" :enable-progress-gesture="false" objectFit="cover"></video>
+					<view class="play-icon"><image class="play-img" :src="pre_url+'/static/img/play.png'" mode="aspectFit"></image></view>
+				</block>
+				<block v-else>
+					<image class="image" :src="item.pic" mode="widthFix"/>
+				</block>
 				<image class="saleimg" :src="saleimg" v-if="saleimg!=''" mode="widthFix"/>
 			</view>
 			<view class="product-info">
@@ -138,6 +144,7 @@
         <block v-if="!item.price_type && item.hide_cart!=true">
           <view v-if="showcart==1" class="p4" :style="{background:'rgba('+t('color1rgb')+',0.1)',color:t('color1')}"  @click.stop="buydialogChange" :data-proid="item[idfield]"><text class="iconfont icon_gouwuche"></text></view>
           <view v-if="showcart==2" class="p4" :style="{background:'rgba('+t('color1rgb')+',0.1)',color:t('color1')}"  @click.stop="buydialogChange" :data-proid="item[idfield]"><image :src="cartimg" class="img"/></text></view>
+          <view v-if="showcart==3" class="p4 p4-text" :style="{background:'rgba('+t('color1rgb')+',0.1)',color:t('color1')}" @click.stop="toCartTextDetail(index)">{{carttext||'做同款'}}</view>
         </block>
     
         <view v-if="poshopid && poshopid>0" class="p4" :style="{background:'rgba('+t('color1rgb')+',0.1)',color:t('color1')}"><text class="iconfont icon_gouwuche"></text></view>
@@ -217,6 +224,7 @@
 			showstock:{default:'0'},
 			showcart:{default:'1'},
 			cartimg:{default:'/static/imgsrc/cart.svg'},
+			carttext:{default:''},
 			data:{},
 			idfield:{default:'id'},
 			probgcolor:{default:'#fff'},
@@ -230,6 +238,9 @@
 				default: '0'
 			},
       poshopid:{default:0},//排队系统里的店铺ID参数，用于页面进入来源区别
+			detailurl:{default:''},
+			covertype:{default:''},
+			saleslabel:{default:''},
 		},
 		methods: {
 			buydialogChange: function (e) {
@@ -261,6 +272,15 @@
 			toDetail:function(key){
 				var that = this;
 				var item = that.data[key];
+				if(item.tourl){
+					app.goto(item.tourl);
+					return;
+				}
+				if(that.detailurl){
+					var id = item[that.idfield];
+					app.goto(that.detailurl + (that.detailurl.indexOf('?') > -1 ? '&' : '?') + 'id=' + id);
+					return;
+				}
 				var id = item[that.idfield];
 				var url = '/pages/shop/product?id='+id;//默认链接
 				//来自商品柜
@@ -274,6 +294,19 @@
 				}
         if(that.poshopid) url += '&poshopid='+that.poshopid;
 				app.goto(url);
+			},
+			toCartTextDetail:function(key){
+				var that = this;
+				var item = that.data[key];
+				if(item.tourl){
+					app.goto(item.tourl);
+				} else if(that.detailurl){
+					var id = item[that.idfield];
+					app.goto(that.detailurl + (that.detailurl.indexOf('?') > -1 ? '&' : '?') + 'id=' + id);
+				} else {
+					var id = item[that.idfield];
+					app.goto('/pagesZ/generation/create?id='+id+'&type=1');
+				}
 			}
 		}
 	}
@@ -284,6 +317,9 @@
 .dp-product-itemlist .item{width:100%;display: inline-block;position: relative;background: #fff;display:flex;border-radius:10rpx;align-items: center;}
 .dp-product-itemlist .product-pic {width: 30%;height:0;overflow:hidden;background: #ffffff;padding-bottom: 30%;position: relative;border-radius:4px;}
 .dp-product-itemlist .product-pic .image{position:absolute;top:0;left:0;width: 100%;height:auto}
+.dp-product-itemlist .product-pic .cover-video{position:absolute;top:0;left:0;width:100%;height:100%;}
+.dp-product-itemlist .product-pic .play-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:50rpx;height:50rpx;background:rgba(0,0,0,0.5);border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:10;}
+.dp-product-itemlist .product-pic .play-icon .play-img{width:24rpx;height:24rpx;}
 .dp-product-itemlist .product-pic .saleimg{ position: absolute;width: 120rpx;height: auto; top: -6rpx; left:-6rpx;}
 .dp-product-itemlist .product-info {width: 70%;padding:6rpx 10rpx 5rpx 20rpx;position: relative;}
 .dp-product-itemlist .product-info .p1 {color:#323232;font-weight:bold;font-size:28rpx;line-height:36rpx;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;word-break: break-all;}
@@ -296,6 +332,7 @@
 .dp-product-itemlist .product-info .p4{width:48rpx;height:48rpx;border-radius:50%;position:absolute;display:relative;bottom:6rpx;right:4rpx;text-align:center;}
 .dp-product-itemlist .product-info .p4 .icon_gouwuche{font-size:28rpx;height:48rpx;line-height:48rpx}
 .dp-product-itemlist .product-info .p4 .img{width:100%;height:100%}
+.dp-product-itemlist .product-info .p4.p4-text{width:auto;height:auto;padding:0 16rpx;border-radius:26rpx;font-size:22rpx;line-height:48rpx}
 .dp-product-itemlist .product-info .p2 .t1-m {font-size: 32rpx;padding-left: 8rpx;}
 .dp-product-itemlist .product-info .p5{font-size:24rpx;font-weight: bold;margin: 6rpx 0;}
 .dp-product-itemlist .product-info .p6{font-size:24rpx;display: flex;flex-wrap: wrap;margin-top: 6rpx;}

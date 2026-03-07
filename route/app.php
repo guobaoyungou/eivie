@@ -263,26 +263,44 @@ if(getcustom('extend_tencent_qian')){
 if(getcustom('yx_collage_jiqiren')){
     Route::any('CollageJiqiren/:function', 'yingxiao.CollageJiqiren/:function');
 }
-//--------------------------AI旅拍功能-----------------------------
-if(getcustom('aivideo')){
-    // 游客端API路由
-    Route::any('aivideo/wechat_auth', 'ApiAivideo/wechat_auth');
-    Route::any('aivideo/work_list', 'ApiAivideo/work_list');
-    Route::any('aivideo/work_detail', 'ApiAivideo/work_detail');
-    Route::any('aivideo/create_order', 'ApiAivideo/create_order');
-    Route::any('aivideo/pay_callback', 'ApiAivideo/pay_callback');
-    Route::any('aivideo/browse_history', 'ApiAivideo/browse_history');
-    
-    // 商家后台API路由
-    Route::any('admin_aivideo/config_list', 'AdminAivideo/config_list');
-    Route::any('admin_aivideo/save_config', 'AdminAivideo/save_config');
-    Route::any('admin_aivideo/template_list', 'AdminAivideo/template_list');
-    Route::any('admin_aivideo/save_template', 'AdminAivideo/save_template');
-    Route::any('admin_aivideo/material_list', 'AdminAivideo/material_list');
-    Route::any('admin_aivideo/work_list', 'AdminAivideo/work_list');
-    Route::any('admin_aivideo/order_list', 'AdminAivideo/order_list');
-    Route::any('admin_aivideo/statistics', 'AdminAivideo/statistics');
-    
-    // 定时任务路由
-    Route::any('aivideo/cron', 'command/AivideoCron');
-}
+
+// ====================模型广场路由====================
+Route::any('WebModelSquare/:function', 'WebModelSquare/:function');
+
+// ====================系统API Key配置路由====================
+Route::any('SystemApiKey/:function', 'SystemApiKey/:function');
+
+// ====================AI旅拍系统路由====================
+// 商家后台管理路由
+Route::any('AiTravelPhoto/:function', 'AiTravelPhoto/:function');
+
+// AI模型配置管理路由
+Route::any('ModelConfig/:function', 'ModelConfig/:function');
+
+// API配置管理路由
+Route::any('ApiConfig/:function', 'ApiConfig/:function');
+
+// API调用接口路由
+Route::any('ApiCall/:function', 'ApiCall/:function');
+
+// API统计监控路由
+Route::any('ApiStatistics/:function', 'ApiStatistics/:function');
+
+// API路由 - 设备相关
+Route::any('api/ai_travel_photo/device/:function', 'api.AiTravelPhotoDevice/:function');
+
+// API路由 - 二维码相关
+Route::any('api/ai_travel_photo/qrcode/:function', 'api.AiTravelPhotoQrcode/:function');
+
+// API路由 - 场景相关
+Route::any('api/ai_travel_photo/scene/:function', 'api.AiTravelPhotoScene/:function');
+
+// API路由 - 人像相关
+Route::any('api/ai_travel_photo/portrait/:function', 'api.AiTravelPhotoPortrait/:function');
+
+// API路由 - 订单相关
+Route::any('api/ai_travel_photo/order/:function', 'api.AiTravelPhotoOrder/:function');
+
+// API路由 - 相册相关
+Route::any('api/ai_travel_photo/album/:function', 'api.AiTravelPhotoAlbum/:function');
+// ====================AI旅拍系统路由结束====================

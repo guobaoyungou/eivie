@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>API配置测试</title>
+</head>
+<body>
+    <h1>API配置模块测试</h1>
+    <p>如果能看到这个页面，说明控制器基本正常</p>
+    <p>Aid: {$Request.get.aid ?? 0}</p>
+    <p>模型数据:</p>
+    <pre>{:var_export($models, true)}</pre>
+    <p>提供商数据:</p>
+    <pre>{:var_export($providers, true)}</pre>
+</body>
+</html>

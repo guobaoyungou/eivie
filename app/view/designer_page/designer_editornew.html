@@ -434,6 +434,10 @@ if(getcustom('extend_advertising')){
 	<script type="text/ng-template" id="show-jidian.html">{include file="designer_page/temp/show-jidian"}</script>
 	<script type="text/ng-template" id="show-tab.html">{include file="designer_page/temp/show-tab"}</script>
 	<script type="text/ng-template" id="show-kecheng.html">{include file="designer_page/temp/show-kecheng"}</script>
+	<script type="text/ng-template" id="edit-photo_generation.html">{include file="designer_page/tempnew/edit-photo_generation"}</script>
+	<script type="text/ng-template" id="show-photo_generation.html">{include file="designer_page/temp/show-photo_generation"}</script>
+	<script type="text/ng-template" id="edit-video_generation.html">{include file="designer_page/tempnew/edit-video_generation"}</script>
+	<script type="text/ng-template" id="show-video_generation.html">{include file="designer_page/temp/show-video_generation"}</script>
 	<script type="text/ng-template" id="show-zhaopin.html">{include file="designer_page/temp/show-zhaopin"}</script>
 	<script type="text/ng-template" id="edit-zhaopin.html">{include file="designer_page/tempnew/edit-zhaopin"}</script>
 	<script type="text/ng-template" id="show-qiuzhi.html">{include file="designer_page/temp/show-qiuzhi"}</script>
@@ -708,6 +712,9 @@ myModel.controller('FoxController', ['$scope', function($scope) {
 			{if !$noshow_modules || !in_array('ModuleBlank',$noshow_modules)}
 			{id:'blank',name:'辅助空白',params:{height:'50',bgcolor:'#F6F6F6',margin_x:'0',margin_y:'0',quanxian:{'all':true},'platform':{'all':true},'mendian':{'all':true},mendian_sort:'sort'},logo_icon:'{$Think.const.PRE_URL}/static/admin/img/blank.png'},
 			{/if}
+			{if !$noshow_modules || !in_array('ModuleCamera',$noshow_modules)}
+			{id:'camera',name:'拍照',params:{bgcolor:'#FFFFFF',margin_x:'0',margin_y:'0',padding_x:'0',padding_y:'0',quality:'high',device_position:'back',max_count:'9',max_size:'10',enable_album:true,enable_chat:true,columns:'4',upload_url:'',quanxian:{'all':true},'platform':{'all':true},'mendian':{'all':true},mendian_sort:'sort'},logo_icon:'{$Think.const.PRE_URL}/static/admin/img/video.png'},
+			{/if}
 			{if !$noshow_modules || !in_array('ModuleTab',$noshow_modules)}
 			{if !$type}
 			{id:'tab',name:'选项卡',params:{bgcolor:'#F7F7F8',bgcolor2:'#FFFFFF',selectindex:0,fontsize1:'14',color1:'#333',color2:'{:t('color1')}',arrowshow:'1',arrowcolor:'{:t('color1')}',borderradius:'0',fixedtop:'0',margin_x:'0',margin_y:'0',padding_x:'0',padding_y:'0',quanxian:{'all':true},'platform':{'all':true},'mendian':{'all':true},mendian_sort:'sort'},data:[
@@ -761,6 +768,12 @@ myModel.controller('FoxController', ['$scope', function($scope) {
 			{/if}
 			{if $bid==0 && ($auth_data=='all' || in_array('Business/*',$auth_data))}
 			{id:'business',name:'商家',params:{titlecolor:'#333',bgcolor:'#F6F6F6',businessfrom:'1',showpingfen:'1',showsales:'1',showaddress:'1',showjianjie:'0',showdistance:'0',showproduct:'0',showmaidan:'0',showseckill:'0',showtuangou:'0',showkanjia:'0',showcollage:'0',showluckycollage:'0',distance:'30',sortby:'sort',shownum:6,margin_x:'0',margin_y:'0',padding_x:'0',padding_y:'0',quanxian:{'all':true},'platform':{'all':true},'mendian':{'all':true},mendian_sort:'sort','intotype':0,showcategroy:'0'},data:[],logo_icon:'{$Think.const.PRE_URL}/static/admin/img/business2.png'},
+			{/if}
+			{if $auth_data=='all' || in_array('PhotoGeneration/*',$auth_data)}
+			{id:'photo_generation',name:'图片生成',params:{style:'2',bgcolor:'#FFFFFF',probgcolor:'#FFFFFF',showname:'1',showcart:'1',cartimg:'{$Think.const.PRE_URL}/static/imgsrc/cart.svg',showprice:'1',showsales:'1',saleimg:'',productfrom:'1',bid:'{$bid}',sortby:'sort',proshownum:6,margin_x:'0',margin_y:'0',padding_x:'8',padding_y:'8',quanxian:{'all':true},'platform':{'all':true},'mendian':{'all':true},mendian_sort:'sort'},data:[],logo_icon:'{$Think.const.PRE_URL}/static/admin/img/product.png'},
+			{/if}
+			{if $auth_data=='all' || in_array('VideoGeneration/*',$auth_data)}
+			{id:'video_generation',name:'视频生成',params:{style:'2',bgcolor:'#FFFFFF',probgcolor:'#FFFFFF',showname:'1',showcart:'1',cartimg:'{$Think.const.PRE_URL}/static/imgsrc/cart.svg',showprice:'1',showsales:'1',saleimg:'',productfrom:'1',bid:'{$bid}',sortby:'sort',proshownum:6,margin_x:'0',margin_y:'0',padding_x:'8',padding_y:'8',quanxian:{'all':true},'platform':{'all':true},'mendian':{'all':true},mendian_sort:'sort'},data:[],logo_icon:'{$Think.const.PRE_URL}/static/admin/img/product.png'},
 			{/if}
 		]},
 		{subletName:'其他组件',children:[
@@ -972,6 +985,12 @@ myModel.controller('FoxController', ['$scope', function($scope) {
 			{/if}
 			{if $auth_data=='all' || in_array('KechengList/*',$auth_data)}
 			{id:'kecheng',name:'课程商品',params:{style:'2',bgcolor:'#F7F7F8',showpic:'1',showname:'1',showcart:'1',showprice:'1',showsales:'1',saleimg:'',productfrom:'1',bid:'{$bid}',sortby:'sort',proshownum:6,margin_x:'0',margin_y:'0',padding_x:'8',padding_y:'8',group:{'all':true},quanxian:{'all':true},'platform':{'all':true},'mendian':{'all':true},mendian_sort:'sort',kctype:'all',chaptertype:'all'},data:[]},
+			{/if}
+			{if $auth_data=='all' || in_array('PhotoGeneration/*',$auth_data)}
+			{id:'photo_generation',name:'图片生成',params:{style:'2',bgcolor:'#FFFFFF',probgcolor:'#FFFFFF',showname:'1',showcart:'1',cartimg:'{$Think.const.PRE_URL}/static/imgsrc/cart.svg',showprice:'1',showsales:'1',saleimg:'',productfrom:'1',bid:'{$bid}',sortby:'sort',proshownum:6,margin_x:'0',margin_y:'0',padding_x:'8',padding_y:'8',quanxian:{'all':true},'platform':{'all':true},'mendian':{'all':true},mendian_sort:'sort'},data:[]},
+			{/if}
+			{if $auth_data=='all' || in_array('VideoGeneration/*',$auth_data)}
+			{id:'video_generation',name:'视频生成',params:{style:'2',bgcolor:'#FFFFFF',probgcolor:'#FFFFFF',showname:'1',showcart:'1',cartimg:'{$Think.const.PRE_URL}/static/imgsrc/cart.svg',showprice:'1',showsales:'1',saleimg:'',productfrom:'1',bid:'{$bid}',sortby:'sort',proshownum:6,margin_x:'0',margin_y:'0',padding_x:'8',padding_y:'8',quanxian:{'all':true},'platform':{'all':true},'mendian':{'all':true},mendian_sort:'sort'},data:[]},
 			{/if}
 			
 			
@@ -1582,6 +1601,188 @@ myModel.controller('FoxController', ['$scope', function($scope) {
 						m.data.splice(index2, 1);
 					}
 				});
+			}
+		});
+	}
+	//图片生成模板
+	$scope.getPhotoGenTemplates = function(Mid) {
+		angular.forEach($scope.Items, function(m, index1) {
+			if (m.id == Mid) {
+				var category = m.params.category;
+				var group = m.params.group;
+				var sortby = m.params.sortby;
+				var proshownum = m.params.proshownum;
+				$.ajax({
+					type: 'post',
+					dataType: 'json',
+					url: "{:url('DesignerPage/api')}/op/selectPhotoGenTemplate",
+					data: {
+						cid: category,
+						giddata: group,
+						sortby: sortby,
+						proshownum: proshownum
+					},
+					success: function(data) {
+						m.data = [];
+						angular.forEach(data, function(d, i) {
+							var Gid = 'G' + new Date().getTime() + parseInt(Math.random() * 1000000);
+							m.data.push({
+								id: Gid,
+								pic: data[i].pic,
+								proid: data[i].proid,
+								name: data[i].name,
+								market_price: '',
+								sell_price: data[i].sell_price,
+								sales: data[i].sales
+							});
+						});
+						$("div[mid=" + Mid + "]").mouseover();
+					},
+					error: function() {
+						layer.msg('查询图片生成模板失败！请刷新页面。');
+					}
+				});
+			}
+		});
+	}
+	$scope.addPhotoGenTemplate = function(action, Mid, Gid) {
+		layer.open({type:2,shadeClose:true,area:['920px', '560px'],'title':'选择图片生成模板',content:"{:url('PhotoGeneration/choosetemplate')}/args/"+action+','+Mid+','+Gid});
+	}
+	$scope.delPhotoGenTemplate = function(Mid, Gid) {
+		var Items = $scope.Items;
+		angular.forEach(Items, function(m, index1) {
+			if (m.id == Mid) {
+				angular.forEach(m.data, function(g, index2) {
+					if (g.id == Gid) {
+						m.data.splice(index2, 1);
+					}
+				});
+			}
+		});
+	}
+	$scope.pushPhotoGenTemplate = function(prodata,args){
+		var argsArr = args.split(',');
+		var action = argsArr[0];
+		var Mid = argsArr[1];
+		var oldGid = argsArr[2];
+		angular.forEach($scope.Items, function(m, index1) {
+			if(m.id == Mid){
+				if(action == 'replace' && oldGid){
+					angular.forEach(m.data, function(r, index3){
+						if(r.id == oldGid){
+							var Gid = 'G' + new Date().getTime() + parseInt(Math.random() * 1000000);
+							r.id = Gid;
+							r.pic = prodata.pic;
+							r.proid = prodata.proid;
+							r.name = prodata.name;
+							r.market_price = '';
+							r.sell_price = prodata.sell_price;
+							r.sales = prodata.sales;
+						}
+					});
+				}else if(!action){
+					var Gid = 'G' + new Date().getTime() + parseInt(Math.random() * 1000000);
+					m.data.push({
+						id: Gid,
+						pic: prodata.pic,
+						proid: prodata.proid,
+						name: prodata.name,
+						market_price: '',
+						sell_price: prodata.sell_price,
+						sales: prodata.sales
+					});
+				}
+			}
+		});
+	}
+	//视频生成模板
+	$scope.getVideoGenTemplates = function(Mid) {
+		angular.forEach($scope.Items, function(m, index1) {
+			if (m.id == Mid) {
+				var category = m.params.category;
+				var group = m.params.group;
+				var sortby = m.params.sortby;
+				var proshownum = m.params.proshownum;
+				$.ajax({
+					type: 'post',
+					dataType: 'json',
+					url: "{:url('DesignerPage/api')}/op/selectVideoGenTemplate",
+					data: {
+						cid: category,
+						giddata: group,
+						sortby: sortby,
+						proshownum: proshownum
+					},
+					success: function(data) {
+						m.data = [];
+						angular.forEach(data, function(d, i) {
+							var Gid = 'G' + new Date().getTime() + parseInt(Math.random() * 1000000);
+							m.data.push({
+								id: Gid,
+								pic: data[i].pic,
+								proid: data[i].proid,
+								name: data[i].name,
+								market_price: '',
+								sell_price: data[i].sell_price,
+								sales: data[i].sales
+							});
+						});
+						$("div[mid=" + Mid + "]").mouseover();
+					},
+					error: function() {
+						layer.msg('查询视频生成模板失败！请刷新页面。');
+					}
+				});
+			}
+		});
+	}
+	$scope.addVideoGenTemplate = function(action, Mid, Gid) {
+		layer.open({type:2,shadeClose:true,area:['920px', '560px'],'title':'选择视频生成模板',content:"{:url('VideoGeneration/choosetemplate')}/args/"+action+','+Mid+','+Gid});
+	}
+	$scope.delVideoGenTemplate = function(Mid, Gid) {
+		var Items = $scope.Items;
+		angular.forEach(Items, function(m, index1) {
+			if (m.id == Mid) {
+				angular.forEach(m.data, function(g, index2) {
+					if (g.id == Gid) {
+						m.data.splice(index2, 1);
+					}
+				});
+			}
+		});
+	}
+	$scope.pushVideoGenTemplate = function(prodata,args){
+		var argsArr = args.split(',');
+		var action = argsArr[0];
+		var Mid = argsArr[1];
+		var oldGid = argsArr[2];
+		angular.forEach($scope.Items, function(m, index1) {
+			if(m.id == Mid){
+				if(action == 'replace' && oldGid){
+					angular.forEach(m.data, function(r, index3){
+						if(r.id == oldGid){
+							var Gid = 'G' + new Date().getTime() + parseInt(Math.random() * 1000000);
+							r.id = Gid;
+							r.pic = prodata.pic;
+							r.proid = prodata.proid;
+							r.name = prodata.name;
+							r.market_price = '';
+							r.sell_price = prodata.sell_price;
+							r.sales = prodata.sales;
+						}
+					});
+				}else if(!action){
+					var Gid = 'G' + new Date().getTime() + parseInt(Math.random() * 1000000);
+					m.data.push({
+						id: Gid,
+						pic: prodata.pic,
+						proid: prodata.proid,
+						name: prodata.name,
+						market_price: '',
+						sell_price: prodata.sell_price,
+						sales: prodata.sales
+					});
+				}
 			}
 		});
 	}
@@ -3360,6 +3561,12 @@ $scope.pushyuyue = function(prodata,args){
 				if(Nid == 'kecheng'){
 					$scope.getKecheng(newitem.id);
 				}
+				if(Nid == 'photo_generation'){
+					$scope.getPhotoGenTemplates(newitem.id);
+				}
+				if(Nid == 'video_generation'){
+					$scope.getVideoGenTemplates(newitem.id);
+				}
 				if(Nid == 'zhaopin'){
 					$scope.getZhaopin(newitem.id);
 				}
@@ -3535,6 +3742,16 @@ function chooseseckill(prodata,args) {
 function choosetuangou(prodata,args) {
 	var $scope = angular.element(document.querySelector('[ng-controller=FoxController]')).scope();
 	$scope.pushTuangou(prodata,args);
+	$scope.$apply();
+}
+function choosephotogentemplate(prodata,args) {
+	var $scope = angular.element(document.querySelector('[ng-controller=FoxController]')).scope();
+	$scope.pushPhotoGenTemplate(prodata,args);
+	$scope.$apply();
+}
+function choosevideogentemplate(prodata,args) {
+	var $scope = angular.element(document.querySelector('[ng-controller=FoxController]')).scope();
+	$scope.pushVideoGenTemplate(prodata,args);
 	$scope.$apply();
 }
 function chooseArticle(artdata,args) {

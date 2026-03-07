@@ -123,7 +123,7 @@ export default {
     },
     handleTouchMove: function (e) {
       if (this.comment && this.comment.id) return;
-      var clientWidth = uni.getSystemInfoSync().windowWidth;
+      var clientWidth = uni.getWindowInfo().windowWidth;
       if (!e.changedTouches[0]) return;
       var movePageX = e.changedTouches[0].pageX;
       var space = movePageX - 150 / 750 * clientWidth;

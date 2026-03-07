@@ -85,7 +85,7 @@
 		methods: {
 			show(){
 				this.showPicker = true;
-				windowWidth = uni.getSystemInfoSync().windowWidth;
+				windowWidth = uni.getWindowInfo().windowWidth;
 				if(this.provincedata.length>0&&this.provincedata.length<this.pickerSize&&this.isFirst&&this.provincedata[this.provincedata.length-1].value!=""){
 					this.showData=this.findSameId(this.data,this.tabbars[this.provincedata.length],this.tabbars[this.provincedata.length-1]);
 					var current={

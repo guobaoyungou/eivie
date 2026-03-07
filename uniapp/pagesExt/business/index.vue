@@ -386,7 +386,7 @@ export default {
     this.regbid  = this.opt.regbid || 0;
     this.type  = this.opt.type || '';
 
-		var sysinfo = uni.getSystemInfoSync();
+		var sysinfo = uni.getWindowInfo();
 		this.wxNavigationBarMenu();
 		this.statusBarHeight = sysinfo.statusBarHeight;
 		this.screenWidth = sysinfo.screenWidth;

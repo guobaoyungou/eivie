@@ -1,1 +1,1 @@
-<?php return ['wx_channels','aivideo'];
+<?php return ['wx_channels'];

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>生成记录详情</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .detail-item { margin-bottom: 15px; }
+    .detail-label { color: #999; font-size: 13px; margin-bottom: 5px; }
+    .detail-value { font-size: 14px; }
+    .output-gallery { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+    .output-item { width: 150px; border: 1px solid #e6e6e6; border-radius: 6px; overflow: hidden; }
+    .output-item img { width: 100%; height: 150px; object-fit: cover; cursor: pointer; }
+    .output-item .output-info { padding: 8px; font-size: 12px; background: #f7f7f7; }
+    .params-json { background: #f5f5f5; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 13px; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+    .status-badge { padding: 4px 10px; border-radius: 4px; font-size: 12px; }
+    .status-0 { background: #f0f0f0; color: #999; }
+    .status-1 { background: #e6f7ff; color: #1E9FFF; }
+    .status-2 { background: #f6ffed; color: #5FB878; }
+    .status-3 { background: #fff2f0; color: #FF5722; }
+    .status-4 { background: #f0f0f0; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-col-md6">
+        <div class="layui-card">
+          <div class="layui-card-header">基本信息</div>
+          <div class="layui-card-body">
+            <div class="detail-item">
+              <div class="detail-label">记录ID</div>
+              <div class="detail-value">{$record.id}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">状态</div>
+              <div class="detail-value">
+                <span class="status-badge status-{$record.status}">
+                  {switch $record.status}
+                    {case 0}待处理{/case}
+                    {case 1}处理中{/case}
+                    {case 2}成功{/case}
+                    {case 3}失败{/case}
+                    {case 4}已取消{/case}
+                  {/switch}
+                </span>
+              </div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">模型</div>
+              <div class="detail-value">{$record.model_name} ({$record.provider_name})</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">模型标识</div>
+              <div class="detail-value"><code>{$record.model_code_ref|default=$record.model_code}</code></div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">任务ID</div>
+              <div class="detail-value">{$record.task_id|default='-'}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="layui-card" style="margin-top:15px">
+          <div class="layui-card-header">时间与成本</div>
+          <div class="layui-card-body">
+            <div class="detail-item">
+              <div class="detail-label">创建时间</div>
+              <div class="detail-value">{$record.create_time_text}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">完成时间</div>
+              <div class="detail-value">{$record.finish_time_text|default='-'}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">耗时</div>
+              <div class="detail-value">{if $record.cost_time > 0}{$record.cost_time/1000|round=2}秒{else}-{/if}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">重试次数</div>
+              <div class="detail-value">{$record.retry_count}</div>
+            </div>
+            {if $record.error_msg}
+            <div class="detail-item">
+              <div class="detail-label">错误信息</div>
+              <div class="detail-value" style="color:#FF5722">[{$record.error_code}] {$record.error_msg}</div>
+            </div>
+            {/if}
+          </div>
+        </div>
+      </div>
+      
+      <div class="layui-col-md6">
+        <div class="layui-card">
+          <div class="layui-card-header">输入参数</div>
+          <div class="layui-card-body">
+            <div class="params-json">{$record.input_params|json_encode=256}</div>
+          </div>
+        </div>
+        
+        <div class="layui-card" style="margin-top:15px">
+          <div class="layui-card-header">
+            生成结果 
+            <span class="layui-badge layui-bg-blue">{$record.outputs|count}张</span>
+          </div>
+          <div class="layui-card-body">
+            {if $record.outputs}
+            <div class="output-gallery">
+              {volist name="record.outputs" id="output"}
+              <div class="output-item">
+                <img src="{$output.output_url}" onclick="previewImage('{$output.output_url}')" title="点击查看大图">
+                <div class="output-info">
+                  {if $output.width && $output.height}
+                  {$output.width}x{$output.height}
+                  {/if}
+                  {if $output.file_size}
+                  · {$output.file_size|format_bytes}
+                  {/if}
+                </div>
+              </div>
+              {/volist}
+            </div>
+            {else}
+            <div style="text-align:center;padding:40px 0;color:#999">
+              <i class="layui-icon layui-icon-picture" style="font-size:48px"></i>
+              <p style="margin-top:10px">暂无生成结果</p>
+            </div>
+            {/if}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  function previewImage(url) {
+    layer.photos({
+      photos: {
+        data: [{src: url}]
+      },
+      anim: 5
+    });
+  }
+  </script>
+</body>
+</html>

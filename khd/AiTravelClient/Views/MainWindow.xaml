@@ -1,0 +1,161 @@
+<Window x:Class="AiTravelClient.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:AiTravelClient.ViewModels"
+        xmlns:converters="clr-namespace:AiTravelClient.Converters"
+        mc:Ignorable="d"
+        Title="{Binding WindowTitle}"
+        Height="720" Width="1200"
+        MinHeight="600" MinWidth="800"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BackgroundBrush}">
+    
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Resources/Styles/Colors.xaml"/>
+                <ResourceDictionary Source="../Resources/Styles/Buttons.xaml"/>
+                <ResourceDictionary Source="../Resources/Styles/Controls.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            
+            <converters:NetworkStatusToColorConverter x:Key="NetworkStatusToColor"/>
+            <converters:StringToColorBrushConverter x:Key="StringToColorBrush"/>
+        </ResourceDictionary>
+    </Window.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 顶部标题栏 -->
+        <Border Grid.Row="0" Background="{StaticResource PrimaryBrush}" Height="60">
+            <Grid Margin="20,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- 应用标题 -->
+                <TextBlock Grid.Column="0" 
+                          Text="{Binding WindowTitle}"
+                          Foreground="White"
+                          FontSize="20"
+                          FontWeight="Bold"
+                          VerticalAlignment="Center"/>
+                
+                <!-- 窗口控制按钮 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="−" Width="40" Height="30" 
+                           Style="{StaticResource IconButtonStyle}"
+                           Foreground="White"
+                           Click="MinimizeButton_Click"/>
+                    <Button Content="□" Width="40" Height="30" 
+                           Style="{StaticResource IconButtonStyle}"
+                           Foreground="White"
+                           Click="MaximizeButton_Click"/>
+                    <Button Content="×" Width="40" Height="30" 
+                           Style="{StaticResource IconButtonStyle}"
+                           Foreground="White"
+                           Click="CloseButton_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- 主内容区 -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- 左侧导航栏 -->
+            <Border Grid.Column="0" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                <StackPanel Margin="0,20,0,0">
+                    <!-- 首页按钮 -->
+                    <RadioButton GroupName="Navigation" 
+                                IsChecked="True"
+                                Command="{Binding NavigateToHomeCommand}"
+                                Style="{StaticResource NavigationButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🏠" FontSize="18" Margin="0,0,10,0"/>
+                            <TextBlock Text="首页" FontSize="14"/>
+                        </StackPanel>
+                    </RadioButton>
+                    
+                    <!-- 设置按钮 -->
+                    <RadioButton GroupName="Navigation"
+                                Command="{Binding NavigateToSettingsCommand}"
+                                Style="{StaticResource NavigationButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚙️" FontSize="18" Margin="0,0,10,0"/>
+                            <TextBlock Text="设置" FontSize="14"/>
+                        </StackPanel>
+                    </RadioButton>
+                    
+                    <!-- 日志按钮 -->
+                    <RadioButton GroupName="Navigation"
+                                Command="{Binding NavigateToLogCommand}"
+                                Style="{StaticResource NavigationButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📄" FontSize="18" Margin="0,0,10,0"/>
+                            <TextBlock Text="日志" FontSize="14"/>
+                        </StackPanel>
+                    </RadioButton>
+                    
+                    <!-- 关于按钮 -->
+                    <RadioButton GroupName="Navigation"
+                                Command="{Binding NavigateToAboutCommand}"
+                                Style="{StaticResource NavigationButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="ℹ️" FontSize="18" Margin="0,0,10,0"/>
+                            <TextBlock Text="关于" FontSize="14"/>
+                        </StackPanel>
+                    </RadioButton>
+                </StackPanel>
+            </Border>
+            
+            <!-- 内容区域 -->
+            <ContentControl Grid.Column="1" Content="{Binding CurrentView}" Margin="0"/>
+        </Grid>
+        
+        <!-- 底部状态栏 -->
+        <Border Grid.Row="2" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Height="40">
+            <Grid Margin="20,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- 设备状态 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="设备：" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,5,0"/>
+                    <TextBlock Text="{Binding DeviceName}" FontSize="12" FontWeight="Medium"/>
+                </StackPanel>
+                
+                <!-- 连接状态 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
+                    <Ellipse Width="10" Height="10" 
+                            Fill="{Binding ConnectionStatus, Converter={StaticResource NetworkStatusToColor}}"
+                            Margin="0,0,5,0"/>
+                    <TextBlock Text="连接状态" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                </StackPanel>
+                
+                <!-- 状态文本 -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="8" Height="8" 
+                            Fill="{Binding StatusColor, Converter={StaticResource StringToColorBrush}}"
+                            Margin="0,0,5,0"/>
+                    <TextBlock Text="{Binding StatusText}" FontSize="12"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

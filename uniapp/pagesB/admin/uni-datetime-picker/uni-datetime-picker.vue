@@ -466,7 +466,7 @@
 				}
 				const {
 					windowWidth
-				} = uni.getSystemInfoSync()
+				} = uni.getWindowInfo()
 				this.isPhone = windowWidth <= 500
 				this.windowWidth = windowWidth
 			},

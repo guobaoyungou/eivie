@@ -39,7 +39,7 @@
 				</view>
 				<view class="dp-location-iconlist" v-if="params.showicon==1 && data.length>0">
 					<view class="dp-location-icon" v-for="(item,index) in data" :key="index" @tap="goto" :data-url="item.hrefurl">
-						<image :src="item.imgurl"></image>
+						<image class="c-img" :src="item.imgurl"></image>
 					</view>
 				</view>
     	</view>
@@ -53,7 +53,7 @@
 				<view class="dp-header-nearby-box">
 					<view class="dp-header-nearby-body">
 						<view class="dp-header-nearby-search">
-							<view class="dp-header-nearby-close" @tap="closeNearbyBox"><image :src="pre_url+'/static/img/location/close-dark.png'"></image></view>
+							<view class="dp-header-nearby-close" @tap="closeNearbyBox"><image class="c-img" :src="pre_url+'/static/img/location/close-dark.png'"></image></view>
 							<view class="dp-header-nearby-input" >
 								<input type="text" class="input" placeholder="商圈/大厦/住宅" placeholder-style="font-size:26rpx" :value="placekeyword" @input="placekeywordInput" @confirm="searchPlace"/>
 								<button class="searchbtn" :style="{borderColor:t('color1'),color:'#FFF',backgroundColor:t('color1')}" @tap="searchPlace">搜索</button>
@@ -63,7 +63,7 @@
 							<block v-for="(item,index) in suggestionplacelist" :key="index">
 								<view class="dp-suggestion-place" @tap="chooseSuggestionAddress" :data-index="index">
 									<view class="flex-y-center">
-										<image :src="pre_url+'/static/img/address3.png'"></image>
+										<image class="c-img" :src="pre_url+'/static/img/address3.png'"></image>
 										<text class="s-title">{{item.title}}</text>
 									</view>
 									<view class="s-info flex-y-center">
@@ -93,7 +93,7 @@
 							</view>
 							<view class="dp-header-nearby-all flex-y-center" @tap="showAllAddress">
 								<block v-if="myaddresslist.length>0">
-									<text>{{isshowalladdress?'收起全部地址':'展开更多地址'}} </text><image :src="pre_url+'/static/img/location/'+(isshowalladdress?'up-grey.png':'down-grey.png')"></image>
+									<text>{{isshowalladdress?'收起全部地址':'展开更多地址'}} </text><image class="c-img" :src="pre_url+'/static/img/location/'+(isshowalladdress?'up-grey.png':'down-grey.png')"></image>
 								</block>
 								<text v-else>-暂无地址-</text>
 							</view>
@@ -132,7 +132,7 @@
 						<view class="popup__content">
 							<block v-for="(item,index) in mendianlist" :key="index">
 								<view class="mendian-info" @tap="changeMendian" :data-index="index" :data-id="item.id" :style="{background:(item.id==locationCache.mendian_id?'rgba('+t('color1rgb')+',0.1)':'')}">
-									<view class="b1"><image :src="item.pic"></image></view>
+									<view class="b1"><image class="c-img" :src="item.pic"></image></view>
 									<view class="b2">
 										<view class="t1">{{item.name}}</view>
 										<view class="t2 flex-y-center">
@@ -215,7 +215,7 @@
 		},
 		mounted:function(){
 				var that = this;
-				var sysinfo = uni.getSystemInfoSync();
+				var sysinfo = uni.getWindowInfo();
 				that.statusBarHeight = sysinfo.statusBarHeight;
 				that.showlevel = that.params.showlevel || 2;
 				that.locationCache  = app.getLocationCache();
@@ -721,9 +721,9 @@
 	font-size: 14px
 }
 .dp-location-search{flex:1;background: #FFFFFF;height: 70rpx;border-radius: 10rpx;padding: 0 20rpx;display: flex; align-items: center;margin-left: 6rpx;}
-.dp-header-location-search input{flex: 1;display: inline-block;font-size: 24rpx;}
+.dp-header-location-search .c-input{flex: 1;display: inline-block;font-size: 24rpx;}
 .dp-location-search-icon{width: 30rpx;height: 30rpx;}
-.dp-header-location-search image {
+.dp-header-location-search .c-img {
 	width: 14px;
 	height: 15px;
 	margin-right: 6px
@@ -732,7 +732,7 @@
 .dp-header-location-title{width: 160px;text-align: center;font-weight: bold;}
 .dp-location-iconlist{display: flex;flex-shrink: 0;align-items: center;justify-content: flex-end;}
 .dp-location-icon{width: 36rpx; height: 36rpx;margin-left: 2px;}
-.dp-location-icon image{width:100%;height: 100%;}
+.dp-location-icon .c-img{width:100%;height: 100%;}
 .dp-header-icon{width: 34rpx;height: 34rpx;}
 .dp-header-more{margin-left: 4px;}
 .dp-header-picker .uni-data-tree-dialog{color: #333333;}
@@ -757,7 +757,7 @@
 	}
 .dp-header-nearby-box{background-color: #f6f6f6;}
 .dp-header-nearby-search{padding:20rpx;display: flex;align-items: center;}
-.dp-header-nearby-close image{width: 36rpx; height: 36rpx;}
+.dp-header-nearby-close .c-img{width: 36rpx; height: 36rpx;}
 .dp-header-nearby-input{background-color: #FFFFFF;border-radius: 50rpx;margin-left: 10rpx;height: 70rpx;line-height: 70rpx;flex: 1;display: flex;align-items: center;justify-content: space-between;padding-left: 40rpx;color: #222222;}
 .dp-header-nearby-input .input{flex:1}
 .dp-header-nearby-input .searchbtn{border: #f6f6f6 1rpx solid;height: 50rpx;line-height: 50rpx;width: 90rpx;margin: 6rpx 10rpx;border-radius: 50rpx;font-size: 24rpx;display: flex;align-items: center;justify-content: center;}
@@ -770,13 +770,13 @@
 .dp-header-nearby-txt{font-size: 24rpx;color: #888;}
 .dp-header-nearby-tip{color: #707070;font-weight: normal;font-size: 26rpx;}
 .dp-header-nearby-all{padding-top: 20rpx;color: #707070;font-size: 26rpx;padding-left: 40rpx;}
-.dp-header-nearby-all image{width: 28rpx; height: 28rpx;margin-left: 10rpx;}
+.dp-header-nearby-all .c-img{width: 28rpx; height: 28rpx;margin-left: 10rpx;}
 .dp-header-location-bottom{background: #FFFFFF;position: fixed;bottom: 0;width: 100%;height: 90rpx;border-top: 1rpx solid #f6f6f6;padding-bottom: 8rpx;line-height: 90rpx;}
 .dp-location-add-address{font-size: 42rpx;font-weight: bold;padding-right: 6rpx; line-height: 90rpx;}
 .dp-header-nearby-body{padding-bottom: 110rpx;}
 .dp-suggestion-box{background: #FFFFFF;padding: 20rpx;color: #333;}
 .dp-suggestion-place{padding: 20rpx;border-bottom: 1rpx solid #f6f6f6;z-index: 9999;}
-.dp-suggestion-place image{width: 40rpx;height: 40rpx;}
+.dp-suggestion-place .c-img{width: 40rpx;height: 40rpx;}
 .dp-suggestion-place .s-title{font-size: 30rpx;}
 .dp-suggestion-place .s-info{padding-top: 10rpx;font-size: 24rpx;padding-left: 40rpx;}
 .dp-suggestion-place .s-area{flex-shrink: 0;padding-right: 8rpx;}
@@ -789,12 +789,12 @@
 .popup_mendian .popup__modal{min-height: auto;}
 .popup_mendian .mendian-info{display: flex;align-items: center;width: 100%;background:#F6F6F6;padding: 20rpx; margin-bottom: 20rpx;border-radius: 6rpx;}
 .popup_mendian .mendian-info .b1{background-color: #fbfbfb;}
-.popup_mendian .mendian-info .b1 image{height: 100rpx;width:100rpx;border-radius: 6rpx;border: 1px solid #e8e8e8;}
+.popup_mendian .mendian-info .b1 .c-img{height: 100rpx;width:100rpx;border-radius: 6rpx;border: 1px solid #e8e8e8;}
 .popup_mendian .mendian-info .b2{flex:1;line-height: 38rpx;margin-left: 20rpx;overflow: hidden;}
 .popup_mendian .mendian-info .b2 .t1{padding-bottom: 10rpx;}
 .popup_mendian .mendian-info .b2 .t2{font-size: 24rpx;color: #999;}
 .popup_mendian .mendian-info .b3{display: flex;justify-content: flex-end;flex-shrink: 0;padding-left: 20rpx;}
-.popup_mendian .mendian-info .b3 image{width: 40rpx;height: 40rpx;}
+.popup_mendian .mendian-info .b3 .c-img{width: 40rpx;height: 40rpx;}
 .popup_mendian .mendian-info .tag{padding:0 10rpx;margin-right: 10rpx;display: inline-block;font-size: 22rpx;border-radius: 8rpx;flex-shrink: 0;}
 .popup_mendian .mendian-info .mendian-address{text-overflow: ellipsis;flex:1;width: 300rpx;white-space: nowrap;}
 .popup_mendian .mendian-info .line{border-right: 1rpx solid #999;width: 10rpx;flex-shrink: 0;height: 16rpx;padding-left:10rpx;margin-right: 12rpx;}

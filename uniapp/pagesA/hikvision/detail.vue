@@ -139,7 +139,7 @@
 		},
 		onReady() {
 			this.getdata();
-			var sysinfo = uni.getSystemInfoSync();
+			var sysinfo = uni.getWindowInfo();
 			this.pageHeight = sysinfo.windowHeight;
 			if (sysinfo && sysinfo.statusBarHeight) {
 				this.gobacktopHeight = sysinfo.statusBarHeight;
@@ -147,7 +147,7 @@
 			// #ifdef H5
 			this.gobacktopHeight = 20;
 			// #endif
-			if(uni.getSystemInfoSync().uniPlatform=='mp-alipay'||uni.getSystemInfoSync().uniPlatform=='mp-baidu'){
+			if(uni.getWindowInfo().uniPlatform=='mp-alipay'||uni.getWindowInfo().uniPlatform=='mp-baidu'){
 				this.isalipay = true;
 			}
 		},

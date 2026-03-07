@@ -1,0 +1,124 @@
+<!-- sidebar.html — 左侧导航栏组件 -->
+<div class="sidebar-overlay"></div>
+<aside class="sidebar" id="sidebar">
+    <!-- Logo区域 -->
+    <div class="sidebar-logo">
+        <img src="{$webinfo.logo}" alt="logo">
+        <span class="sys-name">{$webinfo.webname}</span>
+        <span class="collapse-btn" title="折叠">☰</span>
+        <span class="drawer-close-btn" style="display:none;margin-left:auto;cursor:pointer;font-size:18px;color:var(--text-tertiary);width:28px;height:28px;align-items:center;justify-content:center;border-radius:6px;">✕</span>
+    </div>
+
+    <!-- 移动端用户区 -->
+    <div class="drawer-user">
+        <button class="login-btn" onclick="location.href='{:url(\'Backstage/index\')}'">登录 / 注册</button>
+    </div>
+
+    <!-- 导航菜单 -->
+    <nav class="sidebar-nav">
+        <div class="nav-item" data-tooltip="首页">
+            <a class="nav-link active" href="/">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-text">首页</span>
+            </a>
+        </div>
+
+        <div class="nav-item has-sub" data-tooltip="创作">
+            <a class="nav-link nav-toggle" href="javascript:;">
+                <span class="nav-icon">🎨</span>
+                <span class="nav-text">创作</span>
+                <span class="nav-arrow open">›</span>
+            </a>
+            <div class="nav-sub open">
+                <a class="nav-link" href="{:url('Index/photo_generation')}">
+                    <span class="nav-text">图片生成</span>
+                </a>
+                <a class="nav-link" href="{:url('Index/video_generation')}">
+                    <span class="nav-text">视频生成</span>
+                </a>
+            </div>
+            <!-- 折叠态浮动子菜单 -->
+            <div class="nav-float-sub">
+                <a class="nav-link" href="{:url('Index/photo_generation')}">
+                    <span class="nav-text">图片生成</span>
+                </a>
+                <a class="nav-link" href="{:url('Index/video_generation')}">
+                    <span class="nav-text">视频生成</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="nav-item" data-tooltip="资产">
+            <a class="nav-link" href="javascript:;">
+                <span class="nav-icon">📦</span>
+                <span class="nav-text">资产</span>
+            </a>
+        </div>
+
+        <div class="nav-divider"></div>
+
+        <div class="nav-item" data-tooltip="个人中心">
+            <a class="nav-link" href="javascript:;">
+                <span class="nav-icon">👤</span>
+                <span class="nav-text">个人中心</span>
+            </a>
+        </div>
+
+        <div class="nav-item" data-tooltip="创作中心">
+            <a class="nav-link" href="javascript:;">
+                <span class="nav-icon">🖌</span>
+                <span class="nav-text">创作中心</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- 公司信息 -->
+    <div class="sidebar-footer-info">
+        {if $webinfo['company']}<div>{$webinfo.company}</div>{/if}
+        {if $webinfo['beian']}<div><a href="http://beian.miit.gov.cn/" target="_blank">ICP备案: {$webinfo.beian}</a></div>{/if}
+        {if $webinfo['copyright2']}<div><a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode={$webinfo.beian2}" target="_blank">{$webinfo.copyright2}</a></div>{/if}
+    </div>
+
+    <!-- 底部工具栏 -->
+    <div class="sidebar-toolbar">
+        <!-- 主题切换（单按钮切换） -->
+        <button class="theme-toggle-btn" id="themeToggleBtn" title="切换主题">
+            <span class="btn-icon" id="themeIcon">☀</span>
+            <span class="btn-text" id="themeText">浅色</span>
+        </button>
+
+        <!-- APP下载 -->
+        <div class="toolbar-btn" style="position:relative">
+            <span class="btn-icon">📱</span>
+            <span class="btn-text">APP</span>
+            <div class="toolbar-popup qr-popup">
+                {if $webinfo['appqrcode']}
+                <img src="{$webinfo.appqrcode}" alt="APP下载二维码">
+                {else}
+                <p style="padding:20px 0">暂无二维码</p>
+                {/if}
+                <p>扫码下载APP</p>
+            </div>
+        </div>
+
+        <!-- 更多菜单 -->
+        <div class="toolbar-btn" style="position:relative">
+            <span class="btn-icon">⋯</span>
+            <span class="btn-text">更多</span>
+            <div class="toolbar-popup more-menu">
+                <a class="menu-link" href="javascript:;">用户协议</a>
+                <a class="menu-link" href="javascript:;">隐私协议</a>
+                <a class="menu-link" href="javascript:;">关于我们</a>
+                <a class="menu-link" href="javascript:;">加入我们</a>
+                <a class="menu-link" href="{:url('lianxi')}">联系我们</a>
+                <a class="menu-link" href="javascript:;">联系客服</a>
+                <div class="popup-divider"></div>
+                <div class="popup-share-row">
+                    <a href="javascript:;" title="微信">💬</a>
+                    <a href="javascript:;" title="小红书">📕</a>
+                    <a href="javascript:;" title="抖音">🎵</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</aside>

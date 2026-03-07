@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>模型分类管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+</head>
+<body>
+<div class="layui-fluid">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <h3>模型分类管理</h3>
+        </div>
+        <div class="layui-card-body">
+            <!-- 搜索栏 -->
+            <div class="layui-form" lay-filter="search-form">
+                <div class="layui-form-item">
+                    <div class="layui-inline">
+                        <label class="layui-form-label">关键词</label>
+                        <div class="layui-input-inline">
+                            <input type="text" name="keyword" placeholder="分类名称/代码" class="layui-input">
+                        </div>
+                    </div>
+                    <div class="layui-inline">
+                        <label class="layui-form-label">层级</label>
+                        <div class="layui-input-inline">
+                            <select name="level">
+                                <option value="">全部</option>
+                                <option value="1">一级分类</option>
+                                <option value="2">二级分类</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-inline">
+                        <label class="layui-form-label">类型</label>
+                        <div class="layui-input-inline">
+                            <select name="is_system">
+                                <option value="">全部</option>
+                                <option value="1">系统分类</option>
+                                <option value="0">自定义</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-inline">
+                        <button class="layui-btn" lay-submit lay-filter="search-btn">搜索</button>
+                        <button class="layui-btn layui-btn-primary" id="reset-btn">重置</button>
+                    </div>
+                    <div class="layui-inline" style="float: right;">
+                        <button class="layui-btn layui-btn-normal" id="add-btn">
+                            <i class="layui-icon layui-icon-add-1"></i> 新增分类
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据表格 -->
+            <table class="layui-hide" id="category-table" lay-filter="category-table"></table>
+        </div>
+    </div>
+</div>
+
+<!-- 表格操作列模板 -->
+<script type="text/html" id="toolbar-tpl">
+    {{# if (d.is_system == 1) { }}
+    <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+    {{# } else { }}
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+    {{# } }}
+</script>
+
+<!-- 图标显示模板 -->
+<script type="text/html" id="icon-tpl">
+    {{# if (d.icon) { }}
+    <span style="font-size: 24px;">{{d.icon}}</span>
+    {{# } else { }}
+    <span style="color: #ccc;">无</span>
+    {{# } }}
+</script>
+
+<!-- 类型显示模板 -->
+<script type="text/html" id="type-tpl">
+    {{# if (d.is_system == 1) { }}
+    <span class="layui-badge layui-bg-blue">系统</span>
+    {{# } else { }}
+    <span class="layui-badge layui-bg-green">自定义</span>
+    {{# } }}
+</script>
+
+<!-- 状态显示模板 -->
+<script type="text/html" id="status-tpl">
+    {{# if (d.status == 1) { }}
+    <span class="layui-badge layui-bg-green">启用</span>
+    {{# } else { }}
+    <span class="layui-badge">禁用</span>
+    {{# } }}
+</script>
+
+{include file="public/js"/}
+<script>
+var tableIns;
+layui.use(['table', 'form', 'layer'], function(){
+    var table = layui.table;
+    var form = layui.form;
+    var layer = layui.layer;
+    var $ = layui.$;
+
+    // 渲染表格
+    tableIns = table.render({
+        elem: '#category-table',
+        url: '{:url("model_category_list")}',
+        page: true,
+        limit: 20,
+        limits: [10, 20, 50, 100],
+        cols: [[
+            {field: 'id', title: 'ID', width: 60, sort: true},
+            {field: 'level', title: '层级', width: 80, templet: function(d){
+                return d.level == 1 ? '<span class="layui-badge layui-bg-blue">一级</span>' : '<span class="layui-badge layui-bg-cyan">二级</span>';
+            }},
+            {field: 'icon', title: '图标', width: 60, templet: '#icon-tpl'},
+            {field: 'name', title: '分类名称', width: 150},
+            {field: 'code', title: '分类代码', width: 150},
+            {field: 'parent_name', title: '父级分类', width: 120, templet: function(d){
+                return d.parent_name || '<span style="color:#ccc;">无</span>';
+            }},
+            {field: 'description', title: '分类描述', minWidth: 180},
+            {field: 'is_system', title: '类型', width: 90, templet: '#type-tpl'},
+            {field: 'sort', title: '排序', width: 70},
+            {field: 'status', title: '状态', width: 70, templet: '#status-tpl'},
+            {title: '操作', width: 150, align: 'center', toolbar: '#toolbar-tpl', fixed: 'right'}
+        ]],
+        done: function(res, curr, count) {
+            // 表格渲染完成回调
+        }
+    });
+
+    // 搜索
+    form.on('submit(search-btn)', function(data){
+        table.reload('category-table', {
+            where: data.field,
+            page: {curr: 1}
+        });
+        return false;
+    });
+
+    // 重置
+    $('#reset-btn').click(function(){
+        $('input[name="keyword"]').val('');
+        $('select[name="level"]').val('');
+        $('select[name="is_system"]').val('');
+        form.render('select');
+        table.reload('category-table', {
+            where: {},
+            page: {curr: 1}
+        });
+    });
+
+    // 新增
+    $('#add-btn').click(function(){
+        openmax('{:url("model_category_edit")}');
+    });
+
+    // 工具栏事件
+    table.on('tool(category-table)', function(obj){
+        var data = obj.data;
+        
+        if(obj.event === 'view' || obj.event === 'edit'){
+            openmax('{:url("model_category_edit")}/id/' + data.id);
+        } else if(obj.event === 'del'){
+            layer.confirm('确定删除该分类吗？', function(index){
+                var loadIndex = layer.load();
+                $.post('{:url("model_category_delete")}', {id: data.id}, function(res){
+                    layer.close(loadIndex);
+                    dialog(res.msg, res.status);
+                    if(res.status == 1){
+                        tableIns.reload();
+                    }
+                });
+                layer.close(index);
+            });
+        }
+    });
+});
+</script>
+{include file="public/copyright"/}
+</body>
+</html>

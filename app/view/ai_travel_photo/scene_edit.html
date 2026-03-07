@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>场景编辑</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+  .layui-imgbox .layui-imgbox-close{z-index: 6;}
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          {if empty($info['id'])}<i class="fa fa-plus"></i> 添加场景{else}<i class="fa fa-pencil"></i> 编辑场景{/if}
+          <i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer;float:right;" onclick="closeself()"></i>
+        </div>
+        <div class="layui-card-body" pad15>
+          <div class="layui-form form-label-w7" lay-filter="">
+            <input type="hidden" name="id" value="{$info.id|default=0}">
+            
+            <!-- 第一步：选择场景类型 -->
+            <div class="layui-form-item">
+              <label class="layui-form-label"><span style="color:red;">*</span> 场景类型：</label>
+              <div class="layui-input-inline" style="width: 400px;">
+                <select name="scene_type" lay-filter="scene_type" lay-verify="required">
+                  <option value="">请选择场景类型</option>
+                  {foreach $scene_types as $key => $val}
+                  <option value="{$key}" {if !empty($info.scene_type) && $info.scene_type==$key}selected{/if}>
+                    {$val}
+                  </option>
+                  {/foreach}
+                </select>
+              </div>
+              <div class="layui-form-mid layui-word-aux">选择场景的类型（图生图或视频生成）</div>
+            </div>
+            
+            <!-- 第二步：选择AI模型 -->
+            <div class="layui-form-item">
+              <label class="layui-form-label"><span style="color:red;">*</span> 选择模型：</label>
+              <div class="layui-input-inline" style="width: 400px;">
+                <select name="model_id" lay-filter="model_id" lay-verify="required">
+                  <option value="">请选择AI模型</option>
+                  {volist name="models" id="model"}
+                  <option value="{$model.id}" {if !empty($info.model_id) && $info.model_id==$model.id}selected{/if}>
+                    {$model.model_name} ({$model.provider})
+                  </option>
+                  {/volist}
+                </select>
+              </div>
+              <div class="layui-form-mid layui-word-aux">选择要使用的AI模型</div>
+            </div>
+            
+            <!-- 第三步：选择API配置 -->  
+            <div class="layui-form-item" id="api_config_wrap" style="display:none;">
+              <label class="layui-form-label"><span style="color:red;">*</span> API配置：</label>
+              <div class="layui-input-inline" style="width: 400px;">
+                <select name="api_config_id" lay-verify="required">
+                  <option value="">请选择API配置</option>
+                </select>
+              </div>
+              <div class="layui-form-mid layui-word-aux">选择该模型对应的API配置</div>
+            </div>
+            
+            <!-- 第四步：场景信息（包含模型参数） -->
+            <div id="scene_basic_info" style="display:none;">
+              <div class="layui-form-item">
+                <div class="layui-col-md12">
+                  <fieldset class="layui-elem-field layui-field-title">
+                    <legend>场景基础信息</legend>
+                  </fieldset>
+                </div>
+              </div>
+            
+              <div class="layui-form-item">
+                <label class="layui-form-label"><span style="color:red;">*</span> 场景名称：</label>
+                <div class="layui-input-inline" style="width: 400px;">
+                  <input type="text" name="name" value="{$info.name}" lay-verify="required" lay-verType="tips" autocomplete="off" class="layui-input" placeholder="请输入场景名称">
+                </div>
+              </div>
+            
+              <div class="layui-form-item">
+                <label class="layui-form-label"><span style="color:red;">*</span> 场景分类：</label>
+                <div class="layui-input-inline">
+                  <select name="category" lay-verify="required">
+                    <option value="">请选择分类</option>
+                    <option value="风景" {if $info.category=='风景'}selected{/if}>风景</option>
+                    <option value="人物" {if $info.category=='人物'}selected{/if}>人物</option>
+                    <option value="创意" {if $info.category=='创意'}selected{/if}>创意</option>
+                    <option value="节日" {if $info.category=='节日'}selected{/if}>节日</option>
+                    <option value="古风" {if $info.category=='古风'}selected{/if}>古风</option>
+                    <option value="现代" {if $info.category=='现代'}selected{/if}>现代</option>
+                  </select>
+                </div>
+              </div>
+              
+              <!-- 动态模型参数将插入到这里 -->
+              <div id="dynamic_params"></div>
+            
+              <div class="layui-form-item">
+                <label class="layui-form-label">所属门店：</label>
+                <div class="layui-input-inline">
+                  <select name="mdid">
+                    <option value="0" {if empty($info.mdid) OR $info.mdid==0}selected{/if}>未关联门店（全商家可用）</option>
+                    {volist name="mendian_list" id="md"}
+                    <option value="{$md.id}" {if !empty($info.mdid) && $info.mdid==$md.id}selected{/if}>{$md.name}</option>
+                    {/volist}
+                  </select>
+                </div>
+                <div class="layui-form-mid layui-word-aux">选择具体门店时，该场景仅对该门店可用</div>
+              </div>
+              
+              <div class="layui-form-item">
+                <label class="layui-form-label">是否公共场景：</label>
+                <div class="layui-input-inline">
+                  <input type="checkbox" name="is_public" value="1" lay-skin="switch" lay-text="是|否" {if !empty($info.is_public) && $info.is_public==1}checked{/if}>
+                </div>
+                <div class="layui-form-mid layui-word-aux">开启后，C端用户可见并调用此场景；关闭则仅商家后台可管理</div>
+              </div>
+            
+              <div class="layui-form-item">
+                <label class="layui-form-label">封面图：</label>
+                <button style="float:left;" type="button" class="layui-btn layui-btn-primary" upload-input="cover" upload-preview="coverPreview" onclick="uploader(this)">上传图片</button>
+                <button style="float:left; margin-left:10px;" type="button" class="layui-btn layui-btn-normal" id="generateCoverBtn">一键生成封面图</button>
+                <div class="layui-form-mid layui-word-aux" style="margin-left:10px;">建议尺寸：400×400像素</div>
+                <div id="coverPreview" class="picsList-class-padding">
+                  <div class="layui-imgbox imgbox-required">
+                    <a class="layui-imgbox-close" href="javascript:void(0)" onclick="$(this).parent().find('img').attr('src','').hide();getpicsval('cover','coverPreview');$(this).hide();" title="删除" {if $info.cover}style="display: block;"{else}style="display: none;"{/if}><i class="layui-icon layui-icon-close-fill-opaque"></i></a>
+                    <div class="layui-imgbox">
+                      <div class="layui-imgbox-img">
+                        <img src="{$info.cover}"/>
+                      </div>
+                      <input autocomplete="off" type="text" id="cover" name="cover" value="{$info.cover}" style="cursor:default;">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">遮罩图像：</label>
+              <button style="float:left;" type="button" class="layui-btn layui-btn-primary" upload-input="background_url" upload-preview="backgroundPreview" onclick="uploader(this)">上传图片</button>
+              <div class="layui-form-mid layui-word-aux" style="margin-left:10px;">可选，建议尺寸：1920×1080像素</div>
+              <div id="backgroundPreview" class="picsList-class-padding">
+                <div class="layui-imgbox imgbox-required">
+                  <a class="layui-imgbox-close" href="javascript:void(0)" onclick="$(this).parent().find('img').attr('src','').hide();getpicsval('background_url','backgroundPreview');$(this).hide();" title="删除" {if $info.background_url}style="display: block;"{else}style="display: none;"{/if}><i class="layui-icon layui-icon-close-fill-opaque"></i></a>
+                  <div class="layui-imgbox">
+                    <div class="layui-imgbox-img">
+                      <img src="{$info.background_url}"/>
+                    </div>
+                    <input autocomplete="off" type="text" id="background_url" name="background_url" value="{$info.background_url}" style="cursor:default;">
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+              <div class="layui-form-item">
+                <label class="layui-form-label">场景描述：</label>
+                <div class="layui-input-block" style="width: 600px;">
+                  <textarea name="desc" placeholder="请输入场景描述（选填）" class="layui-textarea" style="min-height: 80px;">{$info.desc}</textarea>
+                </div>
+              </div>
+            
+              <div class="layui-form-item">
+                <label class="layui-form-label">排序权重：</label>
+                <div class="layui-input-inline">
+                  <input type="text" name="sort" value="{$info.sort ?: 0}" lay-verify="number" class="layui-input" placeholder="数字越大越靠前">
+                </div>
+              </div>
+            
+              <div class="layui-form-item">
+                <label class="layui-form-label">标签：</label>
+                <div class="layui-input-inline" style="width: 400px;">
+                  <input type="text" name="tags" value="{$info.tags}" class="layui-input" placeholder="多个标签用逗号分隔">
+                </div>
+              </div>
+            
+              <div class="layui-form-item">
+                <label class="layui-form-label">是否启用：</label>
+                <div class="layui-input-inline">
+                  <input type="radio" name="status" value="1" title="启用">
+                  <input type="radio" name="status" value="0" title="禁用">
+                </div>
+              </div>
+            
+              <div class="layui-form-item">
+                <label class="layui-form-label">是否推荐：</label>
+                <div class="layui-input-inline">
+                  <input type="checkbox" name="is_recommend" value="1" lay-skin="switch" lay-text="是|否">
+                </div>
+              </div>
+            </div><!-- scene_basic_info end -->
+            
+            <div class="layui-form-item">
+              <div class="layui-input-block" style="margin-left:130px;">
+                <button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  // 调试信息
+  console.log('[场景编辑] 模型数据:', {:json_encode($models ?? [])});
+  console.log('[场景编辑] 场景信息:', {:json_encode($info ?? [])});
+  
+  layui.use(['form', 'jquery'], function(){
+    var form = layui.form;
+    var $ = layui.jquery;
+    
+    // 从后端获取数据（安全方式）
+    var sceneInfo = {
+      id: {$info.id|default=0},
+      model_id: {$info.model_id|default=0},
+      api_config_id: {$info.api_config_id|default=0},
+      model_params: '{$info.model_params ?? ""}',
+      status: '{$info.status|default="1"}',
+      is_recommend: '{$info.is_recommend|default="0"}'
+    };
+    
+    console.log('[场景编辑] 初始化数据:', sceneInfo);
+    console.log('[场景编辑] model_params原始值:', sceneInfo.model_params);
+    
+    var isEditMode = sceneInfo.id > 0;
+    var currentModelId = sceneInfo.model_id;
+    var currentApiConfigId = sceneInfo.api_config_id;
+    var currentModelParams = sceneInfo.model_params;
+    
+    // 加载API配置列表
+    function loadApiConfigs(modelId, callback) {
+      console.log('[场景编辑] 开始加载API配置, modelId:', modelId);
+      $.get('{:url("get_model_api_configs")}', {model_id: modelId}, function(res){
+        console.log('[场景编辑] API配置响应:', res);
+        if (res.code == 0) {
+          var html = '<option value="">请选择API配置</option>';
+          if (res.data && res.data.length > 0) {
+            $.each(res.data, function(i, item){
+              var selected = (currentApiConfigId == item.id) ? 'selected' : '';
+              var scopeText = item.scope_type == 1 ? '[公开]' : '[私有]';
+              html += '<option value="'+ item.id +'" '+ selected +'>'+ item.api_name +' ('+ item.provider +') '+ scopeText +'</option>';
+            });
+            console.log('[场景编辑] 加载了', res.data.length, '个API配置');
+          } else {
+            html += '<option value="" disabled>该模型暂无可用的API配置</option>';
+            console.log('[场景编辑] 该模型暂无API配置');
+          }
+          $('select[name="api_config_id"]').html(html);
+          form.render('select');
+          if (callback) callback();
+        } else {
+          console.error('[场景编辑] 加载API配置失败:', res.msg);
+          layer.msg(res.msg, {icon: 2});
+        }
+      }).fail(function(xhr, status, error){
+        console.error('[场景编辑] AJAX请求失败:', {xhr: xhr, status: status, error: error});
+        layer.msg('请求失败，请检查网络', {icon: 2});
+      });
+    }
+    
+    // 加载模型参数表单
+    function loadModelParams(modelId, callback) {
+      $.get('{:url("get_model_params")}', {model_id: modelId}, function(res){
+        if (res.code == 0) {
+          var html = '';
+          if (res.data && res.data.length > 0) {
+            // 解析现有参数值
+            var existParams = {};
+            try {
+              if (currentModelParams && currentModelParams != '' && currentModelParams != '{}' && currentModelParams != 'null') {
+                console.log('[场景编辑] 尝试解析model_params:', currentModelParams);
+                existParams = JSON.parse(currentModelParams);
+                console.log('[场景编辑] 解析成功:', existParams);
+              }
+            } catch(e) {
+              console.error('[场景编辑] JSON解析失败:', e.message);
+              existParams = {};
+            }
+            
+            $.each(res.data, function(i, param){
+              var paramCode = param.param_code || param.param_name;
+              // 对于size参数，默认为空（不使用default_value）
+              var paramValue;
+              if (paramCode === 'size') {
+                paramValue = existParams[paramCode] || '';
+              } else {
+                paramValue = existParams[paramCode] || param.default_value || '';
+              }
+              console.log('[场景编辑] 渲染参数:', paramCode, '=', paramValue);
+              html += renderParamField(param, paramValue);
+            });
+          } else {
+            html = '<div class="layui-form-item"><div class="layui-form-mid layui-word-aux" style="color:#999;">该模型暂无参数配置</div></div>';
+          }
+          $('#dynamic_params').html(html);
+          form.render();
+          if (callback) callback();
+        } else {
+          layer.msg(res.msg, {icon: 2});
+        }
+      });
+    }
+    
+    // 渲染参数字段（智能识别参数类型）
+    function renderParamField(param, value) {
+      var html = '<div class="layui-form-item">';
+      var required = param.is_required == 1 ? '<span style="color:red;">*</span> ' : '';
+      var verify = param.is_required == 1 ? ' lay-verify="required"' : '';
+      var paramCode = param.param_code || param.param_name;
+      var paramLabel = param.param_label || param.param_name;
+      
+      html += '<label class="layui-form-label">'+ required + paramLabel +'：</label>';
+      
+      // 根据参数名称智能选择控件类型
+      var isImageParam = (paramCode === 'reference_image' || paramCode === 'image' || paramCode.includes('image') || paramCode.includes('_url'));
+      
+      // 所有图片参数都使用多图上传模式，支持批量选择和预览
+      if (isImageParam) {
+        var previewId = 'preview_' + paramCode;
+        var inputId = 'input_' + paramCode;
+        html += '<div class="layui-input-block">';
+        html += '<input type="hidden" id="'+ inputId +'" name="param_'+ paramCode +'" value=""'+ verify +'>';
+        html += '<button style="float:left;" type="button" class="layui-btn layui-btn-primary" upload-input="'+ inputId +'" upload-preview="'+ previewId +'" onclick="uploader(this,true)">上传图片</button>';
+        html += '<div class="layui-form-mid layui-word-aux" style="margin-left:10px;">支持选择多张图片';
+        if (param.description) { html += '，' + param.description; }
+        html += '</div>';
+        html += '<div id="'+ previewId +'" class="picsList-class-padding">';
+        // 回显已有图片（支持数组和逗号分隔字符串）
+        var imgArr = [];
+        if (value) {
+          if (Array.isArray(value)) {
+            imgArr = value;
+          } else if (typeof value === 'string' && value !== '' && value !== 'null') {
+            try { var parsed = JSON.parse(value); if (Array.isArray(parsed)) { imgArr = parsed; } else { imgArr = value.split(','); } } catch(e) { imgArr = value.split(','); }
+          }
+        }
+        for (var k = 0; k < imgArr.length; k++) {
+          var imgUrl = (imgArr[k] || '').trim();
+          if (imgUrl) {
+            html += '<div class="layui-imgbox">';
+            html += '<a class="layui-imgbox-close" href="javascript:void(0)" onclick="$(this).parent().remove();getpicsval(\''+inputId+'\',\''+previewId+'\');" title="删除"><i class="layui-icon layui-icon-close-fill-opaque"></i></a>';
+            html += '<span class="layui-imgbox-img"><img src="'+ imgUrl +'" style="max-height:100%;" onclick="preview(this)"></span>';
+            html += '</div>';
+          }
+        }
+        html += '</div></div>';
+        // 延迟设置hidden input的值
+        setTimeout(function(){ getpicsval(inputId, previewId); }, 200);
+      } else if (paramCode === 'prompt' || paramCode.includes('prompt') || paramCode === 'text' || param.param_type === 'textarea') {
+        // 多行文本框（用于提示词）
+        html += '<div class="layui-input-block" style="width: 600px;">';
+        html += '<textarea name="param_'+ paramCode +'" class="layui-textarea" placeholder="请输入'+ paramLabel +'" style="min-height: 120px;"'+ verify +'>'+ (value || '') +'</textarea>';
+        if (param.description) {
+          html += '<div class="layui-form-mid layui-word-aux">'+ param.description +'</div>';
+        }
+        html += '</div>';
+      } else if (param.param_type === 'integer' || param.param_type === 'float' || param.param_type === 'number' || ((paramCode.includes('count') || paramCode.includes('width') || paramCode.includes('height')) && param.param_type !== 'string')) {
+        // 数字输入框
+        html += '<div class="layui-input-inline">';
+        html += '<input type="number" name="param_'+ paramCode +'" value="'+ (value || '') +'" class="layui-input" placeholder="请输入'+ paramLabel +'"'+ verify +'>';
+        if (param.description) {
+          html += '</div><div class="layui-form-mid layui-word-aux">'+ param.description +'</div>';
+        } else {
+          html += '</div>';
+        }
+      } else if (param.param_type === 'select' || (param.enum_options && param.enum_options.length > 0)) {
+        // 下拉选择框
+        html += '<div class="layui-input-inline">';
+        var options = [];
+        try {
+          if (param.enum_options) {
+            options = typeof param.enum_options === 'string' ? JSON.parse(param.enum_options) : param.enum_options;
+          }
+        } catch(e) {
+          options = [];
+        }
+        html += '<select name="param_'+ paramCode +'"'+ verify +'>';
+        html += '<option value="">请选择</option>';
+        $.each(options, function(j, opt){
+          var optValue = opt.value || opt;
+          var optLabel = opt.label || opt;
+          var selected = (value == optValue) ? 'selected' : '';
+          html += '<option value="'+ optValue +'" '+ selected +'>'+ optLabel +'</option>';
+        });
+        html += '</select>';
+        if (param.description) {
+          html += '</div><div class="layui-form-mid layui-word-aux">'+ param.description +'</div>';
+        } else {
+          html += '</div>';
+        }
+      } else if (param.param_type === 'switch' || paramCode.includes('enable') || paramCode.includes('_extend')) {
+        // 开关控件
+        html += '<div class="layui-input-inline">';
+        var checked = (value == 1 || value == 'true' || value == true || value === 'True') ? 'checked' : '';
+        html += '<input type="checkbox" name="param_'+ paramCode +'" value="1" lay-skin="switch" lay-text="开启|关闭" '+ checked +'>';
+        if (param.description) {
+          html += '</div><div class="layui-form-mid layui-word-aux">'+ param.description +'</div>';
+        } else {
+          html += '</div>';
+        }
+      } else {
+        // 默认：单行文本输入框
+        html += '<div class="layui-input-inline" style="width: 400px;">';
+        html += '<input type="text" name="param_'+ paramCode +'" value="'+ (value || '') +'" class="layui-input" placeholder="请输入'+ paramLabel +'"'+ verify +'>';
+        if (param.description) {
+          html += '</div><div class="layui-form-mid layui-word-aux">'+ param.description +'</div>';
+        } else {
+          html += '</div>';
+        }
+      }
+      
+      html += '</div>';
+      return html;
+    }
+  
+  // 页面加载完成后，如果是编辑模式，加载现有数据
+  $(function(){
+    console.log('[场景编辑] DOM加载完成');
+    
+    // 设置radio和checkbox的初始状态
+    $('input[name="status"][value="'+ sceneInfo.status +'"]').prop('checked', true);
+    if (sceneInfo.is_recommend == '1') {
+      $('input[name="is_recommend"]').prop('checked', true);
+    }
+    form.render();
+    
+    if (isEditMode && currentModelId > 0) {
+      console.log('[场景编辑] 编辑模式，加载API配置和参数');
+      // 编辑模式：自动加载API配置和参数
+      loadApiConfigs(currentModelId, function(){
+        console.log('[场景编辑] API配置加载完成');
+        loadModelParams(currentModelId, function(){
+          console.log('[场景编辑] 模型参数加载完成');
+          // 显示所有区域
+          $('#api_config_wrap').show();
+          $('#model_params_container').show();
+          $('#scene_basic_info').show();
+          form.render();
+          console.log('[场景编辑] 所有区域显示完成');
+        });
+      });
+    } else {
+      console.log('[场景编辑] 新增模式或未选择模型');
+    }
+    
+    // 监听模型选择变化
+    form.on('select(model_id)', function(data){
+      console.log('[场景编辑] 模型选择变化:', data.value);
+      var modelId = data.value;
+      
+      if (modelId) {
+        console.log('[场景编辑] 开始加载API配置和参数...');
+        // 1. 加载API配置列表
+        loadApiConfigs(modelId, function(){
+          // 2. 加载模型参数表单
+          loadModelParams(modelId, function(){
+            // 3. 显示后续区域
+            $('#api_config_wrap').show();
+            $('#model_params_container').show();
+            $('#scene_basic_info').show();
+            form.render();
+            console.log('[场景编辑] 所有区域显示完成');
+          });
+        });
+      } else {
+        console.log('[场景编辑] 未选择模型，隐藏后续区域');
+        // 隐藏后续区域
+        $('#api_config_wrap').hide();
+        $('#model_params_container').hide();
+        $('#scene_basic_info').hide();
+        $('#dynamic_params').html('');
+        $('select[name="api_config_id"]').html('<option value="">请选择API配置</option>');
+        form.render();
+      }
+    });
+    
+    // 一键生成封面图
+    $('#generateCoverBtn').click(function(){
+      var sceneId = $('input[name="id"]').val();
+      
+      if (!sceneId || sceneId == 0) {
+        layer.msg('请先保存场景，再生成封面图', {icon: 0});
+        return;
+      }
+      
+      layer.confirm('确定要使用当前参数生成封面图吗？', {icon: 3, title:'提示'}, function(index){
+        layer.close(index);
+        var loadIndex = layer.load(1, {content: '正在生成中，请稍候...', time: 60000});
+        
+        $.post('{:url("generate_scene_cover")}', {scene_id: sceneId}, function(res){
+          layer.close(loadIndex);
+          if (res.code == 0) {
+            layer.msg('生成成功', {icon: 1});
+            // 更新封面图预览
+            if (res.data && res.data.image_url) {
+              $('#cover').val(res.data.image_url);
+              $('#coverPreview img').attr('src', res.data.image_url).show();
+              $('#coverPreview .layui-imgbox-close').show();
+            }
+          } else {
+            layer.msg(res.msg, {icon: 2, time: 3000});
+          }
+        });
+      });
+    });
+    
+    // 表单提交
+    form.on('submit(formsubmit)', function(obj){
+      var field = obj.field;
+      var index = layer.load();
+      $.post("{:url('scene_edit')}", field, function(data){
+        layer.close(index);
+        if(data.status == 1){
+          layer.msg(data.msg, {icon: 1});
+          setTimeout(function(){
+            parent.layer.closeAll();
+            parent.tableIns.reload();
+          }, 1000);
+        } else {
+          layer.msg(data.msg, {icon: 2});
+        }
+      });
+      return false;
+    });
+  }); // 闭合 $(function(){ 
+  }); // 闭合 layui.use
+  </script>
+  {include file="public/copyright"/}
+</body>
+</html>

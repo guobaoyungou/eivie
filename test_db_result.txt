@@ -1,0 +1,51 @@
+检查项	实际表数量	预期表数量	结果
+表结构检查	12	12	✓ 通过
+表名	备注
+ddwx_ai_travel_photo_device	AI旅拍-设备表
+ddwx_ai_travel_photo_generation	AI旅拍-生成记录表
+ddwx_ai_travel_photo_model	AI旅拍-AI模型配置表
+ddwx_ai_travel_photo_order	AI旅拍-订单表
+ddwx_ai_travel_photo_order_goods	AI旅拍-订单商品表
+ddwx_ai_travel_photo_package	AI旅拍-套餐表
+ddwx_ai_travel_photo_portrait	AI旅拍-人像表
+ddwx_ai_travel_photo_qrcode	AI旅拍-二维码表
+ddwx_ai_travel_photo_result	AI旅拍-结果表
+ddwx_ai_travel_photo_scene	AI旅拍-场景表
+ddwx_ai_travel_photo_statistics	AI旅拍-统计表
+ddwx_ai_travel_photo_user_album	AI旅拍-用户相册表
+检查项	AI相关字段数
+商家表字段检查	10
+字段名	字段类型	默认值	备注
+aid	int	NULL	
+ai_travel_photo_enabled	tinyint unsigned	0	AI旅拍功能是否启用:0=关闭,1=开启
+ai_photo_price	decimal(10,2) unsigned	9.90	单张图片价格
+ai_video_price	decimal(10,2) unsigned	29.90	单个视频价格
+ai_logo_watermark	varchar(255)		Logo水印图片
+ai_watermark_position	tinyint unsigned	1	水印位置:1=右下角,2=左下角,3=右上角,4=左上角
+ai_qrcode_expire_days	int unsigned	30	二维码有效期(天)
+ai_auto_generate_video	tinyint unsigned	1	自动生成视频:0=否,1=是
+ai_video_duration	tinyint unsigned	5	视频时长(秒)
+ai_max_scenes	int unsigned	10	最大生成场景数
+检查项	启用商家数
+启用商家检查	34
+id	name	ai_travel_photo_enabled	aid
+1	幸福花礼	1	1
+2	多彩贵州风	1	4
+3	河北中农博远农业装备有限公司	1	4
+4	美蛙鱼头	1	4
+5	李大师维修	1	4
+6	多彩贵州文化	1	7
+7	 霏慕品牌馆	1	11
+8	家电维修1	1	7
+9	谭会	1	7
+10	安顺特产展销	1	1
+检查项	配置数量	启用数量
+AI模型配置检查	0	NULL
+检查项	场景总数	启用场景数	平台数	商家数
+场景数据检查	10	10	1	2
+aid	bid	场景数	启用数
+1	1	5	5
+1	0	5	5
+检查项	套餐总数	启用套餐数
+套餐数据检查	0	NULL
+ERROR 1054 (42S22) at line 101: Unknown column 'photo_count' in 'field list'

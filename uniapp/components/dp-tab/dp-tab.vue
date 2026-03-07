@@ -89,9 +89,7 @@
 			<block v-if="setData.temp=='kecheng'">
 				<dp-kecheng :params="setData.params" :data="setData.data" :menuindex="menuindex"></dp-kecheng> 
 			</block>
-			<block v-if="setData.temp=='restaurant_product'">
-				<dp-restaurant-product :params="setData.params" :data="setData.data" :menuindex="menuindex"></dp-restaurant-product> 
-			</block>
+
 			<block v-if="setData.temp=='coupon'">
 				<dp-coupon :params="setData.params" :data="setData.data"></dp-coupon> 
 			</block>
@@ -101,12 +99,7 @@
 			<block v-if="setData.temp=='business'">
 				<dp-business :params="setData.params" :data="setData.data" :menuindex="menuindex"></dp-business> 
 			</block>
-			<block v-if="setData.temp=='shortvideo'">
-				<dp-shortvideo :params="setData.params" :data="setData.data"></dp-shortvideo> 
-			</block>
-			<block v-if="setData.temp=='liveroom'">
-				<dp-liveroom :params="setData.params" :data="setData.data"></dp-liveroom> 
-			</block>
+
 			<block v-if="setData.temp=='button'">
 				<dp-button :params="setData.params" :data="setData.data"></dp-button> 
 			</block>
@@ -122,30 +115,20 @@
 			<block v-if="setData.temp=='form'">
 				<dp-form :params="setData.params" :data="setData.data" :content="setData.content"></dp-form> 
 			</block>
-			<block v-if="setData.temp=='form-log'">
-				<dp-form-log :params="setData.params" :data="setData.data"></dp-form-log> 
-			</block>
+
 			<block v-if="setData.temp=='userinfo'">
 				<dp-userinfo :params="setData.params" :data="setData.data" :content="setData.content"></dp-userinfo> 
 			</block>
 			<block v-if="setData.temp=='wxad'">
 				<dp-wxad :params="setData.params" :data="setData.data"></dp-wxad> 
 			</block>
-			<block v-if="setData.temp=='jidian'">
-				<dp-jidian :params="setData.params" :data="setData.data"></dp-jidian>
+
+			<block v-if="setData.temp=='photo_generation'">
+				<dp-photo-generation :params="setData.params" :data="setData.data" :menuindex="menuindex"></dp-photo-generation>
 			</block>
-			<block v-if="setData.temp=='cycle'">
-				<dp-cycle :params="setData.params" :data="setData.data" @getdata="getdata"></dp-cycle>
+			<block v-if="setData.temp=='video_generation'">
+				<dp-video-generation :params="setData.params" :data="setData.data" :menuindex="menuindex"></dp-video-generation>
 			</block>
-			<block v-if="setData.temp=='carhailing'">
-				<dp-carhailing :params="setData.params" :data="setData.data" @getdata="getdata"></dp-carhailing>
-			</block>
-      <block v-if="setData.temp=='tour'">
-      	<dp-tour :params="setData.params" :data="setData.data" @getdata="getIndexdata"></dp-tour>
-      </block>
-      <block v-if="setData.temp=='formdata'">
-      	<dp-formdata :params="setData.params" :data="setData.data" @getdata="getIndexdata"></dp-formdata>
-      </block>
 		</block>
 	</view>
 	<loading v-if="loading"></loading>

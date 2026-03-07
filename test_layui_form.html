@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Layui表单测试</title>
+    <link rel="stylesheet" href="/static/admin/layui/css/layui.css">
+    <style>
+        body { padding: 20px; background: #f5f5f5; }
+        .test-container { max-width: 600px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .test-title { font-size: 20px; font-weight: bold; margin-bottom: 20px; color: #333; border-bottom: 2px solid #1E9FFF; padding-bottom: 10px; }
+        .test-section { margin-bottom: 30px; }
+        .test-label { font-weight: bold; margin-bottom: 10px; color: #666; }
+        .log-container { background: #2d2d2d; color: #0f0; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; margin-top: 20px; }
+        .log-item { margin: 2px 0; }
+    </style>
+</head>
+<body>
+
+<div class="test-container">
+    <div class="test-title">Layui表单功能测试</div>
+    
+    <!-- 测试1：Radio单选框 -->
+    <div class="test-section">
+        <div class="test-label">测试1：Radio单选框（应该显示文字）</div>
+        <form class="layui-form">
+            <div class="layui-form-item">
+                <label class="layui-form-label">扫描类型</label>
+                <div class="layui-input-block">
+                    <input type="radio" name="test_type" value="all" title="全量扫描" checked>
+                    <input type="radio" name="test_type" value="increment" title="增量扫描">
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- 测试2：全选功能 -->
+    <div class="test-section">
+        <div class="test-label">测试2：全选功能（点击全选应该选中所有）</div>
+        <form class="layui-form">
+            <div class="layui-form-item">
+                <label class="layui-form-label">控制器列表</label>
+                <div class="layui-input-block">
+                    <div style="margin-bottom: 10px; padding: 8px; background: #f0f7ff; border-radius: 4px;">
+                        <label style="cursor: pointer; font-weight: bold; color: #1E9FFF;">
+                            <input type="checkbox" id="testSelectAll" lay-skin="primary" lay-filter="testSelectAllFilter"> 
+                            <span id="testSelectAllText">全选（共 5 个）</span>
+                        </label>
+                    </div>
+                    <div>
+                        <label><input type="checkbox" name="test_controllers[]" value="Test1" lay-skin="primary" lay-filter="testControllerFilter"> Test1</label><br>
+                        <label><input type="checkbox" name="test_controllers[]" value="Test2" lay-skin="primary" lay-filter="testControllerFilter"> Test2</label><br>
+                        <label><input type="checkbox" name="test_controllers[]" value="Test3" lay-skin="primary" lay-filter="testControllerFilter"> Test3</label><br>
+                        <label><input type="checkbox" name="test_controllers[]" value="Test4" lay-skin="primary" lay-filter="testControllerFilter"> Test4</label><br>
+                        <label><input type="checkbox" name="test_controllers[]" value="Test5" lay-skin="primary" lay-filter="testControllerFilter"> Test5</label>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- 日志输出 -->
+    <div class="test-section">
+        <div class="test-label">调试日志</div>
+        <div class="log-container" id="logContainer">
+            <div class="log-item">[系统] 等待Layui加载...</div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/admin/layui/layui.js"></script>
+<script>
+function addLog(msg) {
+    var logContainer = document.getElementById('logContainer');
+    var time = new Date().toLocaleTimeString();
+    var logItem = document.createElement('div');
+    logItem.className = 'log-item';
+    logItem.textContent = '[' + time + '] ' + msg;
+    logContainer.appendChild(logItem);
+    logContainer.scrollTop = logContainer.scrollHeight;
+    console.log(msg);
+}
+
+layui.use(['form', 'jquery'], function(){
+    var form = layui.form;
+    var $ = layui.jquery;
+    
+    addLog('Layui加载成功，版本: ' + layui.v);
+    
+    // 测试Radio是否正确显示
+    setTimeout(function() {
+        var radioCount = $('input[type="radio"][name="test_type"]').length;
+        addLog('检测到 ' + radioCount + ' 个Radio按钮');
+        
+        var hasTitle = $('input[type="radio"][name="test_type"]').first().attr('title');
+        addLog('Radio的title属性: ' + hasTitle);
+    }, 500);
+    
+    // 监听全选
+    form.on('checkbox(testSelectAllFilter)', function(data){
+        addLog('[全选] 全选复选框被点击，选中状态: ' + data.elem.checked);
+        
+        var checked = data.elem.checked;
+        $('input[name="test_controllers[]"]').each(function(){
+            this.checked = checked;
+        });
+        
+        form.render('checkbox');
+        addLog('[全选] 已' + (checked ? '选中' : '取消') + '所有控制器');
+        
+        updateTestText();
+    });
+    
+    // 监听单个
+    form.on('checkbox(testControllerFilter)', function(data){
+        addLog('[选择] 控制器 ' + data.value + ' 状态变化: ' + data.elem.checked);
+        
+        setTimeout(function() {
+            updateTestState();
+            updateTestText();
+        }, 50);
+    });
+    
+    function updateTestState() {
+        var total = $('input[name="test_controllers[]"]').length;
+        var checked = $('input[name="test_controllers[]"]:checked').length;
+        
+        var selectAllElem = $('#testSelectAll')[0];
+        
+        if (checked === 0) {
+            selectAllElem.checked = false;
+            selectAllElem.indeterminate = false;
+        } else if (checked === total) {
+            selectAllElem.checked = true;
+            selectAllElem.indeterminate = false;
+        } else {
+            selectAllElem.checked = false;
+            selectAllElem.indeterminate = true;
+        }
+        
+        form.render('checkbox');
+        addLog('[状态] 全选状态更新: 已选 ' + checked + '/' + total);
+    }
+    
+    function updateTestText() {
+        var total = $('input[name="test_controllers[]"]').length;
+        var checked = $('input[name="test_controllers[]"]:checked').length;
+        
+        var text = '';
+        if (checked === 0) {
+            text = '全选（共 ' + total + ' 个）';
+        } else if (checked === total) {
+            text = '<span style="color: #5FB878;">✔ 已全选 ' + total + ' 个</span>';
+        } else {
+            text = '<span style="color: #FFB800;">已选择 ' + checked + ' / ' + total + ' 个</span>';
+        }
+        
+        $('#testSelectAllText').html(text);
+    }
+    
+    addLog('事件监听已注册完成');
+});
+</script>
+
+</body>
+</html>

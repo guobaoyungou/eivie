@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>响应定义管理 - {$model.model_name}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+</head>
+<body>
+<div class="layui-fluid">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <h3>响应定义管理：{$model.model_name}</h3>
+            <span style="color:#999;font-size:12px;">模型代码：{$model.model_code}</span>
+        </div>
+        <div class="layui-card-body">
+            <div class="layui-form" style="margin-bottom:15px;">
+                <button class="layui-btn layui-btn-normal" id="add-btn">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增响应字段
+                </button>
+            </div>
+
+            <!-- 数据表格 -->
+            <table class="layui-hide" id="response-table" lay-filter="response-table"></table>
+        </div>
+    </div>
+</div>
+
+<!-- 表格操作列模板 -->
+<script type="text/html" id="toolbar-tpl">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+</script>
+
+<!-- 关键字段显示模板 -->
+<script type="text/html" id="critical-tpl">
+    {{# if (d.is_critical == 1) { }}
+    <span class="layui-badge layui-bg-red">关键</span>
+    {{# } else { }}
+    <span class="layui-badge">可选</span>
+    {{# } }}
+</script>
+
+{include file="public/js"/}
+<script>
+var modelId = '{$model.id}';
+var tableIns;
+
+layui.use(['table', 'form', 'layer'], function(){
+    var table = layui.table;
+    var form = layui.form;
+    var layer = layui.layer;
+    var $ = layui.$;
+
+    // 渲染表格
+    tableIns = table.render({
+        elem: '#response-table',
+        url: '{:url("responses")}/model_id/' + modelId,
+        page: false,
+        cols: [[
+            {field: 'id', title: 'ID', width: 60},
+            {field: 'response_field', title: '响应字段名', width: 150},
+            {field: 'field_label', title: '字段标签', width: 120},
+            {field: 'field_type', title: '字段类型', width: 100},
+            {field: 'field_path', title: '字段路径', width: 200},
+            {field: 'is_critical', title: '重要性', width: 80, templet: '#critical-tpl'},
+            {field: 'description', title: '字段说明', minWidth: 200},
+            {title: '操作', width: 120, align: 'center', toolbar: '#toolbar-tpl', fixed: 'right'}
+        ]]
+    });
+
+    // 新增响应字段
+    $('#add-btn').click(function(){
+        console.log('点击了新增响应字段按钮');
+        try {
+            showResponseForm(null);
+        } catch(e) {
+            console.error('调用showResponseForm出错:', e);
+            layer.msg('出错了：' + e.message, {icon: 2});
+        }
+    });
+
+    // 工具栏事件
+    table.on('tool(response-table)', function(obj){
+        var data = obj.data;
+        
+        if(obj.event === 'edit'){
+            showResponseForm(data);
+        } else if(obj.event === 'del'){
+            layer.confirm('确定删除该响应字段吗？', function(index){
+                var loadIndex = layer.load();
+                $.post('{:url("delete_response")}', {id: data.id}, function(res){
+                    layer.close(loadIndex);
+                    if(res.success){
+                        layer.msg(res.message, {icon: 1});
+                        tableIns.reload();
+                    } else {
+                        layer.msg(res.message, {icon: 2});
+                    }
+                });
+                layer.close(index);
+            });
+        }
+    });
+});
+
+// 显示响应字段表单
+function showResponseForm(data) {
+    console.log('showResponseForm被调用, data:', data);
+    
+    var title = data ? '编辑响应字段' : '新增响应字段';
+    
+    console.log('开始构建表单HTML');
+    var content = buildResponseForm(data);
+    console.log('表单HTML构建完成，长度:', content.length);
+    
+    console.log('开始打开layer弹窗');
+    var formIndex = layer.open({
+        type: 1,
+        title: title,
+        area: ['700px', '550px'],
+        content: content,
+        success: function(layero, index){
+            console.log('layer弹窗打开成功, layero:', layero, 'index:', index, 'formIndex:', formIndex);
+            
+            // 重新渲染表单
+            console.log('开始渲染表单');
+            layui.form.render();
+            console.log('表单渲染完成');
+            
+            // 监听表单提交
+            console.log('开始监听表单提交事件');
+            layui.form.on('submit(response-form-submit)', function(obj){
+                var field = obj.field;
+                field.model_id = modelId;
+                
+                console.log('准备提交数据:', field);
+                
+                var loadIndex = layer.load();
+                $.ajax({
+                    url: '{:url("save_response")}',
+                    type: 'POST',
+                    data: field,
+                    dataType: 'json',
+                    success: function(res){
+                        layer.close(loadIndex);
+                        console.log('服务器响应:', res);
+                        if(res.success){
+                            layer.msg(res.message, {icon: 1, time: 1500}, function(){
+                                layer.close(formIndex);
+                                tableIns.reload();
+                            });
+                        } else {
+                            layer.msg(res.message || '保存失败', {icon: 2});
+                        }
+                    },
+                    error: function(xhr, status, error){
+                        layer.close(loadIndex);
+                        console.error('AJAX请求失败:', {xhr: xhr, status: status, error: error});
+                        console.error('响应内容:', xhr.responseText);
+                        var errorMsg = '请求失败';
+                        if(xhr.responseText){
+                            try{
+                                var errorData = JSON.parse(xhr.responseText);
+                                errorMsg = errorData.message || errorMsg;
+                            }catch(e){
+                                errorMsg = xhr.statusText || errorMsg;
+                            }
+                        }
+                        layer.msg(errorMsg, {icon: 2});
+                    }
+                });
+                return false;
+            });
+        }
+    });
+}
+
+// 构建响应字段表单HTML
+function buildResponseForm(data) {
+    console.log('buildResponseForm被调用, data:', data);
+    
+    data = data || {};
+    var fieldTypes = {:json_encode($fieldTypes)};
+    
+    console.log('fieldTypes:', fieldTypes);
+    
+    var html = '<form class="layui-form" style="padding:20px;" lay-filter="response-form">';
+    html += '<input type="hidden" name="id" value="' + (data.id || '') + '">';
+    
+    // 响应字段名
+    html += '<div class="layui-form-item">';
+    html += '<label class="layui-form-label"><span style="color:red;">*</span> 响应字段名</label>';
+    html += '<div class="layui-input-block">';
+    html += '<input type="text" name="response_field" value="' + (data.response_field || '') + '" ';
+    html += 'placeholder="如：task_id" lay-verify="required" lay-verType="tips" class="layui-input" maxlength="100">';
+    html += '</div></div>';
+    
+    // 字段标签
+    html += '<div class="layui-form-item">';
+    html += '<label class="layui-form-label"><span style="color:red;">*</span> 字段标签</label>';
+    html += '<div class="layui-input-block">';
+    html += '<input type="text" name="field_label" value="' + (data.field_label || '') + '" ';
+    html += 'placeholder="如：任务ID" lay-verify="required" lay-verType="tips" class="layui-input" maxlength="100">';
+    html += '</div></div>';
+    
+    // 字段类型
+    html += '<div class="layui-form-item">';
+    html += '<label class="layui-form-label"><span style="color:red;">*</span> 字段类型</label>';
+    html += '<div class="layui-input-block">';
+    html += '<select name="field_type" lay-verify="required" lay-verType="tips">';
+    html += '<option value="">请选择</option>';
+    for(var k in fieldTypes){
+        html += '<option value="' + k + '"' + (data.field_type == k ? ' selected' : '') + '>' + fieldTypes[k] + '</option>';
+    }
+    html += '</select></div></div>';
+    
+    // 字段路径
+    html += '<div class="layui-form-item">';
+    html += '<label class="layui-form-label"><span style="color:red;">*</span> 字段路径</label>';
+    html += '<div class="layui-input-block">';
+    html += '<input type="text" name="field_path" value="' + (data.field_path || '') + '" ';
+    html += 'placeholder="JSONPath表达式，如：$.output.task_id" lay-verify="required" lay-verType="tips" class="layui-input" maxlength="200">';
+    html += '<div class="layui-form-mid layui-word-aux">使用JSONPath表达式定位字段</div>';
+    html += '</div></div>';
+    
+    // 是否关键字段
+    html += '<div class="layui-form-item">';
+    html += '<label class="layui-form-label">是否关键</label>';
+    html += '<div class="layui-input-block">';
+    html += '<input type="radio" name="is_critical" value="1" title="关键"' + (data.is_critical == 1 ? ' checked' : '') + '>';
+    html += '<input type="radio" name="is_critical" value="0" title="可选"' + (!data.id || data.is_critical == 0 ? ' checked' : '') + '>';
+    html += '<div class="layui-form-mid layui-word-aux">关键字段解析失败将判定为失败</div>';
+    html += '</div></div>';
+    
+    // 字段说明
+    html += '<div class="layui-form-item">';
+    html += '<label class="layui-form-label">字段说明</label>';
+    html += '<div class="layui-input-block">';
+    html += '<textarea name="description" placeholder="用途、处理方式" class="layui-textarea" style="min-height:80px;">' + (data.description || '') + '</textarea>';
+    html += '</div></div>';
+    
+    // 提交按钮
+    html += '<div class="layui-form-item">';
+    html += '<div class="layui-input-block">';
+    html += '<button class="layui-btn" lay-submit lay-filter="response-form-submit">提 交</button>';
+    html += '<button type="button" class="layui-btn layui-btn-primary" onclick="layer.closeAll()">取 消</button>';
+    html += '</div></div>';
+    
+    html += '</form>';
+    return html;
+}
+</script>
+{include file="public/copyright"/}
+</body>
+</html>

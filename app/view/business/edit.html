@@ -2209,6 +2209,33 @@
 						</div>
 					</div>
 					{/if}
+					<fieldset class="layui-elem-field layui-field-title" style="margin-top: 20px;">
+						<legend>AI功能开关</legend>
+					</fieldset>
+					<div class="layui-form-item">
+						<label class="layui-form-label">照片生成：</label>
+						<div class="layui-input-inline" style="width:200px">
+							<input type="radio" name="info[photo_generation_enabled]" value="0" title="关闭" {if !$info['id'] || $info['photo_generation_enabled']==0}checked{/if} />
+							<input type="radio" name="info[photo_generation_enabled]" value="1" title="开启" {if $info['photo_generation_enabled']==1}checked{/if} />
+						</div>
+						<div class="layui-form-mid layui-word-aux">开启后商户可使用照片生成功能</div>
+					</div>
+					<div class="layui-form-item">
+						<label class="layui-form-label">视频生成：</label>
+						<div class="layui-input-inline" style="width:200px">
+							<input type="radio" name="info[video_generation_enabled]" value="0" title="关闭" {if !$info['id'] || $info['video_generation_enabled']==0}checked{/if} />
+							<input type="radio" name="info[video_generation_enabled]" value="1" title="开启" {if $info['video_generation_enabled']==1}checked{/if} />
+						</div>
+						<div class="layui-form-mid layui-word-aux">开启后商户可使用视频生成功能</div>
+					</div>
+					<div class="layui-form-item">
+						<label class="layui-form-label">AI旅拍：</label>
+						<div class="layui-input-inline" style="width:200px">
+							<input type="radio" name="info[ai_travel_photo_enabled]" value="0" title="关闭" {if !$info['id'] || $info['ai_travel_photo_enabled']==0}checked{/if} />
+							<input type="radio" name="info[ai_travel_photo_enabled]" value="1" title="开启" {if $info['ai_travel_photo_enabled']==1}checked{/if} />
+						</div>
+						<div class="layui-form-mid layui-word-aux">开启后商户可使用AI旅拍功能</div>
+					</div>
 					<div class="layui-form-item" id="endtimediv">
 						<label class="layui-form-label">到期时间：</label>
 						<div class="layui-input-inline">

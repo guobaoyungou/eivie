@@ -490,11 +490,21 @@
 				if (tourl.indexOf('/activity/express/') === 0) tourl = tourl.replace('/activity/express/','/pagesB/express/');//2.6.1
 				if (tourl.indexOf('/activity/workorder/') === 0) tourl = tourl.replace('/activity/workorder/','/pagesB/workorder/');//2.6.1
 				if (tourl.indexOf('/pages/address/') === 0) tourl = tourl.replace('/pages/address/','/pagesB/address/');//2.6.1
-				if (tourl.indexOf('/pages/kefu/index') === 0) tourl = tourl.replace('/pages/kefu/index/','/pagesB/kefu/index/');//2.6.1
-				if (tourl.indexOf('/pages/index/getpwd') === 0) tourl = tourl.replace('/pages/index/getpwd/','/pagesB/index/getpwd/');//2.6.1
+				if (tourl.indexOf('/pages/kefu/index') === 0) tourl = tourl.replace('/pages/kefu/index','/pagesB/kefu/index');//2.6.1
+				if (tourl.indexOf('/pages/index/getpwd') === 0) tourl = tourl.replace('/pages/index/getpwd','/pagesB/index/getpwd');//2.6.1
 				if (tourl.indexOf('/pages/maidan/') === 0) tourl = tourl.replace('/pages/maidan/','/pagesB/maidan/');//2.6.2
 				if (tourl.indexOf('/pages/shop/commentlist') === 0) tourl = tourl.replace('/pages/shop/commentlist','/pagesB/shop/commentlist');//2.6.2
 				if (tourl.indexOf('/pages/shop/classify2') === 0) tourl = tourl.replace('/pages/shop/classify2','/pagesB/shop/classify2');//2.6.4
+				if (tourl.indexOf('/pages/shop/product') === 0) tourl = tourl.replace('/pages/shop/product','/pagesExt/shop/product');
+				if (tourl.indexOf('/pages/shop/cart') === 0) tourl = tourl.replace('/pages/shop/cart','/pagesExt/shop/cart');
+				if (tourl.indexOf('/pages/shop/prolist') === 0) tourl = tourl.replace('/pages/shop/prolist','/pagesExt/shop/prolist');
+				if (tourl.indexOf('/pages/shop/search') === 0) tourl = tourl.replace('/pages/shop/search','/pagesExt/shop/search');
+				if (tourl.indexOf('/pages/shop/category') === 0) tourl = tourl.replace('/pages/shop/category','/pagesExt/shop/category');
+				if (tourl.indexOf('/pages/shop/classify') === 0 && tourl.indexOf('/pages/shop/classify2') !== 0) tourl = tourl.replace('/pages/shop/classify','/pagesExt/shop/classify');
+				if (tourl.indexOf('/pages/shop/fastbuy') === 0) tourl = tourl.replace('/pages/shop/fastbuy','/pagesExt/shop/fastbuy');
+				if (tourl.indexOf('/pages/shop/mendian') === 0) tourl = tourl.replace('/pages/shop/mendian','/pagesExt/shop/mendian');
+				if (tourl.indexOf('/pages/index/reg') === 0) tourl = tourl.replace('/pages/index/reg','/pagesExt/index/reg');
+				if (tourl.indexOf('/pages/index/login') === 0) tourl = tourl.replace('/pages/index/login','/pagesExt/index/login');
 				if (tourl.indexOf('/activity/yuyue/') === 0) tourl = tourl.replace('/activity/yuyue/','/yuyue/yuyue/');//2.6.6
 				// #ifdef MP-TOUTIAO
 				if (app.globalData.isdouyin == 1 && tourl.indexOf('/pages/shop/product') === 0) {
@@ -550,28 +560,40 @@
 						return;
 					} else if (app.globalData.platform == 'mp') {
 						//#ifdef H5
+						// 公众号H5环境，保持原有扫码逻辑
 						var jweixin = require('jweixin-module');
-						jweixin.ready(function() { //需在用户可能点击分享按钮前就先调用
+						jweixin.ready(function() {
 							jweixin.scanQRCode({
-								needResult: 0, // 默认为0，扫描结果由微信处理，1则直接返回扫描结果，
-								scanType: ["qrCode", "barCode"], // 可以指定扫二维码还是一维码，默认二者都有
+								needResult: 0,
+								scanType: ["qrCode", "barCode"],
 								success: function(res) {
-									var content = res.resultStr; // 当needResult 为 1 时，扫码返回的结果
-									//app.goto(content);
+									var content = res.resultStr;
 								}
 							});
 						});
 						//#endif
 					} else {
 						// #ifndef H5
-						uni.scanCode({
-							success: function(res) {
-								console.log(res);
-								if (res.path) {
-									app.goto('/' + res.path);
-								} else {
-									var content = res.result;
-									app.goto(content);
+						// 小程序 / APP 环境，弹出 ActionSheet 选择操作
+						uni.showActionSheet({
+							itemList: ['扫一扫', '拍照上传'],
+							success: function(sheetRes) {
+								if (sheetRes.tapIndex === 0) {
+									// 扫码：保持原有逻辑
+									uni.scanCode({
+										success: function(res) {
+											console.log(res);
+											if (res.path) {
+												app.goto('/' + res.path);
+											} else {
+												var content = res.result;
+												app.goto(content);
+											}
+										}
+									});
+								} else if (sheetRes.tapIndex === 1) {
+									// 拍照上传
+									app._scanTakePhotoAndUpload();
 								}
 							}
 						});
@@ -1901,6 +1923,161 @@
 				} else {
 					this.globalData.socketMsgQueue.push(msg);
 				}
+			},
+			// 拍照上传（由 scan:: ActionSheet 触发）
+			_scanTakePhotoAndUpload: function() {
+				var app = this;
+				var uploadUrl = app.globalData.baseurl + 'ApiImageupload/uploadImg/aid/' + app.globalData.aid + '/platform/' + app.globalData.platform + '/session_id/' + app.globalData.session_id;
+
+				// 上传图片的公共方法
+				function doUpload(filePath) {
+					app.showLoading('上传中');
+					uni.uploadFile({
+						url: uploadUrl,
+						filePath: filePath,
+						name: 'file',
+						success: function(res) {
+							app.showLoading(false);
+							try {
+								var data = typeof res.data == 'string' ? JSON.parse(res.data) : res.data;
+								if (data.status == 1) {
+									uni.showToast({ title: '上传成功', icon: 'success' });
+									console.log('[scan] 拍照上传成功，图片URL:', data.url);
+									// 预览上传成功的图片
+									if (data.url) {
+										uni.previewImage({ current: data.url, urls: [data.url] });
+									}
+								} else {
+									app.alert(data.msg || '上传失败');
+								}
+							} catch(e) {
+								app.alert('上传失败，请重试');
+							}
+						},
+						fail: function(res) {
+							app.showLoading(false);
+							app.alert('上传失败，请重试');
+						}
+					});
+				}
+
+				// #ifdef MP-WEIXIN
+				// 微信小程序：检查相机权限后调用 wx.chooseMedia
+				wx.getSetting({
+					success: function(settingRes) {
+						var authCamera = settingRes.authSetting['scope.camera'];
+						if (authCamera === true) {
+							// 已授权，直接拍照
+							wx.chooseMedia({
+								count: 1,
+								mediaType: ['image'],
+								sourceType: ['camera'],
+								camera: 'back',
+								success: function(r) {
+									doUpload(r.tempFiles[0].tempFilePath);
+								},
+								fail: function(err) {
+									if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) return;
+									console.log('[scan] chooseMedia fail:', err);
+								}
+							});
+						} else if (authCamera === undefined) {
+							// 未请求过，发起授权
+							wx.authorize({
+								scope: 'scope.camera',
+								success: function() {
+									wx.chooseMedia({
+										count: 1,
+										mediaType: ['image'],
+										sourceType: ['camera'],
+										camera: 'back',
+										success: function(r) {
+											doUpload(r.tempFiles[0].tempFilePath);
+										},
+										fail: function(err) {
+											if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) return;
+											console.log('[scan] chooseMedia fail after authorize:', err);
+										}
+									});
+								},
+								fail: function() {
+									// 用户拒绝授权，引导前往设置页
+									wx.showModal({
+										title: '权限提示',
+										content: '需要相机权限才能拍照，请前往设置页开启',
+										showCancel: true,
+										confirmText: '去设置',
+										success: function(modalRes) {
+											if (modalRes.confirm) {
+												wx.openSetting();
+											}
+										}
+									});
+								}
+							});
+						} else {
+							// 之前已拒绝，引导前往设置页
+							wx.showModal({
+								title: '权限提示',
+								content: '需要相机权限才能拍照，请前往设置页开启',
+								showCancel: true,
+								confirmText: '去设置',
+								success: function(modalRes) {
+									if (modalRes.confirm) {
+										wx.openSetting();
+									}
+								}
+							});
+						}
+					}
+				});
+				return;
+				// #endif
+
+				// #ifdef MP-QQ
+				// QQ小程序
+				uni.chooseImage({
+					count: 1,
+					sizeType: ['compressed'],
+					sourceType: ['camera'],
+					success: function(res) {
+						doUpload(res.tempFilePaths[0]);
+					},
+					fail: function(err) {
+						if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) return;
+					}
+				});
+				return;
+				// #endif
+
+				// #ifdef APP-PLUS
+				// APP端
+				uni.chooseImage({
+					count: 1,
+					sizeType: ['compressed'],
+					sourceType: ['camera'],
+					success: function(res) {
+						doUpload(res.tempFilePaths[0]);
+					},
+					fail: function(err) {
+						if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) return;
+					}
+				});
+				return;
+				// #endif
+
+				// 其他小程序平台
+				uni.chooseImage({
+					count: 1,
+					sizeType: ['compressed'],
+					sourceType: ['camera'],
+					success: function(res) {
+						doUpload(res.tempFilePaths[0]);
+					},
+					fail: function(err) {
+						if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) return;
+					}
+				});
 			},
 			chooseImage: async function(callback, count,otherParam=0) {
 				var app = this;

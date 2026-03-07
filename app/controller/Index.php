@@ -20,6 +20,7 @@ namespace app\controller;
 use app\BaseController;
 use think\facade\View;
 use think\facade\Db;
+use app\service\ModelSquareService;
 
 class Index extends BaseController
 {
@@ -60,6 +61,10 @@ class Index extends BaseController
             $notify = new \app\common\PayReturn();
             $notify->index();
         }else{
+			// 模板三：AI创作平台（响应式单页，不区分PC/移动端）
+			if($this->webinfo['showweb']==3){
+				return $this->index3();
+			}
 			if($this->isMobile()){
 				return View::fetch('index/wap/index');
 			}
@@ -87,6 +92,9 @@ class Index extends BaseController
 			$ip = request()->ip();
 			db('webmessage')->insert(['realname'=>$realname,'tel'=>$tel,'content'=>$content,'ip'=>$ip,'createtime'=>time()]);
 			return json(['status'=>1,'msg'=>'提交成功']);
+		}
+		if($this->webinfo['showweb']==3){
+			return View::fetch('index3/lianxi');
 		}
 		if($this->isMobile()){
 			return View::fetch('index/wap/lianxi');
@@ -151,6 +159,9 @@ class Index extends BaseController
 		View::assign('list', $list);
 		View::assign('page', $page);
 
+		if($this->webinfo['showweb']==3){
+			return View::fetch('index3/help');
+		}
 		if($this->webinfo['showweb']==2 && request()->action() != 'downloadapp'){
 			return View::fetch('index2/help');
 		}
@@ -164,12 +175,18 @@ class Index extends BaseController
 		$info = db('help')->where($where)->find();
 		Db::name('help')->where($where)->inc('readcount')->update();
 		View::assign('info',$info);
+		if($this->webinfo['showweb']==3){
+			return View::fetch('index3/helpdetail');
+		}
 		if($this->webinfo['showweb']==2 && request()->action() != 'downloadapp'){
 			return View::fetch('index2/helpdetail');
 		}
 		return View::fetch();
 	}
 	public function funshow(){
+		if($this->webinfo['showweb']==3){
+			return $this->index3();
+		}
 		if($this->webinfo['showweb']==2 && request()->action() != 'downloadapp'){
 			return View::fetch('index2/funshow');
 		}
@@ -219,4 +236,281 @@ class Index extends BaseController
 	    }
     public function newscontent(){
         }
+
+	// =================================================================
+	// 模板三：AI创作平台 — 首页渲染 & AJAX接口
+	// =================================================================
+
+	/**
+	 * 模板三首页渲染（响应式单页）
+	 */
+	private function index3(){
+		$service = new ModelSquareService();
+
+		// 供应商列表（启用状态，用于Tab渲染）
+		$provider_list = $service->getActiveProviderList();
+		View::assign('provider_list', $provider_list);
+
+		// 推荐模型列表（首屏热门模型Tab数据：仅加载 is_recommend=1 的推荐模型）
+		$recommend_models = $service->getRecommendModels();
+		// 解析 capability_tags
+		foreach ($recommend_models as &$rm) {
+			if (isset($rm['capability_tags']) && is_string($rm['capability_tags'])) {
+				$rm['capability_tags'] = json_decode($rm['capability_tags'], true) ?: [];
+			}
+			if (!is_array($rm['capability_tags'])) {
+				$rm['capability_tags'] = [];
+			}
+		}
+		unset($rm);
+		View::assign('recommend_models', $recommend_models);
+
+		// 图片场景分类
+		$photo_categories = Db::name('generation_scene_category')
+			->field('id, name')
+			->where('generation_type', 1)
+			->where('status', 1)
+			->order('sort desc, id')
+			->select()
+			->toArray();
+		View::assign('photo_categories', $photo_categories);
+
+		// 视频场景分类
+		$video_categories = Db::name('generation_scene_category')
+			->field('id, name')
+			->where('generation_type', 2)
+			->where('status', 1)
+			->order('sort desc, id')
+			->select()
+			->toArray();
+		View::assign('video_categories', $video_categories);
+
+		// 图片场景模板（首屏12条）
+		$photo_scenes = Db::name('generation_scene_template')
+			->field('id, template_name, cover_image, base_price, use_count, description')
+			->where('generation_type', 1)
+			->where('status', 1)
+			->order('sort desc, id desc')
+			->limit(12)
+			->select()
+			->toArray();
+		View::assign('photo_scenes', $photo_scenes);
+
+		// 视频场景模板（首屏12条）
+		$video_scenes = Db::name('generation_scene_template')
+			->field('id, template_name, cover_image, base_price, use_count, description')
+			->where('generation_type', 2)
+			->where('status', 1)
+			->order('sort desc, id desc')
+			->limit(12)
+			->select()
+			->toArray();
+		View::assign('video_scenes', $video_scenes);
+
+		return View::fetch('index3/index');
+	}
+
+	/**
+	 * AJAX: 场景模板列表（分类筛选 + 分页）
+	 */
+	public function scene_list(){
+		if(!request()->isAjax()){
+			return json(['code'=>-1,'msg'=>'非法请求']);
+		}
+		$generation_type = input('param.generation_type/d', 1);
+		$category_id = input('param.category_id/d', 0);
+		$page = input('param.page/d', 1);
+		$limit = input('param.limit/d', 12);
+		if($limit > 50) $limit = 50;
+		if($page < 1) $page = 1;
+
+		$where = [];
+		$where[] = ['generation_type', '=', $generation_type];
+		$where[] = ['status', '=', 1];
+		if($category_id > 0){
+			$where[] = ['category_ids', 'like', '%' . $category_id . '%'];
+		}
+
+		$list = Db::name('generation_scene_template')
+			->field('id, template_name, cover_image, base_price, use_count, description')
+			->where($where)
+			->order('sort desc, id desc')
+			->page($page, $limit)
+			->select()
+			->toArray();
+
+		return json(['code'=>0, 'msg'=>'success', 'data'=>$list]);
+	}
+
+	/**
+	 * AJAX: 搜索模型/模板
+	 */
+	public function search(){
+		if(!request()->isAjax()){
+			return json(['code'=>-1,'msg'=>'非法请求']);
+		}
+		$keyword = input('param.keyword', '');
+		$type = input('param.type/d', 1);
+		if(empty($keyword)){
+			return json(['code'=>0, 'msg'=>'success', 'data'=>[]]);
+		}
+
+		$keyword = '%' . $keyword . '%';
+
+		// 搜索场景模板
+		$list = Db::name('generation_scene_template')
+			->field('id, template_name, cover_image, base_price, use_count, description')
+			->where('generation_type', $type)
+			->where('status', 1)
+			->where('template_name', 'like', $keyword)
+			->order('sort desc, id desc')
+			->limit(20)
+			->select()
+			->toArray();
+
+		return json(['code'=>0, 'msg'=>'success', 'data'=>$list]);
+	}
+
+	/**
+	 * AJAX: 模型广场列表（分页）
+	 */
+	public function model_list(){
+		if(!request()->isAjax()){
+			return json(['code'=>-1,'msg'=>'非法请求']);
+		}
+		$page = input('param.page/d', 1);
+		$limit = input('param.limit/d', 20);
+		$is_recommend = input('param.is_recommend/d', 0);
+		if($limit > 50) $limit = 50;
+		if($page < 1) $page = 1;
+
+		$where = [];
+		$where[] = ['m.is_active', '=', 1];
+		if($is_recommend == 1){
+			$where[] = ['m.is_recommend', '=', 1];
+		}
+
+		$list = Db::name('model_info')
+			->alias('m')
+			->leftJoin('model_provider p', 'm.provider_id = p.id')
+			->leftJoin('model_type t', 'm.type_id = t.id')
+			->field('m.id, m.model_name, m.description, m.is_recommend, m.capability_tags, p.provider_name, p.logo as provider_logo, t.type_name')
+			->where($where)
+			->order('m.is_recommend desc, m.sort asc, m.id desc')
+			->page($page, $limit)
+			->select()
+			->toArray();
+
+		// 解析 capability_tags
+		foreach($list as &$item){
+			if(isset($item['capability_tags']) && is_string($item['capability_tags'])){
+				$item['capability_tags'] = json_decode($item['capability_tags'], true) ?: [];
+			}
+			if(!is_array($item['capability_tags'])) $item['capability_tags'] = [];
+		}
+		unset($item);
+
+		return json(['code'=>0, 'msg'=>'success', 'data'=>$list]);
+	}
+
+	/**
+	 * AJAX: 按供应商获取模型列表（供应商Tab懒加载）
+	 */
+	public function model_list_by_provider(){
+		if(!request()->isAjax()){
+			return json(['code'=>-1,'msg'=>'非法请求']);
+		}
+		$provider_id = input('param.provider_id/d', 0);
+		$page = input('param.page/d', 1);
+		$limit = input('param.limit/d', 20);
+		if($limit > 50) $limit = 50;
+		if($page < 1) $page = 1;
+		if($provider_id <= 0){
+			return json(['code'=>-1,'msg'=>'参数错误']);
+		}
+
+		$service = new ModelSquareService();
+		$list = $service->getModelsByProvider($provider_id, $page, $limit);
+
+		// 解析 capability_tags
+		foreach($list as &$item){
+			if(isset($item['capability_tags']) && is_string($item['capability_tags'])){
+				$item['capability_tags'] = json_decode($item['capability_tags'], true) ?: [];
+			}
+			if(!is_array($item['capability_tags'])) $item['capability_tags'] = [];
+		}
+		unset($item);
+
+		return json(['code'=>0, 'msg'=>'success', 'data'=>$list]);
+	}
+
+	/**
+	 * AJAX: 获取模型详情（生成任务弹窗用）
+	 */
+	public function model_detail(){
+		if(!request()->isAjax()){
+			return json(['code'=>-1,'msg'=>'非法请求']);
+		}
+		$id = input('param.id/d', 0);
+		if($id <= 0){
+			return json(['code'=>-1,'msg'=>'参数错误']);
+		}
+
+		$service = new ModelSquareService();
+		$info = $service->getModelFrontDetail($id);
+		if(!$info){
+			return json(['code'=>-1,'msg'=>'模型不存在或已禁用']);
+		}
+
+		// 附加该模型关联的推荐场景模板（弹窗第四排用）
+		$info['scene_templates'] = $service->getModelSceneTemplates($id, 8);
+
+		return json(['code'=>0, 'msg'=>'success', 'data'=>$info]);
+	}
+
+	/**
+	 * 照片生成页
+	 */
+	public function photo_generation(){
+		if($this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index'));
+			die;
+		}
+
+		// 获取推荐的照片模板（显示在右侧）
+		$recommend_templates = Db::name('generation_scene_template')
+			->field('id, template_name, cover_image, base_price, use_count')
+			->where('generation_type', 1)
+			->where('status', 1)
+			->order('use_count desc, sort desc, id desc')
+			->limit(10)
+			->select()
+			->toArray();
+		View::assign('recommend_templates', $recommend_templates);
+
+		return View::fetch('index3/photo_generation');
+	}
+
+	/**
+	 * 视频生成页
+	 */
+	public function video_generation(){
+		if($this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index'));
+			die;
+		}
+
+		// 获取推荐的视频模板（显示在右侧）
+		$recommend_templates = Db::name('generation_scene_template')
+			->field('id, template_name, cover_image, base_price, use_count')
+			->where('generation_type', 2)
+			->where('status', 1)
+			->order('use_count desc, sort desc, id desc')
+			->limit(10)
+			->select()
+			->toArray();
+		View::assign('recommend_templates', $recommend_templates);
+
+		return View::fetch('index3/video_generation');
+	}
 }

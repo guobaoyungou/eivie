@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>照片生成订单管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .order-info-box { background: #f7f7f8; padding: 15px; border-radius: 6px; margin-bottom: 15px; }
+    .order-info-box .title { font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #333; }
+    .order-info-item { display: flex; margin-bottom: 8px; }
+    .order-info-item .label { width: 100px; color: #666; }
+    .order-info-item .value { flex: 1; color: #333; }
+    .order-info-item .value.red { color: #FF5722; }
+    .order-info-item .value.green { color: #5FB878; }
+    .member-info { display: flex; align-items: center; }
+    .member-info img { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
+    .scene-cover { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; }
+    .status-tag { padding: 2px 8px; border-radius: 3px; font-size: 12px; }
+    .status-tag.success { background: #E8F5E9; color: #4CAF50; }
+    .status-tag.danger { background: #FFEBEE; color: #F44336; }
+    .status-tag.warning { background: #FFF3E0; color: #FF9800; }
+    .status-tag.info { background: #E3F2FD; color: #2196F3; }
+    .status-tag.default { background: #F5F5F5; color: #9E9E9E; }
+    .layui-table-view .layui-table td .table-imgbox { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; }
+    .layui-table-view .layui-table td .table-imgbox img { max-width: 60px; max-height: 60px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          <div class="layui-tab layui-tab-brief">
+            <ul class="layui-tab-title">
+              <li {if !input('?param.tab') || input('param.tab')==='all'}class="layui-this"{/if} onclick="changeTab('all')">全部订单</li>
+              <li {if input('param.tab')==='pending'}class="layui-this"{/if} onclick="changeTab('pending')">待支付</li>
+              <li {if input('param.tab')==='paid'}class="layui-this"{/if} onclick="changeTab('paid')">已支付</li>
+              <li {if input('param.tab')==='refund'}class="layui-this"{/if} onclick="changeTab('refund')">退款中</li>
+              <li {if input('param.tab')==='refunded'}class="layui-this"{/if} onclick="changeTab('refunded')">已退款</li>
+            </ul>
+          </div>
+        </div>
+        <div class="layui-card-body" pad15>
+          <!-- 搜索区 -->
+          <div class="layui-form layui-form-search" style="margin-bottom: 15px;">
+            <div class="layui-inline">
+              <label class="layui-form-label">关键词</label>
+              <div class="layui-input-inline" style="width:180px">
+                <input type="text" name="keyword" placeholder="订单号/用户昵称" autocomplete="off" class="layui-input">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">支付状态</label>
+              <div class="layui-input-inline" style="width:120px">
+                <select name="pay_status">
+                  <option value="">全部</option>
+                  <option value="0">待支付</option>
+                  <option value="1">已支付</option>
+                  <option value="2">已取消</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">退款状态</label>
+              <div class="layui-input-inline" style="width:120px">
+                <select name="refund_status">
+                  <option value="">全部</option>
+                  <option value="0">无退款</option>
+                  <option value="1">待审核</option>
+                  <option value="2">已退款</option>
+                  <option value="3">已驳回</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">创建时间</label>
+              <div class="layui-input-inline" style="width:240px">
+                <input type="text" name="ctime" id="ctime" placeholder="选择时间范围" autocomplete="off" class="layui-input">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn layuiadmin-btn-replys" lay-submit lay-filter="LAY-search">
+                <i class="layui-icon layui-icon-search"></i>
+              </button>
+              <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+            </div>
+          </div>
+          
+          <!-- 数据表格 -->
+          <table id="tabledata" lay-filter="tabledata"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script type="text/html" id="memberTpl">
+    <div class="member-info">
+      {{# if(d.headimg) { }}
+      <img src="{{d.headimg}}">
+      {{# } else { }}
+      <img src="/static/img/default_avatar.png">
+      {{# } }}
+      <span>{{d.nickname || '未知用户'}}</span>
+    </div>
+  </script>
+  
+  <script type="text/html" id="sceneTpl">
+    <div style="display:flex;align-items:center;">
+      {{# if(d.cover_image) { }}
+      <div class="table-imgbox"><img lay-src="{{d.cover_image}}"></div>
+      {{# } }}
+      <span style="margin-left:8px;">{{d.scene_name || d.template_name || '-'}}</span>
+    </div>
+  </script>
+  
+  <script type="text/html" id="payStatusTpl">
+    {{# if(d.pay_status == 0) { }}
+    <span class="status-tag warning">待支付</span>
+    {{# } else if(d.pay_status == 1) { }}
+    <span class="status-tag success">已支付</span>
+    {{# } else if(d.pay_status == 2) { }}
+    <span class="status-tag default">已取消</span>
+    {{# } }}
+  </script>
+  
+  <script type="text/html" id="taskStatusTpl">
+    {{# if(d.task_status == 0) { }}
+    <span class="status-tag default">待处理</span>
+    {{# } else if(d.task_status == 1) { }}
+    <span class="status-tag info">处理中</span>
+    {{# } else if(d.task_status == 2) { }}
+    <span class="status-tag success">成功</span>
+    {{# } else if(d.task_status == 3) { }}
+    <span class="status-tag danger">失败</span>
+    {{# } else if(d.task_status == 4) { }}
+    <span class="status-tag default">已取消</span>
+    {{# } }}
+  </script>
+  
+  <script type="text/html" id="refundStatusTpl">
+    {{# if(d.refund_status == 0) { }}
+    <span style="color:#999">-</span>
+    {{# } else if(d.refund_status == 1) { }}
+    <span class="status-tag warning">待审核</span>
+    {{# } else if(d.refund_status == 2) { }}
+    <span class="status-tag success">已退款</span>
+    {{# } else if(d.refund_status == 3) { }}
+    <span class="status-tag danger">已驳回</span>
+    {{# } }}
+  </script>
+  
+  <script type="text/html" id="operationTpl">
+    <button class="table-btn" onclick="viewDetail({{d.id}})"><i class="layui-icon layui-icon-read"></i>详情</button>
+    {{# if(d.refund_status == 1) { }}
+    <button class="table-btn" style="color:#5FB878" onclick="refundCheck({{d.id}}, 1)">同意退款</button>
+    <button class="table-btn" style="color:#FF5722" onclick="refundCheck({{d.id}}, 2)">驳回</button>
+    {{# } }}
+  </script>
+  
+  <script>
+  var table = layui.table;
+  var laydate = layui.laydate;
+  var form = layui.form;
+  var datawhere = {};
+  
+  // 日期范围选择器
+  laydate.render({
+    elem: '#ctime',
+    range: ' ~ '
+  });
+  
+  // 初始化Tab参数
+  var currentTab = '{$Request.param.tab}' || 'all';
+  function changeTab(tab) {
+    location.href = '{:url("order_list")}/tab/' + tab;
+  }
+  
+  // 根据Tab设置初始筛选条件
+  if (currentTab === 'pending') {
+    datawhere.pay_status = '0';
+  } else if (currentTab === 'paid') {
+    datawhere.pay_status = '1';
+  } else if (currentTab === 'refund') {
+    datawhere.refund_status = '1';
+  } else if (currentTab === 'refunded') {
+    datawhere.refund_status = '2';
+  }
+  
+  // 渲染表格
+  var tableIns = table.render({
+    elem: '#tabledata',
+    url: "{$Request.url}",
+    where: datawhere,
+    page: true,
+    cols: [[
+      {field: 'id', title: 'ID', sort: true, width: 70},
+      {field: 'ordernum', title: '订单号', width: 180},
+      {field: 'member', title: '用户', width: 160, templet: '#memberTpl'},
+      {field: 'scene', title: '场景模板', width: 200, templet: '#sceneTpl'},
+      {field: 'pay_price', title: '金额', width: 100, templet: function(d) {
+        return '<span style="color:#FF5722;font-weight:bold;">¥' + d.pay_price + '</span>';
+      }},
+      {field: 'pay_status', title: '支付状态', width: 90, templet: '#payStatusTpl'},
+      {field: 'task_status', title: '生成状态', width: 90, templet: '#taskStatusTpl'},
+      {field: 'refund_status', title: '退款状态', width: 90, templet: '#refundStatusTpl'},
+      {field: 'createtime_text', title: '创建时间', width: 160},
+      {field: 'operation', title: '操作', width: 240, fixed: 'right', templet: '#operationTpl'}
+    ]],
+    done: function(res) {
+      // 图片懒加载
+      var layload = layui.layload;
+      if(layload) layload('lay-src');
+    }
+  });
+  
+  // 排序事件
+  table.on('sort(tabledata)', function(obj) {
+    datawhere.field = obj.field;
+    datawhere.order = obj.type;
+    tableIns.reload({initSort: obj, where: datawhere});
+  });
+  
+  // 搜索事件
+  form.on('submit(LAY-search)', function(obj) {
+    datawhere = obj.field;
+    tableIns.reload({where: datawhere, page: {curr: 1}});
+    return false;
+  });
+  
+  // 查看详情
+  function viewDetail(id) {
+    var loadIndex = layer.load();
+    $.post("{:url('order_detail')}", {orderid: id}, function(res) {
+      layer.close(loadIndex);
+      if (res.status == 0) {
+        layer.msg(res.msg);
+        return;
+      }
+      var d = res.data;
+      var html = '<div class="order-info-box">';
+      html += '<div class="title">订单信息</div>';
+      html += '<div class="order-info-item"><span class="label">订单号：</span><span class="value">' + d.ordernum + '</span></div>';
+      html += '<div class="order-info-item"><span class="label">创建时间：</span><span class="value">' + d.createtime_text + '</span></div>';
+      html += '<div class="order-info-item"><span class="label">支付方式：</span><span class="value">' + (d.paytype || '-') + '</span></div>';
+      html += '<div class="order-info-item"><span class="label">支付时间：</span><span class="value">' + (d.pay_time_text || '-') + '</span></div>';
+      html += '<div class="order-info-item"><span class="label">订单金额：</span><span class="value red">¥' + d.total_price + '</span></div>';
+      html += '<div class="order-info-item"><span class="label">实付金额：</span><span class="value red">¥' + d.pay_price + '</span></div>';
+      html += '</div>';
+      
+      html += '<div class="order-info-box">';
+      html += '<div class="title">用户信息</div>';
+      html += '<div class="member-info" style="padding:10px 0;">';
+      html += '<img src="' + (d.headimg || '/static/img/default_avatar.png') + '" style="width:50px;height:50px;border-radius:50%;margin-right:10px;">';
+      html += '<div><div style="font-weight:bold;">' + (d.nickname || '未知用户') + '</div><div style="color:#999;font-size:12px;">ID: ' + d.mid + '</div></div>';
+      html += '</div></div>';
+      
+      html += '<div class="order-info-box">';
+      html += '<div class="title">场景模板</div>';
+      if (d.cover_image) {
+        html += '<img src="' + d.cover_image + '" style="width:100px;height:100px;object-fit:cover;border-radius:6px;margin-bottom:10px;">';
+      }
+      html += '<div class="order-info-item"><span class="label">模板名称：</span><span class="value">' + (d.scene_name || d.template_name || '-') + '</span></div>';
+      html += '</div>';
+      
+      html += '<div class="order-info-box">';
+      html += '<div class="title">状态信息</div>';
+      html += '<div class="order-info-item"><span class="label">支付状态：</span><span class="value">' + d.pay_status_text + '</span></div>';
+      html += '<div class="order-info-item"><span class="label">生成状态：</span><span class="value">' + d.task_status_text + '</span></div>';
+      html += '<div class="order-info-item"><span class="label">退款状态：</span><span class="value">' + d.refund_status_text + '</span></div>';
+      if (d.refund_reason) {
+        html += '<div class="order-info-item"><span class="label">退款原因：</span><span class="value">' + d.refund_reason + '</span></div>';
+      }
+      if (d.refund_money > 0) {
+        html += '<div class="order-info-item"><span class="label">退款金额：</span><span class="value red">¥' + d.refund_money + '</span></div>';
+      }
+      if (d.refund_time_text && d.refund_time_text != '-') {
+        html += '<div class="order-info-item"><span class="label">退款时间：</span><span class="value">' + d.refund_time_text + '</span></div>';
+      }
+      if (d.refund_checkremark) {
+        html += '<div class="order-info-item"><span class="label">审核备注：</span><span class="value">' + d.refund_checkremark + '</span></div>';
+      }
+      html += '</div>';
+      
+      // 显示生成结果
+      if (d.record && d.record.outputs && d.record.outputs.length > 0) {
+        html += '<div class="order-info-box">';
+        html += '<div class="title">生成结果</div>';
+        html += '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
+        d.record.outputs.forEach(function(output) {
+          html += '<img src="' + output.output_url + '" style="width:100px;height:100px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="layer.photos({photos:{data:[{src:\'' + output.output_url + '\'}]}});">';
+        });
+        html += '</div></div>';
+      }
+      
+      layer.open({
+        type: 1,
+        title: '订单详情',
+        area: ['550px', '600px'],
+        content: '<div style="padding:20px;">' + html + '</div>'
+      });
+    });
+  }
+  
+  // 退款审核
+  function refundCheck(id, st) {
+    var title = st == 1 ? '同意退款' : '驳回退款';
+    var confirmText = st == 1 ? '确定同意该订单的退款申请吗？退款将原路返回给用户。' : '请输入驳回原因：';
+    
+    if (st == 1) {
+      layer.confirm(confirmText, {title: title, icon: 3}, function(index) {
+        layer.close(index);
+        doRefundCheck(id, st, '');
+      });
+    } else {
+      layer.prompt({title: confirmText, formType: 2}, function(value, index) {
+        layer.close(index);
+        if (!value) {
+          layer.msg('请输入驳回原因');
+          return;
+        }
+        doRefundCheck(id, st, value);
+      });
+    }
+  }
+  
+  function doRefundCheck(id, st, remark) {
+    var loadIndex = layer.load();
+    $.post("{:url('refund_check')}", {orderid: id, st: st, remark: remark}, function(res) {
+      layer.close(loadIndex);
+      layer.msg(res.msg);
+      if (res.status == 1) {
+        tableIns.reload();
+      }
+    });
+  }
+  </script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<view class="container">
+<block wx:if="{{isload}}">
+  <!-- 封面区域 -->
+  <view class="cover-section">
+    <image wx:if="{{detail.generation_type == 1}}" src="{{detail.cover_image || '/static/img/placeholder.png'}}" class="cover-image" mode="aspectFill"></image>
+    <video wx:else src="{{detail.cover_image}}" class="cover-video" controls="{{false}}" show-play-btn="{{true}}" muted="{{true}}" objectFit="cover"></video>
+  </view>
+
+  <!-- 模板信息 -->
+  <view class="info-section">
+    <view class="title-row">
+      <text class="template-name">{{detail.template_name}}</text>
+      <text class="use-count">已用{{detail.use_count || 0}}次</text>
+    </view>
+    <view class="desc" wx:if="{{detail.description}}">{{detail.description}}</view>
+
+    <!-- 价格信息 -->
+    <view class="price-row">
+      <view class="price-info">
+        <text class="price-label">价格：</text>
+        <text class="price">¥{{detail.price}}</text>
+        <text class="price-unit">{{detail.price_unit_text}}</text>
+      </view>
+      <view wx:if="{{detail.is_member_price}}" class="member-tag">会员价</view>
+    </view>
+
+    <!-- 会员价格对比 -->
+    <view class="member-prices" wx:if="{{detail.all_prices && detail.all_prices.length > 0}}">
+      <view class="member-price-item" wx:for="{{detail.all_prices}}" wx:key="index">
+        <text class="level-name">{{item.level_name}}：</text>
+        <text class="level-price">¥{{item.price}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar">
+    <view class="price-display">
+      <text class="total-label">合计：</text>
+      <text class="total-price">¥{{detail.price}}</text>
+    </view>
+    <view class="btn-primary" bindtap="goCreate">立即使用</view>
+  </view>
+  <view style="height: 120rpx;"></view>
+</block>
+
+<view wx:if="{{loading}}" class="loading-wrap">
+  <text>加载中...</text>
+</view>
+</view>

@@ -7,7 +7,7 @@
 			<div class="right">全部{{data.count}}条</div><image :src="pre_url+'/static/img/arrowright.png'"  style="width:32rpx;height:32rpx"/>
 		</div>
 		<div class="text" v-if="data.log">
-			<div class="title"><text v-if="data.log.realname">{{data.log.realname}}</text><text v-else>{{data.log.nickname}}</text>填写了{{data.name}}</div>
+			<div class="title"><text class="c-text" v-if="data.log.realname">{{data.log.realname}}</text><text class="c-text" v-else>{{data.log.nickname}}</text>填写了{{data.name}}</div>
 			<div>{{data.log.time}}</div>
 		</div>
 	</view>
@@ -33,5 +33,5 @@
 .dp-form-log .head .left{ font-size: 32rpx; width: 50%; color: #333}
 .dp-form-log .head .right { text-align: right; width: 50%; color: #666 }
 .dp-form-log .text { margin-top: 10rpx; padding-left: 30rpx; color: #666;}
-.dp-form-log .title text {margin-right: 12rpx;}
+.dp-form-log .title .c-text {margin-right: 12rpx;}
 </style>

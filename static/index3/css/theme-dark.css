@@ -1,0 +1,39 @@
+/* 深色主题变量 */
+[data-theme="dark"] {
+    --bg-primary: #17171A;
+    --bg-sidebar: #1E1E22;
+    --bg-card: #232328;
+    --bg-header: #1E1E22;
+    --bg-tabbar: #1E1E22;
+    --bg-input: #2A2A30;
+    --bg-tag: #2A2A30;
+    --bg-tag-active: #4A90D9;
+    --bg-overlay: rgba(0, 0, 0, 0.6);
+    --bg-tooltip: #4E5969;
+    --bg-hover-menu: #2A2A30;
+
+    --text-primary: #E5E6EB;
+    --text-secondary: #A9AEB8;
+    --text-tertiary: #6B7785;
+    --text-tag: #A9AEB8;
+    --text-tag-active: #FFFFFF;
+    --text-inverse: #FFFFFF;
+    --text-link: #53A8FF;
+
+    --border-color: #333338;
+    --border-light: #2A2A30;
+
+    --accent-color: #53A8FF;
+    --accent-hover: #409EFF;
+    --accent-light: rgba(83, 168, 255, 0.1);
+
+    --hover-bg: #2A2A30;
+    --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.2);
+    --shadow-card-hover: 0 6px 20px rgba(0, 0, 0, 0.35);
+    --shadow-sidebar: 1px 0 0 var(--border-color);
+    --shadow-header: 0 1px 0 var(--border-color);
+    --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.3);
+
+    --scrollbar-thumb: #4E5969;
+    --scrollbar-track: transparent;
+}

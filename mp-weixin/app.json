@@ -4,44 +4,12 @@
     "pages/index/main",
     "pages/index/webView",
     "pages/index/webView2",
-    "pages/index/reg",
-    "pages/index/login",
-    "pages/shop/product",
-    "pages/shop/cart",
-    "pages/shop/prolist",
-    "pages/shop/search",
-    "pages/shop/category1",
-    "pages/shop/category2",
-    "pages/shop/category3",
-    "pages/shop/category4",
-    "pages/shop/classify",
-    "pages/shop/fastbuy",
-    "pages/shop/fastbuy2",
-    "pages/shop/mendian",
     "pages/my/usercenter",
-    "pages/my/levelinfo",
-    "pages/my/levelup",
-    "pages/my/scorelog",
-    "pages/my/favorite",
-    "pages/my/history",
-    "pages/my/set",
     "pages/pay/pay",
-    "pages/pay/daifu",
-    "pages/pay/transfer",
     "pages/order/orderlist",
-    "pages/money/withdraw",
-    "pages/money/recharge",
     "pages/coupon/couponlist",
     "pages/coupon/mycoupon",
-    "pages/coupon/coupongive",
-    "pages/shop/classify2",
-    "pages/shop/buy",
-    "pages/address/address",
-    "pages/kefu/index",
-    "pages/index/getpwd",
-    "pages/maidan/pay",
-    "pages/maidan/maidanlog",
-    "pages/maidan/maidandetail"
+    "pages/maidan/pay"
   ],
   "subPackages": [
     {
@@ -333,7 +301,26 @@
         "videospider/detail",
         "imgai/detail",
         "imgai/create",
-        "checkdate/checkDate"
+        "checkdate/checkDate",
+        "index/reg",
+        "index/login"
+      ]
+    },
+    {
+      "root": "pages/shop",
+      "pages": [
+        "product",
+        "cart",
+        "prolist",
+        "search",
+        "category1",
+        "category2",
+        "category3",
+        "category4",
+        "classify",
+        "fastbuy",
+        "fastbuy2",
+        "mendian"
       ]
     },
     {
@@ -345,7 +332,9 @@
         "cerberuse/buy",
         "cerberuse/orderlist",
         "cerberuse/orderdetail",
-        "cerberuse/refund"
+        "cerberuse/refund",
+        "generation/detail",
+        "generation/create"
       ]
     },
     {
@@ -1225,6 +1214,12 @@
       ]
     }
   ],
+  "preloadRule": {
+    "pages/index/index": {
+      "network": "all",
+      "packages": ["pages/shop", "pagesExt"]
+    }
+  },
   "window": {
     "navigationBarTextStyle": "black",
     "navigationBarBackgroundColor": "#F8F8F8",
@@ -1233,6 +1228,12 @@
   "permission": {
     "scope.userLocation": {
       "desc": "你的位置信息将用于小程序位置接口的效果展示"
+    },
+    "scope.camera": {
+      "desc": "用于拍摄照片、扫码"
+    },
+    "scope.writePhotosAlbum": {
+      "desc": "用于保存图片到相册"
     }
   },
   "plugins": {},
@@ -1242,5 +1243,6 @@
     "getLocation",
     "chooseLocation"
   ],
-  "usingComponents": {}
+  "usingComponents": {},
+  "lazyCodeLoading": "requiredComponents"
 }

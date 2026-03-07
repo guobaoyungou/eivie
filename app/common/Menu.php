@@ -88,6 +88,131 @@ class Menu
         }
 		$menudata['shop'] = ['name'=>'商城','fullname'=>'商城系统','icon'=>'my-icon my-icon-shop','child'=>$shop_child];
 
+		// ============================================================
+		// 照片生成菜单 (新)
+		// ============================================================
+		if($isadmin || $uid == -1){
+			$photo_gen_child = [];
+			$photo_gen_child[] = ['name'=>'生成任务','path'=>'PhotoGeneration/task_create','authdata'=>'PhotoGeneration/task_create,PhotoGeneration/get_model_schema,PhotoGeneration/get_template_detail'];
+			$photo_gen_child[] = ['name'=>'生成记录','path'=>'PhotoGeneration/record_list','authdata'=>'PhotoGeneration/record_list,PhotoGeneration/record_detail,PhotoGeneration/task_retry,PhotoGeneration/task_cancel,PhotoGeneration/record_delete,PhotoGeneration/convert_to_template'];
+			$photo_gen_child[] = ['name'=>'场景分类','path'=>'PhotoSceneCategory/index','authdata'=>'PhotoSceneCategory/index,PhotoSceneCategory/edit,PhotoSceneCategory/save,PhotoSceneCategory/del,PhotoSceneCategory/choosecategory'];
+			$photo_gen_child[] = ['name'=>'场景分组','path'=>'PhotoSceneGroup/index','authdata'=>'PhotoSceneGroup/index,PhotoSceneGroup/edit,PhotoSceneGroup/save,PhotoSceneGroup/del,PhotoSceneGroup/choosegroup'];
+			$photo_gen_child[] = ['name'=>'场景模板','path'=>'PhotoGeneration/scene_list','authdata'=>'PhotoGeneration/scene_list,PhotoGeneration/scene_edit,PhotoGeneration/scene_save,PhotoGeneration/scene_delete,PhotoGeneration/scene_status'];
+			$photo_gen_child[] = ['name'=>'订单管理','path'=>'PhotoGeneration/order_list','authdata'=>'PhotoGeneration/order_list,PhotoGeneration/order_detail,PhotoGeneration/refund_check'];
+			$menudata['photo_generation'] = ['name'=>'照片生成','fullname'=>'照片生成','icon'=>'layui-icon layui-icon-picture','child'=>$photo_gen_child];
+		}elseif($bid > 0){
+			// 商户用户登录时，检查商户是否开通照片生成功能
+			$business_photo = Db::name('business')->where('id', $bid)->find();
+			if($business_photo && isset($business_photo['photo_generation_enabled']) && $business_photo['photo_generation_enabled'] == 1){
+				$photo_gen_child = [];
+				$photo_gen_child[] = ['name'=>'生成任务','path'=>'PhotoGeneration/task_create','authdata'=>'PhotoGeneration/task_create,PhotoGeneration/get_model_schema,PhotoGeneration/get_template_detail'];
+				$photo_gen_child[] = ['name'=>'生成记录','path'=>'PhotoGeneration/record_list','authdata'=>'PhotoGeneration/record_list,PhotoGeneration/record_detail,PhotoGeneration/task_retry,PhotoGeneration/task_cancel,PhotoGeneration/record_delete,PhotoGeneration/convert_to_template'];
+				$photo_gen_child[] = ['name'=>'场景分类','path'=>'PhotoSceneCategory/index','authdata'=>'PhotoSceneCategory/index,PhotoSceneCategory/edit,PhotoSceneCategory/save,PhotoSceneCategory/del,PhotoSceneCategory/choosecategory'];
+				$photo_gen_child[] = ['name'=>'场景分组','path'=>'PhotoSceneGroup/index','authdata'=>'PhotoSceneGroup/index,PhotoSceneGroup/edit,PhotoSceneGroup/save,PhotoSceneGroup/del,PhotoSceneGroup/choosegroup'];
+				$photo_gen_child[] = ['name'=>'场景模板','path'=>'PhotoGeneration/scene_list','authdata'=>'PhotoGeneration/scene_list,PhotoGeneration/scene_edit,PhotoGeneration/scene_save,PhotoGeneration/scene_delete,PhotoGeneration/scene_status'];
+				$photo_gen_child[] = ['name'=>'订单管理','path'=>'PhotoGeneration/order_list','authdata'=>'PhotoGeneration/order_list,PhotoGeneration/order_detail,PhotoGeneration/refund_check'];
+				$menudata['photo_generation'] = ['name'=>'照片生成','fullname'=>'照片生成','icon'=>'layui-icon layui-icon-picture','child'=>$photo_gen_child];
+			}
+		}
+
+		// ============================================================
+		// 视频生成菜单 (新)
+		// ============================================================
+		if($isadmin || $uid == -1){
+			$video_gen_child = [];
+			$video_gen_child[] = ['name'=>'生成任务','path'=>'VideoGeneration/task_create','authdata'=>'VideoGeneration/task_create,VideoGeneration/get_model_schema,VideoGeneration/get_template_detail'];
+			$video_gen_child[] = ['name'=>'生成记录','path'=>'VideoGeneration/record_list','authdata'=>'VideoGeneration/record_list,VideoGeneration/record_detail,VideoGeneration/task_retry,VideoGeneration/task_cancel,VideoGeneration/record_delete,VideoGeneration/convert_to_template'];
+			$video_gen_child[] = ['name'=>'场景分类','path'=>'VideoSceneCategory/index','authdata'=>'VideoSceneCategory/index,VideoSceneCategory/edit,VideoSceneCategory/save,VideoSceneCategory/del,VideoSceneCategory/choosecategory'];
+			$video_gen_child[] = ['name'=>'场景分组','path'=>'VideoSceneGroup/index','authdata'=>'VideoSceneGroup/index,VideoSceneGroup/edit,VideoSceneGroup/save,VideoSceneGroup/del,VideoSceneGroup/choosegroup'];
+			$video_gen_child[] = ['name'=>'场景模板','path'=>'VideoGeneration/scene_list','authdata'=>'VideoGeneration/scene_list,VideoGeneration/scene_edit,VideoGeneration/scene_save,VideoGeneration/scene_delete,VideoGeneration/scene_status'];
+			$video_gen_child[] = ['name'=>'订单管理','path'=>'VideoGeneration/order_list','authdata'=>'VideoGeneration/order_list,VideoGeneration/order_detail,VideoGeneration/refund_check'];
+			$menudata['video_generation'] = ['name'=>'视频生成','fullname'=>'视频生成','icon'=>'layui-icon layui-icon-video','child'=>$video_gen_child];
+		}elseif($bid > 0){
+			// 商户用户登录时，检查商户是否开通视频生成功能
+			$business_video = Db::name('business')->where('id', $bid)->find();
+			if($business_video && isset($business_video['video_generation_enabled']) && $business_video['video_generation_enabled'] == 1){
+				$video_gen_child = [];
+				$video_gen_child[] = ['name'=>'生成任务','path'=>'VideoGeneration/task_create','authdata'=>'VideoGeneration/task_create,VideoGeneration/get_model_schema,VideoGeneration/get_template_detail'];
+				$video_gen_child[] = ['name'=>'生成记录','path'=>'VideoGeneration/record_list','authdata'=>'VideoGeneration/record_list,VideoGeneration/record_detail,VideoGeneration/task_retry,VideoGeneration/task_cancel,VideoGeneration/record_delete,VideoGeneration/convert_to_template'];
+				$video_gen_child[] = ['name'=>'场景分类','path'=>'VideoSceneCategory/index','authdata'=>'VideoSceneCategory/index,VideoSceneCategory/edit,VideoSceneCategory/save,VideoSceneCategory/del,VideoSceneCategory/choosecategory'];
+				$video_gen_child[] = ['name'=>'场景分组','path'=>'VideoSceneGroup/index','authdata'=>'VideoSceneGroup/index,VideoSceneGroup/edit,VideoSceneGroup/save,VideoSceneGroup/del,VideoSceneGroup/choosegroup'];
+				$video_gen_child[] = ['name'=>'场景模板','path'=>'VideoGeneration/scene_list','authdata'=>'VideoGeneration/scene_list,VideoGeneration/scene_edit,VideoGeneration/scene_save,VideoGeneration/scene_delete,VideoGeneration/scene_status'];
+				$video_gen_child[] = ['name'=>'订单管理','path'=>'VideoGeneration/order_list','authdata'=>'VideoGeneration/order_list,VideoGeneration/order_detail,VideoGeneration/refund_check'];
+				$menudata['video_generation'] = ['name'=>'视频生成','fullname'=>'视频生成','icon'=>'layui-icon layui-icon-video','child'=>$video_gen_child];
+			}
+		}
+
+		// ============================================================
+		// AI旅拍菜单 - 保留业务子菜单，去掉模型配置相关子菜单
+		// ============================================================
+		if($isadmin || $uid == -1){
+			$ai_travel_photo_child = [];
+			
+			// 套餐管理
+			$ai_travel_photo_child[] = ['name'=>'套餐管理','path'=>'AiTravelPhoto/package_list','authdata'=>'AiTravelPhoto/package_list,AiTravelPhoto/package_edit,AiTravelPhoto/package_delete,AiTravelPhoto/package_batch'];
+			
+			// 人像管理
+			$ai_travel_photo_child[] = ['name'=>'人像管理','path'=>'AiTravelPhoto/portrait_list','authdata'=>'AiTravelPhoto/portrait_list,AiTravelPhoto/portrait_delete,AiTravelPhoto/portrait_batch'];
+			
+			// 生成结果（隐藏菜单，通过人像列表进入）
+			$ai_travel_photo_child[] = ['name'=>'生成结果','path'=>'AiTravelPhoto/portrait_detail','authdata'=>'AiTravelPhoto/portrait_detail','hide'=>true];
+			
+			// 订单管理
+			$ai_travel_photo_child[] = ['name'=>'订单管理','path'=>'AiTravelPhoto/order_list','authdata'=>'AiTravelPhoto/order_list,AiTravelPhoto/order_detail,AiTravelPhoto/order_refund'];
+			
+			// 设备管理
+			$ai_travel_photo_child[] = ['name'=>'设备管理','path'=>'AiTravelPhoto/device_list','authdata'=>'AiTravelPhoto/device_list,AiTravelPhoto/device_generate_token,AiTravelPhoto/device_delete'];
+			
+			// 选片列表
+			$ai_travel_photo_child[] = ['name'=>'选片列表','path'=>'AiTravelPhoto/qrcode_list','authdata'=>'AiTravelPhoto/qrcode_list'];
+			
+			// 成品列表
+			$ai_travel_photo_child[] = ['name'=>'成品列表','path'=>'AiTravelPhoto/result_list','authdata'=>'AiTravelPhoto/result_list'];
+			
+			// 数据统计
+			$ai_travel_photo_child[] = ['name'=>'数据统计','path'=>'AiTravelPhoto/statistics','authdata'=>'AiTravelPhoto/statistics'];
+			
+			// 系统设置
+			$ai_travel_photo_child[] = ['name'=>'系统设置','path'=>'AiTravelPhoto/settings','authdata'=>'AiTravelPhoto/settings'];
+			
+			$menudata['ai_travel_photo'] = ['name'=>'旅拍','fullname'=>'AI旅拍','icon'=>'my-icon my-icon-aitravelphoto','child'=>$ai_travel_photo_child];
+		}elseif($bid > 0){
+			// 商户用户登录时，检查商户是否开通AI旅拍功能
+			$business = Db::name('business')->where('id', $bid)->find();
+			if($business && isset($business['ai_travel_photo_enabled']) && $business['ai_travel_photo_enabled'] == 1){
+				$ai_travel_photo_child = [];
+				
+				// 套餐管理
+				$ai_travel_photo_child[] = ['name'=>'套餐管理','path'=>'AiTravelPhoto/package_list','authdata'=>'AiTravelPhoto/package_list,AiTravelPhoto/package_edit,AiTravelPhoto/package_delete,AiTravelPhoto/package_batch'];
+				
+				// 人像管理
+				$ai_travel_photo_child[] = ['name'=>'人像管理','path'=>'AiTravelPhoto/portrait_list','authdata'=>'AiTravelPhoto/portrait_list,AiTravelPhoto/portrait_delete,AiTravelPhoto/portrait_batch'];
+				
+				// 生成结果（隐藏菜单，通过人像列表进入）
+				$ai_travel_photo_child[] = ['name'=>'生成结果','path'=>'AiTravelPhoto/portrait_detail','authdata'=>'AiTravelPhoto/portrait_detail','hide'=>true];
+				
+				// 订单管理
+				$ai_travel_photo_child[] = ['name'=>'订单管理','path'=>'AiTravelPhoto/order_list','authdata'=>'AiTravelPhoto/order_list,AiTravelPhoto/order_detail,AiTravelPhoto/order_refund'];
+				
+				// 设备管理
+				$ai_travel_photo_child[] = ['name'=>'设备管理','path'=>'AiTravelPhoto/device_list','authdata'=>'AiTravelPhoto/device_list,AiTravelPhoto/device_generate_token,AiTravelPhoto/device_delete'];
+				
+				// 选片列表
+				$ai_travel_photo_child[] = ['name'=>'选片列表','path'=>'AiTravelPhoto/qrcode_list','authdata'=>'AiTravelPhoto/qrcode_list'];
+				
+				// 成品列表
+				$ai_travel_photo_child[] = ['name'=>'成品列表','path'=>'AiTravelPhoto/result_list','authdata'=>'AiTravelPhoto/result_list'];
+				
+				// 数据统计
+				$ai_travel_photo_child[] = ['name'=>'数据统计','path'=>'AiTravelPhoto/statistics','authdata'=>'AiTravelPhoto/statistics'];
+				
+				// 系统设置
+				$ai_travel_photo_child[] = ['name'=>'系统设置','path'=>'AiTravelPhoto/settings','authdata'=>'AiTravelPhoto/settings'];
+				
+				$menudata['ai_travel_photo'] = ['name'=>'旅拍','fullname'=>'AI旅拍','icon'=>'my-icon my-icon-aitravelphoto','child'=>$ai_travel_photo_child];
+			}
+		}
+
         if($isadmin){
             $component_business = [];
             $component_business[] = ['name'=>'商户列表','path'=>'Business/index','authdata'=>'Business/*,BusinessFreight/*'];
@@ -634,8 +759,26 @@ class Menu
 			    $menudata['pingtai'] = ['name'=>'平台','fullname'=>'平台设置','icon'=>'my-icon my-icon-pingtai','child'=>$pingtai_child];
 		}
 
+		// API管理菜单 - 仅平台管理员可见
+		if($isadmin && $uid != -1){
+			$api_child = [];
+			$api_child[] = ['name'=>'接口列表','path'=>'ApiManage/index','authdata'=>'ApiManage/index,ApiManage/detail,ApiManage/edit'];
+			$api_child[] = ['name'=>'接口扫描','path'=>'ApiManage/scan','authdata'=>'ApiManage/scan,ApiManage/savescan'];
+			$api_child[] = ['name'=>'测试历史','path'=>'ApiManage/testlog','authdata'=>'ApiManage/testlog,ApiManage/testlogdetail'];
+			// 隐藏菜单项
+			$api_child[] = ['name'=>'在线测试','path'=>'ApiManage/test','authdata'=>'ApiManage/test,ApiManage/sendtest','hide'=>true];
+			$api_child[] = ['name'=>'文档导出','path'=>'ApiManage/export','authdata'=>'ApiManage/export','hide'=>true];
+			$menudata['api'] = ['name'=>'API','fullname'=>'API管理','icon'=>'my-icon my-icon-api','child'=>$api_child];
+		}
+
 		$system_child = [];
 		$system_child[] = ['name'=>'系统设置','path'=>'Backstage/sysset','authdata'=>'Backstage/sysset'];
+        
+		// API Key配置 - 平台管理员上下文在此添加（auth_type=1不受权限过滤影响）
+		// 商户上下文的MerchantApiKey菜单在权限过滤之后添加，避免被auth_data过滤掉
+		if($isadmin && $bid == 0){
+			$system_child[] = ['name'=>'API Key配置','path'=>'SystemApiKey/index','authdata'=>'SystemApiKey/*'];
+		}
         
 		$system_child[] = ['name'=>'门店管理','path'=>'Mendian/index','authdata'=>'Mendian/*'];
 		$system_child[] = ['name'=>'管理员列表','path'=>'User/index','authdata'=>'User/*,UserGroup/*'];
@@ -712,6 +855,25 @@ class Menu
                 }
             }
         }
+		// 商户API Key配置 - 在权限过滤之后添加，确保始终对商户可见
+		// 因为新增菜单项不在现有商户管理员的auth_data中，放在过滤前会被移除
+		if($bid > 0 && isset($menudata['system'])){
+			$apiKeyItem = ['name'=>'API Key配置','path'=>'MerchantApiKey/index','authdata'=>'MerchantApiKey/*'];
+			$newChild = [];
+			$inserted = false;
+			if(isset($menudata['system']['child'])){
+				foreach($menudata['system']['child'] as $child){
+					$newChild[] = $child;
+					if(!$inserted && isset($child['path']) && $child['path'] == 'Backstage/sysset'){
+						$newChild[] = $apiKeyItem;
+						$inserted = true;
+					}
+				}
+			}
+			if(!$inserted) $newChild[] = $apiKeyItem;
+			$menudata['system']['child'] = $newChild;
+		}
+
 		return $menudata;
 	}
 
@@ -724,6 +886,14 @@ class Menu
         $child = [];
         $child[] = ['name'=>'系统设置','path'=>'WebSystem/set'];
         $menudata['sysset'] = ['name'=>'系统设置','path'=>'WebSystem/set','child'=>$child];
+        
+        // 模型广场菜单 - 位于系统设置和附件设置之间
+        $model_square_child = [];
+        $model_square_child[] = ['name'=>'供应商管理','path'=>'WebModelSquare/provider_list'];
+        $model_square_child[] = ['name'=>'模型类型','path'=>'WebModelSquare/type_list'];
+        $model_square_child[] = ['name'=>'模型列表','path'=>'WebModelSquare/model_list'];
+        $menudata['model_square'] = ['name'=>'模型广场','fullname'=>'模型广场','path'=>'WebModelSquare/provider_list','child'=>$model_square_child];
+        
         $menudata['remote'] = ['name'=>'附件设置','path'=>'WebSystem/remote'];
         $menudata['help'] = ['name'=>'帮助中心','path'=>'WebHelp/index'];
         $menudata['webnotice'] = ['name'=>'通知公告','path'=>'WebNotice/index'];
@@ -759,6 +929,7 @@ class Menu
 		$data[] = 'MemberArchives/*';
 		$data[] = 'Map/*';
 		$data[] = 'DesignerPage/choosezuobiao';
+		$data[] = 'MerchantApiKey/*'; // 商户API Key配置 - 商户始终可访问
         return $data;
 	}
 

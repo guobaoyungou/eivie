@@ -26,25 +26,18 @@
     "dp-scoreshop": "/components/dp-scoreshop/dp-scoreshop",
     "dp-tuangou": "/components/dp-tuangou/dp-tuangou",
     "dp-kecheng": "/components/dp-kecheng/dp-kecheng",
-    "dp-restaurant-product": "/components/dp-restaurant-product/dp-restaurant-product",
     "dp-coupon": "/components/dp-coupon/dp-coupon",
     "dp-article": "/components/dp-article/dp-article",
     "dp-business": "/components/dp-business/dp-business",
-    "dp-shortvideo": "/components/dp-shortvideo/dp-shortvideo",
-    "dp-liveroom": "/components/dp-liveroom/dp-liveroom",
     "dp-button": "/components/dp-button/dp-button",
     "dp-hotspot": "/components/dp-hotspot/dp-hotspot",
     "dp-cover": "/components/dp-cover/dp-cover",
     "dp-richtext": "/components/dp-richtext/dp-richtext",
     "dp-form": "/components/dp-form/dp-form",
-    "dp-form-log": "/components/dp-form-log/dp-form-log",
     "dp-userinfo": "/components/dp-userinfo/dp-userinfo",
     "dp-wxad": "/components/dp-wxad/dp-wxad",
-    "dp-jidian": "/components/dp-jidian/dp-jidian",
-    "dp-cycle": "/components/dp-cycle/dp-cycle",
-    "dp-carhailing": "/components/dp-carhailing/dp-carhailing",
-    "dp-tour": "/components/dp-tour/dp-tour",
-    "dp-formdata": "/components/dp-formdata/dp-formdata",
-    "loading": "/components/loading/loading"
+    "loading": "/components/loading/loading",
+    "dp-photo-generation": "/components/dp-photo-generation/dp-photo-generation",
+    "dp-video-generation": "/components/dp-video-generation/dp-video-generation"
   }
 }

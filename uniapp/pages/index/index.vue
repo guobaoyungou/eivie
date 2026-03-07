@@ -423,7 +423,7 @@
 		onLoad: function(opt) {
 			this.opt = app.getopts(opt);
 			this.mendianid = this.opt.mdid || 0;
-			var sysinfo = uni.getSystemInfoSync();
+			var sysinfo = uni.getWindowInfo();
 			this.statusBarHeight = sysinfo.statusBarHeight;
 			this.wxNavigationBarMenu();
 			this.screenWidth = sysinfo.screenWidth;

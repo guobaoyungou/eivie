@@ -10,16 +10,16 @@
 				<image class="image" :src="item.pic" mode="widthFix"/>
 				<image class="saleimg" :src="params.saleimg" v-if="params.saleimg!=''" mode="widthFix"/>
 				<view class="desc" v-if="item.show_teamnum == 1">
-					<text v-if="item.gua_num>0" > {{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text>
-					<text v-else style="line-height: 80rpx;"> {{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text>
+					<text class="c-text" v-if="item.gua_num>0" > {{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text>
+					<text class="c-text" v-else style="line-height: 80rpx;"> {{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text>
 					<view v-if="item.linktype==1">
-						<text v-if="item.teamnum-item.gua_num>0 && item.bzjl_type==1">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.money}}元参与奖</text>
-						<text v-if="item.teamnum-item.gua_num>0 && item.bzjl_type==2">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.bzj_score}}积分</text>
-						<text v-if="item.teamnum-item.gua_num>0 && item.bzjl_type==3">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.bzj_commission}}元佣金</text>
-						<text v-if="item.teamnum-item.gua_num>0 && item.bzjl_type==4">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.money}}优惠券</text>
+						<text class="c-text" v-if="item.teamnum-item.gua_num>0 && item.bzjl_type==1">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.money}}元参与奖</text>
+						<text class="c-text" v-if="item.teamnum-item.gua_num>0 && item.bzjl_type==2">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.bzj_score}}积分</text>
+						<text class="c-text" v-if="item.teamnum-item.gua_num>0 && item.bzjl_type==3">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.bzj_commission}}元佣金</text>
+						<text class="c-text" v-if="item.teamnum-item.gua_num>0 && item.bzjl_type==4">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.money}}优惠券</text>
 					</view>
 					<view v-else>
-						<text v-if="item.teamnum-item.gua_num>0">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.money}}元参与奖</text>
+						<text class="c-text" v-if="item.teamnum-item.gua_num>0">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.money}}元参与奖</text>
 					</view>
 				</view>
 			</view>
@@ -60,13 +60,13 @@
 				</view>
 			</view>
 					<view v-if="item.linktype==1">
-						<view class="desc" v-if="item.bzjl_type==1"><text>{{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text><text v-if="item.teamnum-item.gua_num>0">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.money}}元参与奖</text></view>
-						<view class="desc" v-if="item.bzjl_type==2"><text>{{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text><text v-if="item.teamnum-item.gua_num>0">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.bzj_score}}积分</text></view>
-						<view class="desc" v-if="item.bzjl_type==3"><text>{{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text><text v-if="item.teamnum-item.gua_num>0">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.bzj_commission}}元佣金</text></view>
-						<view class="desc" v-if="item.bzjl_type==4"><text>{{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text><text v-if="item.teamnum-item.gua_num>0">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.money}}优惠券</text></view>
+						<view class="desc" v-if="item.bzjl_type==1"><text class="c-text">{{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text><text class="c-text" v-if="item.teamnum-item.gua_num>0">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.money}}元参与奖</text></view>
+						<view class="desc" v-if="item.bzjl_type==2"><text class="c-text">{{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text><text class="c-text" v-if="item.teamnum-item.gua_num>0">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.bzj_score}}积分</text></view>
+						<view class="desc" v-if="item.bzjl_type==3"><text class="c-text">{{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text><text class="c-text" v-if="item.teamnum-item.gua_num>0">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.bzj_commission}}元佣金</text></view>
+						<view class="desc" v-if="item.bzjl_type==4"><text class="c-text">{{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text><text class="c-text" v-if="item.teamnum-item.gua_num>0">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.money}}优惠券</text></view>
 					</view>
 					<view v-else>
-						<view class="desc" v-if="item.show_teamnum == 1" ><text>{{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text><text v-if="item.gua_num>0">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.money}}元参与奖</text></view>
+						<view class="desc" v-if="item.show_teamnum == 1" ><text class="c-text">{{item.teamnum}}人拼团 {{item.gua_num}}人得商品</text><text class="c-text" v-if="item.gua_num>0">{{item.teamnum-item.gua_num}}人{{item.teamnum-item.gua_num>1?'各':''}}得{{item.money}}元参与奖</text></view>
 							</view>
 					</view>
 			
@@ -102,7 +102,7 @@
 .dp-collage-item .product-info .p3-1{height:40rpx;line-height:40rpx;border:0 #FF3143 solid;border-radius:10rpx;color:#FF3143;padding:0 24rpx;font-size:24rpx}
 .dp-collage-item .product-info .p3-2{color:#999999;font-size:20rpx;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;}
 .dp-collage-item .product-pic .desc{ display: flex; width:100%;  flex-wrap: wrap; position: absolute; bottom: 0; background: #FF3143; opacity: 0.7; color:#fff;font-size: 20rpx;height:80rpx; padding:5rpx 10rpx}
-.dp-collage-item .product-pic .desc text{ width: 100%;}
+.dp-collage-item .product-pic .desc .c-text{ width: 100%;}
 
 
 .dp-collage-itemlist{height: auto; position: relative;overflow: hidden; padding: 0px; display:flex;flex-wrap:wrap}

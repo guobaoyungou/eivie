@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>API管理前端测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .test-section { background: #fff; padding: 20px; margin-bottom: 20px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .test-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #1E9FFF; padding-bottom: 10px; }
+        .test-item { padding: 10px; margin-bottom: 10px; border-left: 3px solid #1E9FFF; background: #f8f8f8; }
+        .test-result { margin-top: 10px; padding: 10px; border-radius: 4px; }
+        .success { background: #e8f8f5; color: #00a65a; }
+        .error { background: #f8e8e8; color: #dd4b39; }
+        .info { background: #e8f4f8; color: #3c8dbc; }
+        button { padding: 8px 15px; background: #1E9FFF; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0c7cd5; }
+        pre { background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .log-item { padding: 5px; margin: 5px 0; font-size: 12px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>API管理功能 - 前端测试</h1>
+    
+    <div class="test-section">
+        <div class="test-title">1. jQuery加载测试</div>
+        <div class="test-item">
+            <p>检查jQuery是否正确加载...</p>
+            <button onclick="testJQuery()">测试jQuery</button>
+            <div id="jqueryResult" class="test-result"></div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">2. Layui加载测试</div>
+        <div class="test-item">
+            <p>检查Layui框架是否正确加载...</p>
+            <button onclick="testLayui()">测试Layui</button>
+            <div id="layuiResult" class="test-result"></div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">3. AJAX请求测试</div>
+        <div class="test-item">
+            <p>测试扫描接口的AJAX请求...</p>
+            <label>
+                <input type="checkbox" name="test_controller" value="ApiAddress" checked> ApiAddress
+            </label>
+            <label>
+                <input type="checkbox" name="test_controller" value="ApiAdmin"> ApiAdmin
+            </label>
+            <br><br>
+            <button onclick="testScanAjax()">测试扫描AJAX</button>
+            <div id="ajaxResult" class="test-result"></div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">4. 控制台日志</div>
+        <div class="test-item">
+            <div id="consoleLog" style="max-height: 300px; overflow-y: auto; background: #f8f8f8; padding: 10px; border-radius: 4px;"></div>
+        </div>
+    </div>
+
+    <!-- 引入Layui -->
+    <script src="/static/admin/layui/layui.js"></script>
+    <script>
+        var logs = [];
+        
+        function addLog(message, type) {
+            type = type || 'info';
+            var timestamp = new Date().toLocaleTimeString();
+            var log = '[' + timestamp + '] [' + type.toUpperCase() + '] ' + message;
+            logs.push(log);
+            
+            var logDiv = document.getElementById('consoleLog');
+            var logItem = document.createElement('div');
+            logItem.className = 'log-item';
+            logItem.style.color = type === 'error' ? '#dd4b39' : (type === 'success' ? '#00a65a' : '#333');
+            logItem.textContent = log;
+            logDiv.appendChild(logItem);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            // 同时输出到浏览器控制台
+            console.log(log);
+        }
+        
+        function testJQuery() {
+            addLog('开始测试jQuery...', 'info');
+            
+            layui.use(['jquery'], function(){
+                var $ = layui.jquery;
+                
+                var result = document.getElementById('jqueryResult');
+                
+                if (typeof $ !== 'undefined') {
+                    result.className = 'test-result success';
+                    result.innerHTML = '✓ jQuery加载成功！版本: ' + ($.fn.jquery || 'unknown');
+                    addLog('jQuery加载成功，版本: ' + ($.fn.jquery || 'unknown'), 'success');
+                    
+                    // 测试基本功能
+                    try {
+                        var testDiv = $('<div>测试</div>');
+                        addLog('jQuery基本功能正常', 'success');
+                        result.innerHTML += '<br>✓ jQuery基本功能测试通过';
+                    } catch(e) {
+                        addLog('jQuery基本功能异常: ' + e.message, 'error');
+                        result.innerHTML += '<br>✗ jQuery基本功能异常: ' + e.message;
+                    }
+                } else {
+                    result.className = 'test-result error';
+                    result.innerHTML = '✗ jQuery未加载或加载失败';
+                    addLog('jQuery未加载', 'error');
+                }
+            });
+        }
+        
+        function testLayui() {
+            addLog('开始测试Layui...', 'info');
+            
+            var result = document.getElementById('layuiResult');
+            
+            if (typeof layui !== 'undefined') {
+                result.className = 'test-result success';
+                result.innerHTML = '✓ Layui加载成功！';
+                addLog('Layui加载成功', 'success');
+                
+                // 测试模块加载
+                layui.use(['layer', 'form', 'element'], function(){
+                    var layer = layui.layer;
+                    var form = layui.form;
+                    var element = layui.element;
+                    
+                    if (layer && form && element) {
+                        result.innerHTML += '<br>✓ Layui核心模块加载成功 (layer, form, element)';
+                        addLog('Layui核心模块加载成功', 'success');
+                        
+                        // 测试layer弹窗
+                        layer.msg('Layui测试成功！', {icon: 1, time: 1000});
+                    } else {
+                        result.innerHTML += '<br>✗ Layui模块加载失败';
+                        addLog('Layui模块加载失败', 'error');
+                    }
+                });
+            } else {
+                result.className = 'test-result error';
+                result.innerHTML = '✗ Layui未加载或加载失败';
+                addLog('Layui未加载', 'error');
+            }
+        }
+        
+        function testScanAjax() {
+            addLog('开始测试扫描AJAX请求...', 'info');
+            
+            layui.use(['jquery', 'layer'], function(){
+                var $ = layui.jquery;
+                var layer = layui.layer;
+                
+                var result = document.getElementById('ajaxResult');
+                result.className = 'test-result info';
+                result.innerHTML = '正在发送AJAX请求...';
+                
+                // 获取选中的控制器
+                var controllers = [];
+                $('input[name="test_controller"]:checked').each(function() {
+                    controllers.push($(this).val());
+                });
+                
+                addLog('选中的控制器: ' + controllers.join(', '), 'info');
+                
+                if (controllers.length === 0) {
+                    result.className = 'test-result error';
+                    result.innerHTML = '✗ 请至少选择一个控制器';
+                    addLog('未选择控制器', 'error');
+                    return;
+                }
+                
+                var requestData = {
+                    type: 'all',
+                    controllers: controllers
+                };
+                
+                addLog('请求数据: ' + JSON.stringify(requestData), 'info');
+                
+                $.ajax({
+                    url: '/index.php/ApiManage/scan',
+                    type: 'POST',
+                    data: requestData,
+                    dataType: 'json',
+                    beforeSend: function() {
+                        addLog('AJAX请求已发送...', 'info');
+                    },
+                    success: function(res) {
+                        addLog('AJAX请求成功返回', 'success');
+                        addLog('响应数据: ' + JSON.stringify(res), 'info');
+                        
+                        result.className = 'test-result success';
+                        result.innerHTML = '✓ AJAX请求成功<br>';
+                        result.innerHTML += '<pre>' + JSON.stringify(res, null, 2) + '</pre>';
+                        
+                        if (res.status == 1) {
+                            addLog('扫描成功: ' + res.msg, 'success');
+                            layer.msg('扫描测试成功！', {icon: 1});
+                        } else {
+                            addLog('扫描返回失败: ' + res.msg, 'error');
+                            layer.msg('扫描失败: ' + res.msg, {icon: 2});
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        addLog('AJAX请求失败', 'error');
+                        addLog('错误状态: ' + status, 'error');
+                        addLog('错误信息: ' + error, 'error');
+                        addLog('响应状态码: ' + xhr.status, 'error');
+                        addLog('响应文本: ' + xhr.responseText, 'error');
+                        
+                        result.className = 'test-result error';
+                        result.innerHTML = '✗ AJAX请求失败<br>';
+                        result.innerHTML += '状态: ' + status + '<br>';
+                        result.innerHTML += '错误: ' + error + '<br>';
+                        result.innerHTML += '状态码: ' + xhr.status + '<br>';
+                        result.innerHTML += '<pre>' + xhr.responseText + '</pre>';
+                        
+                        layer.msg('请求失败: ' + error, {icon: 2});
+                    }
+                });
+            });
+        }
+        
+        // 页面加载完成后自动测试
+        window.onload = function() {
+            addLog('页面加载完成', 'info');
+            addLog('开始自动测试...', 'info');
+            
+            setTimeout(function() {
+                testJQuery();
+            }, 100);
+            
+            setTimeout(function() {
+                testLayui();
+            }, 500);
+        };
+    </script>
+</body>
+</html>

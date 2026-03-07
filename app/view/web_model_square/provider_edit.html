@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{if $info.id}编辑{else}新增{/if}供应商</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          {if $info.id}<i class="fa fa-pencil"></i> 编辑供应商{else}<i class="fa fa-plus"></i> 新增供应商{/if}
+          <i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer;float:right" onclick="closeself()"></i>
+        </div>
+        <div class="layui-card-body" pad15>
+          <div class="layui-form form-label-w8">
+            <input type="hidden" name="info[id]" value="{$info.id}">
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label"><span class="required">*</span>供应商名称</label>
+              <div class="layui-input-inline" style="width:300px">
+                <input type="text" name="info[provider_name]" value="{$info.provider_name}" lay-verify="required" lay-verType="tips" class="layui-input" placeholder="如：火山引擎">
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label"><span class="required">*</span>供应商标识</label>
+              <div class="layui-input-inline" style="width:300px">
+                <input type="text" name="info[provider_code]" value="{$info.provider_code}" lay-verify="required" lay-verType="tips" class="layui-input" placeholder="如：volcengine" {if $info.is_system == 1}readonly{/if}>
+              </div>
+              <div class="layui-form-mid layui-word-aux">唯一标识，英文小写，不可重复</div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">Logo图片</label>
+              <div class="layui-input-inline" style="width:300px">
+                <input type="text" name="info[logo]" id="logo" class="layui-input" value="{$info.logo}">
+              </div>
+              <button type="button" class="layui-btn layui-btn-primary" onclick="uploader(this)" upload-input="logo" upload-preview="logoPreview">上传</button>
+              <div id="logoPreview" style="margin-top:10px;margin-left:130px">
+                {if $info.logo}
+                <div class="layui-imgbox" style="width:80px;height:80px"><div class="layui-imgbox-img"><img src="{$info.logo}"/></div></div>
+                {/if}
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">官网地址</label>
+              <div class="layui-input-inline" style="width:400px">
+                <input type="text" name="info[website]" value="{$info.website}" class="layui-input" placeholder="https://www.example.com">
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">API文档地址</label>
+              <div class="layui-input-inline" style="width:400px">
+                <input type="text" name="info[api_doc_url]" value="{$info.api_doc_url}" class="layui-input" placeholder="API文档链接">
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">描述</label>
+              <div class="layui-input-inline" style="width:500px">
+                <textarea name="info[description]" class="layui-textarea" placeholder="供应商描述信息">{$info.description}</textarea>
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">认证配置</label>
+              <div class="layui-input-inline" style="width:500px">
+                <textarea name="info[auth_config]" id="auth_config" class="layui-textarea" style="height:150px" placeholder='JSON格式，如：{"fields":[{"name":"api_key","label":"API Key","type":"text","required":true}]}'>{if $info.auth_config}{$info.auth_config|json_encode}{/if}</textarea>
+              </div>
+              <div class="layui-form-mid layui-word-aux">
+                <p>定义商家需要配置的认证字段，JSON格式</p>
+                <p>fields数组中每项包含：name(字段名)、label(显示名)、type(类型text/password)、required(是否必填)</p>
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">排序</label>
+              <div class="layui-input-inline" style="width:100px">
+                <input type="number" name="info[sort]" value="{$info.sort|default=0}" class="layui-input">
+              </div>
+              <div class="layui-form-mid layui-word-aux">数字越小越靠前</div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">状态</label>
+              <div class="layui-input-inline">
+                <input type="radio" name="info[status]" value="1" title="启用" {if $info.status != 0}checked{/if}>
+                <input type="radio" name="info[status]" value="0" title="禁用" {if $info.status == 0}checked{/if}>
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <div class="layui-input-block">
+                <button class="layui-btn layui-btn-danger" lay-submit lay-filter="formsubmit">保 存</button>
+                <button type="button" class="layui-btn layui-btn-primary" onclick="closeself()">取 消</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  layui.form.on('submit(formsubmit)', function(obj) {
+    var field = obj.field;
+    
+    // 验证auth_config是否为合法JSON
+    var authConfig = field['info[auth_config]'];
+    if (authConfig && authConfig.trim()) {
+      try {
+        JSON.parse(authConfig);
+      } catch (e) {
+        layer.msg('认证配置必须为合法的JSON格式');
+        return false;
+      }
+    }
+    
+    var index = layer.load();
+    $.post("{:url('provider_save')}", field, function(data) {
+      layer.close(index);
+      dialog(data.msg, data.status);
+      if (data.status == 1) {
+        setTimeout(function() {
+          parent.layer.close(parent.layer.getFrameIndex(window.name));
+          parent.tableIns.reload();
+        }, 1000);
+      }
+    });
+    return false;
+  });
+  </script>
+</body>
+</html>

@@ -97,7 +97,7 @@
 		onLoad(opt) {
 			let that = this;
 			this.getdatacart();
-			var sysinfo = uni.getSystemInfoSync();
+			var sysinfo = uni.getWindowInfo();
 			this.statusBarHeight = sysinfo.statusBarHeight;
 			this.wxNavigationBarMenu();
 			this.isload = true;

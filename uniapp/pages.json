@@ -14,53 +14,17 @@
 	"pages": [//此包不可新增文件
 		{"path": "pages/index/index","style": {"enablePullDownRefresh": true}},
 		{"path": "pages/index/main","style": {"enablePullDownRefresh": true}},
-		{"path": "pages/index/webView","style": {"titleNView":false}},
-		{"path": "pages/index/webView2","style": {"titleNView":false}},
-		{"path": "pages/index/reg","style": {"navigationBarTitleText": "用户注册","enablePullDownRefresh": false}},
-		{"path": "pages/index/login","style": {"navigationBarTitleText": "用户登录","enablePullDownRefresh": false}},
+		{"path": "pages/index/webView","style": {"app-plus":{"titleNView":false}}},
+		{"path": "pages/index/webView2","style": {"app-plus":{"titleNView":false}}},
 
-		{"path": "pages/shop/product","style": {"navigationBarTitleText": "商品详情","enablePullDownRefresh": true}},
-		{"path": "pages/shop/cart","style": {"navigationBarTitleText": "购物车","enablePullDownRefresh": true}},
-		{"path": "pages/shop/prolist","style": {"navigationBarTitleText": "商品列表","enablePullDownRefresh": false}},
-		{"path": "pages/shop/search","style": {"navigationBarTitleText": "商品搜索","enablePullDownRefresh": false}},
-		{"path": "pages/shop/category1","style": {"navigationBarTitleText": "商品分类","enablePullDownRefresh": false}},
-		{"path": "pages/shop/category2","style": {"navigationBarTitleText": "商品分类","enablePullDownRefresh": false}},
-		{"path": "pages/shop/category3","style": {"navigationBarTitleText": "商品分类","enablePullDownRefresh": false}},
-		{"path": "pages/shop/category4","style": {"navigationBarTitleText": "商品分类","enablePullDownRefresh": false}},
-		{"path": "pages/shop/classify","style": {"navigationBarTitleText": "分类商品","enablePullDownRefresh": false}},
-		{"path": "pages/shop/fastbuy","style": {"navigationBarTitleText": "快速购买","enablePullDownRefresh": false}},
-		{"path": "pages/shop/fastbuy2","style": {"navigationBarTitleText": "","enablePullDownRefresh": false}},
-		{"path": "pages/shop/mendian","style": {"navigationBarTitleText": "门店","enablePullDownRefresh": false}},
 		
-		//待迁移	
-
-		//移入pagesExt
-		{"path": "pages/my/usercenter","style": {"enablePullDownRefresh": true}},//2.4.6 不可移除
-		{"path": "pages/my/levelinfo","style": {"navigationBarTitleText": "等级说明","enablePullDownRefresh": true}},//2.4.5
-		{"path": "pages/my/levelup","style": {"enablePullDownRefresh": false}},//2.4.5
-		{"path": "pages/my/scorelog","style": {"enablePullDownRefresh": true}},//2.4.5
-		{"path": "pages/my/favorite","style": {"navigationBarTitleText": "我的收藏","enablePullDownRefresh": true}},//2.4.5
-		{"path": "pages/my/history","style": {"navigationBarTitleText": "我的足迹","enablePullDownRefresh": true}},
-		{"path": "pages/my/set","style": {"navigationBarTitleText": "个人设置","enablePullDownRefresh": true}},
-		{"path": "pages/pay/pay"},//2.5.4 2.6.5替换后台路径
-		{"path": "pages/pay/daifu","custom_file":"pay_daifu"},//2.5.4
-		{"path": "pages/pay/transfer","custom_file":"pay_transfer"},//2.5.4
-		{"path": "pages/order/orderlist"},//2.4.4
-		//{"path": "pages/sign/index"},//2.4.3
-		{"path": "pages/money/withdraw","style": {"enablePullDownRefresh": true}},//2.5.4
-		{"path": "pages/money/recharge","style": {"enablePullDownRefresh": true}},//2.5.4
-		{"path": "pages/coupon/couponlist","style": {"navigationBarTitleText": "领券中心","enablePullDownRefresh": true}},//不可移除2.4.8
-		{"path": "pages/coupon/mycoupon","style": {"enablePullDownRefresh": true}},//不可移除 2.4.8
-		{"path": "pages/coupon/coupongive","style": {"enablePullDownRefresh": true}},//2.4.8
-		//移入pagesB
-		{"path": "pages/shop/classify2","style": {"navigationBarTitleText": "分类商品","enablePullDownRefresh": false}},//2.6.4
-		{"path": "pages/shop/buy","style": {"navigationBarTitleText": "订单确认","enablePullDownRefresh": false}},//2.5.9
-		{"path": "pages/address/address","style": {"navigationBarTitleText": "收货地址","enablePullDownRefresh": true}},//2.6.1
-		{"path": "pages/kefu/index","style": {"navigationBarTitleText": "在线咨询","enablePullDownRefresh":false}},//2.6.1
-		{"path": "pages/index/getpwd","style": {"navigationBarTitleText": "找回密码","enablePullDownRefresh": true}},//2.6.1
-		{"path": "pages/maidan/pay","style": {"navigationBarTitleText": "买单付款"}},//不可移除 2.6.2
-		{"path": "pages/maidan/maidanlog","style": {"navigationBarTitleText": "买单付款记录","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入订单号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},//2.6.2
-		{"path": "pages/maidan/maidandetail","style": {"navigationBarTitleText": "买单付款详情","enablePullDownRefresh": true}}	//2.6.2
+		//已迁移至分包的页面已移除，通过App.vue中的路径重定向机制兼容旧路径
+		{"path": "pages/my/usercenter","style": {"enablePullDownRefresh": true}},//不可移除
+		{"path": "pages/pay/pay"},//不可移除 收银台
+		{"path": "pages/order/orderlist"},//不可移除 订单列表
+		{"path": "pages/coupon/couponlist","style": {"navigationBarTitleText": "领券中心","enablePullDownRefresh": true}},//不可移除
+		{"path": "pages/coupon/mycoupon","style": {"enablePullDownRefresh": true}},//不可移除
+		{"path": "pages/maidan/pay","style": {"navigationBarTitleText": "买单付款"}}//不可移除
 	],
 	"subPackages": [
 		{
@@ -93,7 +57,7 @@
 				{"path": "scoreshop/product","style": {"navigationBarTitleText": "商品详情","enablePullDownRefresh": true}},
 				{"path": "scoreshop/cart","style": {"navigationBarTitleText": "购物车","enablePullDownRefresh": true}},
 				{"path": "scoreshop/buy","style": {"navigationBarTitleText": "订单确认","enablePullDownRefresh": false}},
-				{"path": "scoreshop/orderlist","style": {"enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "scoreshop/orderlist","style": {"enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "scoreshop/orderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 				{"path": "scoreshop/refund","style": {"navigationBarTitleText": "申请退款","enablePullDownRefresh": true}},
 				
@@ -102,7 +66,7 @@
 				{"path": "kanjia/join","style": {"navigationBarTitleText": "砍价详情","enablePullDownRefresh": true}},
 				{"path": "kanjia/helplist","style": {"navigationBarTitleText": "帮砍列表","enablePullDownRefresh": true}},
 				{"path": "kanjia/buy","style": {"navigationBarTitleText": "订单确认","enablePullDownRefresh": false}},
-				{"path": "kanjia/orderlist","style": {"navigationBarTitleText": "砍价订单列表","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "kanjia/orderlist","style": {"navigationBarTitleText": "砍价订单列表","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "kanjia/orderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 				{"path": "kanjia/refund","style": {"navigationBarTitleText": "申请退款","enablePullDownRefresh": true}},
 				
@@ -110,7 +74,7 @@
 				{"path": "collage/product","style": {"navigationBarTitleText": "商品详情","enablePullDownRefresh": true}},
 				{"path": "collage/team","style": {"navigationBarTitleText": "参团成员","enablePullDownRefresh": true}},
 				{"path": "collage/buy","style": {"navigationBarTitleText": "订单确认","enablePullDownRefresh": false}},
-				{"path": "collage/orderlist","style": {"navigationBarTitleText": "拼团订单列表","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "collage/orderlist","style": {"navigationBarTitleText": "拼团订单列表","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "collage/orderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 				{"path": "collage/comment","style": {"navigationBarTitleText": "我要评论","enablePullDownRefresh": false}},
 				{"path": "collage/commentlist","style": {"navigationBarTitleText": "商品评价","enablePullDownRefresh": false}},
@@ -119,7 +83,7 @@
 				{"path": "seckill/index","style": {"navigationBarTitleText": "秒杀列表","enablePullDownRefresh": true}},
 				{"path": "seckill/product","style": {"navigationBarTitleText": "秒杀商品","enablePullDownRefresh": true}},
 				{"path": "seckill/buy","style": {"navigationBarTitleText": "订单确认","enablePullDownRefresh": false}},
-				{"path": "seckill/orderlist","style": {"navigationBarTitleText": "秒杀订单列表","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "seckill/orderlist","style": {"navigationBarTitleText": "秒杀订单列表","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "seckill/orderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 				{"path": "seckill/comment","style": {"navigationBarTitleText": "我要评论","enablePullDownRefresh": false}},
 				{"path": "seckill/commentlist","style": {"navigationBarTitleText": "商品评价","enablePullDownRefresh": false}},
@@ -128,7 +92,7 @@
 				{"path": "tuangou/prolist","style": {"navigationBarTitleText": "团购列表","enablePullDownRefresh": true}},
 				{"path": "tuangou/product","style": {"navigationBarTitleText": "团购商品","enablePullDownRefresh": true}},
 				{"path": "tuangou/buy","style": {"navigationBarTitleText": "订单确认","enablePullDownRefresh": false}},
-				{"path": "tuangou/orderlist","style": {"navigationBarTitleText": "团购订单列表","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "tuangou/orderlist","style": {"navigationBarTitleText": "团购订单列表","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "tuangou/orderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 				{"path": "tuangou/comment","style": {"navigationBarTitleText": "我要评论","enablePullDownRefresh": false}},
 				{"path": "tuangou/commentlist","style": {"navigationBarTitleText": "商品评价","enablePullDownRefresh": false}},
@@ -158,7 +122,7 @@
 				{"path": "yuyue/product","style": {"navigationBarTitleText": "服务详情","enablePullDownRefresh": true}},
 				{"path": "yuyue/product2","style": {"navigationBarTitleText": "商品详情","enablePullDownRefresh": false}},
 				{"path": "yuyue/prolist","style": {"navigationBarTitleText": "服务列表","enablePullDownRefresh": false}},
-				{"path": "yuyue/orderlist","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "yuyue/orderlist","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "yuyue/orderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": false}},
 				{"path": "yuyue/peolist","style": {"navigationBarTitleText": "人员列表","enablePullDownRefresh": false}},
 				{"path": "yuyue/peolist2","style": {"navigationBarTitleText": "师傅列表","enablePullDownRefresh": false}},
@@ -170,14 +134,14 @@
 				{"path": "yuyue/apply","custom_file":"yuyue_apply","style": {"navigationBarTitleText": "师傅申请","enablePullDownRefresh": false}},
 				
 				{"path": "shortvideo/index","style": {"navigationBarTitleText": "短视频列表"}},
-				{"path": "shortvideo/detail","style": {"navigationBarTitleText": "","navigationStyle":"custom","disableScroll":true,"mp-toutiao":{"navigationStyle":"default"},"mp-alipay": {"transparentTitle": "always","titlePenetrate": "YES"},"titleNView":false}},
+				{"path": "shortvideo/detail","style": {"navigationBarTitleText": "","navigationStyle":"custom","disableScroll":true,"mp-toutiao":{"navigationStyle":"default"},"mp-alipay": {"transparentTitle": "always","titlePenetrate": "YES"},"app-plus":{"titleNView":false}}},
 				{"path": "shortvideo/uploadvideo","style": {"navigationBarTitleText": "发布短视频"}},
 				{"path": "shortvideo/myupload","style": {"navigationBarTitleText": "我的发表记录"}},
 				
 				{"path": "kecheng/list","style": {"navigationBarTitleText": "课程列表","enablePullDownRefresh": false}},
 				{"path": "kecheng/product","style": {"navigationBarTitleText": "课程详情","enablePullDownRefresh": true}},
 				{"path": "kecheng/mldetail","style": {"navigationBarTitleText": "目录详情","enablePullDownRefresh": false}},
-				{"path": "kecheng/orderlist","style": {"navigationBarTitleText": "我的课程","enablePullDownRefresh": false,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "kecheng/orderlist","style": {"navigationBarTitleText": "我的课程","enablePullDownRefresh": false,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "kecheng/tiku","style": {"navigationBarTitleText": "开始答题","enablePullDownRefresh": false}},
 				{"path": "kecheng/complete","style": {"navigationBarTitleText": "答题完成","enablePullDownRefresh": false}},
 				{"path": "kecheng/recordlog","style": {"navigationBarTitleText": "答题记录","enablePullDownRefresh": false}},
@@ -189,7 +153,7 @@
 				{"path": "luckycollage/product","style": {"navigationBarTitleText": "商品详情","enablePullDownRefresh": true}},
 				{"path": "luckycollage/team","style": {"navigationBarTitleText": "参团成员","enablePullDownRefresh": true}},
 				{"path": "luckycollage/buy","style": {"navigationBarTitleText": "订单确认","enablePullDownRefresh": false}},
-				{"path": "luckycollage/orderlist","style": {"navigationBarTitleText": "拼团订单列表","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "luckycollage/orderlist","style": {"navigationBarTitleText": "拼团订单列表","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "luckycollage/orderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 				{"path": "luckycollage/comment","style": {"navigationBarTitleText": "我要评论","enablePullDownRefresh": false}},
 				{"path": "luckycollage/commentlist","style": {"navigationBarTitleText": "商品评价","enablePullDownRefresh": false}},
@@ -256,8 +220,8 @@
 				{"path": "money/recharge","style": {"enablePullDownRefresh": true}},
 				{"path": "money/rechargeToMember","custom_file":"money_transfer","style": {"enablePullDownRefresh": true}},
 
-				{"path": "order/orderlist","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
-				{"path": "order/refundlist","style": {"navigationBarTitleText": "售后订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/orderlist","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
+				{"path": "order/refundlist","style": {"navigationBarTitleText": "售后订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 
 				{"path": "order/refundDetail","style": {"navigationBarTitleText": "售后详情","enablePullDownRefresh": true}},
 				{"path": "order/comment","style": {"navigationBarTitleText": "我要评价","enablePullDownRefresh": false}},
@@ -328,10 +292,10 @@
 				{"path": "yueke/product","custom_file":"yueke","style": {"navigationBarTitleText": "课程详情"}},
 				{"path": "yueke/workerinfo","custom_file":"yueke","style": {"navigationBarTitleText": "教练详情"}},
 				{"path": "yueke/buy","custom_file":"yueke","style": {"navigationBarTitleText": "订单确认"}},
-				{"path": "yueke/orderlist","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "yueke/orderlist","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "yueke/orderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": false}},
 				{"path": "yueke/workerlogin","style": {"navigationBarTitleText": "教练登录","enablePullDownRefresh": false}},
-				{"path": "yueke/workerorderlist","style": {"navigationBarTitleText": "预约记录","enablePullDownRefresh": false,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "yueke/workerorderlist","style": {"navigationBarTitleText": "预约记录","enablePullDownRefresh": false,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "yueke/workerorderdetail","style": {"navigationBarTitleText": "预约详情","enablePullDownRefresh": false}},
 				{"path": "mingpian/index","style": {"navigationBarTitleText": "名片详情","enablePullDownRefresh": false}},
 				{"path": "mingpian/edit","style": {"navigationBarTitleText": "名片编辑","enablePullDownRefresh": false}},
@@ -339,7 +303,7 @@
 				{"path": "mingpian/readlog","style": {"navigationBarTitleText": "查看记录","enablePullDownRefresh": false}},
 				{"path": "mingpian/favoritelog","style": {"navigationBarTitleText": "收藏记录","enablePullDownRefresh": false}},
 
-				{"path": "archives/index","custom_file":"member_archives","style": {"navigationBarTitleText": "档案列表","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "archives/index","custom_file":"member_archives","style": {"navigationBarTitleText": "档案列表","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "archives/detail","custom_file":"member_archives","style": {"navigationBarTitleText": "档案详细","enablePullDownRefresh": true}},
                 
 				{"path": "othermoney/moneylog","custom_file":"other_money","style": {"enablePullDownRefresh": false}},
@@ -395,8 +359,22 @@
 				{"path": "imgai/detail","custom_file":"image_ai","style": {"navigationBarTitleText": "绘画详情"}},
 				{"path": "imgai/create","custom_file":"image_ai","style": {"navigationBarTitleText": "创作"}},
         
-        {"path": "checkdate/checkDate","style": {"navigationBarTitleText": "选择日期","enablePullDownRefresh": true}}
-				//此包不可新增文件
+        {"path": "checkdate/checkDate","style": {"navigationBarTitleText": "选择日期","enablePullDownRefresh": true}},
+
+				{"path": "index/reg","style": {"navigationBarTitleText": "用户注册","enablePullDownRefresh": false}},
+				{"path": "index/login","style": {"navigationBarTitleText": "用户登录","enablePullDownRefresh": false}},
+				{"path": "shop/product","style": {"navigationBarTitleText": "商品详情","enablePullDownRefresh": true}},
+				{"path": "shop/cart","style": {"navigationBarTitleText": "购物车","enablePullDownRefresh": true}},
+				{"path": "shop/prolist","style": {"navigationBarTitleText": "商品列表","enablePullDownRefresh": false}},
+				{"path": "shop/search","style": {"navigationBarTitleText": "商品搜索","enablePullDownRefresh": false}},
+				{"path": "shop/category1","style": {"navigationBarTitleText": "商品分类","enablePullDownRefresh": false}},
+				{"path": "shop/category2","style": {"navigationBarTitleText": "商品分类","enablePullDownRefresh": false}},
+				{"path": "shop/category3","style": {"navigationBarTitleText": "商品分类","enablePullDownRefresh": false}},
+				{"path": "shop/category4","style": {"navigationBarTitleText": "商品分类","enablePullDownRefresh": false}},
+				{"path": "shop/classify","style": {"navigationBarTitleText": "分类商品","enablePullDownRefresh": false}},
+				{"path": "shop/fastbuy","style": {"navigationBarTitleText": "快速购买","enablePullDownRefresh": false}},
+				{"path": "shop/fastbuy2","style": {"navigationBarTitleText": "","enablePullDownRefresh": false}},
+				{"path": "shop/mendian","style": {"navigationBarTitleText": "门店","enablePullDownRefresh": false}}
 			]
 		},
 		{
@@ -414,7 +392,13 @@
 				{"path": "cerberuse/buy","custom_file":"lot_cerberus","style": {"navigationBarTitleText": "智能开门购买"}},
 				{"path": "cerberuse/orderlist","custom_file":"lot_cerberus","style": {"navigationBarTitleText": "订单列表"}},
 				{"path": "cerberuse/orderdetail","custom_file":"lot_cerberus","style": {"navigationBarTitleText": "订单详情"}},
-				{"path": "cerberuse/refund","custom_file":"lot_cerberus","style": {"navigationBarTitleText": "申请退款"}}
+				{"path": "cerberuse/refund","custom_file":"lot_cerberus","style": {"navigationBarTitleText": "申请退款"}},
+				{"path": "generation/orderlist","style": {"navigationBarTitleText": "生成订单","enablePullDownRefresh": true}},
+				{"path": "generation/orderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
+				{"path": "generation/refundApply","style": {"navigationBarTitleText": "申请退款","enablePullDownRefresh": false}},
+				{"path": "generation/detail","style": {"navigationBarTitleText": "模板详情","enablePullDownRefresh": true}},
+				{"path": "generation/create","style": {"navigationBarTitleText": "创建生成任务","enablePullDownRefresh": false}},
+				{"path": "generation/result","style": {"navigationBarTitleText": "生成结果","enablePullDownRefresh": false}}
 				//此包不可新增文件
 			]
 		},
@@ -430,7 +414,7 @@
 				{"path": "index/recharge","style": {"navigationBarTitleText": "店铺设置"}},
 
 				{"path": "hexiao/hexiao","style": {}},
-				{"path": "hexiao/record","style": {"navigationBarTitleText": "我的核销","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入用户昵称搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "hexiao/record","style": {"navigationBarTitleText": "我的核销","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入用户昵称搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "hexiao/recordgroup","custom_file":"hexiao_record_group","style": {"navigationBarTitleText": "我的核销","enablePullDownRefresh": true}},
 				{"path": "finance/index","style": {"navigationBarTitleText": "财务","navigationStyle": "custom"}},
 				{"path": "finance/commissionlog","style": {}},
@@ -460,41 +444,41 @@
 				{"path": "couponmoney/withdrawlog","custom_file":"business_canuseplatcoupon","style": {"navigationBarTitleText": "补贴券提现记录"}},
                 
 				{"path": "kefu/index","style": {"navigationBarTitleText": "消息列表"}},
-				{"path": "kefu/message","style": {"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "kefu/message","style": {"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "member/index","style": {}},
 				{"path": "member/detail","style": {}},
 				{"path": "member/richinfo","style": {"navigationBarTitleText": "详细介绍"}},
 				{"path": "member/history","style": {"navigationBarTitleText": "足迹"}},
 				{"path": "member/code","custom_file":"member_code","style": {"navigationBarTitleText": "","enablePullDownRefresh": true}},
 				{"path": "member/codebuy","custom_file":"member_code","style": {"navigationBarTitleText": "","enablePullDownRefresh": true}},
-				{"path": "order/collageorder","style": {"navigationBarTitleText": "拼团订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/collageorder","style": {"navigationBarTitleText": "拼团订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/collageorderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
-				{"path": "order/cycleorder","style": {"navigationBarTitleText": "周期购订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/cycleorder","style": {"navigationBarTitleText": "周期购订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/cycleorderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 				{"path": "order/cycleplanlist","style": {"navigationBarTitleText": "计划列表","enablePullDownRefresh": true}},
 				{"path": "order/cycleplandetail","style": {"navigationBarTitleText": "计划详情","enablePullDownRefresh": true}},
-				{"path": "order/luckycollageorder","style": {"navigationBarTitleText": "幸运拼团订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/luckycollageorder","style": {"navigationBarTitleText": "幸运拼团订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/luckycollageorderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
-				{"path": "order/kanjiaorder","style": {"navigationBarTitleText": "砍价订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/kanjiaorder","style": {"navigationBarTitleText": "砍价订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/kanjiaorderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
-				{"path": "order/seckillorder","style": {"navigationBarTitleText": "秒杀订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/seckillorder","style": {"navigationBarTitleText": "秒杀订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/seckillorderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 
-				{"path": "order/yuyueorder","style": {"navigationBarTitleText": "预约订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/yuyueorder","style": {"navigationBarTitleText": "预约订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/yuyueorderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 				
-				{"path": "order/scoreshoporder","style": {"navigationBarTitleText": "积分兑换订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/scoreshoporder","style": {"navigationBarTitleText": "积分兑换订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/scoreshoporderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
-				{"path": "order/shoporder","style": {"navigationBarTitleText": "商城订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/shoporder","style": {"navigationBarTitleText": "商城订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/shoporderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
-				{"path": "order/shopRefundOrder","style": {"navigationBarTitleText": "退款订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/shopRefundOrder","style": {"navigationBarTitleText": "退款订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/shopRefundOrderDetail","style": {"navigationBarTitleText": "退款订单详情","enablePullDownRefresh": true}},
 				{"path": "order/weightOrderFahuo","custom_file":"product_weight","style": {"navigationBarTitleText": "发货"}},
 
-				{"path": "order/tuangouorder","style": {"navigationBarTitleText": "团购订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/tuangouorder","style": {"navigationBarTitleText": "团购订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/tuangouorderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 	
-				{"path": "order/yuekeorder","style": {"navigationBarTitleText": "约课记录","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/yuekeorder","style": {"navigationBarTitleText": "约课记录","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/yuekeorderdetail","style": {"navigationBarTitleText": "约课详情","enablePullDownRefresh": true}},
 				{"path": "order/dkorder","custom_file":"order_add_mobile","style": {"navigationBarTitleText": "代客下单","enablePullDownRefresh": false,"navigationStyle": "custom"}},
 				{"path": "order/dkaddress","custom_file":"order_add_mobile","style": {"navigationBarTitleText": "地址","enablePullDownRefresh": false}},
@@ -513,23 +497,23 @@
 				{"path": "workorder/updatecate","custom_file":"workorder","style": {"navigationBarTitleText": "修改工单分类","enablePullDownRefresh": true}},
 				{"path": "yuyue/selectworker","custom_file":"yuyue_apply","style": {"navigationBarTitleText": "选择师傅派单","enablePullDownRefresh": true}},
 				
-				{"path": "form/formlog","style": {"navigationBarTitleText": "表单提交记录","titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "form/formlog","style": {"navigationBarTitleText": "表单提交记录","app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "form/formdetail","style": {"navigationBarTitleText": "表单提交记录"}},
 				
 				{"path": "shortvideo/uploadvideo","style": {"navigationBarTitleText": "发布短视频"}},
 				{"path": "shortvideo/myupload","style": {"navigationBarTitleText": "我的发表记录"}},
 
 				{"path": "product/edit","style": {"navigationBarTitleText": "商品设置"}},
-				{"path": "product/index","style": {"navigationBarTitleText": "商品管理","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"},{"type":"none","fontSrc":"/static/font/iconfont.ttf","text":"\ue609"}]}}},
+				{"path": "product/index","style": {"navigationBarTitleText": "商品管理","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"},{"type":"none","fontSrc":"/static/font/iconfont.ttf","text":"\ue609"}]}}}},
 				{"path": "product/category2/index","custom_file":"shop_categroy_business_mobile","style": {"navigationBarTitleText": "商家商品分类"}},
 				{"path": "product/category2/edit","custom_file":"shop_categroy_business_mobile","style": {"navigationBarTitleText": "添加商家商品分类"}},
 				{"path": "index/businessqr","style": {"navigationBarTitleText": "推广码"}},
 				
 				{"path": "scoreproduct/edit","custom_file":"scoreshop_product_mobileedit","style": {"navigationBarTitleText": "兑换商品设置"}},
-				{"path": "scoreproduct/index","custom_file":"scoreshop_product_mobileedit","style": {"navigationBarTitleText": "兑换商品管理","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "scoreproduct/index","custom_file":"scoreshop_product_mobileedit","style": {"navigationBarTitleText": "兑换商品管理","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 
 				{"path": "restaurant/product/edit","style": {"navigationBarTitleText": "菜品设置"}},
-				{"path": "restaurant/product/index","style": {"navigationBarTitleText": "菜品管理","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "restaurant/product/index","style": {"navigationBarTitleText": "菜品管理","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "restaurant/category/edit","style": {"navigationBarTitleText": "菜品分类设置"}},
 				{"path": "restaurant/category/index","style": {"navigationBarTitleText": "菜品分类管理","enablePullDownRefresh": true}},
 				{"path": "restaurant/tableEdit","style": {"navigationBarTitleText": "餐桌设置"}},
@@ -539,14 +523,14 @@
 				{"path": "restaurant/tableWaiterPay","style": {"navigationBarTitleText": "结算","enablePullDownRefresh": true}},
 				{"path": "restaurant/tableCategoryEdit","style": {"navigationBarTitleText": "餐桌分类设置"}},
 				{"path": "restaurant/tableCategory","style": {"navigationBarTitleText": "餐桌分类管理","enablePullDownRefresh": true}},
-				{"path": "restaurant/takeawayorder","style": {"navigationBarTitleText": "外卖订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "restaurant/takeawayorder","style": {"navigationBarTitleText": "外卖订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "restaurant/takeawayorderdetail","style": {"navigationBarTitleText": "外卖订单","enablePullDownRefresh": true}},
-				{"path": "restaurant/shoporder","style": {"navigationBarTitleText": "点餐订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "restaurant/shoporder","style": {"navigationBarTitleText": "点餐订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "restaurant/shoporderdetail","style": {"navigationBarTitleText": "点餐订单","enablePullDownRefresh": true}},
 				{"path": "restaurant/shoporderEdit","style": {"navigationBarTitleText": "点餐订单","enablePullDownRefresh": true}},
-				{"path": "restaurant/bookingorder","style": {"navigationBarTitleText": "预定订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入预订人姓名或手机号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "restaurant/bookingorder","style": {"navigationBarTitleText": "预定订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入预订人姓名或手机号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "restaurant/bookingorderdetail","style": {"navigationBarTitleText": "预定订单","enablePullDownRefresh": true}},
-				{"path": "restaurant/depositorder","style": {"navigationBarTitleText": "寄存订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入寄存名称、姓名或手机号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "restaurant/depositorder","style": {"navigationBarTitleText": "寄存订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入寄存名称、姓名或手机号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "restaurant/depositorderdetail","style": {"navigationBarTitleText": "寄存订单","enablePullDownRefresh": true}},
 				{"path": "restaurant/booking","style": {"navigationBarTitleText": "添加预定","enablePullDownRefresh": true}},
 				{"path": "restaurant/bookingTableList","style": {"navigationBarTitleText": "选择餐桌","enablePullDownRefresh": true}},
@@ -567,11 +551,11 @@
 		{
 			"root": "adminExt",
 			"pages": [
-				{"path": "order/maidanlog","style": {"navigationBarTitleText": "买单记录","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入用户昵称或订单号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/maidanlog","style": {"navigationBarTitleText": "买单记录","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入用户昵称或订单号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/maidandetail","style": {"navigationBarTitleText": "买单详情","enablePullDownRefresh": true}},
 				{"path": "order/maidanindex","style": {"navigationBarTitleText": "买单统计","enablePullDownRefresh": true}},
 				{"path": "order/maidannewindex","custom_file":"maidan_new","style": {"navigationBarTitleText": "新买单统计","enablePullDownRefresh": true}},
-				{"path": "order/maidannewlog","custom_file":"maidan_new","style": {"navigationBarTitleText": "新买单记录","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入用户昵称或订单号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "order/maidannewlog","custom_file":"maidan_new","style": {"navigationBarTitleText": "新买单记录","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入用户昵称或订单号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/maidannewdetail","custom_file":"maidan_new","style": {"navigationBarTitleText": "新买单详情","enablePullDownRefresh": true}},
 				{"path": "mendian/list","custom_file":"mendian_upgrade","style": {"navigationBarTitleText": "","enablePullDownRefresh": true}},
 				{"path": "mendian/detail","custom_file":"mendian_upgrade","style": {"navigationBarTitleText": "","enablePullDownRefresh": true}},
@@ -585,10 +569,10 @@
 				{"path": "huodongbaoming/orderdetail","custom_file":"huodong_baoming","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 				{"path": "shop/shopstock","custom_file":"shop_add_stock_mobile","style": {"navigationBarTitleText": "录入库存","enablePullDownRefresh": true,"navigationStyle": "custom"}},
 				{"path": "shop/shopstockgoods","custom_file":"shop_add_stock_mobile","style": {"navigationBarTitleText": "选择商品","enablePullDownRefresh": false}},
-				{"path": "coupon/index","custom_file":"coupon_manage_mobile","style": {"enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "coupon/index","custom_file":"coupon_manage_mobile","style": {"enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "coupon/edit","custom_file":"coupon_manage_mobile","style": {"enablePullDownRefresh": false}},
 				{"path": "coupon/prolist","custom_file":"coupon_manage_mobile","style": {"navigationBarTitleText": "服务商品","enablePullDownRefresh": false}},
-				{"path": "coupon/restaurantList","custom_file":"coupon_manage_mobile","style": {"navigationBarTitleText": "餐饮优惠券列表","enablePullDownRefresh": false,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "coupon/restaurantList","custom_file":"coupon_manage_mobile","style": {"navigationBarTitleText": "餐饮优惠券列表","enablePullDownRefresh": false,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "coupon/category","custom_file":"coupon_manage_mobile","style": {"navigationBarTitleText": "商品分类","enablePullDownRefresh": false}},
 				{"path": "bonuspoolgold/goldlog","custom_file":"bonus_pool_gold","style": {"navigationBarTitleText": "金币明细","enablePullDownRefresh": false}},
 				{"path": "bonuspoolgold/goldwithdraw","custom_file":"bonus_pool_gold","style": {"navigationBarTitleText": "金币兑换","enablePullDownRefresh": false}},
@@ -613,7 +597,7 @@
 				{"path": "finance/btransfer","custom_file":"business_money_transfer","style": {"navigationBarTitleText": "商家转账"}},
 				{"path": "collage/team","custom_file":"mobile_collage_order_operate","style": {"navigationBarTitleText": "参团成员","enablePullDownRefresh": true}},
 				{"path": "set/setchannels","custom_file":"business_channels","style": {"navigationBarTitleText": ""}},
-				{"path": "article/list","custom_file":"mobile_admin_article","style": {"navigationBarTitleText": "文章列表","titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"},{"type":"none","fontSrc":"/static/font/iconfont.ttf","text":"\ue609"}]}}},
+				{"path": "article/list","custom_file":"mobile_admin_article","style": {"navigationBarTitleText": "文章列表","app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"},{"type":"none","fontSrc":"/static/font/iconfont.ttf","text":"\ue609"}]}}}},
 				{"path": "article/edit","custom_file":"mobile_admin_article","style": {"navigationBarTitleText": "文章设置"}},
 				{"path": "set/payqrcode","custom_file":"mobile_business_qrcode_show_paycode","style": {"navigationBarTitleText": "收款二维码"}},
 				{"path": "set/maidan","custom_file":"maidan_sysset","style": {"navigationBarTitleText": "买单设置"}},
@@ -630,12 +614,12 @@
 				{"path": "finance/huifuincomelog","custom_file":"mobile_admin_huifu_settllement","style": {"navigationBarTitleText": "汇付收入明细"}},
 				{"path": "finance/huifusettlementrecord","custom_file":"mobile_admin_huifu_settllement","style": {"navigationBarTitleText": "汇付结算明细"}},
 				{"path": "water/index","custom_file":"water_happy_ti","style": {"navigationBarTitleText": "扫码打水管理"}},
-				{"path": "water/deviceList","custom_file":"water_happy_ti","style": {"navigationBarTitleText": "设备管理","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "water/deviceList","custom_file":"water_happy_ti","style": {"navigationBarTitleText": "设备管理","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "water/outletList","custom_file":"water_happy_ti","style": {"navigationBarTitleText": "出水口管理"}},
 				{"path": "water/outletEdit","custom_file":"water_happy_ti","style": {"navigationBarTitleText": "出水口设置"}},
-				{"path": "water/orderList","custom_file":"water_happy_ti","style": {"navigationBarTitleText": "打水订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
-				{"path": "business/withdrawfeeCashLog","custom_file":"business_withdraw_cash_mobile","style": {"navigationBarTitleText": "提现现金支付记录","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
-				{"path": "finance/payorderlog","custom_file":"business_payorder_log","style": {"navigationBarTitleText": "账单明细","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入用户昵称或订单号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "water/orderList","custom_file":"water_happy_ti","style": {"navigationBarTitleText": "打水订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
+				{"path": "business/withdrawfeeCashLog","custom_file":"business_withdraw_cash_mobile","style": {"navigationBarTitleText": "提现现金支付记录","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
+				{"path": "finance/payorderlog","custom_file":"business_payorder_log","style": {"navigationBarTitleText": "账单明细","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入用户昵称或订单号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "finance/payorderdetail","custom_file":"business_payorder_log","style": {"navigationBarTitleText": "账单明细详情","enablePullDownRefresh": true}},
 				{"path": "order/maidanOrderAdd","custom_file":"maidan_orderadd_mobile_paytransfer","style": {"navigationBarTitleText": "买单订单录入"}},
 				{"path": "finance/withdrawInvoice","custom_file":"business_withdraw_invoice_mobile","style": {"navigationBarTitleText": "提现发票","enablePullDownRefresh": true}},
@@ -659,7 +643,7 @@
 				{"path": "takeaway/product","style": {"navigationBarTitleText": "商品详情"}},
 				{"path": "takeaway/commentlist","style": {"navigationBarTitleText": "商品评价","enablePullDownRefresh": true}},
 				{"path": "takeaway/buy","style": {"navigationBarTitleText": "订单确认"}},
-				{"path": "takeaway/orderlist","style": {"navigationBarTitleText": "外卖订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "takeaway/orderlist","style": {"navigationBarTitleText": "外卖订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "takeaway/comment","style": {"navigationBarTitleText": "我要评论","enablePullDownRefresh": false}},
 				{"path": "takeaway/commentdp","style": {"navigationBarTitleText": "店铺评价","enablePullDownRefresh": false}},
 				{"path": "takeaway/commentps","style": {"navigationBarTitleText": "评价配送员","enablePullDownRefresh": false}},
@@ -706,7 +690,7 @@
 				{"path": "prolist","custom_file":"car_hailing","style": {"navigationBarTitleText": "约车列表"}},
 				{"path": "product","custom_file":"car_hailing","style": {"navigationBarTitleText": "约车详情"}},
 				{"path": "buy","custom_file":"car_hailing","style": {"navigationBarTitleText": "订单确认"}},
-				{"path": "orderlist","custom_file":"car_hailing","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "orderlist","custom_file":"car_hailing","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "orderdetail","custom_file":"car_hailing","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": false}},
 				{"path": "refund","custom_file":"car_hailing","style": {"navigationBarTitleText": "退款","enablePullDownRefresh": false}},
 				{"path": "classify","custom_file":"car_hailing","style": {"navigationBarTitleText": "分类列表","enablePullDownRefresh": false}}
@@ -719,7 +703,7 @@
 				 {"path": "cashier/orderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 				 {"path": "cashback/index","style": {"navigationBarTitleText": "返现活动","enablePullDownRefresh": true}},
 				 {"path": "cashback/recordlog","style": {"navigationBarTitleText": "返现记录","enablePullDownRefresh": true}},
-				 {"path": "form/formlog","style": {"navigationBarTitleText": "提交记录","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				 {"path": "form/formlog","style": {"navigationBarTitleText": "提交记录","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				 {"path": "form/formlog2","custom_file":"form_log_plug","style": {"navigationBarTitleText": "提交记录","enablePullDownRefresh": true}},
 				 {"path": "form/formdetail","style": {"navigationBarTitleText": "详细信息","enablePullDownRefresh": true}},
 				
@@ -727,7 +711,7 @@
 					{"path": "tour/index","custom_file":"extend_tour","style": {"navigationBarTitleText": "活动列表","enablePullDownRefresh": true}},
 					{"path": "tour/product","custom_file":"extend_tour","style": {"navigationBarTitleText": "活动详情","enablePullDownRefresh": true}},
 					{"path": "tour/buy","custom_file":"extend_tour","style": {"navigationBarTitleText": "订单确认","enablePullDownRefresh": false}},
-					{"path": "tour/orderlist","custom_file":"extend_tour","style": {"navigationBarTitleText": "活动订单列表","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+					{"path": "tour/orderlist","custom_file":"extend_tour","style": {"navigationBarTitleText": "活动订单列表","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 					{"path": "tour/orderdetail","custom_file":"extend_tour","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 					{"path": "tour/refund","custom_file":"extend_tour","style": {"navigationBarTitleText": "申请退款","enablePullDownRefresh": true}},
 					{"path": "tour/apply","custom_file":"extend_tour","style": {"navigationBarTitleText": "申请导游","enablePullDownRefresh": false}},
@@ -753,7 +737,7 @@
 					{"path": "giftbag/list","custom_file":"extend_gift_bag","style": {"navigationBarTitleText": "礼包活动列表","enablePullDownRefresh": false}},
 					{"path": "giftbag/detail","custom_file":"extend_gift_bag","style": {"navigationBarTitleText": "礼包活动详情","enablePullDownRefresh": false}},
 					{"path": "giftbag/buy","custom_file":"extend_gift_bag","style": {"navigationBarTitleText": "订单确认","enablePullDownRefresh": false}},
-					{"path": "giftbag/orderlist","custom_file":"extend_gift_bag","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+					{"path": "giftbag/orderlist","custom_file":"extend_gift_bag","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 					{"path": "giftbag/orderdetail","custom_file":"extend_gift_bag","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 					{"path": "shortvideo/looklog","custom_file":"yx_shortvideo_jindubag","style": {"navigationBarTitleText": "短视频记录","enablePullDownRefresh": true}},
 					
@@ -844,7 +828,7 @@
 					{"path": "w","custom_file":"extend_qrcode_variable","style": {"navigationBarTitleText": "","enablePullDownRefresh": true}},
 					{"path": "mendian/list","custom_file":"mendian_list","style": {"navigationBarTitleText": "门店列表","enablePullDownRefresh": true}},
 					{"path": "commission/business_teamfenhong","custom_file":"business_teamfenhong","style": {"navigationBarTitleText": "商家团队分红","enablePullDownRefresh": true}},
-					{"path": "handwork/handlist","custom_file":"product_handwork","style": {"navigationBarTitleText": "回寄订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+					{"path": "handwork/handlist","custom_file":"product_handwork","style": {"navigationBarTitleText": "回寄订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 					
 					{"path": "handwork/handDetail","custom_file":"product_handwork","style": {"navigationBarTitleText": "回寄详情","enablePullDownRefresh": true}},
 					{"path": "handwork/hand","custom_file":"product_handwork","style": {"navigationBarTitleText": "回寄","enablePullDownRefresh": true}},
@@ -928,11 +912,11 @@
 				{"path": "huodongbaoming/product","custom_file":"huodong_baoming","style": {"navigationBarTitleText": "活动详情"}},
 				{"path": "huodongbaoming/proorderlist","custom_file":"huodong_baoming","style": {"navigationBarTitleText": "报名列表"}},
 				{"path": "huodongbaoming/buy","custom_file":"huodong_baoming","style": {"navigationBarTitleText": "订单确认"}},
-				{"path": "huodongbaoming/orderlist","custom_file":"huodong_baoming","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "huodongbaoming/orderlist","custom_file":"huodong_baoming","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "huodongbaoming/orderdetail","custom_file":"huodong_baoming","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": false}},
 				{"path": "daily/daily","custom_file":"daily_jinju","style": {"navigationBarTitleText": "每日金句"}},
 				{"path": "daily/wqlist","custom_file":"daily_jinju","style": {"navigationBarTitleText": "每日金句列表"}},
-				{"path": "businessmiandan/orderlist","custom_file":"yx_business_miandan","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "businessmiandan/orderlist","custom_file":"yx_business_miandan","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "shoporderranking/index","custom_file":"shoporder_ranking","style": {"navigationBarTitleText": "","enablePullDownRefresh": false}},
 				{"path": "shoporderranking/log","custom_file":"shoporder_ranking","style": {"navigationBarTitleText": "","enablePullDownRefresh": false}},
 				{"path": "shoporderranking/detail","custom_file":"shoporder_ranking","style": {"navigationBarTitleText": "","enablePullDownRefresh": false}},
@@ -1038,7 +1022,7 @@
         {"path": "scoreshop/classify2","custom_file":"scoreshop_class","style": {"navigationBarTitleText": "分类商品","enablePullDownRefresh": false}},
         {"path": "kecheng/lecturerlist","custom_file":"kecheng_lecturer","style": {"navigationBarTitleText": "讲师列表","enablePullDownRefresh": false}},
 				{"path": "maidan/pay","style": {"navigationBarTitleText": "买单付款"}},
-				{"path": "maidan/maidanlog","style": {"navigationBarTitleText": "买单付款记录","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入订单号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "maidan/maidanlog","style": {"navigationBarTitleText": "买单付款记录","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入订单号搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "maidan/maidandetail","style": {"navigationBarTitleText": "买单付款详情","enablePullDownRefresh": true}},
 				{"path": "shop/commentlist","style": {"navigationBarTitleText": "商品评价","enablePullDownRefresh": true}},
         {"path": "inviteredpacket/redpacketlist","custom_file":"extend_invite_redpacket","style": {"navigationBarTitleText": "我的红包","enablePullDownRefresh": false}},
@@ -1075,16 +1059,16 @@
 		{
 			"root": "hotel",
 			"pages": [  
-				{"path": "index/index","custom_file":"hotel","style": {"custom_file":"hotel","enablePullDownRefresh": false}},
-				{"path": "index/hotellist","custom_file":"hotel","style": {"custom_file":"hotel","enablePullDownRefresh": false}},
-				{"path": "index/hoteldetails","custom_file":"hotel","style": {"custom_file":"hotel","enablePullDownRefresh": false,"navigationStyle": "custom",
+				{"path": "index/index","custom_file":"hotel","style": {"enablePullDownRefresh": false}},
+				{"path": "index/hotellist","custom_file":"hotel","style": {"enablePullDownRefresh": false}},
+				{"path": "index/hoteldetails","custom_file":"hotel","style": {"enablePullDownRefresh": false,"navigationStyle": "custom",
 				 "componentPlaceholder": {"calendar": "view"}}},
-				{"path": "index/buy","custom_file":"hotel","style": {"navigationBarTitleText": "提交订单","custom_file":"hotel","enablePullDownRefresh": false,"navigationStyle": "custom"}},
-			  {"path": "index/signature","custom_file":"hotel","style": {"navigationBarTitleText": "签字","custom_file":"hotel","enablePullDownRefresh": false}},
-				{"path": "order/orderlist","custom_file":"hotel","style": {"navigationBarTitleText": "订单列表","custom_file":"hotel","enablePullDownRefresh": false}},
-				{"path": "order/orderdetail","custom_file":"hotel","style": {"navigationBarTitleText": "订单详情","custom_file":"hotel","enablePullDownRefresh": false}},
-				{"path": "order/comment","custom_file":"hotel","style": {"navigationBarTitleText": "订单评价","custom_file":"hotel","enablePullDownRefresh": false}},
-				{"path": "order/refund","custom_file":"hotel","style": {"navigationBarTitleText": "申请退款","custom_file":"hotel","enablePullDownRefresh": false}},
+				{"path": "index/buy","custom_file":"hotel","style": {"navigationBarTitleText": "提交订单","enablePullDownRefresh": false,"navigationStyle": "custom"}},
+			  {"path": "index/signature","custom_file":"hotel","style": {"navigationBarTitleText": "签字","enablePullDownRefresh": false}},
+				{"path": "order/orderlist","custom_file":"hotel","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false}},
+				{"path": "order/orderdetail","custom_file":"hotel","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": false}},
+				{"path": "order/comment","custom_file":"hotel","style": {"navigationBarTitleText": "订单评价","enablePullDownRefresh": false}},
+				{"path": "order/refund","custom_file":"hotel","style": {"navigationBarTitleText": "申请退款","enablePullDownRefresh": false}},
 				{"path": "order/commentlist","custom_file":"hotel","style": {"navigationBarTitleText": "评价列表","enablePullDownRefresh": true}}
 				
 			]
@@ -1095,10 +1079,10 @@
 				{"path": "productthali/index","custom_file":"product_thali","style" : {"navigationBarTitleText" : "套餐列表"}},
 				{"path": "productthali/detail","custom_file":"product_thali","style" : {"navigationBarTitleText" : "套餐详情"}},
 				{"path": "productthali/buy","custom_file":"product_thali","style" : {"navigationBarTitleText" : "套餐下单"}},
-				{"path": "productthali/orderlist","custom_file":"product_thali","style" : {"navigationBarTitleText" : "我的套餐","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "productthali/orderlist","custom_file":"product_thali","style" : {"navigationBarTitleText" : "我的套餐","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "productthali/orderdetail","custom_file":"product_thali","style" : {"navigationBarTitleText" : "套餐详情"}},
 				{"path": "productthali/refund","custom_file":"product_thali","style" : {"navigationBarTitleText" : "申请退款"}},
-				{"path": "transferorderparent/orderlist","custom_file":"transfer_order_parent_check","style" : {"navigationBarTitleText" : "审核订单列表","titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "transferorderparent/orderlist","custom_file":"transfer_order_parent_check","style" : {"navigationBarTitleText" : "审核订单列表","app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "transferorderparent/orderdetail","custom_file":"transfer_order_parent_check","style" : {"navigationBarTitleText" : "审核订单详情"}},
 				{"path": "invoicebaoxiao/index","custom_file":"finance_invoice_baoxiao","style" : {"navigationBarTitleText" : "发票报销"}},
 				{"path": "invoicebaoxiao/recordlist","custom_file":"finance_invoice_baoxiao","style" : {"navigationBarTitleText" : "发票报销记录"}},
@@ -1152,19 +1136,19 @@
         {"path": "commission/commissionTransfer","custom_file":"commission_transfer","style": {"enablePullDownRefresh": true}},
         {"path": "my/forzengxcommissionlog","custom_file":"member_forzengxcommission","style": {"navigationBarTitleText": ""}},
 				{"path": "jipin/log","custom_file":"yx_collage_jipin2","style": {"navigationBarTitleText": "超级卖货"}},
-				{"path": "jipin/detail","custom_file":"yx_collage_jipin2","style": {"navigationBarTistleText": "拼团详情"}},
+				{"path": "jipin/detail","custom_file":"yx_collage_jipin2","style": {"navigationBarTitleText": "拼团详情"}},
 				{"path": "jipin/orderproduct","custom_file":"yx_collage_jipin2","style": {"navigationBarTitleText": "拼团商品"}},
 				{"path": "jipin/futouproduct","custom_file":"yx_collage_jipin2","style": {"navigationBarTitleText": "复投商品"}},
-        {"path": "yingxiao/jipinOrder","custom_file":"yx_collage_jipin","style": {"navigationBarTitleText": "即拼订单序号","enablePullDownRefresh": true},"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}},
-				{"path": "yingxiao/jipinCharts","custom_file":"yx_collage_jipin","style": {"navigationBarTitleText": "开团详情","titleNView":{"buttons":[{"type":"home"}]}}},
-				{"path": "yingxiao/jipinRecord","custom_file":"yx_collage_jipin","style": {"navigationBarTitleText": "开团记录","titleNView":{"buttons":[{"type":"home"}]}}},
+        {"path": "yingxiao/jipinOrder","custom_file":"yx_collage_jipin","style": {"navigationBarTitleText": "即拼订单序号","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
+				{"path": "yingxiao/jipinCharts","custom_file":"yx_collage_jipin","style": {"navigationBarTitleText": "开团详情","app-plus":{"titleNView":{"buttons":[{"type":"home"}]}}}},
+				{"path": "yingxiao/jipinRecord","custom_file":"yx_collage_jipin","style": {"navigationBarTitleText": "开团记录","app-plus":{"titleNView":{"buttons":[{"type":"home"}]}}}},
 				{"path": "formtan/index","custom_file":"form_tan","style": {"navigationBarTitleText": "单位信息收资表"}},
         {"path": "coupon/mymorecoupon","custom_file":"coupon_mycouponfold","style": {"navigationBarTitleText": ""}},
 				{"path": "subsidy/index","custom_file":"product_chinaums_subsidy","style": {"navigationBarTitleText": "国补申请"}},
 				{"path": "subsidy/apply","custom_file":"product_chinaums_subsidy","style": {"navigationBarTitleText": "申请补贴实名认证"}},
         {"path": "fundpool/index","custom_file":"commission_withdrawfee_fundpool","style": {"navigationBarTitleText": "","enablePullDownRefresh": true}},
-				{"path": "my/downshoporder","custom_file":"member_level_downorder_collect","style": {"navigationBarTitleText": "下级商城订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"}}}},
-				{"path": "my/downshoporderdetail","custom_file":"member_level_downorder_collect","style": {"navigationBarTitleText": "下级商城订单详情","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"}}}},
+				{"path": "my/downshoporder","custom_file":"member_level_downorder_collect","style": {"navigationBarTitleText": "下级商城订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"}}}}},
+				{"path": "my/downshoporderdetail","custom_file":"member_level_downorder_collect","style": {"navigationBarTitleText": "下级商城订单详情","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"}}}}},
 				{"path": "my/tagageapply","custom_file":"member_tag_age"},
 				{"path": "maidan/pay","custom_file":"maidan_new","style": {"navigationBarTitleText": "买单付款"}},
 				{"path": "maidan/maidanlog","custom_file":"maidan_new","style": {"navigationBarTitleText": "买单付款记录"}},
@@ -1289,7 +1273,7 @@
 				{"path": "networkhelp/bonuslog","custom_file":"yx_network_help","style": {"navigationBarTitleText": "奖励明细"}},
 				{"path": "water/qrAddOrder","custom_file":"water_happy_ti","style": {"navigationBarTitleText": "扫码打水"}},
 				{"path": "water/stationList","custom_file":"water_happy_ti","style": {"navigationBarTitleText": "附近水站"}},
-				{"path": "water/orderList","custom_file":"water_happy_ti","style": {"navigationBarTitleText": "打水订单","enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "water/orderList","custom_file":"water_happy_ti","style": {"navigationBarTitleText": "打水订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "butieactivity/list","custom_file":"yx_butie_activity","style": {"navigationBarTitleText": "消费补贴列表"}},
 				{"path": "butieactivity/index","custom_file":"yx_butie_activity","style": {"navigationBarTitleText": "补贴参与列表"}},
 				{"path": "butieactivity/recordlog","custom_file":"yx_butie_activity","style": {"navigationBarTitleText": "补贴记录"}},
@@ -1307,7 +1291,7 @@
 				{"path": "goldbeanshop/product","custom_file":"gold_bean_shop","style": {"navigationBarTitleText": "商品详情","enablePullDownRefresh": true}},
 				{"path": "goldbeanshop/cart","custom_file":"gold_bean_shop","style": {"navigationBarTitleText": "购物车","enablePullDownRefresh": true}},
 				{"path": "goldbeanshop/buy","custom_file":"gold_bean_shop","style": {"navigationBarTitleText": "订单确认","enablePullDownRefresh": false}},
-				{"path": "goldbeanshop/orderlist","custom_file":"gold_bean_shop","style": {"enablePullDownRefresh": true,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "goldbeanshop/orderlist","custom_file":"gold_bean_shop","style": {"enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "goldbeanshop/orderdetail","custom_file":"gold_bean_shop","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
 				{"path": "goldbeanshop/refund","custom_file":"gold_bean_shop","style": {"navigationBarTitleText": "申请退款","enablePullDownRefresh": true}},
         
@@ -1325,7 +1309,8 @@
         {"path": "commission/teamManageDetail","custom_file":"team_manage","style": {"navigationBarTitleText": "团队详情","enablePullDownRefresh": true}},
         {"path": "tencent_qian/index","custom_file":"extend_tencent_qian","style": {"navigationBarTitleText": ""}},
         {"path": "tencent_qian/qianlog","custom_file":"extend_tencent_qian","style": {"navigationBarTitleText": "签署记录"}},
-        {"path": "my/couponHxRecord","custom_file":"coupon_mobile_hexiaolog","style": {"navigationBarTitleText": "核销记录"}}
+        {"path": "my/couponHxRecord","custom_file":"coupon_mobile_hexiaolog","style": {"navigationBarTitleText": "核销记录"}},
+				{"path": "camera/index","style": {"navigationBarTitleText": "拍照"}}
 			]
 		},
 		{
@@ -1337,7 +1322,7 @@
 				{"path": "yuyue/prolist","style": {"navigationBarTitleText": "服务列表","enablePullDownRefresh": false}},
 				{"path": "yuyue/buy","style": {"navigationBarTitleText": "订单确认","enablePullDownRefresh": false}},
 				{"path": "yuyue/buy2","style": {"navigationBarTitleText": "订单确认","enablePullDownRefresh": false}},
-				{"path": "yuyue/orderlist","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false,"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}},
+				{"path": "yuyue/orderlist","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": false,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "yuyue/orderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": false}},
 				{"path": "yuyue/logistics","style": {"navigationBarTitleText": "查看进度","enablePullDownRefresh": false}},
 				{"path": "yuyue/comment","style": {"navigationBarTitleText": "评价","enablePullDownRefresh": false}},
@@ -1376,6 +1361,16 @@
 		}
 		// #endif
 	],
+	"preloadRule": {
+		"pages/index/index": {
+			"network": "all",
+			"packages": ["pagesExt"]
+		},
+		"pages/my/usercenter": {
+			"network": "all",
+			"packages": ["pagesExt"]
+		}
+	},
 	"navigateToMiniProgramAppIdList": [
 		"wxeb490c6f9b154ef9",
 		"wx2b03c6e691cd7370"

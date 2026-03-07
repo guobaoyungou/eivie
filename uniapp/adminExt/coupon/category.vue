@@ -76,7 +76,7 @@ export default {
 				that.loading = false;
 				//计算每个高度
 				var harr = [];
-				var clientwidth = uni.getSystemInfoSync().windowWidth;
+				var clientwidth = uni.getWindowInfo().windowWidth;
 				var data = res.data;
 				for (var i = 0; i < data.length; i++) {
 					let params = {

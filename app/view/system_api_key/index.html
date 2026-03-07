@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>API Key配置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .pool-summary { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+    .pool-card { background: #fff; border: 1px solid #e6e6e6; border-radius: 6px; padding: 12px 18px; min-width: 140px; text-align: center; }
+    .pool-card .card-num { font-size: 28px; font-weight: bold; line-height: 1.2; }
+    .pool-card .card-label { font-size: 12px; color: #999; margin-top: 4px; }
+    .pool-card.blue .card-num { color: #1E9FFF; }
+    .pool-card.green .card-num { color: #5FB878; }
+    .pool-card.orange .card-num { color: #FFB800; }
+    .pool-card.red .card-num { color: #FF5722; }
+    .concurrency-bar { display: inline-block; width: 60px; height: 6px; background: #e6e6e6; border-radius: 3px; vertical-align: middle; margin-left: 5px; }
+    .concurrency-bar .bar-inner { height: 100%; border-radius: 3px; transition: width 0.3s; }
+    .bar-safe { background: #5FB878; }
+    .bar-warn { background: #FFB800; }
+    .bar-danger { background: #FF5722; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          <i class="layui-icon layui-icon-set"></i> API Key配置
+          <span class="layui-badge layui-bg-blue" style="margin-left:10px">系统级配置 - 多Key池</span>
+        </div>
+        <div class="layui-card-body" pad15>
+          <!-- Key池状态概览 -->
+          <div id="poolSummary" class="pool-summary" style="display:none">
+            <div class="pool-card blue">
+              <div class="card-num" id="statTotalKeys">0</div>
+              <div class="card-label">Key总数</div>
+            </div>
+            <div class="pool-card green">
+              <div class="card-num" id="statActiveKeys">0</div>
+              <div class="card-label">启用数</div>
+            </div>
+            <div class="pool-card blue">
+              <div class="card-num" id="statTotalCapacity">0</div>
+              <div class="card-label">总并发容量</div>
+            </div>
+            <div class="pool-card orange">
+              <div class="card-num" id="statUsedCapacity">0</div>
+              <div class="card-label">使用中</div>
+            </div>
+            <div class="pool-card green">
+              <div class="card-num" id="statAvailCapacity">0</div>
+              <div class="card-label">可用容量</div>
+            </div>
+          </div>
+          <!-- 操作按钮区 -->
+          <div class="layui-col-md4" style="padding-bottom:10px">
+            <a class="layui-btn layuiadmin-btn-list" href="javascript:void(0)" onclick="openmax('{:url(\'edit\')}')">
+              <i class="layui-icon layui-icon-add-1"></i> 新增配置
+            </a>
+            <button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="datadel(0)">批量删除</button>
+          </div>
+          
+          <!-- 搜索区 -->
+          <div class="layui-form layui-col-md8 layui-form-search">
+            <div class="layui-inline layuiadmin-input-useradmin">
+              <label class="layui-form-label">关键词</label>
+              <div class="layui-input-inline">
+                <input type="text" name="keyword" autocomplete="off" class="layui-input" placeholder="配置名称/供应商">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">供应商</label>
+              <div class="layui-input-inline" style="width:150px">
+                <select name="provider_code">
+                  <option value="">全部供应商</option>
+                  {volist name="providers" id="p"}
+                  <option value="{$p.provider_code}">{$p.provider_name}</option>
+                  {/volist}
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">状态</label>
+              <div class="layui-input-inline" style="width:100px">
+                <select name="is_active">
+                  <option value="">全部</option>
+                  <option value="1">启用</option>
+                  <option value="0">停用</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn layuiadmin-btn-replys" lay-submit lay-filter="LAY-search">
+                <i class="layui-icon layui-icon-search layuiadmin-button-btn"></i>
+              </button>
+            </div>
+          </div>
+          
+          <!-- 数据表格 -->
+          <div class="layui-col-md12">
+            <table id="tabledata" lay-filter="tabledata"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  {include file="public/js"/}
+  <script>
+  var table = layui.table;
+  var datawhere = {};
+  
+  // 渲染表格
+  var tableIns = table.render({
+    elem: '#tabledata',
+    url: "{$Request.url}",
+    page: true,
+    cols: [[
+      {type: "checkbox", width: 50},
+      {field: 'id', title: 'ID', sort: true, width: 60},
+      {field: 'provider_logo', title: 'Logo', width: 60, templet: function(d) {
+        if (d.provider_logo) {
+          return '<img src="'+d.provider_logo+'" style="width:32px;height:32px;border-radius:4px"/>';
+        }
+        return '<span style="color:#999">-</span>';
+      }},
+      {field: 'provider_name', title: '供应商', width: 100},
+      {field: 'config_name', title: '配置名称', minWidth: 130},
+      {field: 'api_key_masked', title: 'API Key', width: 140, templet: function(d) {
+        return '<code style="background:#f5f5f5;padding:2px 6px;border-radius:3px">' + d.api_key_masked + '</code>';
+      }},
+      {field: 'concurrency_text', title: '并发状态', width: 110, templet: function(d) {
+        var max = d.max_concurrency || 5;
+        var cur = d.current_concurrency || 0;
+        var pct = Math.min(100, Math.round(cur / max * 100));
+        var cls = pct < 60 ? 'bar-safe' : (pct < 85 ? 'bar-warn' : 'bar-danger');
+        return '<span>' + cur + '/' + max + '</span>' +
+          '<div class="concurrency-bar"><div class="bar-inner ' + cls + '" style="width:' + pct + '%"></div></div>';
+      }},
+      {field: 'weight', title: '权重', width: 70, sort: true},
+      {field: 'call_stats', title: '调用/失败', width: 90, templet: function(d) {
+        var total = d.total_calls || 0;
+        var fail = d.fail_calls || 0;
+        var color = fail > 0 ? '#FF5722' : '#5FB878';
+        return total + '/<span style="color:'+color+'">' + fail + '</span>';
+      }},
+      {field: 'success_rate', title: '成功率', width: 80, templet: function(d) {
+        if (d.success_rate === '-') return '-';
+        var rate = parseFloat(d.success_rate);
+        var color = rate >= 90 ? '#5FB878' : (rate >= 70 ? '#FFB800' : '#FF5722');
+        return '<span style="color:'+color+';font-weight:bold">' + d.success_rate + '</span>';
+      }},
+      {field: 'last_used_time_text', title: '最后使用', width: 130},
+      {field: 'is_active', title: '状态', width: 80, templet: function(d) {
+        var checked = d.is_active == 1 ? 'checked' : '';
+        return '<input type="checkbox" name="is_active" lay-skin="switch" lay-text="启用|停用" lay-filter="statusSwitch" data-id="'+d.id+'" '+checked+'>';
+      }},
+      {field: 'operation', title: '操作', width: 150, fixed: 'right', templet: function(d) {
+        var html = '';
+        html += '<button class="table-btn" onclick="testApi('+d.id+')">测试</button>';
+        html += '<button class="table-btn" onclick="openmax(\'{:url(\'edit\')}/id/'+d.id+'\')">编辑</button>';
+        html += '<button class="table-btn" onclick="datadel('+d.id+')">删除</button>';
+        return html;
+      }}
+    ]]
+  });
+  
+  // 排序事件
+  table.on('sort(tabledata)', function(obj) {
+    datawhere.field = obj.field;
+    datawhere.order = obj.type;
+    tableIns.reload({
+      initSort: obj,
+      where: datawhere
+    });
+  });
+  
+  // 搜索事件
+  layui.form.on('submit(LAY-search)', function(obj) {
+    var field = obj.field;
+    var olddatawhere = datawhere;
+    datawhere = field;
+    datawhere.field = olddatawhere.field;
+    datawhere.order = olddatawhere.order;
+    tableIns.reload({
+      where: datawhere,
+      page: {curr: 1}
+    });
+    return false;
+  });
+  
+  // 状态开关
+  layui.form.on('switch(statusSwitch)', function(obj) {
+    var id = $(this).data('id');
+    var status = obj.elem.checked ? 1 : 0;
+    $.post("{:url('setst')}", {id: id, status: status}, function(res) {
+      if (res.status != 1) {
+        layer.msg(res.msg);
+        obj.elem.checked = !obj.elem.checked;
+        layui.form.render('checkbox');
+      } else {
+        layer.msg('操作成功');
+        loadPoolStatus();
+      }
+    });
+  });
+  
+  // 测试API连接
+  function testApi(id) {
+    var index = layer.load();
+    $.post("{:url('test')}", {id: id}, function(res) {
+      layer.close(index);
+      if (res.status == 1) {
+        layer.alert('<div style="text-align:center"><i class="layui-icon layui-icon-ok-circle" style="font-size:48px;color:#5FB878"></i><p style="margin-top:10px">' + res.msg + '</p><p style="color:#999;font-size:12px">供应商：' + res.provider + '</p></div>', {
+          title: '测试结果',
+          icon: -1
+        });
+      } else {
+        layer.alert('<div style="text-align:center"><i class="layui-icon layui-icon-close-fill" style="font-size:48px;color:#FF5722"></i><p style="margin-top:10px">' + res.msg + '</p></div>', {
+          title: '测试结果',
+          icon: -1
+        });
+      }
+    });
+  }
+  
+  // 删除
+  function datadel(id) {
+    var ids = [];
+    if (id == 0) {
+      var checkStatus = table.checkStatus('tabledata');
+      var checkData = checkStatus.data;
+      if (checkData.length === 0) {
+        return layer.msg('请选择数据');
+      }
+      for (var i = 0; i < checkData.length; i++) {
+        ids.push(checkData[i]['id']);
+      }
+    } else {
+      ids.push(id);
+    }
+    
+    layer.confirm('确定要删除吗？删除后无法恢复！', {icon: 7, title: '操作确认'}, function(index) {
+      layer.close(index);
+      var index2 = layer.load();
+      var delCount = 0;
+      var errMsg = '';
+      
+      ids.forEach(function(id, idx) {
+        $.post("{:url('delete')}", {id: id}, function(data) {
+          if (data.status != 1) {
+            errMsg = data.msg;
+          } else {
+            delCount++;
+          }
+          if (idx == ids.length - 1) {
+            layer.close(index2);
+            if (delCount > 0) {
+              layer.msg('成功删除' + delCount + '条数据');
+            } else {
+              layer.msg(errMsg || '删除失败');
+            }
+            tableIns.reload();
+            loadPoolStatus();
+          }
+        });
+      });
+    });
+  }
+  
+  // 加载Key池状态
+  function loadPoolStatus() {
+    $.get("{:url('get_pool_status')}", function(res) {
+      if (res.status == 1 && res.data && res.data.summary) {
+        var s = res.data.summary;
+        $('#statTotalKeys').text(s.total_keys);
+        $('#statActiveKeys').text(s.active_keys);
+        $('#statTotalCapacity').text(s.total_capacity);
+        $('#statUsedCapacity').text(s.used_capacity);
+        $('#statAvailCapacity').text(s.available_capacity);
+        $('#poolSummary').show();
+      }
+    });
+  }
+  
+  // 初始加载
+  loadPoolStatus();
+  </script>
+</body>
+</html>

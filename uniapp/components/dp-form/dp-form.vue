@@ -475,7 +475,7 @@
 				try{
 				const query = uni.createSelectorQuery().in(this);
 					query.select(`.${formidx}`).boundingClientRect((res) => {
-						const windowHeight = uni.getSystemInfoSync().windowHeight;
+						const windowHeight = uni.getWindowInfo().windowHeight;
 						// 除去键盘的剩余高度
 						let restHeight = windowHeight - height;
 						// 元素左下角坐标

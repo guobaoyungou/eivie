@@ -401,7 +401,7 @@ export default {
 		this.id = this.opt.id || 0;
 		this.roomid = this.opt.id || 0;
 		this.buyparam.roomid = this.roomid;
-		this.clientwidth = uni.getSystemInfoSync().windowWidth;
+		this.clientwidth = uni.getWindowInfo().windowWidth;
 		if(this.clientwidth>500){
 			this.clientwidth = 500
 		}

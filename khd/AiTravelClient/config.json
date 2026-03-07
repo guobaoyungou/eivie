@@ -1,0 +1,34 @@
+{
+  "server": {
+    "apiBaseUrl": "https://your-domain.com",
+    "timeout": 120,
+    "retryTimes": 3
+  },
+  "device": {
+    "deviceId": "",
+    "deviceToken": "",
+    "deviceName": "摄影门店设备",
+    "aid": 0,
+    "bid": 0,
+    "mdid": 0
+  },
+  "watcher": {
+    "watchPaths": [],
+    "scanInterval": 10,
+    "fileStableTime": 2,
+    "allowedExtensions": [".jpg", ".jpeg", ".png"],
+    "minFileSize": 10,
+    "maxFileSize": 10
+  },
+  "upload": {
+    "concurrentUploads": 3,
+    "chunkSize": 5,
+    "maxQueueSize": 1000,
+    "autoUpload": true,
+    "maxRetry": 5
+  },
+  "heartbeat": {
+    "interval": 60,
+    "timeout": 10
+  }
+}

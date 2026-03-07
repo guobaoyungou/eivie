@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>模型详情</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .detail-table { width: 100%; border-collapse: collapse; }
+    .detail-table td, .detail-table th { padding: 10px 15px; border: 1px solid #e6e6e6; }
+    .detail-table th { background: #fafafa; width: 150px; text-align: right; color: #666; font-weight: normal; }
+    .detail-table td { color: #333; }
+    .json-block { background: #f8f8f8; padding: 10px; border-radius: 4px; font-family: Consolas, monospace; font-size: 13px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+    .tag { display: inline-block; padding: 2px 8px; margin: 2px; background: #e8f4fd; border-radius: 3px; font-size: 12px; color: #1890ff; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          <i class="fa fa-info-circle"></i> 模型详情
+          <i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer;float:right" onclick="closeself()"></i>
+        </div>
+        <div class="layui-card-body" pad15>
+          {if $info}
+          <table class="detail-table">
+            <tr>
+              <th>模型ID</th>
+              <td>{$info.id}</td>
+              <th>系统预置</th>
+              <td>{if $info.is_system == 1}<span class="layui-badge layui-bg-green">是</span>{else}<span class="layui-badge">否</span>{/if}</td>
+            </tr>
+            <tr>
+              <th>模型名称</th>
+              <td>{$info.model_name}</td>
+              <th>模型标识</th>
+              <td><code>{$info.model_code}</code></td>
+            </tr>
+            <tr>
+              <th>供应商</th>
+              <td>{$info.provider_name} ({$info.provider_code})</td>
+              <th>模型类型</th>
+              <td>{$info.type_name} ({$info.type_code})</td>
+            </tr>
+            <tr>
+              <th>版本号</th>
+              <td>{$info.model_version|default='-'}</td>
+              <th>任务类型</th>
+              <td>{if $info.task_type == 'async'}异步(async){else}同步(sync){/if}</td>
+            </tr>
+            <tr>
+              <th>API端点</th>
+              <td colspan="3"><code>{$info.endpoint_url}</code></td>
+            </tr>
+            <tr>
+              <th>描述</th>
+              <td colspan="3">{$info.description|default='无'}</td>
+            </tr>
+            <tr>
+              <th>状态</th>
+              <td>{if $info.is_active == 1}<span class="layui-badge layui-bg-green">启用</span>{else}<span class="layui-badge layui-bg-gray">禁用</span>{/if}</td>
+              <th>排序</th>
+              <td>{$info.sort}</td>
+            </tr>
+            <tr>
+              <th>创建时间</th>
+              <td>{:$info.create_time ? date('Y-m-d H:i:s', $info.create_time) : '-'}</td>
+              <th>更新时间</th>
+              <td>{:$info.update_time ? date('Y-m-d H:i:s', $info.update_time) : '-'}</td>
+            </tr>
+          </table>
+          
+          <div style="margin-top:20px">
+            <fieldset class="layui-elem-field">
+              <legend>输入参数规范</legend>
+              <div class="layui-field-box">
+                <div class="json-block" id="input_schema"></div>
+              </div>
+            </fieldset>
+          </div>
+          
+          <div style="margin-top:15px">
+            <fieldset class="layui-elem-field">
+              <legend>输出格式规范</legend>
+              <div class="layui-field-box">
+                <div class="json-block" id="output_schema"></div>
+              </div>
+            </fieldset>
+          </div>
+          
+          <div style="margin-top:15px">
+            <fieldset class="layui-elem-field">
+              <legend>价格配置</legend>
+              <div class="layui-field-box">
+                <div class="json-block" id="pricing_config"></div>
+              </div>
+            </fieldset>
+          </div>
+          
+          <div style="margin-top:15px">
+            <fieldset class="layui-elem-field">
+              <legend>限制配置</legend>
+              <div class="layui-field-box">
+                <div class="json-block" id="limits_config"></div>
+              </div>
+            </fieldset>
+          </div>
+          
+          <div style="margin-top:15px">
+            <fieldset class="layui-elem-field">
+              <legend>能力标签</legend>
+              <div class="layui-field-box" id="capability_tags"></div>
+            </fieldset>
+          </div>
+          
+          {else}
+          <div style="text-align:center;padding:50px;color:#999">模型不存在</div>
+          {/if}
+        </div>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  {if $info}
+  // 格式化JSON显示
+  function formatJson(data) {
+    if (!data) return '未配置';
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data); } catch(e) { return data; }
+    }
+    return JSON.stringify(data, null, 2);
+  }
+  
+  var info = {:json_encode($info)};
+  
+  document.getElementById('input_schema').textContent = formatJson(info.input_schema);
+  document.getElementById('output_schema').textContent = formatJson(info.output_schema);
+  document.getElementById('pricing_config').textContent = formatJson(info.pricing_config);
+  document.getElementById('limits_config').textContent = formatJson(info.limits_config);
+  
+  // 能力标签
+  var tags = info.capability_tags;
+  var tagsHtml = '';
+  if (tags && Array.isArray(tags) && tags.length > 0) {
+    tags.forEach(function(tag) {
+      tagsHtml += '<span class="tag">' + tag + '</span>';
+    });
+  } else {
+    tagsHtml = '<span style="color:#999">未配置</span>';
+  }
+  document.getElementById('capability_tags').innerHTML = tagsHtml;
+  {/if}
+  </script>
+</body>
+</html>

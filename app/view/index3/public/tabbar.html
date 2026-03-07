@@ -1,0 +1,60 @@
+<!-- tabbar.html — 移动端底部TabBar + 创作面板 + APP弹窗 + Action Sheet -->
+
+<!-- 底部TabBar -->
+<nav class="mobile-tabbar">
+    <div class="tabbar-inner">
+        <button class="tabbar-item active" data-action="home">
+            <span class="tabbar-icon">🏠</span>
+            <span>首页</span>
+        </button>
+        <button class="tabbar-item" data-action="create">
+            <span class="tabbar-icon">✨</span>
+            <span>创作</span>
+        </button>
+        <button class="tabbar-item" data-action="assets">
+            <span class="tabbar-icon">📚</span>
+            <span>资产</span>
+        </button>
+        <button class="tabbar-item" data-action="profile">
+            <span class="tabbar-icon">👤</span>
+            <span>我的</span>
+        </button>
+    </div>
+</nav>
+
+<!-- 创作弹出面板 -->
+<div class="create-panel">
+    <div class="cp-title">选择创作类型</div>
+    <a class="cp-item" href="javascript:;" onclick="document.querySelector('[data-tab=photo]').click();document.querySelector('.create-panel').classList.remove('show');window.scrollTo({top:document.querySelector('.tab-section').offsetTop-60,behavior:'smooth'})">
+        <span class="cp-icon">🖼</span>
+        <span class="cp-label">图片生成</span>
+    </a>
+    <a class="cp-item" href="javascript:;" onclick="document.querySelector('[data-tab=video]').click();document.querySelector('.create-panel').classList.remove('show');window.scrollTo({top:document.querySelector('.tab-section').offsetTop-60,behavior:'smooth'})">
+        <span class="cp-icon">🎬</span>
+        <span class="cp-label">视频生成</span>
+    </a>
+</div>
+
+<!-- APP二维码弹窗（移动端） -->
+<div class="qr-modal">
+    <div class="qr-overlay"></div>
+    <div class="qr-body">
+        {if $webinfo['appqrcode']}
+        <img src="{$webinfo.appqrcode}" alt="APP下载二维码">
+        {else}
+        <p>暂无二维码</p>
+        {/if}
+        <p>扫码下载APP</p>
+    </div>
+</div>
+
+<!-- 更多菜单 Action Sheet（移动端） -->
+<div class="action-sheet">
+    <a class="as-item" href="javascript:;">用户协议</a>
+    <a class="as-item" href="javascript:;">隐私协议</a>
+    <a class="as-item" href="javascript:;">关于我们</a>
+    <a class="as-item" href="javascript:;">加入我们</a>
+    <a class="as-item" href="{:url('lianxi')}">联系我们</a>
+    <a class="as-item" href="javascript:;">联系客服</a>
+    <div class="as-item as-cancel">取消</div>
+</div>

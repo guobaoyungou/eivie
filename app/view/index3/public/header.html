@@ -1,0 +1,43 @@
+<!-- header.html — 顶部固定栏组件 -->
+<header class="header">
+    <!-- 汉堡菜单（平板/手机可见） -->
+    <button class="header-hamburger" aria-label="菜单">☰</button>
+
+    <!-- 移动端Logo -->
+    {if $webinfo.logo}
+    <img class="header-logo-mobile" src="{$webinfo.logo}" alt="{$webinfo.webname}">
+    {/if}
+
+    <!-- 搜索框（PC端） -->
+    <div class="header-search">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="搜索模型、场景模板..." id="headerSearchInput">
+    </div>
+
+    <!-- 搜索图标（移动端） -->
+    <button class="header-search-icon-mobile" aria-label="搜索">🔍</button>
+
+    <!-- 右侧按钮组 -->
+    <div class="header-actions">
+        <a class="header-btn hide-mobile hide-tablet" href="javascript:;">
+            <span>🎁</span>
+            <span class="btn-label">邀请有礼</span>
+        </a>
+        <a class="header-btn hide-mobile" href="javascript:;">
+            <span>👑</span>
+            <span class="btn-label">会员中心</span>
+        </a>
+        <a class="header-btn primary" href="{:url('Backstage/index')}">
+            <span class="btn-label">登录/注册</span>
+            <span class="btn-icon-only" style="display:none">👤</span>
+        </a>
+    </div>
+</header>
+
+<!-- 全屏搜索（移动端） -->
+<div class="fullscreen-search">
+    <div class="fs-top">
+        <input class="fs-input" type="text" placeholder="搜索模型、场景模板...">
+        <button class="fs-cancel">取消</button>
+    </div>
+</div>

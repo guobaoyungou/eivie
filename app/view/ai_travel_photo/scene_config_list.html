@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>模型场景列表</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .scene-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; }
+    .scene-type-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 12px; }
+    .scene-type-1 { background: #e8f4ff; color: #1e9fff; }
+    .scene-type-2 { background: #fff7e6; color: #ff9800; }
+    .scene-type-3 { background: #e8ffe8; color: #009688; }
+    .scene-type-4 { background: #ffe8f0; color: #e91e63; }
+    .scene-type-5 { background: #f0e8ff; color: #9c27b0; }
+    .scene-type-6 { background: #fff3e0; color: #ff5722; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-card">
+      <div class="layui-card-header">
+        <i class="layui-icon layui-icon-picture"></i> 模型场景配置
+      </div>
+      <div class="layui-card-body">
+        <!-- 工具栏 -->
+        <div class="layui-form layui-card-header layuiadmin-card-header-auto">
+          <div class="layui-form-item">
+            <div class="layui-inline">
+              <label class="layui-form-label">场景类型</label>
+              <div class="layui-input-inline">
+                <select name="scene_type">
+                  <option value="">全部类型</option>
+                  {foreach $scene_types as $key => $val}
+                  <option value="{$key}">{$val}</option>
+                  {/foreach}
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">分类</label>
+              <div class="layui-input-inline">
+                <select name="category">
+                  <option value="">全部分类</option>
+                  {foreach $categories as $cat}
+                  <option value="{$cat}">{$cat}</option>
+                  {/foreach}
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">状态</label>
+              <div class="layui-input-inline">
+                <select name="status">
+                  <option value="">全部状态</option>
+                  <option value="1">启用</option>
+                  <option value="0">禁用</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn layui-btn-sm" lay-submit lay-filter="searchForm">
+                <i class="layui-icon layui-icon-search"></i> 搜索
+              </button>
+              <button type="reset" class="layui-btn layui-btn-sm layui-btn-primary">
+                <i class="layui-icon layui-icon-refresh"></i> 重置
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 操作栏 -->
+        <div style="padding: 10px;">
+          <button class="layui-btn layui-btn-sm" onclick="openSceneConfig(0)">
+            <i class="layui-icon layui-icon-add-1"></i> 新增场景
+          </button>
+          <button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="batchDelete">
+            <i class="layui-icon layui-icon-delete"></i> 批量删除
+          </button>
+        </div>
+
+        <!-- 数据表格 -->
+        <table class="layui-hide" id="sceneTable" lay-filter="sceneTable"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 封面图模板 -->
+  <script type="text/html" id="coverTpl">
+    {{# if(d.cover_image){ }}
+    <img class="scene-thumb" src="{{d.cover_image}}" onclick="previewImage('{{d.cover_image}}')">
+    {{# } else { }}
+    <span style="color:#999;">无</span>
+    {{# } }}
+  </script>
+
+  <!-- 场景类型模板 -->
+  <script type="text/html" id="sceneTypeTpl">
+    <span class="scene-type-tag scene-type-{{d.scene_type}}">{{d.scene_type_text}}</span>
+  </script>
+
+  <!-- 状态模板 -->
+  <script type="text/html" id="statusTpl">
+    <input type="checkbox" name="status" lay-skin="switch" lay-text="启用|禁用" lay-filter="statusSwitch" value="{{d.id}}" {{d.status == 1 ? 'checked' : ''}}>
+  </script>
+
+  <!-- 操作模板 -->
+  <script type="text/html" id="operateTpl">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="copy">复制</a>
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+  </script>
+
+  {include file="public/js"/}
+  <script>
+layui.use(['table', 'form', 'layer'], function(){
+  var table = layui.table;
+  var form = layui.form;
+  var layer = layui.layer;
+  var $ = layui.$;
+  
+  // 渲染表格
+  table.render({
+    elem: '#sceneTable',
+    url: '{:url("AiTravelPhoto/scene_config_list")}',
+    cols: [[
+      {type: 'checkbox', fixed: 'left'},
+      {field: 'id', title: 'ID', width: 80, sort: true},
+      {field: 'cover_image', title: '封面', width: 80, templet: '#coverTpl'},
+      {field: 'name', title: '场景名称', minWidth: 150},
+      {field: 'scene_type_text', title: '场景类型', width: 130, templet: '#sceneTypeTpl'},
+      {field: 'category', title: '分类', width: 100},
+      {field: 'model_id', title: '模型ID', width: 80},
+      {field: 'sort', title: '排序', width: 80, sort: true},
+      {field: 'status', title: '状态', width: 100, templet: '#statusTpl'},
+      {field: 'create_time', title: '创建时间', width: 170, templet: function(d){
+        return d.create_time ? new Date(d.create_time * 1000).toLocaleString() : '-';
+      }},
+      {fixed: 'right', title: '操作', width: 180, align: 'center', toolbar: '#operateTpl'}
+    ]],
+    page: true,
+    limit: 20,
+    limits: [10, 20, 30, 50, 100]
+  });
+  
+  // 搜索
+  form.on('submit(searchForm)', function(data){
+    table.reload('sceneTable', {
+      where: data.field,
+      page: {curr: 1}
+    });
+    return false;
+  });
+  
+  // 状态切换
+  form.on('switch(statusSwitch)', function(data){
+    var id = data.value;
+    var status = this.checked ? 1 : 0;
+    
+    $.ajax({
+      url: '{:url("AiTravelPhoto/scene_config_status")}',
+      type: 'POST',
+      data: {id: id, status: status},
+      dataType: 'json',
+      success: function(res){
+        if(res.code === 0){
+          layer.msg('状态更新成功');
+        } else {
+          layer.msg(res.msg || '更新失败');
+          // 恢复状态
+          data.elem.checked = !data.elem.checked;
+          form.render('checkbox');
+        }
+      }
+    });
+  });
+  
+  // 表格工具条事件
+  table.on('tool(sceneTable)', function(obj){
+    var data = obj.data;
+    
+    if(obj.event === 'edit'){
+      openSceneConfig(data.id);
+    } else if(obj.event === 'delete'){
+      layer.confirm('确定要删除该场景吗？', function(index){
+        deleteScene(data.id, function(){
+          obj.del();
+          layer.close(index);
+        });
+      });
+    } else if(obj.event === 'copy'){
+      copyScene(data.id);
+    }
+  });
+  
+  // 打开场景配置
+  window.openSceneConfig = function(id){
+    var title = id > 0 ? '编辑模型场景' : '新增模型场景';
+    layer.open({
+      type: 2,
+      title: title,
+      area: ['90%', '90%'],
+      content: '{:url("AiTravelPhoto/scene_config_new")}?id=' + id,
+      end: function(){
+        table.reload('sceneTable');
+      }
+    });
+  };
+  
+  // 删除场景
+  function deleteScene(id, callback){
+    $.ajax({
+      url: '{:url("AiTravelPhoto/scene_config_delete")}',
+      type: 'POST',
+      data: {id: id},
+      dataType: 'json',
+      success: function(res){
+        if(res.code === 0){
+          layer.msg('删除成功');
+          callback && callback();
+        } else {
+          layer.msg(res.msg || '删除失败');
+        }
+      }
+    });
+  }
+  
+  // 复制场景
+  function copyScene(id){
+    layer.confirm('确定要复制该场景吗？', function(index){
+      $.ajax({
+        url: '{:url("AiTravelPhoto/scene_config_copy")}',
+        type: 'POST',
+        data: {id: id},
+        dataType: 'json',
+        success: function(res){
+          if(res.code === 0){
+            layer.msg('复制成功');
+            table.reload('sceneTable');
+          } else {
+            layer.msg(res.msg || '复制失败');
+          }
+        }
+      });
+      layer.close(index);
+    });
+  }
+  
+  // 预览图片
+  window.previewImage = function(url){
+    layer.photos({
+      photos: {
+        data: [{src: url}]
+      }
+    });
+  };
+  
+});
+  </script>
+</body>
+</html>

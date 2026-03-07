@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>帮助详情 - {$webinfo.webname}</title>
+    {if $webinfo.ico}<link rel="shortcut icon" type="image/x-icon" href="{$webinfo.ico}">{/if}
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=1">
+    <script src="/static/index3/js/theme.js?v=1"></script>
+    <style>
+        .detail-breadcrumb { font-size: 13px; color: var(--text-tertiary); margin-bottom: 24px; }
+        .detail-breadcrumb a { color: var(--text-link); text-decoration: none; }
+        .detail-breadcrumb a:hover { text-decoration: underline; }
+        .detail-card { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding: 32px; }
+        .detail-title { font-size: 22px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; }
+        .detail-time { font-size: 13px; color: var(--text-tertiary); margin-bottom: 24px; }
+        .detail-content { font-size: 15px; line-height: 1.8; color: var(--text-secondary); }
+        .detail-content img { max-width: 100%; border-radius: 8px; margin: 12px 0; }
+    </style>
+</head>
+<body>
+<div class="layout-wrapper">
+    {include file="index3/public/sidebar"/}
+    <div class="main-content">
+        {include file="index3/public/header"/}
+        <div class="page-content">
+            <div class="detail-breadcrumb">
+                <a href="{:url('help')}">帮助中心</a> &gt; 问题详情
+            </div>
+            <div class="detail-card">
+                <div class="detail-title">{$info.name}</div>
+                <div class="detail-time">发布时间：{:date('Y-m-d H:i', $info['createtime'])}</div>
+                <div class="detail-content">{$info.content|raw}</div>
+            </div>
+        </div>
+    </div>
+</div>
+{include file="index3/public/tabbar"/}
+<script src="/static/index3/js/api.js?v=1"></script>
+<script src="/static/index3/js/sidebar.js?v=1"></script>
+</body>
+</html>

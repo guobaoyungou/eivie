@@ -646,7 +646,7 @@ export default {
     //是否可以用uni.getEnterOptionsSync函数，uni有版本限制vue3项目：uni-app 3.2.13+ 支持；vue2项目：uni-app 3.5.1+ 支持。
     var getEnterOptionsSync = true;
     //#ifndef MP-WEIXIN
-    var systemInfo = uni.getSystemInfoSync();
+    var systemInfo = uni.getWindowInfo();
     //判断uniapp版本
     var uni_version = systemInfo.uniRuntimeVersion;
     if(uni_version){
@@ -1787,7 +1787,7 @@ export default {
 					if(res.status == 1){
 						if(app.globalData.platform == 'app'){
 							const wv = plus.webview.create("","custom-webview",{
-								top: uni.getSystemInfoSync().statusBarHeight + 44
+								top: uni.getWindowInfo().statusBarHeight + 44
 							});
 							wv.loadURL(res.data)
 							var currentWebview = that.$scope.$getAppWebview();
@@ -1809,7 +1809,7 @@ export default {
 						if(app.globalData.platform == 'app'){
 							// #ifdef APP-PLUS
 							const wv = plus.webview.create("","custom-webview",{
-								top: uni.getSystemInfoSync().statusBarHeight + 44
+								top: uni.getWindowInfo().statusBarHeight + 44
 							});
 							wv.loadURL(res.data)
 							var currentWebview = that.$scope.$getAppWebview();

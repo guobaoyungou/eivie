@@ -1,18 +1,30 @@
 <template>
 	<view class="waterfalls-box" :style="{ height: height + 'px' }">
-		<view v-for="(item, index) of list" class="waterfalls-list" :key="item[idfield]"
+	<view v-for="(item, index) of list" class="waterfalls-list" :key="item[idfield]"
 			:id="'waterfalls-list-id-' + item[idfield]" :ref="'waterfalls-list-id-' + item[idfield]" :style="{
         '--offset': offset + 'px',
         '--cols': cols,
 				'background':probgcolor,
+				'border-radius': card_radius + 'rpx',
         top: allPositionArr[index] ? allPositionArr[index].top : 0,
         left: allPositionArr[index] ? allPositionArr[index].left : 0,
       }"  @click="toDetail(index)">
-			<image class="waterfalls-list-image" mode="widthFix" :style="imageStyle" :src="item[imageSrcKey] || ' '"
+			<image v-if="covertype!='video' && cover_ratio=='auto'" class="waterfalls-list-image" mode="widthFix" :style="Object.assign({}, imageStyle, {borderRadius: cover_radius + 'rpx ' + cover_radius + 'rpx 0 0'})" :src="item[imageSrcKey] || ' '"
 				@load="imageLoadHandle(index)" @error="imageLoadHandle(index)" />
+			<view v-else-if="covertype!='video'" class="waterfalls-list-image-fixed" :style="{paddingBottom: coverPaddingBottom, borderRadius: cover_radius + 'rpx ' + cover_radius + 'rpx 0 0', overflow:'hidden', position:'relative', width:'100%', height:0}">
+				<image class="fixed-image" :style="{borderRadius: cover_radius + 'rpx ' + cover_radius + 'rpx 0 0'}" :src="item[imageSrcKey] || ' '" mode="aspectFill"
+					@load="imageLoadHandle(index)" @error="imageLoadHandle(index)" />
+			</view>
+			<view v-else class="waterfalls-list-image-fixed" :style="{paddingBottom: coverPaddingBottom || '133.33%', borderRadius: cover_radius + 'rpx ' + cover_radius + 'rpx 0 0', overflow:'hidden', position:'relative', width:'100%', height:0}">
+				<video class="cover-video" :src="item[imageSrcKey] || ''" :autoplay="false" :loop="false" :muted="true" :controls="false" :show-center-play-btn="false" :show-play-btn="false" :show-fullscreen-btn="false" :enable-progress-gesture="false" objectFit="cover" :style="{borderRadius: cover_radius + 'rpx ' + cover_radius + 'rpx 0 0'}"
+					@loadedmetadata="imageLoadHandle(index)" @error="imageLoadHandle(index)"></video>
+				<view class="play-icon"><image class="play-img" :src="pre_url+'/static/img/play.png'" mode="aspectFit"></image></view>
+			</view>
 			<image class="saleimg" :src="saleimg" v-if="saleimg!=''" mode="widthFix" />
+			<!-- 按钮位置：封面上 -->
+			<view class="cover-btn" :class="'btn-' + btn_position" v-if="showcart==3 && !item.price_type && item.hide_cart!=true && (btn_position=='top-left' || btn_position=='top-right' || btn_position=='bottom-left' || btn_position=='bottom-right')" @click.stop="toCartTextDetail(index)">{{carttext||'做同款'}}</view>
 			<view>
-				<view class="product-info">
+				<view class="product-info" :style="{padding: info_padding + 'rpx'}" :class="{'info-flex-layout': btn_position=='info-right'}">
 					<view class="p1" v-if="showname == 1">{{item.name}}</view>
 					<view class="binfo flex-y-center" v-if="showbname&&item.binfo">
 						<image :src="item.binfo.logo" class="t1"><text class="t2">{{item.binfo.name}}</text>
@@ -89,6 +101,11 @@
 						:data-proid="item[idfield]">
 						<image :src="cartimg" class="img" /></text>
 					</view>
+					<!-- 按钮位置：信息区右侧 -->
+					<view class="info-btn" v-if="showcart==3 && !item.price_type && item.hide_cart!=true && btn_position=='info-right'" @click.stop="toCartTextDetail(index)">{{carttext||'做同款'}}</view>
+					<!-- 按钮位置：信息区下方（默认，不在封面上时） -->
+					<view class="p4 p4-text" :style="{background:'rgba('+t('color1rgb')+',0.1)',color:t('color1')}"
+						v-if="showcart==3 && !item.price_type && item.hide_cart!=true && btn_position!='info-right' && btn_position!='top-left' && btn_position!='top-right' && btn_position!='bottom-left' && btn_position!='bottom-right'" @click.stop="toCartTextDetail(index)">{{carttext||'做同款'}}</view>
 				</view>
 				<view v-if="showcoupon==1 && (item.couponlist).length>0" class="couponitem">
 					<view class="f1">
@@ -205,6 +222,9 @@
 			cartimg: {
 				default: '/static/imgsrc/cart.svg'
 			},
+			carttext: {
+				default: ''
+			},
 			showstock: {
 				default: '0'
 			},
@@ -217,8 +237,57 @@
 			showcommission: {
 				default: '0'
 			},
-			probgcolor:{default:'#fff'}
+			probgcolor:{default:'#fff'},
+			// 新增样式参数
+			cover_ratio: {
+				type: String,
+				default: 'auto'
+			},
+			cover_radius: {
+				type: [Number, String],
+				default: 8
+			},
+			card_radius: {
+				type: [Number, String],
+				default: 8
+			},
+			btn_position: {
+				type: String,
+				default: 'bottom-right'
+			},
+			card_gap: {
+				type: [Number, String],
+				default: 12
+			},
+			info_padding: {
+				type: [Number, String],
+				default: 12
+			},
+			detailurl: {
+				type: String,
+				default: ''
+			},
+			covertype: {
+				type: String,
+				default: ''
+			},
+			saleslabel: {
+				type: String,
+				default: ''
+			}
       
+		},
+		computed: {
+			coverPaddingBottom() {
+				const paddingMap = {
+					'1:1': '100%',
+					'4:3': '75%',
+					'3:4': '133.33%',
+					'16:9': '56.25%',
+					'9:16': '177.78%'
+				};
+				return paddingMap[this.cover_ratio] || '100%';
+			}
 		},
 		data() {
 			return {
@@ -328,6 +397,15 @@
 			toDetail:function(key){
 				var that = this;
 				var item = that.list[key];
+				if(item.tourl){
+					app.goto(item.tourl);
+					return;
+				}
+				if(that.detailurl){
+					var id = item[that.idfield];
+					app.goto(that.detailurl + (that.detailurl.indexOf('?') > -1 ? '&' : '?') + 'id=' + id);
+					return;
+				}
 				var id = item[that.idfield];
 				var url = '/pages/shop/product?id='+id;//默认链接
 				//来自商品柜
@@ -340,6 +418,19 @@
 					url = url+'&dgprodata='+prodata+'&devicedata='+devicedata;
 				}
 				app.goto(url);
+			},
+			toCartTextDetail:function(key){
+				var that = this;
+				var item = that.list[key];
+				if(item.tourl){
+					app.goto(item.tourl);
+				} else if(that.detailurl){
+					var id = item[that.idfield];
+					app.goto(that.detailurl + (that.detailurl.indexOf('?') > -1 ? '&' : '?') + 'id=' + id);
+				} else {
+					var id = item[that.idfield];
+					app.goto('/pagesZ/generation/create?id='+id+'&type=1');
+				}
 			}
 		},
 	};
@@ -366,6 +457,51 @@
 		display: block;
 	}
 
+	.waterfalls-box .waterfalls-list .waterfalls-list-image-fixed {
+		width: 100%;
+		overflow: hidden;
+	}
+	.waterfalls-box .waterfalls-list .fixed-image {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.waterfalls-box .waterfalls-list .cover-video {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+	}
+	.waterfalls-box .waterfalls-list .play-icon {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: 60rpx;
+		height: 60rpx;
+		background: rgba(0,0,0,0.5);
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 10;
+	}
+	.waterfalls-box .waterfalls-list .play-icon .play-img {
+		width: 30rpx;
+		height: 30rpx;
+	}
+
+	/* 封面上的按钮位置 */
+	.waterfalls-box .cover-btn{position:absolute;padding:0 16rpx;border-radius:26rpx;font-size:22rpx;line-height:48rpx;background:rgba(255,77,79,0.9);color:#fff;z-index:11;}
+	.waterfalls-box .cover-btn.btn-top-left{top:10rpx;left:10rpx;}
+	.waterfalls-box .cover-btn.btn-top-right{top:10rpx;right:10rpx;}
+	.waterfalls-box .cover-btn.btn-bottom-left{bottom:10rpx;left:10rpx;}
+	.waterfalls-box .cover-btn.btn-bottom-right{bottom:10rpx;right:10rpx;}
+
 
 	.waterfalls-box .saleimg {
 		position: absolute;
@@ -377,6 +513,22 @@
 	.waterfalls-box .product-info {
 		padding: 20rpx 20rpx;
 		position: relative;
+	}
+	.waterfalls-box .product-info.info-flex-layout {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		justify-content: space-between;
+	}
+	.waterfalls-box .product-info .info-btn {
+		flex-shrink: 0;
+		padding: 0 16rpx;
+		border-radius: 26rpx;
+		font-size: 22rpx;
+		line-height: 48rpx;
+		background: rgba(255,77,79,0.1);
+		color: #ff4d4f;
+		margin-left: 10rpx;
 	}
 
 	.waterfalls-box .product-info .p1 {
@@ -462,6 +614,7 @@
 		width: 100%;
 		height: 100%
 	}
+	.waterfalls-box .product-info .p4.p4-text{width:auto;height:auto;padding:0 16rpx;border-radius:26rpx;font-size:22rpx;line-height:48rpx}
 	.waterfalls-box .product-info .p2 .t1-m {font-size: 32rpx;padding-left: 8rpx;}
 
 	.waterfalls-box .product-info .binfo {

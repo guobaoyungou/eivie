@@ -744,7 +744,7 @@
 		onLoad(opt){
 			this.opt = app.getopts(opt);
 			this.getdata();
-			let sysinfo = uni.getSystemInfoSync();
+			let sysinfo = uni.getWindowInfo();
 			this.statusBarHeight = sysinfo.statusBarHeight;
 		},
 		onPullDownRefresh: function () {

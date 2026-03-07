@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>联系我们 - {$webinfo.webname}</title>
+    {if $webinfo.ico}<link rel="shortcut icon" type="image/x-icon" href="{$webinfo.ico}">{/if}
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=1">
+    <script src="/static/index3/js/theme.js?v=1"></script>
+    <style>
+        .contact-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; max-width: 900px; }
+        @media(max-width:767px){ .contact-wrap { grid-template-columns: 1fr; } }
+        .contact-info { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding: 32px; }
+        .contact-info .ci-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .contact-info .ci-logo img { width: 48px; height: 48px; border-radius: 10px; }
+        .contact-info .ci-logo span { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+        .contact-info .ci-item { padding: 8px 0; font-size: 14px; color: var(--text-secondary); }
+        .contact-info .ci-label { color: var(--text-tertiary); }
+        .contact-form { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color); padding: 32px; }
+        .contact-form h3 { font-size: 18px; font-weight: 600; margin-bottom: 20px; color: var(--text-primary); }
+        .cf-input { width: 100%; height: 40px; border: 1px solid var(--border-color); border-radius: 8px; padding: 0 14px; margin-bottom: 12px; background: var(--bg-input); color: var(--text-primary); font-size: 14px; outline: none; }
+        .cf-input:focus { border-color: var(--accent-color); }
+        .cf-textarea { width: 100%; height: 100px; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; background: var(--bg-input); color: var(--text-primary); font-size: 14px; outline: none; resize: vertical; }
+        .cf-captcha { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+        .cf-captcha input { flex: 1; }
+        .cf-captcha img { height: 40px; border-radius: 4px; cursor: pointer; }
+        .cf-submit { width: 100%; height: 42px; background: var(--accent-color); color: #fff; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; transition: background .2s; }
+        .cf-submit:hover { background: var(--accent-hover); }
+    </style>
+</head>
+<body>
+<div class="layout-wrapper">
+    {include file="index3/public/sidebar"/}
+    <div class="main-content">
+        {include file="index3/public/header"/}
+        <div class="page-content">
+            <div class="section-title"><span class="dot"></span>联系我们</div>
+            <div class="contact-wrap">
+                <div class="contact-info">
+                    <div class="ci-logo">
+                        <img src="{$webinfo.logo}" alt="">
+                        <span>{$webinfo.webname}</span>
+                    </div>
+                    {if $webinfo['address']}<div class="ci-item"><span class="ci-label">地址：</span>{$webinfo.address}</div>{/if}
+                    {if $webinfo['email']}<div class="ci-item"><span class="ci-label">邮箱：</span>{$webinfo.email}</div>{/if}
+                    {if $webinfo['tel']}<div class="ci-item"><span class="ci-label">电话：</span>{$webinfo.tel}</div>{/if}
+                    {if $webinfo['weixin']}<div class="ci-item"><span class="ci-label">微信：</span>{$webinfo.weixin}</div>{/if}
+                </div>
+                <div class="contact-form">
+                    <h3>在线留言</h3>
+                    <input class="cf-input" type="text" placeholder="您的称呼" id="realname">
+                    <input class="cf-input" type="text" placeholder="您的联系方式" id="tel">
+                    <textarea class="cf-textarea" placeholder="留言内容..." id="content"></textarea>
+                    <div class="cf-captcha">
+                        <input class="cf-input" type="text" placeholder="图形验证码" id="captcha" style="margin-bottom:0">
+                        <img src="{:captcha_src()}" id="captchaImg" onclick="this.src='{:captcha_src()}&t='+new Date().getTime()">
+                    </div>
+                    <button class="cf-submit" onclick="submitMsg()">提交留言</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{include file="index3/public/tabbar"/}
+<script src="/static/index3/js/api.js?v=1"></script>
+<script src="/static/index3/js/sidebar.js?v=1"></script>
+<script>
+var doing = false;
+function submitMsg(){
+    if(doing) return;
+    var realname = document.getElementById('realname').value;
+    var tel = document.getElementById('tel').value;
+    var content = document.getElementById('content').value;
+    var captcha = document.getElementById('captcha').value;
+    if(!realname){ alert('请填写您的称呼'); return; }
+    if(!tel){ alert('请填写您的联系方式'); return; }
+    if(!content){ alert('请填写留言内容'); return; }
+    if(!captcha){ alert('请填写验证码'); return; }
+    doing = true;
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '', true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onreadystatechange = function(){
+        if(xhr.readyState === 4 && xhr.status === 200){
+            var res = JSON.parse(xhr.responseText);
+            alert(res.msg);
+            if(res.status == 1) location.reload();
+            else doing = false;
+        }
+    };
+    xhr.send('realname='+encodeURIComponent(realname)+'&tel='+encodeURIComponent(tel)+'&content='+encodeURIComponent(content)+'&captcha='+encodeURIComponent(captcha));
+}
+</script>
+</body>
+</html>

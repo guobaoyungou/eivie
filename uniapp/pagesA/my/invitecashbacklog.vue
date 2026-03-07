@@ -157,7 +157,7 @@ export default {
     }
   },
   onReady() {
-  	var sysinfo = uni.getSystemInfoSync();
+  	var sysinfo = uni.getWindowInfo();
   	this.pageHeight = sysinfo.windowHeight;
   },
   methods: {

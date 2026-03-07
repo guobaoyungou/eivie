@@ -94,7 +94,7 @@ class User extends Common
 		$mendianlist = Db::name('mendian')->where('aid',aid)->where('bid',bid)->select()->toArray();
 		$auth_data = $info ? json_decode($info['auth_data'],true) : array();
 		if(!$auth_data) $auth_data = array();
-		$menudata = \app\common\Menu::getdata(aid,uid);
+		$menudata = \app\common\Menu::getdata(aid,uid,false,0,bid);
 
 		$wxauth_data = $info ? json_decode($info['wxauth_data'],true) : array();
 		if(!$wxauth_data) $wxauth_data = array();

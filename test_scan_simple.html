@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>简化测试 - 全选功能</title>
+    <style>
+        body { padding: 30px; font-family: Arial, sans-serif; background: #f5f5f5; }
+        .test-box { background: #fff; padding: 20px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }
+        .title { font-size: 20px; font-weight: bold; margin-bottom: 20px; color: #333; }
+        
+        /* Radio样式 */
+        .radio-group { margin: 20px 0; }
+        .radio-label { display: inline-block; margin-right: 20px; cursor: pointer; font-size: 16px; }
+        .radio-label input { margin-right: 5px; width: 16px; height: 16px; vertical-align: middle; }
+        .radio-label:hover { color: #1E9FFF; }
+        
+        /* Checkbox样式 */
+        .checkbox-group { margin: 20px 0; }
+        .checkbox-label { display: block; margin: 8px 0; cursor: pointer; padding: 8px; transition: background 0.2s; }
+        .checkbox-label:hover { background: #f0f0f0; border-radius: 4px; }
+        .checkbox-label input { margin-right: 8px; width: 16px; height: 16px; vertical-align: middle; }
+        
+        .select-all-box { background: #f0f7ff; padding: 12px; border-radius: 4px; border: 1px solid #d9ecff; margin-bottom: 10px; }
+        .controller-list { max-height: 200px; overflow-y: auto; border: 1px solid #e6e6e6; padding: 10px; background: #fafafa; border-radius: 4px; }
+        
+        .btn { padding: 10px 20px; background: #1E9FFF; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .btn:hover { background: #0c7cd5; }
+        
+        .log { background: #2d2d2d; color: #0f0; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; margin-top: 20px; }
+        .log-item { margin: 2px 0; }
+    </style>
+</head>
+<body>
+
+<div class="test-box">
+    <div class="title">🧪 简化测试 - 全选和扫描功能</div>
+    
+    <!-- Radio测试 -->
+    <div>
+        <h3>1. Radio单选框测试</h3>
+        <div class="radio-group">
+            <label class="radio-label">
+                <input type="radio" name="testType" value="all" checked>
+                <span>全量扫描</span>
+            </label>
+            <label class="radio-label">
+                <input type="radio" name="testType" value="increment">
+                <span>增量扫描</span>
+            </label>
+        </div>
+        <div style="color: #666; font-size: 13px;">
+            ✓ 你应该能看到"全量扫描"和"增量扫描"文字
+        </div>
+    </div>
+    
+    <!-- Checkbox测试 -->
+    <div style="margin-top: 30px;">
+        <h3>2. Checkbox全选测试</h3>
+        
+        <!-- 全选 -->
+        <div class="select-all-box">
+            <label class="checkbox-label" style="margin: 0; font-weight: bold; color: #1E9FFF;">
+                <input type="checkbox" id="testSelectAll">
+                <span id="testSelectAllText">全选（共 5 个控制器）</span>
+            </label>
+        </div>
+        
+        <!-- 控制器列表 -->
+        <div class="controller-list">
+            <label class="checkbox-label">
+                <input type="checkbox" name="testControllers[]" value="ApiAddress" class="test-controller">
+                <span>ApiAddress</span>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" name="testControllers[]" value="ApiAdmin" class="test-controller">
+                <span>ApiAdmin</span>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" name="testControllers[]" value="ApiMember" class="test-controller">
+                <span>ApiMember</span>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" name="testControllers[]" value="ApiOrder" class="test-controller">
+                <span>ApiOrder</span>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" name="testControllers[]" value="ApiProduct" class="test-controller">
+                <span>ApiProduct</span>
+            </label>
+        </div>
+        
+        <div style="margin-top: 10px; color: #666; font-size: 13px;">
+            ✓ 点击"全选"应该选中所有<br>
+            ✓ 选择部分时应该显示"已选择 X / 5 个控制器"<br>
+            ✓ 选中所有时应该显示"✔ 已全选 5 个控制器"
+        </div>
+    </div>
+    
+    <!-- 扫描按钮 -->
+    <div style="margin-top: 30px;">
+        <h3>3. 扫描功能测试</h3>
+        <button class="btn" onclick="testScan()">
+            🔍 开始扫描（测试用）
+        </button>
+        <div style="margin-top: 10px; color: #666; font-size: 13px;">
+            ✓ 点击按钮应该触发扫描（查看下方日志）
+        </div>
+    </div>
+    
+    <!-- 调试日志 -->
+    <div style="margin-top: 30px;">
+        <h3>4. 调试日志</h3>
+        <div class="log" id="testLog">
+            <div class="log-item">[系统] 等待加载...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 添加日志
+function addLog(msg, type) {
+    type = type || 'info';
+    var logDiv = document.getElementById('testLog');
+    var time = new Date().toLocaleTimeString();
+    var logItem = document.createElement('div');
+    logItem.className = 'log-item';
+    logItem.style.color = type === 'error' ? '#f00' : (type === 'success' ? '#0f0' : '#0ff');
+    logItem.textContent = '[' + time + '] ' + msg;
+    logDiv.appendChild(logItem);
+    logDiv.scrollTop = logDiv.scrollHeight;
+    console.log(msg);
+}
+
+// 页面加载完成
+window.onload = function() {
+    addLog('页面加载完成', 'success');
+    addLog('开始初始化...');
+    
+    // 检测jQuery
+    if (typeof jQuery === 'undefined') {
+        addLog('⚠️ jQuery未加载，使用原生JavaScript', 'error');
+    } else {
+        addLog('✓ jQuery已加载，版本: ' + jQuery.fn.jquery, 'success');
+    }
+    
+    // 计算控制器数量
+    var total = document.querySelectorAll('.test-controller').length;
+    addLog('检测到 ' + total + ' 个控制器');
+    
+    // 更新文本
+    updateText();
+    
+    // 绑定全选事件
+    var selectAllElem = document.getElementById('testSelectAll');
+    selectAllElem.addEventListener('change', function() {
+        addLog('[全选] 全选复选框被点击，选中: ' + this.checked);
+        
+        var checked = this.checked;
+        var checkboxes = document.querySelectorAll('.test-controller');
+        
+        checkboxes.forEach(function(cb) {
+            cb.checked = checked;
+        });
+        
+        updateText();
+        addLog('[全选] 已' + (checked ? '选中' : '取消') + ' ' + checkboxes.length + ' 个控制器', 'success');
+    });
+    
+    // 绑定单个复选框事件
+    var checkboxes = document.querySelectorAll('.test-controller');
+    checkboxes.forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            addLog('[选择] 控制器 ' + this.value + ' 状态: ' + this.checked);
+            updateState();
+            updateText();
+        });
+    });
+    
+    // 绑定Radio事件
+    var radios = document.querySelectorAll('input[name="testType"]');
+    radios.forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            addLog('[Radio] 选择了: ' + this.value);
+        });
+    });
+    
+    addLog('事件绑定完成', 'success');
+};
+
+// 更新全选状态
+function updateState() {
+    var total = document.querySelectorAll('.test-controller').length;
+    var checked = document.querySelectorAll('.test-controller:checked').length;
+    
+    var selectAllElem = document.getElementById('testSelectAll');
+    
+    if (checked === 0) {
+        selectAllElem.checked = false;
+        selectAllElem.indeterminate = false;
+    } else if (checked === total) {
+        selectAllElem.checked = true;
+        selectAllElem.indeterminate = false;
+    } else {
+        selectAllElem.checked = false;
+        selectAllElem.indeterminate = true;
+    }
+    
+    addLog('[状态] 全选状态更新: ' + checked + ' / ' + total);
+}
+
+// 更新文本
+function updateText() {
+    var total = document.querySelectorAll('.test-controller').length;
+    var checked = document.querySelectorAll('.test-controller:checked').length;
+    
+    var textElem = document.getElementById('testSelectAllText');
+    var text = '';
+    
+    if (checked === 0) {
+        text = '全选（共 ' + total + ' 个控制器）';
+    } else if (checked === total) {
+        text = '<span style="color: #5FB878;">✔ 已全选 ' + total + ' 个控制器</span>';
+    } else {
+        text = '<span style="color: #FFB800;">已选择 ' + checked + ' / ' + total + ' 个控制器</span>';
+    }
+    
+    textElem.innerHTML = text;
+}
+
+// 测试扫描
+function testScan() {
+    addLog('========================================');
+    addLog('[扫描] 开始扫描按钮被点击', 'success');
+    
+    // 获取扫描类型
+    var typeRadio = document.querySelector('input[name="testType"]:checked');
+    var type = typeRadio ? typeRadio.value : 'unknown';
+    addLog('[扫描] 扫描类型: ' + type);
+    
+    // 获取选中的控制器
+    var controllers = [];
+    var checkboxes = document.querySelectorAll('.test-controller:checked');
+    checkboxes.forEach(function(cb) {
+        controllers.push(cb.value);
+    });
+    
+    addLog('[扫描] 选中的控制器数量: ' + controllers.length);
+    addLog('[扫描] 控制器列表: ' + controllers.join(', '));
+    
+    if (controllers.length === 0) {
+        addLog('[扫描] ❌ 请至少选择一个控制器', 'error');
+        alert('请至少选择一个控制器');
+        return;
+    }
+    
+    addLog('[扫描] ✓ 准备发送AJAX请求...', 'success');
+    addLog('[扫描] ✓ 参数验证通过', 'success');
+    
+    // 模拟AJAX
+    setTimeout(function() {
+        addLog('[扫描] ✓ 扫描完成（模拟）', 'success');
+        addLog('[扫描] 新增接口: 5 个');
+        addLog('[扫描] 更新接口: 2 个');
+        alert('扫描测试成功！\n\n扫描类型: ' + type + '\n选中数量: ' + controllers.length + '\n控制器: ' + controllers.join(', '));
+    }, 1000);
+}
+</script>
+
+</body>
+</html>

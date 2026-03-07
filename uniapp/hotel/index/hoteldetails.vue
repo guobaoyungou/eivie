@@ -531,7 +531,7 @@
 		onLoad(opt) {
 			this.opt = app.getopts(opt);
 			this.hotelid = this.opt.id?this.opt.id:0
-			var sysinfo = uni.getSystemInfoSync();	
+			var sysinfo = uni.getWindowInfo();	
 			this.statusBarHeight = sysinfo.statusBarHeight;
 			this.wxNavigationBarMenu();
 			

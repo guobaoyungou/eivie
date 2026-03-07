@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>视频生成任务</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .model-card {
+      border: 2px solid #e6e6e6;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: #fff;
+    }
+    .model-card:hover {
+      border-color: #1E9FFF;
+      box-shadow: 0 2px 10px rgba(30,159,255,0.2);
+    }
+    .model-card.active {
+      border-color: #1E9FFF;
+      background: linear-gradient(135deg, #f0f9ff 0%, #fff 100%);
+    }
+    .model-card .model-name {
+      font-size: 16px;
+      font-weight: bold;
+      color: #333;
+    }
+    .model-card .model-provider {
+      font-size: 12px;
+      color: #999;
+      margin-top: 5px;
+    }
+    .model-card .api-status {
+      float: right;
+      font-size: 12px;
+    }
+    .model-card .api-status.configured {
+      color: #5FB878;
+    }
+    .model-card .api-status.not-configured {
+      color: #FF5722;
+    }
+    .param-form {
+      background: #f7f7f7;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    .param-form .layui-form-label {
+      width: 120px;
+    }
+    .param-form .layui-input-block {
+      margin-left: 150px;
+    }
+    .template-card {
+      border: 1px solid #e6e6e6;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+    .template-card:hover {
+      border-color: #1E9FFF;
+    }
+    .template-card.active {
+      border-color: #1E9FFF;
+      background: #f0f9ff;
+    }
+    .template-card img {
+      width: 50px;
+      height: 50px;
+      border-radius: 4px;
+      object-fit: cover;
+      margin-right: 10px;
+    }
+    .template-card .template-info {
+      flex: 1;
+    }
+    .template-card .template-name {
+      font-weight: bold;
+    }
+    /* 多图上传组件样式 */
+    .multi-image-container {
+      background: #f9f9f9;
+      border: 1px dashed #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    .multi-image-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      min-height: 100px;
+    }
+    .multi-image-item {
+      position: relative;
+      width: 100px;
+      height: 100px;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 2px solid #e6e6e6;
+      cursor: move;
+      transition: all 0.2s;
+      background: #fff;
+    }
+    .multi-image-item:hover {
+      border-color: #1E9FFF;
+      transform: scale(1.02);
+    }
+    .multi-image-item.dragging {
+      opacity: 0.5;
+      border-color: #FF5722;
+    }
+    .multi-image-item.drag-over {
+      border-color: #5FB878;
+      border-style: dashed;
+    }
+    .multi-image-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .multi-image-item .first-frame-badge {
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: linear-gradient(135deg, #1E9FFF, #5FB878);
+      color: #fff;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 0 0 6px 0;
+    }
+    .multi-image-item .remove-btn {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 20px;
+      height: 20px;
+      background: rgba(255,0,0,0.8);
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .multi-image-item:hover .remove-btn {
+      opacity: 1;
+    }
+    .multi-image-item .order-num {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+    .add-image-btn {
+      width: 100px;
+      height: 100px;
+      border: 2px dashed #ccc;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fff;
+    }
+    .add-image-btn:hover {
+      border-color: #1E9FFF;
+      background: #f0f9ff;
+    }
+    .add-image-btn.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .add-image-btn i {
+      font-size: 28px;
+      color: #999;
+    }
+    .add-image-btn span {
+      font-size: 12px;
+      color: #999;
+      margin-top: 5px;
+    }
+    .multi-image-actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+    }
+    .multi-image-tip {
+      font-size: 12px;
+      color: #999;
+      margin-top: 8px;
+    }
+    /* 历史成片选择器样式 */
+    .history-record-card {
+      border: 1px solid #e6e6e6;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: #fff;
+    }
+    .history-record-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .history-record-info {
+      font-size: 13px;
+      color: #666;
+    }
+    .history-record-images {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .history-image-item {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .history-image-item:hover {
+      border-color: #1E9FFF;
+    }
+    .history-image-item.selected {
+      border-color: #5FB878;
+    }
+    .history-image-item.selected::after {
+      content: '✓';
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 18px;
+      height: 18px;
+      background: #5FB878;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+    .history-image-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .history-select-all-btn {
+      font-size: 12px;
+      padding: 3px 10px;
+    }
+    .history-selector-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 15px;
+      border-top: 1px solid #e6e6e6;
+      margin-top: 15px;
+    }
+    .selected-count {
+      font-size: 14px;
+      color: #666;
+    }
+    .selected-count strong {
+      color: #1E9FFF;
+    }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <!-- 左侧：模型选择 -->
+      <div class="layui-col-md4">
+        <div class="layui-card">
+          <div class="layui-card-header">
+            <i class="layui-icon layui-icon-template"></i> 选择视频模型
+          </div>
+          <div class="layui-card-body" style="max-height:500px;overflow-y:auto">
+            {volist name="models" id="model"}
+            <div class="model-card" data-model-id="{$model.id}" data-api-configured="{$model.api_key_configured}">
+              <span class="api-status {if $model.api_key_configured}configured{else}not-configured{/if}">
+                {if $model.api_key_configured}<i class="layui-icon layui-icon-ok"></i> 已配置{else}<i class="layui-icon layui-icon-close"></i> 未配置API Key{/if}
+              </span>
+              <div class="model-name">{$model.model_name}</div>
+              <div class="model-provider">{$model.provider_name} · {$model.type_name}</div>
+            </div>
+            {/volist}
+            {if empty($models)}
+            <div style="text-align:center;padding:50px 0;color:#999">
+              <i class="layui-icon layui-icon-face-cry" style="font-size:48px"></i>
+              <p style="margin-top:10px">暂无可用的视频生成模型</p>
+              <p style="font-size:12px">请先在模型广场中添加视频生成类型的模型</p>
+            </div>
+            {/if}
+          </div>
+        </div>
+        
+        <!-- 场景模板 -->
+        <div class="layui-card" style="margin-top:15px">
+          <div class="layui-card-header">
+            <i class="layui-icon layui-icon-picture"></i> 场景模板
+            <span class="layui-badge layui-bg-gray" style="float:right">{$templates|count}个模板</span>
+          </div>
+          <div class="layui-card-body" style="max-height:300px;overflow-y:auto">
+            {volist name="templates" id="tpl"}
+            <div class="template-card" data-template-id="{$tpl.id}" data-model-id="{$tpl.model_id}">
+              {if $tpl.cover_image}
+              <video src="{$tpl.cover_image}" muted style="width:50px;height:50px;object-fit:cover;border-radius:4px;margin-right:10px"></video>
+              {else}
+              <div style="width:50px;height:50px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;margin-right:10px">
+                <i class="layui-icon layui-icon-video" style="font-size:24px;color:#ccc"></i>
+              </div>
+              {/if}
+              <div class="template-info">
+                <div class="template-name">{$tpl.template_name}</div>
+                <div style="font-size:12px;color:#999">{$tpl.category}</div>
+              </div>
+            </div>
+            {/volist}
+            {if empty($templates)}
+            <div style="text-align:center;padding:30px 0;color:#999;font-size:12px">
+              暂无场景模板
+            </div>
+            {/if}
+          </div>
+        </div>
+      </div>
+      
+      <!-- 右侧：参数配置 -->
+      <div class="layui-col-md8">
+        <div class="layui-card">
+          <div class="layui-card-header">
+            <i class="layui-icon layui-icon-edit"></i> 参数配置
+            <span id="selectedModelName" style="margin-left:10px;color:#1E9FFF"></span>
+          </div>
+          <div class="layui-card-body">
+            <form class="layui-form" lay-filter="taskForm">
+              <input type="hidden" name="model_id" id="modelId" value="">
+              <input type="hidden" name="scene_id" id="sceneId" value="">
+              
+              <div id="paramContainer">
+                <div style="text-align:center;padding:80px 0;color:#999">
+                  <i class="layui-icon layui-icon-left" style="font-size:36px"></i>
+                  <p style="margin-top:10px">请先选择左侧的模型或场景模板</p>
+                </div>
+              </div>
+              
+              <div id="submitArea" style="display:none;margin-top:20px;text-align:center">
+                <button type="submit" class="layui-btn layui-btn-lg" lay-submit lay-filter="submitTask">
+                  <i class="layui-icon layui-icon-release"></i> 提交生成任务
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  var form = layui.form;
+  var modelsData = {$models_json|raw};
+  var currentModelId = 0;
+  var currentSchema = null;
+  
+  // 多图管理变量
+  var firstFrameImages = [];  // 存储首帧图片列表 [{id, url, thumbnail, source, sourceId}]
+  var maxImageCount = 10;     // 最大图片数量
+  var dragSourceIndex = -1;   // 拖拽源索引
+  
+  // 获取URL参数
+  function getUrlParam(name) {
+    var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+    var r = window.location.search.substr(1).match(reg);
+    if (r != null) return decodeURIComponent(r[2]);
+    return null;
+  }
+  
+  // 检查是否有预填充的图片URL（从照片生成记录跳转过来）
+  var prefillImageUrl = getUrlParam('first_frame_image');
+  
+  // 选择模型
+  $('.model-card').click(function() {
+    var modelId = $(this).data('model-id');
+    var apiConfigured = $(this).data('api-configured');
+    
+    console.log('点击模型卡片, modelId:', modelId, ', apiConfigured:', apiConfigured, ', type:', typeof apiConfigured);
+    
+    // 兼容处理：0、false、空字符串都视为未配置
+    if (apiConfigured === 0 || apiConfigured === false || apiConfigured === '' || apiConfigured === '0' || !apiConfigured) {
+      layer.msg('该模型的API Key未配置，请先在API Key配置中添加');
+      return;
+    }
+    
+    $('.model-card').removeClass('active');
+    $(this).addClass('active');
+    $('.template-card').removeClass('active');
+    
+    loadModelSchema(modelId);
+  });
+  
+  // 选择模板
+  $('.template-card').click(function() {
+    var templateId = $(this).data('template-id');
+    var modelId = $(this).data('model-id');
+    
+    $('.template-card').removeClass('active');
+    $(this).addClass('active');
+    $('.model-card').removeClass('active');
+    $('.model-card[data-model-id="'+modelId+'"]').addClass('active');
+    
+    loadTemplateDetail(templateId);
+  });
+  
+  // 加载模型参数Schema
+  function loadModelSchema(modelId) {
+    console.log('loadModelSchema 开始, modelId:', modelId);
+    var index = layer.load();
+    // 重置多图列表
+    firstFrameImages = [];
+    var apiUrl = "{:url('get_model_schema')}";
+    console.log('请求URL:', apiUrl);
+    
+    $.get(apiUrl, {model_id: modelId})
+      .done(function(res) {
+        console.log('loadModelSchema 响应:', res);
+        layer.close(index);
+        if (res.status == 1) {
+          currentModelId = modelId;
+          currentSchema = res.data.input_schema;
+          $('#modelId').val(modelId);
+          $('#sceneId').val('');
+          $('#selectedModelName').text(res.data.model_name);
+          console.log('调用 renderParamForm, schema:', res.data.input_schema);
+          renderParamForm(res.data.input_schema, {});
+          $('#submitArea').show();
+          
+          // 如果有预填充的图片URL，尝试填充到相关字段
+          if (prefillImageUrl) {
+            tryPrefillImageField(prefillImageUrl);
+          }
+        } else {
+          layer.msg(res.msg || '获取模型参数失败');
+        }
+      })
+      .fail(function(xhr, status, error) {
+        console.error('loadModelSchema 请求失败:', status, error, xhr.responseText);
+        layer.close(index);
+        layer.msg('加载模型参数失败，请检查网络或刷新页面重试');
+      });
+  }
+  
+  // 加载模板详情
+  function loadTemplateDetail(templateId) {
+    console.log('loadTemplateDetail 开始, templateId:', templateId);
+    var index = layer.load();
+    // 重置多图列表
+    firstFrameImages = [];
+    var apiUrl = "{:url('get_template_detail')}";
+    
+    $.get(apiUrl, {template_id: templateId})
+      .done(function(res) {
+        console.log('loadTemplateDetail 响应:', res);
+        layer.close(index);
+        if (res.status == 1) {
+          currentModelId = res.data.model_id;
+          currentSchema = res.data.input_schema;
+          $('#modelId').val(res.data.model_id);
+          $('#sceneId').val(templateId);
+          $('#selectedModelName').text(res.data.template_name + ' (模型: ' + res.data.model_name + ')');
+          
+          var defaultParams = res.data.default_params;
+          if (typeof defaultParams === 'string') {
+            defaultParams = JSON.parse(defaultParams);
+          }
+          renderParamForm(res.data.input_schema, defaultParams || {});
+          $('#submitArea').show();
+          
+          // 如果有预填充的图片URL，尝试填充到相关字段
+          if (prefillImageUrl) {
+            tryPrefillImageField(prefillImageUrl);
+          }
+        } else {
+          layer.msg(res.msg || '获取模板详情失败');
+        }
+      })
+      .fail(function(xhr, status, error) {
+        console.error('loadTemplateDetail 请求失败:', status, error, xhr.responseText);
+        layer.close(index);
+        layer.msg('加载模板详情失败，请检查网络或刷新页面重试');
+      });
+  }
+  
+  // 标准化 schema 格式（兼容 parameters 数组和 properties 对象两种格式）
+  function normalizeSchema(schema) {
+    if (!schema) return null;
+    if (schema.properties) return schema;
+    if (schema.parameters && Array.isArray(schema.parameters)) {
+      var properties = {};
+      var required = [];
+      schema.parameters.forEach(function(param, idx) {
+        var name = param.name;
+        if (!name) return;
+        var prop = Object.assign({}, param);
+        delete prop.name;
+        prop.order = idx;
+        if (param.required) required.push(name);
+        delete prop.required;
+        properties[name] = prop;
+      });
+      schema.properties = properties;
+      schema.required = required;
+    }
+    return schema;
+  }
+
+  // 渲染参数表单
+  function renderParamForm(schema, defaultValues) {
+    schema = normalizeSchema(schema);
+    var html = '<div class="param-form">';
+    
+    if (!schema || !schema.properties || Object.keys(schema.properties).length === 0) {
+      html += '<div style="text-align:center;padding:30px;color:#999">该模型暂无可配置参数</div>';
+      html += '<div class="layui-form-item"><label class="layui-form-label">提示词</label>';
+      html += '<div class="layui-input-block"><textarea name="params[prompt]" class="layui-textarea" rows="4" placeholder="请输入生成提示词">' + (defaultValues.prompt || '') + '</textarea></div></div>';
+    } else {
+      var properties = schema.properties;
+      var required = schema.required || [];
+      
+      // 按order排序
+      var sortedKeys = Object.keys(properties).sort(function(a, b) {
+        return (properties[a].order || 0) - (properties[b].order || 0);
+      });
+      
+      sortedKeys.forEach(function(key) {
+        var prop = properties[key];
+        var label = prop.label || prop.title || key;
+        var isRequired = required.indexOf(key) >= 0;
+        var value = (defaultValues[key] !== undefined && defaultValues[key] !== null) ? defaultValues[key] : (prop.default !== undefined ? prop.default : '');
+        
+        html += '<div class="layui-form-item">';
+        html += '<label class="layui-form-label">' + label + (isRequired ? '<span style="color:red">*</span>' : '') + '</label>';
+        html += '<div class="layui-input-block">';
+        
+        // prompt / negative_prompt 字段必须渲染为多行文本输入框（项目规范）
+        if (key === 'prompt' || key === 'negative_prompt') {
+          html += '<textarea name="params[' + key + ']" class="layui-textarea" style="height:120px" placeholder="' + (prop.placeholder || prop.description || '') + '">' + value + '</textarea>';
+        } 
+        // 首帧图像字段使用多图上传组件
+        else if (key === 'image' || key === 'first_frame' || key === 'first_frame_image') {
+          html += renderMultiImageUploader(key, label, value);
+        }
+        else if (prop.type === 'enum' && prop.options) {
+          html += '<select name="params[' + key + ']">';
+          prop.options.forEach(function(opt) {
+            var optVal = opt.value !== undefined ? opt.value : opt;
+            var optLabel = opt.label !== undefined ? opt.label : opt;
+            var selected = (String(value) == String(optVal)) ? 'selected' : '';
+            html += '<option value="' + optVal + '" ' + selected + '>' + optLabel + '</option>';
+          });
+          html += '</select>';
+        } else if (prop.type === 'boolean') {
+          var checked = (value === true || value === 'true' || value === 1 || value === '1') ? 'checked' : '';
+          html += '<input type="checkbox" name="params[' + key + ']" lay-skin="switch" lay-text="是|否" value="1" ' + checked + '>';
+        } else if (prop.type === 'textarea' || (prop.type === 'string' && prop.multiline)) {
+          html += '<textarea name="params[' + key + ']" class="layui-textarea" rows="' + (prop.rows || 4) + '" placeholder="' + (prop.placeholder || prop.description || '') + '">' + value + '</textarea>';
+        } else if (prop.type === 'integer' || prop.type === 'number') {
+          html += '<input type="number" name="params[' + key + ']" class="layui-input" value="' + value + '" placeholder="' + (prop.placeholder || prop.description || '') + '"';
+          if (prop.min !== undefined) html += ' min="' + prop.min + '"';
+          if (prop.max !== undefined) html += ' max="' + prop.max + '"';
+          html += '>';
+        } else if (prop.type === 'file' || prop.type === 'image') {
+          html += '<div class="layui-input-inline" style="width:calc(100% - 100px)"><input type="text" name="params[' + key + ']" id="input_' + key + '" class="layui-input" value="' + value + '" placeholder="' + (prop.placeholder || prop.description || '图片URL') + '"></div>';
+          html += '<button type="button" class="layui-btn" onclick="uploadImage(\'' + key + '\')"><i class="layui-icon layui-icon-upload"></i> 上传</button>';
+        } else if (prop.type === 'object') {
+          var objVal = (typeof value === 'object') ? JSON.stringify(value, null, 2) : (value || '');
+          html += '<textarea name="params[' + key + ']" class="layui-textarea" rows="3" placeholder="' + (prop.description || 'JSON格式') + '">' + objVal + '</textarea>';
+        } else {
+          // string, mixed 等类型统一作为文本输入
+          html += '<input type="text" name="params[' + key + ']" id="input_' + key + '" class="layui-input" value="' + value + '" placeholder="' + (prop.placeholder || prop.description || '') + '">';
+          // 如果是可能为图片URL的string字段，提供上传按钮
+          if (key === 'image_url' || key === 'last_frame' || key === 'ref_video') {
+            html += '<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" style="margin-top:5px" onclick="uploadImage(\'' + key + '\')"><i class="layui-icon layui-icon-upload"></i> 上传文件</button>';
+          }
+        }
+        
+        if (prop.description && key !== 'image' && key !== 'first_frame' && key !== 'first_frame_image') {
+          html += '<div class="layui-form-mid layui-word-aux">' + prop.description + '</div>';
+        }
+        
+        html += '</div></div>';
+      });
+    }
+    
+    html += '</div>';
+    $('#paramContainer').html(html);
+    form.render();
+    
+    // 初始化多图组件的拖拽事件
+    initDragAndDrop();
+    
+    // 如果有预填充的图片URL，添加到多图列表
+    if (prefillImageUrl && firstFrameImages.length === 0) {
+      addImageToList(prefillImageUrl, 'prefill');
+    }
+  }
+  
+  // 渲染多图上传组件
+  function renderMultiImageUploader(fieldKey, label, defaultValue) {
+    var html = '';
+    html += '<div class="multi-image-container" id="multi_image_container_' + fieldKey + '">';
+    html += '<div class="multi-image-list" id="multi_image_list_' + fieldKey + '">';
+    html += '<div class="add-image-btn" onclick="showImageSourceMenu(\'' + fieldKey + '\')" id="add_image_btn_' + fieldKey + '">';
+    html += '<i class="layui-icon layui-icon-add-1"></i>';
+    html += '<span>添加图片</span>';
+    html += '</div>';
+    html += '</div>';
+    html += '<div class="multi-image-actions">';
+    html += '<button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="uploadLocalImage(\'' + fieldKey + '\')">';
+    html += '<i class="layui-icon layui-icon-upload"></i> 上传本地图片';
+    html += '</button>';
+    html += '<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="openHistorySelector(\'' + fieldKey + '\')">';
+    html += '<i class="layui-icon layui-icon-picture"></i> 从历史成片选择';
+    html += '</button>';
+    html += '<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="clearAllImages(\'' + fieldKey + '\')" id="clear_all_btn_' + fieldKey + '" style="display:none">';
+    html += '<i class="layui-icon layui-icon-delete"></i> 清空全部';
+    html += '</button>';
+    html += '</div>';
+    html += '<div class="multi-image-tip">';
+    html += '<i class="layui-icon layui-icon-tips" style="color:#FFB800"></i> ';
+    html += '拖拽调整顺序，第一张将作为视频首帧。最多上传 ' + maxImageCount + ' 张图片。';
+    html += '</div>';
+    html += '</div>';
+    // 隐藏字段存储首帧URL
+    html += '<input type="hidden" name="params[' + fieldKey + ']" id="input_' + fieldKey + '" value="' + (defaultValue || '') + '">';
+    return html;
+  }
+  
+  // 上传图片（普通字段的上传）
+  function uploadImage(fieldKey) {
+    fileUploader.show(function(imageObj) {
+      // 回调：选择或上传完成后
+      $('#input_' + fieldKey).val(imageObj.url);
+      layer.msg('选择成功');
+    }, {
+      type: 'image',
+      multi: false,  // 单选模式
+      tabs: {
+        'browser': 'active'  // 上传图片（包含上传+浏览功能）
+      }
+    });
+  }
+  
+  // ===== 多图管理功能 =====
+  
+  // 生成唯一ID
+  function generateId() {
+    return 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+  
+  // 添加图片到列表
+  function addImageToList(url, source, sourceId) {
+    if (firstFrameImages.length >= maxImageCount) {
+      layer.msg('已达到最大图片数量 ' + maxImageCount + ' 张', {icon: 0});
+      return false;
+    }
+    
+    firstFrameImages.push({
+      id: generateId(),
+      url: url,
+      thumbnail: url,
+      source: source || 'upload',
+      sourceId: sourceId || 0
+    });
+    
+    refreshMultiImageDisplay();
+    return true;
+  }
+  
+  // 批量添加图片
+  function addImagesToList(images, source) {
+    var remaining = maxImageCount - firstFrameImages.length;
+    var addCount = Math.min(images.length, remaining);
+    
+    if (addCount < images.length) {
+      layer.msg('只能再添加 ' + remaining + ' 张图片，已截取前 ' + addCount + ' 张', {icon: 0, time: 3000});
+    }
+    
+    for (var i = 0; i < addCount; i++) {
+      var img = images[i];
+      firstFrameImages.push({
+        id: generateId(),
+        url: typeof img === 'string' ? img : img.url,
+        thumbnail: typeof img === 'string' ? img : (img.thumbnail || img.url),
+        source: source || 'history',
+        sourceId: typeof img === 'object' ? (img.sourceId || 0) : 0
+      });
+    }
+    
+    refreshMultiImageDisplay();
+  }
+  
+  // 删除图片
+  function removeImage(imgId) {
+    firstFrameImages = firstFrameImages.filter(function(img) {
+      return img.id !== imgId;
+    });
+    refreshMultiImageDisplay();
+  }
+  
+  // 清空所有图片
+  function clearAllImages(fieldKey) {
+    if (firstFrameImages.length === 0) return;
+    layer.confirm('确定要清空所有图片吗？', {icon: 3}, function(idx) {
+      layer.close(idx);
+      firstFrameImages = [];
+      refreshMultiImageDisplay();
+    });
+  }
+  
+  // 显示图片源选择菜单
+  function showImageSourceMenu(fieldKey) {
+    if (firstFrameImages.length >= maxImageCount) {
+      layer.msg('已达到最大图片数量 ' + maxImageCount + ' 张', {icon: 0});
+      return;
+    }
+    
+    layer.open({
+      type: 1,
+      title: '添加图片',
+      area: ['300px', 'auto'],
+      content: '<div style="padding:20px;text-align:center">' +
+        '<button type="button" class="layui-btn layui-btn-lg" style="width:220px;margin-bottom:10px" onclick="layer.closeAll();uploadLocalImage(\'' + fieldKey + '\')">' +
+        '<i class="layui-icon layui-icon-upload"></i> 上传本地图片</button><br>' +
+        '<button type="button" class="layui-btn layui-btn-lg layui-btn-normal" style="width:220px" onclick="layer.closeAll();openHistorySelector(\'' + fieldKey + '\')">' +
+        '<i class="layui-icon layui-icon-picture"></i> 从历史成片选择</button>' +
+        '</div>'
+    });
+  }
+  
+  // 上传本地图片
+  function uploadLocalImage(fieldKey) {
+    fileUploader.show(function(imageObj) {
+      if (addImageToList(imageObj.url, 'upload')) {
+        layer.msg('上传成功', {icon: 1});
+      }
+    }, {
+      type: 'image',
+      multi: false,
+      tabs: { 'browser': 'active' }
+    });
+  }
+  
+  // 刷新多图显示
+  function refreshMultiImageDisplay() {
+    // 查找所有多图容器
+    $('[id^=multi_image_list_]').each(function() {
+      var fieldKey = this.id.replace('multi_image_list_', '');
+      var $list = $(this);
+      $list.empty();
+      
+      // 渲染图片列表
+      firstFrameImages.forEach(function(img, index) {
+        var isFirst = (index === 0);
+        var itemHtml = '<div class="multi-image-item" data-img-id="' + img.id + '" data-index="' + index + '" draggable="true">';
+        itemHtml += '<img src="' + img.thumbnail + '" alt="图片' + (index + 1) + '">';
+        if (isFirst) {
+          itemHtml += '<span class="first-frame-badge">首帧</span>';
+        }
+        itemHtml += '<div class="remove-btn" onclick="event.stopPropagation();removeImage(\'' + img.id + '\')">&times;</div>';
+        itemHtml += '<span class="order-num">' + (index + 1) + '</span>';
+        itemHtml += '</div>';
+        $list.append(itemHtml);
+      });
+      
+      // 添加按钮
+      var disabled = firstFrameImages.length >= maxImageCount;
+      var addBtnHtml = '<div class="add-image-btn' + (disabled ? ' disabled' : '') + '" onclick="' + (disabled ? '' : 'showImageSourceMenu(\'' + fieldKey + '\')') + '">';
+      addBtnHtml += '<i class="layui-icon layui-icon-add-1"></i>';
+      addBtnHtml += '<span>' + (disabled ? '已满' + maxImageCount + '张' : '添加') + '</span>';
+      addBtnHtml += '</div>';
+      $list.append(addBtnHtml);
+      
+      // 更新隐藏字段值（首帧URL）
+      var firstUrl = firstFrameImages.length > 0 ? firstFrameImages[0].url : '';
+      $('#input_' + fieldKey).val(firstUrl);
+      
+      // 显示/隐藏清空按钮
+      if (firstFrameImages.length > 0) {
+        $('#clear_all_btn_' + fieldKey).show();
+      } else {
+        $('#clear_all_btn_' + fieldKey).hide();
+      }
+    });
+    
+    // 重新绑定拖拽事件
+    initDragAndDrop();
+  }
+  
+  // ===== 拖拽排序功能 =====
+  
+  function initDragAndDrop() {
+    var items = document.querySelectorAll('.multi-image-item');
+    
+    items.forEach(function(item) {
+      item.addEventListener('dragstart', function(e) {
+        dragSourceIndex = parseInt(this.dataset.index);
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', this.dataset.imgId);
+      });
+      
+      item.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        this.classList.add('drag-over');
+      });
+      
+      item.addEventListener('dragleave', function(e) {
+        this.classList.remove('drag-over');
+      });
+      
+      item.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+        
+        var targetIndex = parseInt(this.dataset.index);
+        
+        if (dragSourceIndex >= 0 && dragSourceIndex !== targetIndex) {
+          // 执行排序
+          var movedItem = firstFrameImages.splice(dragSourceIndex, 1)[0];
+          firstFrameImages.splice(targetIndex, 0, movedItem);
+          refreshMultiImageDisplay();
+        }
+        
+        dragSourceIndex = -1;
+      });
+      
+      item.addEventListener('dragend', function(e) {
+        this.classList.remove('dragging');
+        document.querySelectorAll('.drag-over').forEach(function(el) {
+          el.classList.remove('drag-over');
+        });
+        dragSourceIndex = -1;
+      });
+    });
+  }
+  
+  // ===== 历史成片选择器 =====
+  
+  var historyCurrentPage = 1;
+  var historySelectedImages = []; // 弹窗中选中的图片
+  var historyLayerIndex = null;
+  
+  function openHistorySelector(fieldKey) {
+    historySelectedImages = [];
+    historyCurrentPage = 1;
+    
+    var remaining = maxImageCount - firstFrameImages.length;
+    if (remaining <= 0) {
+      layer.msg('已达到最大图片数量', {icon: 0});
+      return;
+    }
+    
+    var content = '<div id="historyContainer" style="padding:15px">';
+    content += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">';
+    content += '<div class="selected-count">已选择 <strong id="historySelectedCount">0</strong> 张图片（最多可选 ' + remaining + ' 张）</div>';
+    content += '</div>';
+    content += '<div id="historyRecordList" style="max-height:400px;overflow-y:auto">';
+    content += '<div style="text-align:center;padding:30px"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 加载中...</div>';
+    content += '</div>';
+    content += '<div id="historyPagination" style="text-align:center;margin-top:10px"></div>';
+    content += '<div class="history-selector-footer">';
+    content += '<div class="selected-count">已选择 <strong id="historySelectedCount2">0</strong> 张图片</div>';
+    content += '<div>';
+    content += '<button type="button" class="layui-btn layui-btn-primary" onclick="closeHistorySelector()">取消</button>';
+    content += '<button type="button" class="layui-btn" onclick="confirmHistorySelection(\'' + fieldKey + '\')"> 确认选择</button>';
+    content += '</div></div>';
+    content += '</div>';
+    
+    historyLayerIndex = layer.open({
+      type: 1,
+      title: '选择历史成片',
+      area: ['700px', '600px'],
+      content: content,
+      success: function() {
+        loadHistoryRecords(1);
+      }
+    });
+  }
+  
+  // 加载历史记录
+  function loadHistoryRecords(page) {
+    historyCurrentPage = page;
+    var $list = $('#historyRecordList');
+    $list.html('<div style="text-align:center;padding:30px"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 加载中...</div>');
+    
+    $.get("{:url('PhotoGeneration/get_output_images')}", {
+      page: page,
+      limit: 20,
+      status: 2
+    }, function(res) {
+      if (res.code === 0 && res.data && res.data.length > 0) {
+        renderHistoryRecords(res.data, res.count);
+      } else {
+        $list.html('<div style="text-align:center;padding:50px 0;color:#999">' +
+          '<i class="layui-icon layui-icon-face-cry" style="font-size:48px"></i>' +
+          '<p style="margin-top:10px">暂无照片生成记录</p>' +
+          '<p style="font-size:12px">请先在照片生成中创建并完成任务</p>' +
+          '</div>');
+      }
+    });
+  }
+  
+  // 渲染历史记录
+  function renderHistoryRecords(records, total) {
+    var $list = $('#historyRecordList');
+    var html = '';
+    
+    records.forEach(function(record) {
+      html += '<div class="history-record-card" data-record-id="' + record.id + '">';
+      html += '<div class="history-record-header">';
+      html += '<div class="history-record-info">';
+      html += '<span style="color:#333;font-weight:bold">' + record.create_time + '</span>';
+      html += ' | <span>' + record.model_name + '</span>';
+      html += ' | <span>' + record.output_count + '张</span>';
+      html += '</div>';
+      html += '<button type="button" class="layui-btn layui-btn-xs history-select-all-btn" onclick="toggleSelectAllRecord(' + record.id + ', this)">全选</button>';
+      html += '</div>';
+      html += '<div class="history-record-images">';
+      
+      record.outputs.forEach(function(output) {
+        var isSelected = historySelectedImages.some(function(s) { return s.url === output.url; });
+        html += '<div class="history-image-item' + (isSelected ? ' selected' : '') + '" data-url="' + output.url + '" data-thumbnail="' + output.thumbnail + '" data-record-id="' + record.id + '" onclick="toggleHistoryImage(this)">';
+        html += '<img src="' + output.thumbnail + '" alt="">';
+        html += '</div>';
+      });
+      
+      html += '</div></div>';
+    });
+    
+    $list.html(html);
+    
+    // 渲染分页
+    var totalPages = Math.ceil(total / 20);
+    if (totalPages > 1) {
+      var pageHtml = '';
+      for (var p = 1; p <= totalPages; p++) {
+        if (p === historyCurrentPage) {
+          pageHtml += '<span class="layui-btn layui-btn-xs layui-btn-disabled" style="margin:0 3px">' + p + '</span>';
+        } else {
+          pageHtml += '<span class="layui-btn layui-btn-xs layui-btn-primary" style="margin:0 3px;cursor:pointer" onclick="loadHistoryRecords(' + p + ')">' + p + '</span>';
+        }
+      }
+      $('#historyPagination').html(pageHtml);
+    } else {
+      $('#historyPagination').empty();
+    }
+  }
+  
+  // 切换单张图片选中状态
+  function toggleHistoryImage(el) {
+    var $el = $(el);
+    var url = $el.data('url');
+    var thumbnail = $el.data('thumbnail');
+    var remaining = maxImageCount - firstFrameImages.length;
+    
+    if ($el.hasClass('selected')) {
+      // 取消选中
+      historySelectedImages = historySelectedImages.filter(function(img) {
+        return img.url !== url;
+      });
+      $el.removeClass('selected');
+    } else {
+      // 选中
+      if (historySelectedImages.length >= remaining) {
+        layer.msg('最多只能再选择 ' + remaining + ' 张图片', {icon: 0});
+        return;
+      }
+      historySelectedImages.push({ url: url, thumbnail: thumbnail });
+      $el.addClass('selected');
+    }
+    
+    updateHistorySelectedCount();
+  }
+  
+  // 切换记录全选
+  function toggleSelectAllRecord(recordId, btn) {
+    var $btn = $(btn);
+    var $card = $btn.closest('.history-record-card');
+    var $images = $card.find('.history-image-item');
+    var allSelected = $images.length > 0 && $images.filter('.selected').length === $images.length;
+    var remaining = maxImageCount - firstFrameImages.length;
+    
+    if (allSelected) {
+      // 取消全选
+      $images.each(function() {
+        var url = $(this).data('url');
+        historySelectedImages = historySelectedImages.filter(function(img) { return img.url !== url; });
+        $(this).removeClass('selected');
+      });
+      $btn.text('全选');
+    } else {
+      // 全选
+      var needSelect = [];
+      $images.each(function() {
+        if (!$(this).hasClass('selected')) {
+          needSelect.push({
+            el: this,
+            url: $(this).data('url'),
+            thumbnail: $(this).data('thumbnail')
+          });
+        }
+      });
+      
+      var canSelect = remaining - historySelectedImages.length;
+      if (needSelect.length > canSelect) {
+        layer.msg('最多只能再选择 ' + canSelect + ' 张', {icon: 0});
+        needSelect = needSelect.slice(0, canSelect);
+      }
+      
+      needSelect.forEach(function(item) {
+        historySelectedImages.push({ url: item.url, thumbnail: item.thumbnail });
+        $(item.el).addClass('selected');
+      });
+      
+      // 检查是否全部选中
+      if ($images.filter('.selected').length === $images.length) {
+        $btn.text('取消全选');
+      }
+    }
+    
+    updateHistorySelectedCount();
+  }
+  
+  // 更新已选数量显示
+  function updateHistorySelectedCount() {
+    $('#historySelectedCount, #historySelectedCount2').text(historySelectedImages.length);
+  }
+  
+  // 确认选择
+  function confirmHistorySelection(fieldKey) {
+    if (historySelectedImages.length === 0) {
+      layer.msg('请先选择图片', {icon: 0});
+      return;
+    }
+    
+    addImagesToList(historySelectedImages, 'history');
+    layer.close(historyLayerIndex);
+    layer.msg('已添加 ' + historySelectedImages.length + ' 张图片', {icon: 1});
+    historySelectedImages = [];
+  }
+  
+  // 关闭选择器
+  function closeHistorySelector() {
+    layer.close(historyLayerIndex);
+    historySelectedImages = [];
+  }
+  
+  // 提交任务
+  form.on('submit(submitTask)', function(obj) {
+    if (!$('#modelId').val()) {
+      layer.msg('请先选择模型');
+      return false;
+    }
+    
+    var index = layer.msg('正在提交并处理生成任务，请稍候...', {icon: 16, shade: [0.3, '#000'], time: 0});
+    $.post("{$Request.url}", obj.field, function(res) {
+      layer.close(index);
+      if (res.status == 1) {
+        // 启动状态轮询
+        var recordId = res.record_id;
+        pollTaskStatus(recordId);
+      } else {
+        layer.msg(res.msg);
+      }
+    }).fail(function() {
+      layer.close(index);
+      layer.msg('请求异常，请稍后重试');
+    });
+    return false;
+  });
+  
+  // 轮询任务状态
+  function pollTaskStatus(recordId) {
+    var pollIndex = layer.msg('<div style="padding:15px 0"><i class="layui-icon layui-icon-loading-1 layui-anim layui-anim-rotate layui-anim-loop" style="font-size:24px;color:#1E9FFF"></i><br><span id="pollStatusText">任务已提交，正在处理中...</span><div id="pollProgressBar" style="margin-top:10px;display:none"><div class="layui-progress" lay-showPercent="true"><div class="layui-progress-bar" lay-percent="0%" style="transition:width 0.3s"></div></div></div></div>', {time: 0, shade: [0.3, '#000'], offset: 'auto', area: ['350px', 'auto']});
+    
+    var pollTimer = setInterval(function() {
+      $.get("{:url('get_record_status')}", {record_id: recordId}, function(res) {
+        if (res.status == 1) {
+          var data = res.data;
+          if (data.task_status == 2) {
+            // 成功
+            clearInterval(pollTimer);
+            layer.close(pollIndex);
+            var outputCount = data.outputs ? data.outputs.length : 0;
+            layer.confirm('✅ 生成成功！共生成 ' + outputCount + ' 个结果，耗时 ' + data.cost_time + ' 秒\n是否前往查看详情？', {
+              icon: 1, title: '生成完成', btn: ['查看详情', '继续生成']
+            }, function() {
+              layer.open({type: 2, title: '记录详情', area: ['900px', '600px'], content: "{:url('record_detail')}/id/" + recordId});
+            });
+          } else if (data.task_status == 3) {
+            // 失败
+            clearInterval(pollTimer);
+            layer.close(pollIndex);
+            layer.msg('❌ 生成失败: ' + (data.error_msg || '未知错误'), {icon: 2, time: 5000});
+          } else if (data.task_status == 4) {
+            // 取消
+            clearInterval(pollTimer);
+            layer.close(pollIndex);
+            layer.msg('任务已取消');
+          } else {
+            // 仍在处理中 - 显示进度条
+            var progress = data.progress || 0;
+            if (progress > 0) {
+              $('#pollProgressBar').show();
+              $('#pollProgressBar .layui-progress-bar').css('width', progress + '%').attr('lay-percent', progress + '%');
+              $('#pollStatusText').text('视频生成中... ' + progress + '%');
+            } else {
+              $('#pollStatusText').text('视频生成中，请稍候...');
+            }
+          }
+        }
+      });
+    }, 3000); // 每3秒轮询（视频生成时间较长）
+    
+    // 180秒超时保护（视频生成时间较长）
+    setTimeout(function() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        layer.close(pollIndex);
+        layer.confirm('任务仍在处理中，可在生成记录中查看结果', {icon: 0, btn: ['查看记录', '关闭']}, function() {
+          location.href = "{:url('record_list')}";
+        });
+      }
+    }, 180000);
+  }
+  
+  // 尝试预填充图片URL到相关字段
+  function tryPrefillImageField(imageUrl) {
+    // 尝试添加到多图列表（如果存在多图组件）
+    var hasMultiImage = $('[id^=multi_image_container_]').length > 0;
+    if (hasMultiImage && firstFrameImages.length === 0) {
+      addImageToList(imageUrl, 'prefill');
+      layer.msg('已自动填充首帧图片', {icon: 1});
+      return;
+    }
+    
+    // 退回到普通字段填充
+    var imageFields = ['first_frame', 'first_frame_image', 'image', 'image_url', 'input_image', 'ref_image'];
+    var filled = false;
+    
+    for (var i = 0; i < imageFields.length; i++) {
+      var field = imageFields[i];
+      var input = $('#input_' + field);
+      if (input.length > 0 && !input.val()) {
+        input.val(imageUrl);
+        filled = true;
+        layer.msg('已自动填充首帧图片', {icon: 1});
+        break;
+      }
+    }
+    
+    if (!filled) {
+      layer.msg('已从照片生成记录带入图片，请手动填充到对应字段: ' + imageUrl, {time: 5000});
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(imageUrl);
+      }
+    }
+  }
+  
+  // 页面加载后，如果有预填充图片且只有一个模型，自动选中该模型
+  $(function() {
+    if (prefillImageUrl && modelsData && modelsData.length === 1 && modelsData[0].api_key_configured) {
+      $('.model-card').first().click();
+    } else if (prefillImageUrl && modelsData && modelsData.length > 0) {
+      layer.msg('请选择视频生成模型', {icon: 0, time: 2000});
+    }
+    
+    // 如果是多图模式且有多个预填图片URL
+    var prefillMultiImages = getUrlParam('first_frame_images');
+    if (prefillMultiImages) {
+      try {
+        var urls = JSON.parse(decodeURIComponent(prefillMultiImages));
+        if (Array.isArray(urls)) {
+          urls.forEach(function(url) {
+            if (url) addImageToList(url, 'prefill');
+          });
+        }
+      } catch(e) { /* ignore */ }
+    }
+  });
+  </script>
+</body>
+</html>

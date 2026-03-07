@@ -1,8 +1,4 @@
 {
   "component": true,
-  "usingComponents": {
-    "buydialog-pifa": "/components/buydialog-pifa/buydialog-pifa",
-    "buydialog-pifa2": "/components/buydialog-pifa2/buydialog-pifa2",
-    "buydialog": "/components/buydialog/buydialog"
-  }
+  "usingComponents": {}
 }

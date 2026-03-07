@@ -910,12 +910,9 @@ $(function(){
 			$('#systime').html(date);
 		},1000)
 
-		// 延迟加载数据以确保DOM完全渲染
-		setTimeout(function() {
-			getOperateData(1);
-			getsalesGoodsData(1,'');
-			getDataChart(1);
-		}, 200);
+		getOperateData(1);
+		getsalesGoodsData(1,'');
+		getDataChart(1);
 
 });
 //数据趋势图
@@ -924,12 +921,7 @@ function changeDataChartday(obj,day){
 	$(obj).addClass('screen-options-active');
 	getDataChart(day);
 }
-// 确保DOM元素存在后再初始化图表
-var dataChartDom = document.getElementById("dataChart");
-var dataChart = null;
-if (dataChartDom) {
-    dataChart = echarts.init(dataChartDom);
-}
+var dataChart = echarts.init(document.getElementById("dataChart"));
 function getDataChart(day){
 		//var index = layer.load();
 		$.post('',{op:'getDataChart',day:day},function(res){
@@ -965,20 +957,14 @@ function getDataChart(day){
 					},
 					series: res.series
 					};
-					if (dataChart) {
-					    dataChart.setOption(option_channel,true);
-					}
+					dataChart.setOption(option_channel,true);
 		})
 		
 	}
 
 	//本月订单统计
 	{if $orderMonthCountAll > 0 }
-	var getMonthOrderDom = document.getElementById("getMonthOrder");
-	var getMonthOrder = null;
-	if (getMonthOrderDom) {
-	    getMonthOrder = echarts.init(getMonthOrderDom);
-	}
+	var getMonthOrder = echarts.init(document.getElementById("getMonthOrder"));
 	var channel_order_data = "{$channel_order_data}";
 	var orderMonthCountAll = {$orderMonthCountAll};
 	option_channel = {
@@ -1010,17 +996,11 @@ function getDataChart(day){
 		}
 	]
 	};
-	if (getMonthOrder) {
-	    getMonthOrder.setOption(option_channel,true);
-	}
+	getMonthOrder.setOption(option_channel,true);
 	{/if}
 	//会员概览
 	{if bid == 0 || $memberCount > 0}
-	var getMemberGailanDom = document.getElementById("getMemberGailan");
-	var getMemberGailan = null;
-	if (getMemberGailanDom) {
-	    getMemberGailan = echarts.init(getMemberGailanDom);
-	}
+	var getMemberGailan = echarts.init(document.getElementById("getMemberGailan"));
 	var channel_order_data = "{$channel_order_data}";
 	var orderMonthCountAll = {$orderMonthCountAll};
 	// 判断字数超出后字体大小改变
@@ -1099,9 +1079,7 @@ function getDataChart(day){
 		}
 		};
 
-	if (getMemberGailan) {
-	    getMemberGailan.setOption(option_member,true);
-	}
+	getMemberGailan.setOption(option_member,true);
 	layui.form.render('select');
 	{/if}
 </script>

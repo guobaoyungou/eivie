@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>API统计监控</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <style>
+        .stats-card {
+            background: #fff;
+            border-radius: 4px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+        .stats-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #009688;
+            margin: 10px 0;
+        }
+        .stats-label {
+            color: #666;
+            font-size: 14px;
+        }
+        .stats-change {
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .stats-up { color: #5FB878; }
+        .stats-down { color: #FF5722; }
+        .chart-container {
+            background: #fff;
+            border-radius: 4px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+        .chart-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="layui-fluid">
+    <div class="layui-card">
+        <div class="layui-card-header">API统计监控</div>
+        <div class="layui-card-body">
+            
+            <!-- 时间筛选 -->
+            <form class="layui-form" style="margin-bottom: 20px;">
+                <div class="layui-form-item">
+                    <div class="layui-inline">
+                        <label class="layui-form-label">统计周期</label>
+                        <div class="layui-input-inline" style="width: 150px;">
+                            <select name="period" id="period" lay-filter="period">
+                                <option value="today">今日</option>
+                                <option value="yesterday">昨日</option>
+                                <option value="week" selected>近7天</option>
+                                <option value="month">近30天</option>
+                                <option value="custom">自定义</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-inline" id="customDateRange" style="display:none;">
+                        <div class="layui-input-inline" style="width: 240px;">
+                            <input type="text" name="daterange" id="daterange" placeholder="选择时间范围" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-inline">
+                        <button type="button" class="layui-btn" id="btnRefresh">
+                            <i class="layui-icon layui-icon-refresh"></i> 刷新数据
+                        </button>
+                    </div>
+                </div>
+            </form>
+            
+            <!-- 核心指标卡片 -->
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md3">
+                    <div class="stats-card">
+                        <div class="stats-label">总调用次数</div>
+                        <div class="stats-number" id="totalCalls">-</div>
+                        <div class="stats-change" id="callsChange"></div>
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="stats-card">
+                        <div class="stats-label">成功率</div>
+                        <div class="stats-number" id="successRate" style="color: #5FB878;">-</div>
+                        <div class="stats-change" id="rateChange"></div>
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="stats-card">
+                        <div class="stats-label">总消费金额</div>
+                        <div class="stats-number" id="totalAmount" style="color: #FF5722;">-</div>
+                        <div class="stats-change" id="amountChange"></div>
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="stats-card">
+                        <div class="stats-label">平均响应时长</div>
+                        <div class="stats-number" id="avgResponseTime" style="color: #FFB800;">-</div>
+                        <div class="stats-change" id="timeChange"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 趋势图表 -->
+            <div class="layui-row layui-col-space15" style="margin-top: 15px;">
+                <div class="layui-col-md12">
+                    <div class="chart-container">
+                        <div class="chart-title">调用趋势分析</div>
+                        <div id="trendChart" style="height: 350px;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- API排行 -->
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="chart-container">
+                        <div class="chart-title">热门API排行（按调用次数）</div>
+                        <div id="topApisChart" style="height: 300px;"></div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="chart-container">
+                        <div class="chart-title">消费TOP10（按金额）</div>
+                        <div id="topAmountChart" style="height: 300px;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 用户统计表格 -->
+            <div class="chart-container">
+                <div class="chart-title">用户使用统计</div>
+                <table class="layui-hide" id="userStatsTable" lay-filter="userStatsTable"></table>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script src="/static/js/echarts.min.js"></script>
+<script>
+layui.use(['form', 'laydate', 'table', 'layer'], function(){
+    var form = layui.form;
+    var laydate = layui.laydate;
+    var table = layui.table;
+    var layer = layui.layer;
+    
+    // 初始化日期范围选择器
+    laydate.render({
+        elem: '#daterange',
+        range: true,
+        type: 'date'
+    });
+    
+    // 监听周期选择
+    form.on('select(period)', function(data){
+        if(data.value === 'custom') {
+            $('#customDateRange').show();
+        } else {
+            $('#customDateRange').hide();
+            loadAllData();
+        }
+    });
+    
+    // 刷新按钮
+    $('#btnRefresh').click(function(){
+        loadAllData();
+    });
+    
+    // 初始化图表
+    var trendChart = echarts.init(document.getElementById('trendChart'));
+    var topApisChart = echarts.init(document.getElementById('topApisChart'));
+    var topAmountChart = echarts.init(document.getElementById('topAmountChart'));
+    
+    // 渲染用户统计表格
+    var userTable = table.render({
+        elem: '#userStatsTable',
+        url: '/ApiStatistics/userStats',
+        cols: [[
+            {field: 'uid', title: '用户ID', width: 100},
+            {field: 'username', title: '用户名', width: 150},
+            {field: 'total_calls', title: '调用次数', width: 120, sort: true},
+            {field: 'success_calls', title: '成功次数', width: 120},
+            {field: 'success_rate', title: '成功率', width: 120, templet: function(d){
+                return d.success_rate + '%';
+            }},
+            {field: 'total_amount', title: '总消费', width: 120, sort: true, templet: function(d){
+                return '¥' + d.total_amount;
+            }},
+            {field: 'avg_response_time', title: '平均响应(ms)', width: 130, sort: true},
+            {field: 'last_call_time', title: '最后调用时间', minWidth: 180}
+        ]],
+        page: true,
+        limit: 10,
+        where: getQueryParams(),
+        response: {
+            statusCode: 0
+        }
+    });
+    
+    // 获取查询参数
+    function getQueryParams() {
+        var period = $('#period').val();
+        var params = { period: period };
+        
+        if(period === 'custom') {
+            var daterange = $('#daterange').val();
+            if(daterange) {
+                var dates = daterange.split(' - ');
+                params.start_date = dates[0];
+                params.end_date = dates[1];
+            }
+        }
+        
+        return params;
+    }
+    
+    // 加载概览数据
+    function loadOverview() {
+        $.ajax({
+            url: '/ApiStatistics/overview',
+            type: 'GET',
+            data: getQueryParams(),
+            success: function(res){
+                if(res.code === 0 && res.data) {
+                    var data = res.data;
+                    
+                    // 更新核心指标
+                    $('#totalCalls').text(data.total_calls || 0);
+                    $('#successRate').text((data.success_rate || 0) + '%');
+                    $('#totalAmount').text('¥' + (data.total_amount || 0));
+                    $('#avgResponseTime').text((data.avg_response_time || 0) + 'ms');
+                    
+                    // 更新变化趋势
+                    updateChange('#callsChange', data.calls_change);
+                    updateChange('#rateChange', data.rate_change);
+                    updateChange('#amountChange', data.amount_change);
+                    updateChange('#timeChange', data.time_change);
+                }
+            }
+        });
+    }
+    
+    // 更新变化指示
+    function updateChange(selector, value) {
+        if(!value) {
+            $(selector).html('');
+            return;
+        }
+        
+        var className = value > 0 ? 'stats-up' : 'stats-down';
+        var icon = value > 0 ? '↑' : '↓';
+        var text = Math.abs(value) + '%';
+        $(selector).html('<span class="'+className+'">'+icon+' '+text+'</span> 较上期');
+    }
+    
+    // 加载趋势数据
+    function loadTrend() {
+        $.ajax({
+            url: '/ApiStatistics/trend',
+            type: 'GET',
+            data: getQueryParams(),
+            success: function(res){
+                if(res.code === 0 && res.data) {
+                    var dates = res.data.map(item => item.date);
+                    var calls = res.data.map(item => item.total_calls);
+                    var successCalls = res.data.map(item => item.success_calls);
+                    var amounts = res.data.map(item => item.total_amount);
+                    
+                    trendChart.setOption({
+                        tooltip: {
+                            trigger: 'axis'
+                        },
+                        legend: {
+                            data: ['总调用', '成功调用', '消费金额']
+                        },
+                        grid: {
+                            left: '3%',
+                            right: '4%',
+                            bottom: '3%',
+                            containLabel: true
+                        },
+                        xAxis: {
+                            type: 'category',
+                            boundaryGap: false,
+                            data: dates
+                        },
+                        yAxis: [
+                            {
+                                type: 'value',
+                                name: '调用次数',
+                                position: 'left'
+                            },
+                            {
+                                type: 'value',
+                                name: '金额(元)',
+                                position: 'right'
+                            }
+                        ],
+                        series: [
+                            {
+                                name: '总调用',
+                                type: 'line',
+                                data: calls,
+                                smooth: true,
+                                itemStyle: { color: '#009688' }
+                            },
+                            {
+                                name: '成功调用',
+                                type: 'line',
+                                data: successCalls,
+                                smooth: true,
+                                itemStyle: { color: '#5FB878' }
+                            },
+                            {
+                                name: '消费金额',
+                                type: 'line',
+                                yAxisIndex: 1,
+                                data: amounts,
+                                smooth: true,
+                                itemStyle: { color: '#FF5722' }
+                            }
+                        ]
+                    });
+                }
+            }
+        });
+    }
+    
+    // 加载热门API
+    function loadTopApis() {
+        $.ajax({
+            url: '/ApiStatistics/topApis',
+            type: 'GET',
+            data: Object.assign(getQueryParams(), { type: 'calls', limit: 10 }),
+            success: function(res){
+                if(res.code === 0 && res.data) {
+                    var names = res.data.map(item => item.api_name);
+                    var values = res.data.map(item => item.total_calls);
+                    
+                    topApisChart.setOption({
+                        tooltip: {
+                            trigger: 'axis',
+                            axisPointer: {
+                                type: 'shadow'
+                            }
+                        },
+                        grid: {
+                            left: '3%',
+                            right: '4%',
+                            bottom: '3%',
+                            containLabel: true
+                        },
+                        xAxis: {
+                            type: 'value'
+                        },
+                        yAxis: {
+                            type: 'category',
+                            data: names
+                        },
+                        series: [{
+                            type: 'bar',
+                            data: values,
+                            itemStyle: { color: '#009688' },
+                            label: {
+                                show: true,
+                                position: 'right'
+                            }
+                        }]
+                    });
+                }
+            }
+        });
+    }
+    
+    // 加载消费TOP10
+    function loadTopAmount() {
+        $.ajax({
+            url: '/ApiStatistics/topApis',
+            type: 'GET',
+            data: Object.assign(getQueryParams(), { type: 'amount', limit: 10 }),
+            success: function(res){
+                if(res.code === 0 && res.data) {
+                    var names = res.data.map(item => item.api_name);
+                    var values = res.data.map(item => parseFloat(item.total_amount));
+                    
+                    topAmountChart.setOption({
+                        tooltip: {
+                            trigger: 'axis',
+                            axisPointer: {
+                                type: 'shadow'
+                            },
+                            formatter: function(params) {
+                                return params[0].name + '<br/>¥' + params[0].value;
+                            }
+                        },
+                        grid: {
+                            left: '3%',
+                            right: '4%',
+                            bottom: '3%',
+                            containLabel: true
+                        },
+                        xAxis: {
+                            type: 'value'
+                        },
+                        yAxis: {
+                            type: 'category',
+                            data: names
+                        },
+                        series: [{
+                            type: 'bar',
+                            data: values,
+                            itemStyle: { color: '#FF5722' },
+                            label: {
+                                show: true,
+                                position: 'right',
+                                formatter: '¥{c}'
+                            }
+                        }]
+                    });
+                }
+            }
+        });
+    }
+    
+    // 加载所有数据
+    function loadAllData() {
+        layer.load(2);
+        loadOverview();
+        loadTrend();
+        loadTopApis();
+        loadTopAmount();
+        userTable.reload({
+            where: getQueryParams()
+        });
+        setTimeout(function(){
+            layer.closeAll('loading');
+        }, 500);
+    }
+    
+    // 页面加载时初始化
+    loadAllData();
+    
+    // 响应式调整
+    window.addEventListener('resize', function(){
+        trendChart.resize();
+        topApisChart.resize();
+        topAmountChart.resize();
+    });
+});
+</script>
+
+</body>
+</html>

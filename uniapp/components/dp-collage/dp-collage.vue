@@ -89,7 +89,7 @@
 					<view class="price flex-bt flex-y-center">
 						<text :style="{color:t('color1')}" class="text">￥{{item.sell_price}}</text>
 						<view :style="{background:'rgba('+t('color1rgb')+',1)'}" class="add flex-xy-center">
-							<image :src="pre_url+'/static/imgsrc/decoration_add.png'"></image>
+							<image class="c-img" :src="pre_url+'/static/imgsrc/decoration_add.png'"></image>
 						</view>
 					</view>
 				</view>
@@ -157,7 +157,7 @@
 .dp-collage-item .product-info .price{position: relative;margin-top: 15rpx;}
 .dp-collage-item .product-info .price .text{color: #FF3143;font-weight: bold;font-size: 30rpx;}
 .dp-collage-item .product-info .price .add{height: 50rpx;width: 50rpx;border-radius: 100rpx;background: #FF3143;}
-.dp-collage-item .product-info .price .add image{height: 30rpx;width: 30rpx;display: block;}
+.dp-collage-item .product-info .price .add .c-img{height: 30rpx;width: 30rpx;display: block;}
 
 .dp-collage-itemlist{height: auto; position: relative;overflow: hidden; padding: 0px; display:flex;flex-wrap:wrap}
 .dp-collage-itemlist .item{width:100%;display: inline-block;position: relative;margin-bottom: 12rpx;background: #fff;display:flex;padding:20rpx;border-radius:10rpx}

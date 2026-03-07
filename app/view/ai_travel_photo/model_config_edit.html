@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{$model ? '编辑模型配置' : '新增模型配置'}</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .layui-tab-content { padding: 20px; }
+    .layui-form-label { width: 120px; }
+    .layui-input-block { margin-left: 150px; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          {if !$model.id}<i class="fa fa-plus"></i> 新增模型配置{else}<i class="fa fa-pencil"></i> 编辑模型配置{/if}
+          <i class="layui-icon layui-icon-close" style="font-size:18px;font-weight:bold;cursor:pointer;float:right;" onclick="closeself()"></i>
+        </div>
+        <div class="layui-card-body">
+          <!-- Tab标签页 -->
+          <div class="layui-tab layui-tab-brief" lay-filter="model-tab">
+            <ul class="layui-tab-title">
+              <li class="layui-this">基础信息</li>
+            </ul>
+            <div class="layui-tab-content">
+              <!-- Tab 1: 基础信息 -->
+              <div class="layui-tab-item layui-show">
+                <form class="layui-form form-label-w7" lay-filter="model-form">
+                  <input type="hidden" name="id" value="{$model.id|default=''}">
+                  
+                  <div class="layui-form-item">
+                    <label class="layui-form-label"><span style="color:red;">*</span> 模型名称：</label>
+                    <div class="layui-input-block" style="width: 500px;">
+                      <input type="text" name="model_name" value="{$model.model_name|default=''}" 
+                             placeholder="如：通义千问图像编辑增强版" lay-verify="required" lay-verType="tips" 
+                             autocomplete="off" class="layui-input" maxlength="100">
+                    </div>
+                  </div>
+
+                  <div class="layui-form-item">
+                    <label class="layui-form-label">名称简写：</label>
+                    <div class="layui-input-inline">
+                      <input type="text" name="short_name" value="{$model.short_name|default=''}" 
+                             placeholder="如：Qwen-Edit" autocomplete="off" class="layui-input" maxlength="50">
+                    </div>
+                    <div class="layui-form-mid layui-word-aux">便于后期调用、显示</div>
+                  </div>
+
+                  <div class="layui-form-item">
+                    <label class="layui-form-label"><span style="color:red;">*</span> 模型代码：</label>
+                    <div class="layui-input-block" style="width: 500px;">
+                      <input type="text" name="model_code" value="{$model.model_code|default=''}" 
+                             placeholder="如：qwen-image-edit-max" lay-verify="required|modelCode" lay-verType="tips" 
+                             autocomplete="off" class="layui-input" maxlength="100"
+                             {if !empty($model.is_system) && $model.is_system == 1}readonly{/if}>
+                    </div>
+                    {if !empty($model.is_system) && $model.is_system == 1}
+                    <div class="layui-form-mid layui-word-aux" style="color:#999;">系统预置模型代码不可修改</div>
+                    {else}
+                    <div class="layui-form-mid layui-word-aux">唯一标识，只能包含字母、数字、横杠和下划线</div>
+                    {/if}
+                  </div>
+
+                  <div class="layui-form-item">
+                    <label class="layui-form-label"><span style="color:red;">*</span> 模型分类：</label>
+                    <div class="layui-input-inline">
+                      <select name="category_code" lay-verify="required" lay-verType="tips">
+                        <option value="">请选择分类</option>
+                        {volist name="categories" id="cat"}
+                        <option value="{$cat.code}" {if isset($model) && $model.category_code == $cat.code}selected{/if}>{$cat.icon} {$cat.name}</option>
+                        {/volist}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="layui-form-item">
+                    <label class="layui-form-label"><span style="color:red;">*</span> 服务提供商：</label>
+                    <div class="layui-input-inline">
+                      <select name="provider" lay-verify="required" lay-verType="tips">
+                        <option value="">请选择服务商</option>
+                        {volist name="providers" id="pname" key="pkey"}
+                        <option value="{$pkey}" {if isset($model) && $model.provider == $pkey}selected{/if}>{$pname}</option>
+                        {/volist}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="layui-form-item">
+                    <label class="layui-form-label">模型版本：</label>
+                    <div class="layui-input-inline">
+                      <input type="text" name="model_version" value="{$model.model_version|default=''}" 
+                             placeholder="如：v1.0" autocomplete="off" class="layui-input" maxlength="50">
+                    </div>
+                  </div>
+
+                  <div class="layui-form-item">
+                    <label class="layui-form-label">模型描述：</label>
+                    <div class="layui-input-block" style="width: 600px;">
+                      <textarea name="description" placeholder="功能说明、适用场景" 
+                                class="layui-textarea" style="min-height: 100px;">{$model.description|default=''}</textarea>
+                    </div>
+                  </div>
+
+                  <div class="layui-form-item">
+                    <label class="layui-form-label">能力标签：</label>
+                    <div class="layui-input-block" style="width: 600px;">
+                      <input type="text" name="capability_tags" value="{$model.capability_tags|default=''}" 
+                             placeholder='如：["图像编辑","抠图","背景替换"]' 
+                             autocomplete="off" class="layui-input">
+                      <div class="layui-form-mid layui-word-aux">多个标签用JSON数组格式，如["标签1","标签2"]</div>
+                    </div>
+                  </div>
+
+                  <div class="layui-form-item">
+                    <label class="layui-form-label"><span style="color:red;">*</span> 计费模式：</label>
+                    <div class="layui-input-inline">
+                      <select name="billing_mode" lay-verify="required" lay-verType="tips">
+                        {volist name="billingModes" id="bname" key="bkey"}
+                        <option value="{$bkey}" {if isset($model) && $model.billing_mode == $bkey}selected{/if}>{$bname}</option>
+                        {/volist}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="layui-form-item">
+                    <label class="layui-form-label"><span style="color:red;">*</span> 成本价：</label>
+                    <div class="layui-input-inline">
+                      <input type="text" name="cost_per_call" value="{$model.cost_per_call|default='0.00'}" 
+                             placeholder="单价" lay-verify="required|number" lay-verType="tips" 
+                             autocomplete="off" class="layui-input">
+                    </div>
+                    <div class="layui-form-mid layui-word-aux">元</div>
+                  </div>
+
+                  <div class="layui-form-item">
+                    <label class="layui-form-label">成本计量单位：</label>
+                    <div class="layui-input-inline">
+                      <select name="cost_unit">
+                        {volist name="costUnits" id="uname" key="ukey"}
+                        <option value="{$ukey}" {if isset($model) && $model.cost_unit == $ukey}selected{/if}>{$uname}</option>
+                        {/volist}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="layui-form-item">
+                    <label class="layui-form-label">排序权重：</label>
+                    <div class="layui-input-inline">
+                      <input type="number" name="sort" value="{$model.sort|default='100'}" 
+                             placeholder="数字越大越靠前" class="layui-input">
+                    </div>
+                  </div>
+
+                  <div class="layui-form-item">
+                    <label class="layui-form-label">是否激活：</label>
+                    <div class="layui-input-inline">
+                      <input type="radio" name="is_active" value="1" title="激活" 
+                             {if !isset($model) || $model.is_active == 1}checked{/if}>
+                      <input type="radio" name="is_active" value="0" title="停用" 
+                             {if isset($model) && $model.is_active == 0}checked{/if}>
+                    </div>
+                  </div>
+
+                  <div class="layui-form-item">
+                    <div class="layui-input-block" style="margin-left:150px;">
+                      <button class="layui-btn" lay-submit lay-filter="formsubmit">提 交</button>
+                      {if !empty($model.id) && $model.id > 0}
+                      <a href="javascript:;" class="layui-btn layui-btn-normal" onclick="openParams()">
+                        <i class="layui-icon layui-icon-set"></i> 管理参数
+                      </a>
+                      <a href="javascript:;" class="layui-btn layui-btn-warm" onclick="openResponses()">
+                        <i class="layui-icon layui-icon-list"></i> 管理响应
+                      </a>
+                      {/if}
+                      <button type="button" class="layui-btn layui-btn-primary" onclick="closeself()">取 消</button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  var modelId = '{$model.id|default=""}';
+  
+  layui.use(['form', 'layer', 'element'], function(){
+    var form = layui.form;
+    var layer = layui.layer;
+    var element = layui.element;
+    var $ = layui.$;
+
+    // 自定义验证规则
+    form.verify({
+      modelCode: function(value, item){
+        if(!/^[a-z0-9\-_]+$/.test(value)){
+          return '模型代码只能包含小写字母、数字、横杠和下划线';
+        }
+      }
+    });
+
+    // 提交表单
+    form.on('submit(formsubmit)', function(obj){
+      var field = obj.field;
+      
+      var index = layer.load();
+      $.post('{:url("edit")}', field, function(data){
+        layer.close(index);
+        if(data.success){
+          dialog(data.message, 1);
+          setTimeout(function(){
+            parent.layer.closeAll();
+            if(parent.tableIns){
+              parent.tableIns.reload();
+            }
+          }, 1000);
+        } else {
+          dialog(data.message, 0);
+        }
+      });
+      return false;
+    });
+  });
+
+  // 打开参数管理
+  function openParams() {
+    if(!modelId) {
+      layer.msg('请先保存模型', {icon: 2});
+      return;
+    }
+    openmax('{:url("parameters")}/model_id/' + modelId);
+  }
+
+  // 打开响应管理
+  function openResponses() {
+    if(!modelId) {
+      layer.msg('请先保存模型', {icon: 2});
+      return;
+    }
+    openmax('{:url("responses")}/model_id/' + modelId);
+  }
+  </script>
+  {include file="public/copyright"/}
+</body>
+</html>

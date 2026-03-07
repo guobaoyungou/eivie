@@ -255,7 +255,7 @@ export default {
 		},
         hyjinDu:function(now_num,all_num){
             //屏幕
-            var windowWidth = uni.getSystemInfoSync().windowWidth ;
+            var windowWidth = uni.getWindowInfo().windowWidth ;
             if(windowWidth<350){
                 var width = 30;
             }else{
@@ -333,7 +333,7 @@ export default {
         },
         moneyjinDu:function(now_money,all_money){
             //屏幕
-            var windowWidth = uni.getSystemInfoSync().windowWidth ;
+            var windowWidth = uni.getWindowInfo().windowWidth ;
             if(windowWidth<350){
                 var width = 30;
             }else{

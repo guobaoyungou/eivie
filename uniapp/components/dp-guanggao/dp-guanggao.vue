@@ -12,7 +12,7 @@
         <block v-if="guanggaotype=='4'"><dp-wxad :params="param"></dp-wxad></block>
 				<view @tap="guanggaoClick" class="advert_close advert_close_bottom flex-xy-center" v-if="(guanggaotype=='1' || guanggaotype=='4') && param.ggcover!='1' && param.ggskip=='1'">
 				<!-- <view @tap="guanggaoClick" class="advert_close advert_close_bottom flex-xy-center" v-if="param.ggskip=='1'"> -->
-					<image :src="pre_url+'/static/img/close2.png'" alt=""/>
+					<image class="c-img" :src="pre_url+'/static/img/close2.png'" alt=""/>
 				</view>
 			</view>
 		</view>
@@ -22,7 +22,7 @@
 			<video style="max-width: 100%; height: 850rpx;" class="dp-guanggao-video" :style="{height:windowHeight+'px',width:'100%'}" :src="guanggaopic" :show-mute-btn="true" :play-btn-position="'center'"
 			:object-fit="param.ggcover==1?'cover':''" :controls="false" :autoplay="true" :loop="false" :show-center-play-btn="cpbtn" @ended="playend"></video>
 			<view @tap="guanggaoClick" class="advert_close advert_close_top flex-xy-center" v-if="isend">
-				<image :src="pre_url+'/static/img/close2.png'" alt=""/>
+				<image class="c-img" :src="pre_url+'/static/img/close2.png'" alt=""/>
 			</view>
 		</view>
 		<view @tap="guanggaoClick" class="dp-bottom-close-btn" v-if="(param.showgg=='2' || (param.showgg=='1' && param.ggcover=='1')) && param.ggskip=='1' &&  param.skiptype==2">
@@ -61,7 +61,7 @@
 		},
 		mounted:function(){
 
-			var sysinfo = uni.getSystemInfoSync();
+			var sysinfo = uni.getWindowInfo();
 			this.windowHeight = sysinfo.windowHeight;
 			if(app.globalData.platform=='h5' || app.globalData.platform=='mp'){
 				this.cpbtn = true
@@ -216,7 +216,7 @@
 		margin: 0 auto;
 		border-radius: 100rpx;
 	}
-	.advert_close image{
+	.advert_close .c-img{
 		height: 50rpx;
 		width: 50rpx;
 	}

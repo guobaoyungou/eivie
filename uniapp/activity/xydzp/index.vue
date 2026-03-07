@@ -160,7 +160,7 @@
 <script>
 var dot_inter, bool;
 var app = getApp();
-var windowWidth = uni.getSystemInfoSync().windowWidth;
+var windowWidth = uni.getWindowInfo().windowWidth;
 
 export default {
   data() {

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>调用统计</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    {include file="public/css"/}
+    <style>
+        .stats-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);
+        }
+        .stats-item {
+            text-align: center;
+        }
+        .stats-item h3 {
+            font-size: 28px;
+            color: #1E9FFF;
+            margin: 10px 0;
+        }
+        .stats-item p {
+            color: #666;
+            margin: 5px 0;
+        }
+        .stats-item small {
+            color: #999;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class="layui-fluid">
+    <!-- 统计概览卡片 -->
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md3">
+            <div class="stats-card">
+                <div class="stats-item">
+                    <p>总调用次数</p>
+                    <h3 id="total-count">-</h3>
+                    <small>今日 <span id="today-count">0</span> 次</small>
+                </div>
+            </div>
+        </div>
+        <div class="layui-col-md3">
+            <div class="stats-card">
+                <div class="stats-item">
+                    <p>成功调用</p>
+                    <h3 id="success-count" style="color:#5FB878;">-</h3>
+                    <small>成功率 <span id="success-rate">0</span>%</small>
+                </div>
+            </div>
+        </div>
+        <div class="layui-col-md3">
+            <div class="stats-card">
+                <div class="stats-item">
+                    <p>失败调用</p>
+                    <h3 id="fail-count" style="color:#FF5722;">-</h3>
+                    <small>失败率 <span id="fail-rate">0</span>%</small>
+                </div>
+            </div>
+        </div>
+        <div class="layui-col-md3">
+            <div class="stats-card">
+                <div class="stats-item">
+                    <p>总消耗成本</p>
+                    <h3 id="total-cost" style="color:#FFB800;">-</h3>
+                    <small>今日 ¥<span id="today-cost">0</span></small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 调用明细表 -->
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <h3>调用明细</h3>
+        </div>
+        <div class="layui-card-body">
+            <!-- 搜索栏 -->
+            <div class="layui-form" lay-filter="search-form">
+                <div class="layui-form-item">
+                    <div class="layui-inline">
+                        <label class="layui-form-label">模型分类</label>
+                        <div class="layui-input-inline">
+                            <select name="category_code">
+                                <option value="">全部</option>
+                                {volist name="categories" id="cat"}
+                                <option value="{$cat.code}">{$cat.name}</option>
+                                {/volist}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-inline">
+                        <label class="layui-form-label">业务类型</label>
+                        <div class="layui-input-inline">
+                            <select name="business_type">
+                                <option value="">全部</option>
+                                <option value="cutout">抠图</option>
+                                <option value="image_gen">生图</option>
+                                <option value="video_gen">生视频</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-inline">
+                        <label class="layui-form-label">状态</label>
+                        <div class="layui-input-inline">
+                            <select name="status">
+                                <option value="">全部</option>
+                                <option value="1">成功</option>
+                                <option value="0">失败</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-inline">
+                        <button class="layui-btn" lay-submit lay-filter="search-btn">搜索</button>
+                        <button class="layui-btn layui-btn-primary" id="reset-btn">重置</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据表格 -->
+            <table class="layui-hide" id="usage-table" lay-filter="usage-table"></table>
+        </div>
+    </div>
+</div>
+
+<!-- 状态显示模板 -->
+<script type="text/html" id="status-tpl">
+    {{# if (d.status == 1) { }}
+    <span class="layui-badge layui-bg-green">成功</span>
+    {{# } else { }}
+    <span class="layui-badge layui-bg-red">失败</span>
+    {{# } }}
+</script>
+
+{include file="public/js"/}
+<script>
+layui.use(['table', 'form', 'layer', 'jquery'], function(){
+    var table = layui.table;
+    var form = layui.form;
+    var layer = layui.layer;
+    var $ = layui.$;
+
+    // 加载统计概览
+    function loadOverview() {
+        $.get('{:url("model_usage_stats")}/type/overview', function(res){
+            if(res.status == 1){
+                var data = res.data;
+                $('#total-count').text(data.total_count || 0);
+                $('#success-count').text(data.success_count || 0);
+                $('#fail-count').text(data.fail_count || 0);
+                $('#total-cost').text('¥' + (parseFloat(data.total_cost || 0).toFixed(4)));
+                $('#success-rate').text(data.success_rate || 0);
+                $('#fail-rate').text(data.fail_rate || 0);
+                $('#today-count').text(data.today_count || 0);
+                $('#today-cost').text(parseFloat(data.today_cost || 0).toFixed(4));
+            }
+        });
+    }
+
+    // 初始加载
+    loadOverview();
+
+    // 渲染表格
+    table.render({
+        elem: '#usage-table',
+        url: '{:url("model_usage_stats")}/type/list',
+        page: true,
+        limit: 20,
+        limits: [10, 20, 50, 100],
+        cols: [[
+            {field: 'id', title: 'ID', width: 80, sort: true},
+            {field: 'create_time_text', title: '时间', width: 160},
+            {field: 'category_name', title: '模型', width: 120},
+            {field: 'model_name', title: '配置', width: 150},
+            {field: 'business_type', title: '业务', width: 100, templet: function(d){
+                var types = {cutout: '抠图', image_gen: '生图', video_gen: '生视频'};
+                return types[d.business_type] || d.business_type;
+            }},
+            {field: 'status', title: '状态', width: 80, templet: '#status-tpl'},
+            {field: 'response_time_text', title: '耗时', width: 100},
+            {field: 'cost_amount_text', title: '成本', width: 100},
+            {field: 'retry_count', title: '重试', width: 80},
+            {field: 'error_msg', title: '错误信息', minWidth: 200, templet: function(d){
+                return d.error_msg || '-';
+            }}
+        ]],
+        done: function(res, curr, count) {
+            // 表格渲染完成回调
+        }
+    });
+
+    // 搜索
+    form.on('submit(search-btn)', function(data){
+        table.reload('usage-table', {
+            where: Object.assign({type: 'list'}, data.field),
+            page: {curr: 1}
+        });
+        return false;
+    });
+
+    // 重置
+    $('#reset-btn').click(function(){
+        $('select[name="category_code"]').val('');
+        $('select[name="business_type"]').val('');
+        $('select[name="status"]').val('');
+        form.render('select');
+        table.reload('usage-table', {
+            where: {type: 'list'},
+            page: {curr: 1}
+        });
+    });
+});
+</script>
+{include file="public/copyright"/}
+</body>
+</html>

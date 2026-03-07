@@ -556,7 +556,7 @@
 					that.minprice = parseFloat(res.sysset.min_price);
 					//计算每个高度
 					var harr = [];
-					var clientwidth = uni.getSystemInfoSync().windowWidth;
+					var clientwidth = uni.getWindowInfo().windowWidth;
 					var datalist = res.data;
 					if (datalist && datalist.length > 0) {
 						console.log(datalist.length)

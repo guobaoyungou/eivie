@@ -1,12 +1,20 @@
 <template>
 <view style="width:100%">
-	<view class="dp-product-normal-item">
-		<view class="item" v-for="(item,index) in data" :style="'background:'+probgcolor+';'+(showstyle==2 ? 'width:49%;margin-right:'+(index%2==0?'2%':0) : (showstyle==3 ? 'width:32%;margin-right:'+(index%3!=2?'2%':0) :'width:100%'))" :key="item.id" @click="toDetail(index)" >
-			<view class="product-pic" >
-				<image class="image" :src="item.pic" mode="widthFix"/>
+	<view class="dp-product-normal-item" :style="{gap: card_gap + 'rpx'}">
+		<view class="item" v-for="(item,index) in data" :style="'background:'+probgcolor+';border-radius:'+card_radius+'rpx;'+(showstyle==2 ? 'width:calc(50% - '+card_gap/2+'rpx)' : (showstyle==3 ? 'width:calc(33.33% - '+card_gap*2/3+'rpx)' :'width:100%'))" :key="item.id" @click="toDetail(index)" >
+			<view class="product-pic" :style="{paddingBottom: coverPaddingBottom, borderRadius: cover_radius + 'rpx'}">
+				<block v-if="covertype=='video'">
+					<video class="cover-video" :src="item.pic" :autoplay="false" :loop="false" :muted="true" :controls="false" :show-center-play-btn="false" :show-play-btn="false" :show-fullscreen-btn="false" :enable-progress-gesture="false" objectFit="cover" :style="{borderRadius: cover_radius + 'rpx'}"></video>
+					<view class="play-icon"><image class="play-img" :src="pre_url+'/static/img/play.png'" mode="aspectFit"></image></view>
+				</block>
+				<block v-else>
+					<image class="image" :src="item.pic" mode="widthFix" :style="{borderRadius: cover_radius + 'rpx'}"/>
+				</block>
 				<image class="saleimg" :src="saleimg" v-if="saleimg!=''" mode="widthFix"/>
+				<!-- 按钮位置：封面上 -->
+				<view class="cover-btn" :class="'btn-' + btn_position" v-if="showcart==3 && !item.price_type && item.hide_cart!=true && (btn_position=='top-left' || btn_position=='top-right' || btn_position=='bottom-left' || btn_position=='bottom-right')" @click.stop="toCartTextDetail(index)">{{carttext||'做同款'}}</view>
 			</view>
-			<view class="product-info">
+			<view class="product-info" :style="{padding: info_padding + 'rpx'}" :class="{'info-flex': btn_position=='info-right'}">
 				<view class="p1" v-if="showname == 1">{{item.name}}</view>
 				<view class="p5" v-if="showstyle=='1' && item.sellpoint" :style="{color:t('color2')}"><text>{{item.sellpoint}}</text></view>
         <view class="p5" v-if="item.showgivescore" :style="{color:t('color1')}">
@@ -138,13 +146,17 @@
 				<text class="p3" v-if="item.product_type == 3">手工费: ￥{{item.hand_fee?item.hand_fee:0}}</text>
 				<view class="p3" v-if="item.product_show_costprice_fanwei">成本价￥{{item.cost_price_fanwei}}</view>
 				<view class="p3" v-if="showstock=='1'">库存{{item.stock}}</view>
-				<view class="p3" v-if="showsales=='1'">已售{{item.sales}}件</view>
+				<view class="p3" v-if="showsales=='1'">{{saleslabel||'已售'}}{{item.sales}}{{saleslabel ? '' : '件'}}</view>
 				<view v-if="(showsales !='1' ||  item.sales<=0) && item.main_business" style="height: 44rpx;"></view>
         <view v-if="params.style=='2' && params.nowbuy == 1" @click.stop="buydialogChange" data-btntype="2" :data-proid="item[idfield]" class="nowbuy" :style="{background:'rgba('+t('color1rgb')+',0.1)',color:t('color1')}" >
             立即购买
         </view>
 				<view class="p4" :style="params.style=='2' && params.nowbuy == 1?'bottom:24rpx;background:rgba('+t('color1rgb')+',0.1);color:'+t('color1'):'background:rgba('+t('color1rgb')+',0.1);color:'+t('color1')" v-if="showcart==1 && !item.price_type && item.hide_cart!=true" @click.stop="buydialogChange" data-btntype="1" :data-proid="item[idfield]"><text class="iconfont icon_gouwuche"></text></view>
 				<view class="p4" :style="params.style=='2' && params.nowbuy == 1?'bottom:24rpx;background:rgba('+t('color1rgb')+',0.1);color:'+t('color1'):'background:rgba('+t('color1rgb')+',0.1);color:'+t('color1')" v-if="showcart==2 && !item.price_type && item.hide_cart!=true" @click.stop="buydialogChange" data-btntype="1" :data-proid="item[idfield]"><image :src="cartimg" class="img"/></text></view>
+				<!-- 按钮位置：信息区右侧 -->
+				<view class="info-btn" v-if="showcart==3 && !item.price_type && item.hide_cart!=true && btn_position=='info-right'" @click.stop="toCartTextDetail(index)">{{carttext||'做同款'}}</view>
+				<!-- 按钮位置：信息区下方（默认，不在封面上时） -->
+				<view class="p4 p4-text" :style="{background:'rgba('+t('color1rgb')+',0.1)',color:t('color1')}" v-if="showcart==3 && !item.price_type && item.hide_cart!=true && btn_position!='info-right' && btn_position!='top-left' && btn_position!='top-right' && btn_position!='bottom-left' && btn_position!='bottom-right'" @click.stop="toCartTextDetail(index)">{{carttext||'做同款'}}</view>
       </view>
 			<view class="bg-desc" v-if="item.hongbaoEdu > 0" :style="{background:'linear-gradient(90deg,'+t('color2')+' 0%,rgba('+t('color2rgb')+',0.8) 100%)'}">可获额度 +{{item.hongbaoEdu}}</view>
 		</view>
@@ -213,6 +225,7 @@ var app = getApp();
 			showsales:{default:'1'},
 			showcart:{default:'1'},
 			cartimg:{default:'/static/imgsrc/cart.svg'},
+			carttext:{default:''},
 			data:{},
 			idfield:{default:'id'},
 			probgcolor:{default:'#fff'},
@@ -231,6 +244,56 @@ var app = getApp();
 					return {};
 				}
 			},
+			// 新增样式参数
+			cover_ratio: {
+				type: String,
+				default: '1:1'
+			},
+			cover_radius: {
+				type: [Number, String],
+				default: 8
+			},
+			card_radius: {
+				type: [Number, String],
+				default: 8
+			},
+			btn_position: {
+				type: String,
+				default: 'bottom-right'
+			},
+			card_gap: {
+				type: [Number, String],
+				default: 12
+			},
+			info_padding: {
+				type: [Number, String],
+				default: 12
+			},
+			detailurl: {
+				type: String,
+				default: ''
+			},
+			covertype: {
+				type: String,
+				default: ''
+			},
+			saleslabel: {
+				type: String,
+				default: ''
+			}
+		},
+		computed: {
+			// 封面样式计算
+			coverPaddingBottom() {
+				const paddingMap = {
+					'1:1': '100%',
+					'4:3': '75%',
+					'3:4': '133.33%',
+					'16:9': '56.25%',
+					'9:16': '177.78%'
+				};
+				return paddingMap[this.cover_ratio] || '100%';
+			}
 		},
 		methods: {
 			buydialogChange: function (e) {
@@ -267,6 +330,15 @@ var app = getApp();
             toDetail:function(key){
 				var that = this;
 				var item = that.data[key];
+				if(item.tourl){
+					app.goto(item.tourl);
+					return;
+				}
+				if(that.detailurl){
+					var id = item[that.idfield];
+					app.goto(that.detailurl + (that.detailurl.indexOf('?') > -1 ? '&' : '?') + 'id=' + id);
+					return;
+				}
 				var id = item[that.idfield];
 				var url = '/pages/shop/product?id='+id;//默认链接
 				//来自商品柜
@@ -279,6 +351,19 @@ var app = getApp();
 					url = url+'&dgprodata='+prodata+'&devicedata='+devicedata;
 				}
 				app.goto(url);
+			},
+			toCartTextDetail:function(key){
+				var that = this;
+				var item = that.data[key];
+				if(item.tourl){
+					app.goto(item.tourl);
+				} else if(that.detailurl){
+					var id = item[that.idfield];
+					app.goto(that.detailurl + (that.detailurl.indexOf('?') > -1 ? '&' : '?') + 'id=' + id);
+				} else {
+					var id = item[that.idfield];
+					app.goto('/pagesZ/generation/create?id='+id+'&type=1');
+				}
 			}
 		}
 	}
@@ -287,9 +372,20 @@ var app = getApp();
 .dp-product-normal-item{height: auto; position: relative;overflow: hidden; padding: 0px; display:flex;flex-wrap:wrap}
 .dp-product-normal-item .item{display: inline-block;position: relative;margin-bottom: 12rpx;background: #fff;border-radius:10rpx;overflow:hidden;}
 .dp-product-normal-item .product-pic {width: 100%;height:0;overflow:hidden;background: #ffffff;padding-bottom: 100%;position: relative;}
-.dp-product-normal-item .product-pic .image{position:absolute;top:0;left:0;width: 100%;height:auto}
+.dp-product-normal-item .product-pic .image{position:absolute;top:0;left:0;width: 100%;height:100%;object-fit:cover;}
+.dp-product-normal-item .product-pic .cover-video{position:absolute;top:0;left:0;width:100%;height:100%;}
+.dp-product-normal-item .product-pic .play-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60rpx;height:60rpx;background:rgba(0,0,0,0.5);border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:10;}
+.dp-product-normal-item .product-pic .play-icon .play-img{width:30rpx;height:30rpx;}
 .dp-product-normal-item .product-pic .saleimg{ position: absolute;width: 60px;height: auto; top: -3px; left:-3px;}
+/* 封面上的按钮位置 */
+.dp-product-normal-item .product-pic .cover-btn{position:absolute;padding:0 16rpx;border-radius:26rpx;font-size:22rpx;line-height:48rpx;background:rgba(255,77,79,0.9);color:#fff;z-index:11;}
+.dp-product-normal-item .product-pic .cover-btn.btn-top-left{top:10rpx;left:10rpx;}
+.dp-product-normal-item .product-pic .cover-btn.btn-top-right{top:10rpx;right:10rpx;}
+.dp-product-normal-item .product-pic .cover-btn.btn-bottom-left{bottom:10rpx;left:10rpx;}
+.dp-product-normal-item .product-pic .cover-btn.btn-bottom-right{bottom:10rpx;right:10rpx;}
 .dp-product-normal-item .product-info {padding:20rpx 20rpx;position: relative;}
+.dp-product-normal-item .product-info.info-flex{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;}
+.dp-product-normal-item .product-info .info-btn{flex-shrink:0;padding:0 16rpx;border-radius:26rpx;font-size:22rpx;line-height:48rpx;background:rgba(255,77,79,0.1);color:#ff4d4f;margin-left:10rpx;}
 .dp-product-normal-item .product-info .p2 .t1-m {font-size: 32rpx;padding-left: 8rpx;}
 .dp-product-normal-item .product-info .p5 {font-size:24rpx;font-weight: bold;margin: 8rpx 0;}
 .dp-product-normal-item .product-info .p6{font-size:24rpx;display: flex;flex-wrap: wrap;margin-top: 6rpx;}
@@ -305,6 +401,7 @@ var app = getApp();
 .dp-product-normal-item .product-info .p4{width:52rpx;height:52rpx;border-radius:50%;position:absolute;display:relative;bottom:10rpx;right:20rpx;text-align:center;}
 .dp-product-normal-item .product-info .p4 .icon_gouwuche{font-size:30rpx;height:52rpx;line-height:52rpx}
 .dp-product-normal-item .product-info .p4 .img{width:100%;height:100%}
+.dp-product-normal-item .product-info .p4.p4-text{width:auto;height:auto;padding:0 16rpx;border-radius:26rpx;font-size:22rpx;line-height:48rpx}
 .bg-desc {color: #fff; padding: 10rpx 20rpx;}
 
 .dp-product-normal-item .product-info .binfo {

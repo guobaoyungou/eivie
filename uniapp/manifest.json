@@ -153,12 +153,21 @@
         "appid" : "wx7fa337f123a0c063",
         "setting" : {
             "urlCheck" : false,
-            "minified" : true
+            "minified" : true,
+            "minifyWXSS" : true,
+            "minifyWXML" : true
         },
+        "lazyCodeLoading" : "requiredComponents",
         "usingComponents" : true,
         "permission" : {
             "scope.userLocation" : {
                 "desc" : "你的位置信息将用于小程序位置接口的效果展示"
+            },
+            "scope.camera" : {
+                "desc" : "用于拍摄照片、扫码"
+            },
+            "scope.writePhotosAlbum" : {
+                "desc" : "用于保存图片到相册"
             }
         },
         "optimization" : {

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>模型列表 - 模型广场</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          <div class="layui-tab layui-tab-brief">
+            <ul class="layui-tab-title">
+              <li onclick="location.href='{:url('provider_list')}'">供应商管理</li>
+              <li onclick="location.href='{:url('type_list')}'">模型类型</li>
+              <li class="layui-this">模型列表</li>
+            </ul>
+          </div>
+        </div>
+        <div class="layui-card-body" pad15>
+          <div class="layui-col-md3" style="padding-bottom:10px">
+            <a class="layui-btn layuiadmin-btn-list" href="javascript:void(0)" onclick="openmax('{:url('model_edit')}')">
+              <i class="layui-icon layui-icon-add-1"></i> 新增模型
+            </a>
+            <button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="datadel(0)">批量删除</button>
+          </div>
+          <div class="layui-form layui-col-md9 layui-form-search">
+            <div class="layui-inline layuiadmin-input-useradmin">
+              <label class="layui-form-label">关键词</label>
+              <div class="layui-input-inline" style="width:120px">
+                <input type="text" name="keyword" autocomplete="off" class="layui-input" placeholder="名称/标识">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">供应商</label>
+              <div class="layui-input-inline" style="width:120px">
+                <select name="provider_id" lay-search>
+                  <option value="">全部</option>
+                  {foreach $providers as $p}
+                  <option value="{$p.id}">{$p.provider_name}</option>
+                  {/foreach}
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">类型</label>
+              <div class="layui-input-inline" style="width:120px">
+                <select name="type_id" lay-search>
+                  <option value="">全部</option>
+                  {foreach $types as $t}
+                  <option value="{$t.id}">{$t.type_name}</option>
+                  {/foreach}
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">状态</label>
+              <div class="layui-input-inline" style="width:80px">
+                <select name="is_active">
+                  <option value="">全部</option>
+                  <option value="1">启用</option>
+                  <option value="0">禁用</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn layuiadmin-btn-replys" lay-submit lay-filter="LAY-search">
+                <i class="layui-icon layui-icon-search layuiadmin-button-btn"></i>
+              </button>
+            </div>
+          </div>
+          <div class="layui-col-md12">
+            <table id="tabledata" lay-filter="tabledata"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  var table = layui.table;
+  var datawhere = {};
+  
+  var tableIns = table.render({
+    elem: '#tabledata',
+    url: "{$Request.url}",
+    page: true,
+    cols: [[
+      {type: "checkbox"},
+      {field: 'id', title: 'ID', sort: true, width: 70},
+      {field: 'model_name', title: '模型名称', width: 180},
+      {field: 'model_code', title: '模型标识', width: 180},
+      {field: 'provider_name', title: '供应商', width: 100},
+      {field: 'type_name', title: '类型', width: 100},
+      {field: 'task_type_text', title: '任务类型', width: 80},
+      {field: 'model_version', title: '版本', width: 80},
+      {field: 'config_count', title: '商家配置', width: 90, templet: function(d) {
+        return '<span class="layui-badge layui-bg-cyan">' + d.config_count + '</span>';
+      }},
+      {field: 'is_system', title: '类型', width: 70, templet: function(d) {
+        return d.is_system == 1 ? '<span class="layui-badge layui-bg-green">系统</span>' : '<span class="layui-badge">自定义</span>';
+      }},
+      {field: 'sort', title: '排序', width: 70, sort: true},
+      {field: 'is_recommend', title: '推荐', width: 80, templet: function(d) {
+        var checked = d.is_recommend == 1 ? 'checked' : '';
+        return '<input type="checkbox" name="recommend" lay-skin="switch" lay-text="推荐|普通" lay-filter="recommendSwitch" data-id="'+d.id+'" '+checked+'>';
+      }},
+      {field: 'is_active', title: '状态', width: 90, templet: function(d) {
+        var checked = d.is_active == 1 ? 'checked' : '';
+        return '<input type="checkbox" name="status" lay-skin="switch" lay-text="启用|禁用" lay-filter="statusSwitch" data-id="'+d.id+'" '+checked+'>';
+      }},
+      {field: 'operation', title: '操作', width: 180, templet: function(d) {
+        var html = '';
+        html += '<button class="table-btn" onclick="openmax(\'{:url(\'model_detail\')}/id/'+d.id+'\')">详情</button>';
+        html += '<button class="table-btn" onclick="openmax(\'{:url(\'model_edit\')}/id/'+d.id+'\')">编辑</button>';
+        if (d.is_system != 1) {
+          html += '<button class="table-btn" onclick="datadel('+d.id+')">删除</button>';
+        }
+        return html;
+      }}
+    ]]
+  });
+  
+  // 排序
+  table.on('sort(tabledata)', function(obj) {
+    datawhere.field = obj.field;
+    datawhere.order = obj.type;
+    tableIns.reload({
+      initSort: obj,
+      where: datawhere
+    });
+  });
+  
+  // 搜索
+  layui.form.on('submit(LAY-search)', function(obj) {
+    var field = obj.field;
+    var olddatawhere = datawhere;
+    datawhere = field;
+    datawhere.field = olddatawhere.field;
+    datawhere.order = olddatawhere.order;
+    tableIns.reload({
+      where: datawhere,
+      page: {curr: 1}
+    });
+  });
+  
+  // 状态开关
+  layui.form.on('switch(statusSwitch)', function(obj) {
+    var id = $(this).data('id');
+    var status = obj.elem.checked ? 1 : 0;
+    $.post("{:url('model_status')}", {id: id, status: status}, function(res) {
+      if (res.status != 1) {
+        layer.msg(res.msg);
+        obj.elem.checked = !obj.elem.checked;
+        layui.form.render('checkbox');
+      }
+    });
+  });
+  
+  // 推荐开关
+  layui.form.on('switch(recommendSwitch)', function(obj) {
+    var id = $(this).data('id');
+    var is_recommend = obj.elem.checked ? 1 : 0;
+    $.post("{:url('model_recommend')}", {id: id, is_recommend: is_recommend}, function(res) {
+      if (res.status != 1) {
+        layer.msg(res.msg);
+        obj.elem.checked = !obj.elem.checked;
+        layui.form.render('checkbox');
+      }
+    });
+  });
+  
+  // 删除
+  function datadel(id) {
+    var ids = [];
+    if (id == 0) {
+      var checkStatus = table.checkStatus('tabledata');
+      var checkData = checkStatus.data;
+      if (checkData.length === 0) {
+        return layer.msg('请选择数据');
+      }
+      for (var i = 0; i < checkData.length; i++) {
+        if (checkData[i].is_system == 1) {
+          return layer.msg('系统预置数据不可删除');
+        }
+        ids.push(checkData[i]['id']);
+      }
+    } else {
+      ids.push(id);
+    }
+    layer.confirm('确定要删除吗？', {icon: 7, title: '操作确认'}, function(index) {
+      layer.close(index);
+      var index2 = layer.load();
+      var delCount = 0;
+      var errMsg = '';
+      ids.forEach(function(id, idx) {
+        $.post("{:url('model_delete')}", {id: id}, function(data) {
+          if (data.status != 1) {
+            errMsg = data.msg;
+          } else {
+            delCount++;
+          }
+          if (idx == ids.length - 1) {
+            layer.close(index2);
+            if (delCount > 0) {
+              layer.msg('成功删除' + delCount + '条数据');
+            } else {
+              layer.msg(errMsg || '删除失败');
+            }
+            tableIns.reload();
+          }
+        });
+      });
+    });
+  }
+  </script>
+</body>
+</html>

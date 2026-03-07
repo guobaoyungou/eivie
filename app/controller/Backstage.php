@@ -28,7 +28,7 @@ class Backstage extends Common
 
 	//首页框架
     public function index(){
-		$menudata = \app\common\Menu::getdata(aid,uid,true);
+		$menudata = \app\common\Menu::getdata(aid,uid,true,0,bid);
 
         if(bid>0){
             //判断商户是否有编辑新积分活动的权限

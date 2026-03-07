@@ -1,0 +1,49 @@
+# 环境配置
+.env
+.env.local
+.env.*.local
+
+# 运行时文件
+runtime/
+!runtime/.gitkeep
+
+# 上传文件
+upload/
+!upload/.gitkeep
+
+# IDE配置
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.log
+*.cache
+*.tmp
+
+# Composer
+/vendor/
+
+# Node modules
+node_modules/
+
+# 编译文件
+*.compiled
+
+# Trae技能文件（IDE相关）
+.trae/
+
+# 用户配置
+.user.ini
+
+# 证书验证文件
+.well-known/
+
+# 文档目录（中文）
+文档/

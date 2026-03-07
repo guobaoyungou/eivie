@@ -119,7 +119,7 @@
 		onLoad(opt){
 			this.opt = app.getopts(opt);
 			
-			let sysinfo = uni.getSystemInfoSync();
+			let sysinfo = uni.getWindowInfo();
       if (sysinfo && sysinfo.statusBarHeight) {
       	this.statusBarHeight = sysinfo.statusBarHeight;
       }

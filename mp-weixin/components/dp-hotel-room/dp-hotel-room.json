@@ -1,9 +1,0 @@
-{
-  "component": true,
-  "usingComponents": {
-    "uni-popup": "/components/uni-popup/uni-popup",
-    "dp": "/components/dp/dp",
-    "parse": "/components/parse/parse",
-    "calendar": "/components/calendar/calendar"
-  }
-}

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>API接口列表</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/admin/layui/css/layui.css">
+    <style>
+        body { margin: 0; padding: 0; }
+        .layout-container { display: flex; height: 100vh; }
+        .left-category { width: 220px; border-right: 1px solid #e6e6e6; overflow-y: auto; padding: 15px; background: #fafafa; }
+        .right-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .search-bar { padding: 15px; background: #fff; border-bottom: 1px solid #e6e6e6; }
+        .content-main { flex: 1; overflow-y: auto; padding: 15px; }
+        .api-card { background: #fff; border: 1px solid #e6e6e6; border-radius: 4px; margin-bottom: 15px; padding: 15px; cursor: pointer; transition: all 0.3s; }
+        .api-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.1); border-color: #1E9FFF; }
+        .api-card-header { display: flex; align-items: center; margin-bottom: 10px; }
+        .api-method { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 12px; font-weight: bold; margin-right: 10px; }
+        .api-method.GET { background: #5FB878; color: #fff; }
+        .api-method.POST { background: #FFB800; color: #fff; }
+        .api-method.PUT { background: #1E9FFF; color: #fff; }
+        .api-method.DELETE { background: #FF5722; color: #fff; }
+        .api-name { font-size: 16px; font-weight: bold; color: #333; }
+        .api-path { color: #666; font-size: 13px; margin-bottom: 5px; }
+        .api-desc { color: #999; font-size: 12px; line-height: 1.6; }
+        .api-tags { margin-top: 10px; }
+        .api-tag { display: inline-block; padding: 2px 8px; background: #f2f2f2; border-radius: 3px; font-size: 12px; margin-right: 5px; }
+        .category-item { padding: 10px; cursor: pointer; border-radius: 4px; margin-bottom: 5px; transition: all 0.3s; }
+        .category-item:hover { background: #e6e6e6; }
+        .category-item.active { background: #1E9FFF; color: #fff; }
+        .category-count { float: right; color: #999; font-size: 12px; }
+        .empty-tip { text-align: center; padding: 50px; color: #999; }
+    </style>
+</head>
+<body>
+<div class="layout-container">
+    <!-- 左侧分类 -->
+    <div class="left-category">
+        <div style="margin-bottom: 15px; font-weight: bold; font-size: 14px;">接口分类</div>
+        <div class="category-item active" data-category="">
+            全部接口 <span class="category-count" id="count-all">0</span>
+        </div>
+        {volist name="categories" id="cat"}
+        <div class="category-item" data-category="{$cat}">
+            {$cat} <span class="category-count" id="count-{$cat}">0</span>
+        </div>
+        {/volist}
+    </div>
+
+    <!-- 右侧内容 -->
+    <div class="right-content">
+        <!-- 搜索栏 -->
+        <div class="search-bar">
+            <form class="layui-form" lay-filter="searchForm">
+                <div class="layui-form-item" style="margin-bottom: 0;">
+                    <div class="layui-inline">
+                        <input type="text" name="keyword" placeholder="搜索接口名称或路径" class="layui-input" style="width: 250px;">
+                    </div>
+                    <div class="layui-inline">
+                        <select name="method">
+                            <option value="">请求方式</option>
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="DELETE">DELETE</option>
+                        </select>
+                    </div>
+                    <div class="layui-inline">
+                        <select name="auth_required">
+                            <option value="">认证要求</option>
+                            <option value="1">需要登录</option>
+                            <option value="0">无需登录</option>
+                        </select>
+                    </div>
+                    <div class="layui-inline">
+                        <button type="button" class="layui-btn" id="searchBtn">搜索</button>
+                        <button type="reset" class="layui-btn layui-btn-primary" id="resetBtn">重置</button>
+                        <a href="{:url('ApiManage/scan')}" class="layui-btn layui-btn-normal">扫描接口</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 内容主体 -->
+        <div class="content-main" id="apiList">
+            <div class="empty-tip">加载中...</div>
+        </div>
+
+        <!-- 分页 -->
+        <div style="text-align: center; padding: 15px; background: #fff; border-top: 1px solid #e6e6e6;">
+            <div id="pagination"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 接口详情弹窗 -->
+<div id="detailLayer" style="display: none; padding: 20px;">
+    <div id="detailContent"></div>
+</div>
+
+<script src="/static/admin/layui/layui.js"></script>
+<script>
+layui.use(['layer', 'form', 'laypage', 'jquery'], function(){
+    var layer = layui.layer;
+    var form = layui.form;
+    var laypage = layui.laypage;
+    var $ = layui.jquery;
+    
+    var currentPage = 1;
+    var currentCategory = '';
+    
+    // 加载接口列表
+    function loadList(page) {
+        page = page || 1;
+        currentPage = page;
+        
+        var formData = {
+            page: page,
+            limit: 20,
+            category: currentCategory,
+            keyword: $('input[name="keyword"]').val(),
+            method: $('select[name="method"]').val(),
+            auth_required: $('select[name="auth_required"]').val()
+        };
+        
+        $.ajax({
+            url: "{:url('ApiManage/index')}",
+            type: 'GET',
+            data: formData,
+            dataType: 'json',
+            success: function(res) {
+                if (res.status == 1) {
+                    renderList(res.data);
+                    renderPagination(res.count);
+                } else {
+                    $('#apiList').html('<div class="empty-tip">加载失败</div>');
+                }
+            }
+        });
+    }
+    
+    // 渲染列表
+    function renderList(data) {
+        if (!data || data.length == 0) {
+            $('#apiList').html('<div class="empty-tip">暂无数据</div>');
+            return;
+        }
+        
+        var html = '';
+        $.each(data, function(i, item) {
+            html += '<div class="api-card" data-id="' + item.id + '">';
+            html += '  <div class="api-card-header">';
+            html += '    <span class="api-method ' + item.method + '">' + item.method + '</span>';
+            html += '    <span class="api-name">' + item.name + '</span>';
+            if (item.auth_required == 1) {
+                html += '    <span class="api-tag" style="background:#FFB800;color:#fff;margin-left:10px;">需登录</span>';
+            }
+            html += '  </div>';
+            html += '  <div class="api-path">' + item.path + '</div>';
+            if (item.description) {
+                html += '  <div class="api-desc">' + item.description + '</div>';
+            }
+            if (item.tags) {
+                html += '  <div class="api-tags">';
+                var tags = item.tags.split(',');
+                $.each(tags, function(j, tag) {
+                    html += '<span class="api-tag">' + tag + '</span>';
+                });
+                html += '  </div>';
+            }
+            html += '</div>';
+        });
+        
+        $('#apiList').html(html);
+    }
+    
+    // 渲染分页
+    function renderPagination(count) {
+        laypage.render({
+            elem: 'pagination',
+            count: count,
+            limit: 20,
+            curr: currentPage,
+            jump: function(obj, first) {
+                if (!first) {
+                    loadList(obj.curr);
+                }
+            }
+        });
+    }
+    
+    // 分类切换
+    $('.category-item').click(function() {
+        $('.category-item').removeClass('active');
+        $(this).addClass('active');
+        currentCategory = $(this).data('category');
+        loadList(1);
+    });
+    
+    // 搜索
+    $('#searchBtn').click(function() {
+        loadList(1);
+    });
+    
+    // 重置
+    $('#resetBtn').click(function() {
+        currentCategory = '';
+        $('.category-item').removeClass('active');
+        $('.category-item').eq(0).addClass('active');
+        loadList(1);
+    });
+    
+    // 查看详情
+    $(document).on('click', '.api-card', function() {
+        var id = $(this).data('id');
+        showDetail(id);
+    });
+    
+    // 显示详情
+    function showDetail(id) {
+        $.ajax({
+            url: "{:url('ApiManage/detail')}",
+            type: 'GET',
+            data: {id: id},
+            dataType: 'json',
+            success: function(res) {
+                if (res.status == 1) {
+                    var item = res.data;
+                    var html = '<div style="line-height: 2;">';
+                    html += '<p><strong>接口名称：</strong>' + item.name + '</p>';
+                    html += '<p><strong>请求方式：</strong><span class="api-method ' + item.method + '">' + item.method + '</span></p>';
+                    html += '<p><strong>接口路径：</strong>' + item.path + '</p>';
+                    html += '<p><strong>接口分类：</strong>' + item.category + '</p>';
+                    html += '<p><strong>认证要求：</strong>' + (item.auth_required == 1 ? '需要登录' : '无需登录') + '</p>';
+                    if (item.description) {
+                        html += '<p><strong>接口描述：</strong><br>' + item.description + '</p>';
+                    }
+                    html += '<p style="margin-top:20px;">';
+                    html += '<a href="{:url(\'ApiManage/edit\')}?id=' + id + '" class="layui-btn layui-btn-sm">编辑</a> ';
+                    html += '<button class="layui-btn layui-btn-sm layui-btn-normal" onclick="testApi(' + id + ')">在线测试</button>';
+                    html += '</p>';
+                    html += '</div>';
+                    
+                    layer.open({
+                        type: 1,
+                        title: '接口详情',
+                        area: ['600px', '500px'],
+                        content: html
+                    });
+                }
+            }
+        });
+    }
+    
+    // 在线测试
+    window.testApi = function(id) {
+        layer.closeAll();
+        window.location.href = "{:url('ApiManage/test')}" + "&id=" + id;
+    };
+    
+    // 初始加载
+    loadList(1);
+});
+</script>
+</body>
+</html>

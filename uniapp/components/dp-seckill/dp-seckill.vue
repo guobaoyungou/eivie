@@ -150,13 +150,13 @@
 					<view class="rate flex-y-center flex-bt">
 						<view class="rate_module">
 							<view :style="{width:(item.sales/item.stock)*100 + '%'}" class="rate_item">
-								<image :src="pre_url+'/static/imgsrc/decoration_tag.png'"></image>
+								<image class="c-img" :src="pre_url+'/static/imgsrc/decoration_tag.png'"></image>
 							</view>
 						</view>
 						<text>仅剩{{item.stock - item.sales}}件</text>
 					</view>
 					<view class="cost">
-						原价：<text>￥{{item.market_price}}</text>
+						原价：<text class="c-text">￥{{item.market_price}}</text>
 					</view>
 					<view class="price flex-y-center flex-bt">
 						<block v-if="item.usd_sellprice">
@@ -165,8 +165,8 @@
 						<block v-else>
 							<text :style="{color:t('color1')}">￥{{item.sell_price}}</text>
 						</block>
-						<view :style="{background:'rgba('+t('color1rgb')+',1)'}" class="flex-xy-center">
-							<image :src="pre_url+'/static/imgsrc/decoration_add.png'"></image>
+						<view :style="{background:'rgba('+t('color1rgb')+',1)'}" class="flex-xy-center c-view">
+							<image class="c-img" :src="pre_url+'/static/imgsrc/decoration_add.png'"></image>
 						</view>
 					</view>
 				</view>
@@ -184,13 +184,13 @@
 					<view class="rate flex-y-center flex-bt">
 						<view class="rate_module">
 							<view :style="{width:(item.sales/item.stock)*100 + '%'}" class="rate_item">
-								<image :src="pre_url+'/static/imgsrc/decoration_tag.png'"></image>
+								<image class="c-img" :src="pre_url+'/static/imgsrc/decoration_tag.png'"></image>
 							</view>
 						</view>
 						<text>仅剩{{item.stock - item.sales}}件</text>
 					</view>
 					<view class="cost">
-						原价：<text>￥{{item.market_price}}</text>
+						原价：<text class="c-text">￥{{item.market_price}}</text>
 					</view>
 					<view class="price flex-y-center flex-bt">
 						<block v-if="item.usd_sellprice">
@@ -199,7 +199,7 @@
 						<block v-else>
 							<text :style="{color:t('color1')}">￥{{item.sell_price}}</text>
 						</block>
-						<view :style="{background:'rgba('+t('color1rgb')+',1)'}" class="flex-xy-center">马上抢</view>
+						<view :style="{background:'rgba('+t('color1rgb')+',1)'}" class="flex-xy-center c-view">马上抢</view>
 					</view>
 				</view>
 			</view>
@@ -218,8 +218,8 @@
 					</view>
 					<view class="price flex-y-center flex-bt">
 						<text :style="{color:t('color1')}">￥{{item.sell_price}}</text>
-						<view :style="{background:'rgba('+t('color1rgb')+',1)'}" class="flex-xy-center">
-							<image :src="pre_url+'/static/imgsrc/decoration_add.png'"></image>
+						<view :style="{background:'rgba('+t('color1rgb')+',1)'}" class="flex-xy-center c-view">
+							<image class="c-img" :src="pre_url+'/static/imgsrc/decoration_add.png'"></image>
 						</view>
 					</view>
 				</view>
@@ -277,12 +277,12 @@
 .dp-seckill-item .product-info .rate{font-size:24rpx;color: #FF3143;}
 .dp-seckill-item .product-info .rate_module{width: 190rpx;height: 15rpx;border-radius: 500rpx;background: #ffc1c1;}
 .dp-seckill-item .product-info .rate_item{height: 15rpx;background: #ff065e;border-radius: 500rpx;position: relative;}
-.dp-seckill-item .product-info .rate_item image{position: absolute;top: 0;bottom: 0;right: -15rpx;margin: auto 0;height: 30rpx;width: 30rpx;}
+.dp-seckill-item .product-info .rate_item .c-img{position: absolute;top: 0;bottom: 0;right: -15rpx;margin: auto 0;height: 30rpx;width: 30rpx;}
 .dp-seckill-item .product-info .cost{font-size:24rpx;color: #999ca7;margin-top: 10rpx;}
-.dp-seckill-item .product-info .cost text{text-decoration: line-through;}
+.dp-seckill-item .product-info .cost .c-text{text-decoration: line-through;}
 .dp-seckill-item .product-info .price{font-weight: bold;color: #fd463e;position: relative;margin-top: 20rpx;font-size: 32rpx;}
-.dp-seckill-item .product-info .price view{height: 50rpx;width: 50rpx;background: #fd463e;border-radius: 100rpx;}
-.dp-seckill-item .product-info .price view image{height: 30rpx;width: 30rpx;display: block;}
+.dp-seckill-item .product-info .price .c-view{height: 50rpx;width: 50rpx;background: #fd463e;border-radius: 100rpx;}
+.dp-seckill-item .product-info .price .c-view .c-img{height: 30rpx;width: 30rpx;display: block;}
 
 .dp-seckill-itemlist{height: auto; position: relative;overflow: hidden; padding: 0px; display:flex;flex-wrap:wrap}
 .dp-seckill-itemlist .item{width:100%;display: inline-block;position: relative;margin-bottom: 12rpx;background: #fff;display:flex;padding:20rpx;border-radius:10rpx}
@@ -316,12 +316,12 @@
 .dp-seckill-itemlist1 .product-info .rate{font-size:24rpx;color: #FF3143;margin-top: 15rpx;}
 .dp-seckill-itemlist1 .product-info .rate_module{width: 200rpx;height: 15rpx;border-radius: 500rpx;background: #ffc1c1;}
 .dp-seckill-itemlist1 .product-info .rate_item{height: 15rpx;background: #ff065e;border-radius: 500rpx;position: relative;}
-.dp-seckill-itemlist1 .product-info .rate_item image{position: absolute;top: 0;bottom: 0;right: -15rpx;margin: auto 0;height: 30rpx;width: 30rpx;}
+.dp-seckill-itemlist1 .product-info .rate_item .c-img{position: absolute;top: 0;bottom: 0;right: -15rpx;margin: auto 0;height: 30rpx;width: 30rpx;}
 .dp-seckill-itemlist1 .product-info .text{font-size:24rpx;color: #999ca7;margin-top: 10rpx;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;}
 .dp-seckill-itemlist1 .product-info .cost{font-size:24rpx;color: #999ca7;margin-top: 10rpx;}
-.dp-seckill-itemlist1 .product-info .cost text{text-decoration: line-through;}
+.dp-seckill-itemlist1 .product-info .cost .c-text{text-decoration: line-through;}
 .dp-seckill-itemlist1 .product-info .price{font-weight: bold;color: #fd463e;position: relative;margin-top: 15rpx;font-size: 32rpx;}
-.dp-seckill-itemlist1 .product-info .price view{position: absolute;right: 0;bottom: 0;background: rgb(253, 70, 62);color: rgb(255, 255, 255);line-height: 60rpx;border-radius: 100rpx;font-size: 26rpx;font-weight: 700;width: 140rpx;}
+.dp-seckill-itemlist1 .product-info .price .c-view{position: absolute;right: 0;bottom: 0;background: rgb(253, 70, 62);color: rgb(255, 255, 255);line-height: 60rpx;border-radius: 100rpx;font-size: 26rpx;font-weight: 700;width: 140rpx;}
 
 .dp-seckill-itemline{width:100%;display:flex;overflow-x:scroll;overflow-y:hidden}
 .dp-seckill-itemline .item{width: 220rpx;display: inline-block;position: relative;margin-bottom: 12rpx;background: #fff;border-radius:10rpx;margin-right:4px}
@@ -341,6 +341,6 @@
 .dp-seckill-itemline .product-info .p3-2{color:#999999;font-size:20rpx;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;}
 .dp-seckill-itemline .product-info .tag{padding: 2rpx 8rpx;background: #ffe7e7;color: #FF3143;font-size: 24rpx;}
 .dp-seckill-itemline .product-info .price{font-weight: bold;color: #fd463e;position: relative;margin-top: 10rpx;font-size: 27rpx;}
-.dp-seckill-itemline .product-info .price view{height: 45rpx;width: 45rpx;background: #fd463e;border-radius: 100rpx;}
-.dp-seckill-itemline .product-info .price view image{height: 25rpx;width: 25rpx;display: block;}
+.dp-seckill-itemline .product-info .price .c-view{height: 45rpx;width: 45rpx;background: #fd463e;border-radius: 100rpx;}
+.dp-seckill-itemline .product-info .price .c-view .c-img{height: 25rpx;width: 25rpx;display: block;}
 </style>
