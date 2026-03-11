@@ -108,7 +108,6 @@
 .sidebar.collapsed .nav-sub { display: none; }
 
 /* 折叠态hover浮动子菜单 */
-.nav-float-sub { display: none; }
 .sidebar.collapsed .nav-item .nav-float-sub {
     display: none;
     position: absolute;
