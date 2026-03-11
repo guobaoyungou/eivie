@@ -41,4 +41,22 @@
     --dropdown-border: #3a3a3a;
     --dropdown-shadow: rgba(0,0,0,0.4);
     --asset-bg: #1e1e1e;
+
+    /* Functional colors */
+    --color-primary: #818cf8;
+    --color-primary-light: rgba(129,140,248,.12);
+    --color-purple: #818cf8;
+    --color-purple-light: rgba(129,140,248,.12);
+    --color-green: #34d399;
+    --color-green-light: rgba(52,211,153,.12);
+    --color-amber: #fbbf24;
+    --color-amber-light: rgba(251,191,36,.12);
+    --color-red: #f87171;
+
+    /* Card & surface */
+    --bg-secondary: #1e1e22;
+    --card-shadow: 0 1px 3px rgba(0,0,0,.2), 0 1px 2px rgba(0,0,0,.15);
+    --card-shadow-hover: 0 10px 25px rgba(0,0,0,.3), 0 4px 10px rgba(0,0,0,.2);
+    --card-inset-border: rgba(255,255,255,.06);
+    --glass-bg: rgba(30,30,34,.8);
 }

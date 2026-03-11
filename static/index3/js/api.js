@@ -182,8 +182,11 @@ var Api = (function(){
         getPcLoginConfig: function(cb){
             request('GET', '/?s=/index/pc_login_config', null, cb);
         },
-        checkWechatFollow: function(cb){
-            request('GET', '/?s=/index/check_wechat_follow', null, cb);
+        createQrLoginTicket: function(cb){
+            request('GET', '/?s=/index/create_qr_login_ticket', null, cb);
+        },
+        checkQrLoginStatus: function(params, cb){
+            request('GET', '/?s=/index/check_qr_login_status', params, cb);
         }
     };
 })();

@@ -1912,15 +1912,9 @@ class Binding extends Common
 			$postinfo = input('post.info/a');
 			$data = [];
 			$data['require_follow'] = intval($postinfo['require_follow'] ?? 0);
-			$data['follow_qrcode'] = trim($postinfo['follow_qrcode'] ?? '');
-			$data['follow_guide_text'] = trim($postinfo['follow_guide_text'] ?? '扫码关注公众号后即可登录');
+			$data['follow_guide_text'] = trim($postinfo['follow_guide_text'] ?? '微信扫码关注公众号即可登录');
 			$data['follow_appname'] = trim($postinfo['follow_appname'] ?? '');
 			$data['new_user_follow_guide'] = intval($postinfo['new_user_follow_guide'] ?? 0);
-
-			// 开启强制关注时，二维码必填
-			if($data['require_follow'] == 1 && empty($data['follow_qrcode'])){
-				return json(['status'=>0,'msg'=>'开启登录需关注功能时，公众号二维码为必填项']);
-			}
 
 			Db::name('admin_setapp_pc')->where('aid',aid)->update($data);
 			\app\common\System::plog('PC端登录设置');

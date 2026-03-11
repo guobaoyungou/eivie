@@ -163,16 +163,20 @@
         smsCooldown: 0,
         smsTimer: null,
         submitting: false,
-        // 公众号关注相关状态
+        // 扫码登录相关状态
         requireFollow: false,
-        followQrcode: '',
         followGuideText: '',
         followAppname: '',
         newUserFollowGuide: false,
-        followPollingTimer: null,
-        followPollingCount: 0,
-        isFollowed: false,
-        configLoaded: false
+        mpConfigured: false,
+        configLoaded: false,
+        // 动态二维码状态
+        qrSceneStr: '',
+        qrExpireSeconds: 300,
+        qrCreateTime: 0,
+        qrPollingTimer: null,
+        qrExpireTimer: null,
+        qrStatus: 'idle' // idle, loading, showing, expired, success
     };
 
     function showLoginModal(){
@@ -187,13 +191,13 @@
         submitBtn.disabled = false;
         submitBtn.textContent = '商家登录/注册';
         submitBtn.classList.remove('loading');
-        // 重置关注状态
-        loginState.isFollowed = false;
-        loginState.followPollingCount = 0;
-        stopFollowPolling();
-        var followStatus = document.getElementById('followStatus');
-        if(followStatus) followStatus.innerHTML = '';
-        // 恢复验证码按钮的倒计时状态（如果还在倒计时中）
+        // 重置扫码登录状态
+        stopQrPolling();
+        loginState.qrStatus = 'idle';
+        loginState.qrSceneStr = '';
+        var statusEl = document.getElementById('qrLoginStatus');
+        if(statusEl) statusEl.innerHTML = '';
+        // 恢复验证码按钮的倒计时状态
         var sendBtn = document.getElementById('loginSendBtn');
         if(sendBtn && loginState.smsCooldown > 0){
             sendBtn.disabled = true;
@@ -206,7 +210,7 @@
         }
         // 加载登录配置并渲染双栏
         loadLoginConfig(function(){
-            applyFollowPanel();
+            applyQrLoginPanel();
         });
         // 聚焦手机号输入框
         setTimeout(function(){ document.getElementById('loginPhone').focus(); }, 300);
@@ -219,7 +223,7 @@
         if(!overlay) return;
         overlay.classList.remove('show');
         document.body.style.overflow = '';
-        stopFollowPolling();
+        stopQrPolling();
     }
 
     // === 加载登录配置 ===
@@ -232,72 +236,147 @@
             if(!err && res && res.status === 1 && res.data){
                 var d = res.data;
                 loginState.requireFollow = d.require_follow == 1;
-                loginState.followQrcode = d.follow_qrcode || '';
-                loginState.followGuideText = d.follow_guide_text || '扫码关注公众号后即可登录';
+                loginState.followGuideText = d.follow_guide_text || '微信扫码关注公众号即可登录';
                 loginState.followAppname = d.follow_appname || '';
                 loginState.newUserFollowGuide = d.new_user_follow_guide == 1;
+                loginState.mpConfigured = d.mp_configured == 1;
                 loginState.configLoaded = true;
             }
             if(callback) callback();
         });
     }
 
-    // === 应用公众号关注面板 ===
-    function applyFollowPanel(){
+    // === 应用扫码登录面板 ===
+    function applyQrLoginPanel(){
         var modal = document.getElementById('loginModal');
         var rightPanel = document.getElementById('loginModalRight');
         if(!modal || !rightPanel) return;
 
-        if(loginState.requireFollow && loginState.followQrcode){
+        if(loginState.requireFollow && loginState.mpConfigured){
             modal.classList.add('has-follow-panel');
             rightPanel.style.display = '';
             // 填充内容
-            var qrImg = document.getElementById('followQrImage');
-            if(qrImg) qrImg.src = loginState.followQrcode;
-            var appname = document.getElementById('followAppname');
+            var appname = document.getElementById('qrLoginAppname');
             if(appname) appname.textContent = loginState.followAppname;
-            var guideText = document.getElementById('followGuideText');
+            var guideText = document.getElementById('qrLoginGuide');
             if(guideText) guideText.textContent = loginState.followGuideText;
+            // 自动创建二维码
+            createQrLogin();
         } else {
             modal.classList.remove('has-follow-panel');
             rightPanel.style.display = 'none';
         }
     }
 
-    // === 关注状态轮询 ===
-    function startFollowPolling(){
-        stopFollowPolling();
-        loginState.followPollingCount = 0;
-        loginState.followPollingTimer = setInterval(function(){
-            loginState.followPollingCount++;
-            if(loginState.followPollingCount > 60){
-                // 超过3分钟
-                stopFollowPolling();
-                var statusEl = document.getElementById('followStatus');
-                if(statusEl) statusEl.innerHTML = '<span class="follow-status-warn">ℹ 请先关注公众号后再使用</span>';
+    // === 创建扫码登录二维码 ===
+    function createQrLogin(){
+        stopQrPolling();
+        loginState.qrStatus = 'loading';
+        // 显示loading
+        var loadingEl = document.getElementById('qrLoading');
+        var imgEl = document.getElementById('qrLoginImg');
+        var expiredEl = document.getElementById('qrExpiredOverlay');
+        if(loadingEl) loadingEl.style.display = 'flex';
+        if(imgEl) imgEl.style.display = 'none';
+        if(expiredEl) expiredEl.style.display = 'none';
+        var statusEl = document.getElementById('qrLoginStatus');
+        if(statusEl) statusEl.innerHTML = '';
+
+        Api.createQrLoginTicket(function(err, res){
+            if(err || !res || res.status !== 1){
+                loginState.qrStatus = 'idle';
+                if(loadingEl) loadingEl.style.display = 'none';
+                var msg = (res && res.msg) ? res.msg : '生成二维码失败';
+                if(statusEl) statusEl.innerHTML = '<span class="qr-status-error">' + escapeHtml(msg) + '</span>';
                 return;
             }
-            Api.checkWechatFollow(function(err, res){
-                if(!err && res && res.status === 1 && res.data && res.data.is_followed){
-                    loginState.isFollowed = true;
-                    stopFollowPolling();
-                    onFollowConfirmed();
+            var d = res.data;
+            loginState.qrSceneStr = d.scene_str;
+            loginState.qrExpireSeconds = d.expire_seconds || 300;
+            loginState.qrCreateTime = Date.now();
+            loginState.qrStatus = 'showing';
+
+            // 显示二维码图片
+            if(loadingEl) loadingEl.style.display = 'none';
+            if(imgEl){
+                imgEl.src = d.qr_url;
+                imgEl.style.display = 'block';
+            }
+
+            // 启动轮询
+            startQrPolling();
+            // 启动过期计时器
+            startQrExpireTimer();
+        });
+    }
+
+    // === 扫码登录状态轮询 ===
+    function startQrPolling(){
+        stopQrPolling();
+        loginState.qrPollingTimer = setInterval(function(){
+            if(loginState.qrStatus !== 'showing') return;
+            Api.checkQrLoginStatus({scene_str: loginState.qrSceneStr}, function(err, res){
+                if(err) return;
+                if(!res) return;
+                // 二维码过期
+                if(res.status === 0 && res.data && res.data.expired){
+                    showQrExpired();
+                    return;
+                }
+                if(res.status === 1 && res.data){
+                    if(res.data.login_status === 'success'){
+                        onQrLoginSuccess(res.data);
+                    }
+                    // pending 继续轮询
                 }
             });
         }, 3000);
     }
 
-    function stopFollowPolling(){
-        if(loginState.followPollingTimer){
-            clearInterval(loginState.followPollingTimer);
-            loginState.followPollingTimer = null;
+    function stopQrPolling(){
+        if(loginState.qrPollingTimer){
+            clearInterval(loginState.qrPollingTimer);
+            loginState.qrPollingTimer = null;
+        }
+        if(loginState.qrExpireTimer){
+            clearTimeout(loginState.qrExpireTimer);
+            loginState.qrExpireTimer = null;
         }
     }
 
-    function onFollowConfirmed(){
-        var statusEl = document.getElementById('followStatus');
-        if(statusEl) statusEl.innerHTML = '<span class="follow-status-ok">✓ 已关注</span>';
-        // 登录完成，关闭弹窗
+    // === 二维码过期计时 ===
+    function startQrExpireTimer(){
+        if(loginState.qrExpireTimer){
+            clearTimeout(loginState.qrExpireTimer);
+        }
+        loginState.qrExpireTimer = setTimeout(function(){
+            if(loginState.qrStatus === 'showing'){
+                showQrExpired();
+            }
+        }, loginState.qrExpireSeconds * 1000);
+    }
+
+    function showQrExpired(){
+        loginState.qrStatus = 'expired';
+        stopQrPolling();
+        var expiredEl = document.getElementById('qrExpiredOverlay');
+        if(expiredEl) expiredEl.style.display = 'flex';
+        var statusEl = document.getElementById('qrLoginStatus');
+        if(statusEl) statusEl.innerHTML = '';
+    }
+
+    // === 扫码登录成功 ===
+    function onQrLoginSuccess(data){
+        loginState.qrStatus = 'success';
+        stopQrPolling();
+        // 更新登录状态
+        state.isLoggedIn = true;
+        state.loginChecked = true;
+        state.loginUser = data;
+        var statusEl = document.getElementById('qrLoginStatus');
+        if(statusEl) statusEl.innerHTML = '<span class="qr-status-ok">✓ 登录成功</span>';
+        showToast('扫码登录成功', 'success');
+        // 延迟关闭弹窗
         setTimeout(function(){
             hideLoginModal();
             if(state.loginPendingCallback){
@@ -311,16 +390,28 @@
 
     // === 新用户关注引导浮层 ===
     function showNewUserFollowGuide(){
-        if(!loginState.newUserFollowGuide || !loginState.followQrcode) return;
+        if(!loginState.newUserFollowGuide || !loginState.mpConfigured) return;
         var overlay = document.getElementById('followGuideOverlay');
         if(!overlay) return;
-        var qrImg = document.getElementById('followGuideQrImage');
-        if(qrImg) qrImg.src = loginState.followQrcode;
         var appname = document.getElementById('followGuideAppname');
         if(appname) appname.textContent = loginState.followAppname;
         var desc = document.getElementById('followGuideDesc');
         if(desc) desc.textContent = loginState.followGuideText;
+        // 动态生成二维码
+        var loadingEl = document.getElementById('followGuideQrLoading');
+        var imgEl = document.getElementById('followGuideQrImage');
+        if(loadingEl) loadingEl.style.display = 'flex';
+        if(imgEl) imgEl.style.display = 'none';
         overlay.classList.add('show');
+        Api.createQrLoginTicket(function(err, res){
+            if(loadingEl) loadingEl.style.display = 'none';
+            if(!err && res && res.status === 1 && res.data){
+                if(imgEl){
+                    imgEl.src = res.data.qr_url;
+                    imgEl.style.display = 'block';
+                }
+            }
+        });
     }
 
     function hideNewUserFollowGuide(){
@@ -348,6 +439,7 @@
         var sendBtn = document.getElementById('loginSendBtn');
         var submitBtn = document.getElementById('loginSubmitBtn');
         var errorEl = document.getElementById('loginError');
+        var qrRefreshBtn = document.getElementById('qrRefreshBtn');
         if(!overlay) return;
 
         // 关闭按钮
@@ -369,6 +461,13 @@
                 state.loginPendingCallback = null;
             }
         });
+
+        // 二维码刷新按钮
+        if(qrRefreshBtn){
+            qrRefreshBtn.addEventListener('click', function(){
+                createQrLogin();
+            });
+        }
 
         // 手机号输入只允许数字
         phoneInput.addEventListener('input', function(){
@@ -489,48 +588,25 @@
                 var isNewUser = res.data && res.data.is_new_user;
                 showToast('登录成功', 'success');
 
-                // 判断是否需要强制关注公众号
-                if(loginState.requireFollow && loginState.followQrcode){
-                    // 先查询关注状态
-                    Api.checkWechatFollow(function(fErr, fRes){
-                        if(!fErr && fRes && fRes.status === 1 && fRes.data && fRes.data.is_followed){
-                            // 已关注，直接完成
-                            loginState.isFollowed = true;
-                            hideLoginModal();
-                            if(state.loginPendingCallback){
-                                var cb = state.loginPendingCallback;
-                                state.loginPendingCallback = null;
-                                setTimeout(function(){ cb(); }, 300);
-                            }
-                            if(window.Auth) Auth.checkLogin();
-                        } else {
-                            // 未关注，高亮右栏提示 + 开始轮询
-                            var rightPanel = document.getElementById('loginModalRight');
-                            if(rightPanel) rightPanel.classList.add('highlight');
-                            var statusEl = document.getElementById('followStatus');
-                            if(statusEl) statusEl.innerHTML = '<span class="follow-status-pending">请先扫码关注公众号...</span>';
-                            submitBtn.disabled = true;
-                            submitBtn.textContent = '请先关注公众号';
-                            submitBtn.classList.remove('loading');
-                            startFollowPolling();
+                // 关闭弹窗
+                hideLoginModal();
+                // 新用户引导（非强制）
+                if(isNewUser && loginState.newUserFollowGuide && loginState.mpConfigured){
+                    // 确保配置已加载
+                    loadLoginConfig(function(){
+                        if(loginState.newUserFollowGuide && loginState.mpConfigured){
+                            setTimeout(function(){ showNewUserFollowGuide(); }, 500);
                         }
                     });
-                } else {
-                    // 不需要强制关注
-                    hideLoginModal();
-                    // 新用户引导
-                    if(isNewUser && loginState.newUserFollowGuide && loginState.followQrcode){
-                        setTimeout(function(){ showNewUserFollowGuide(); }, 500);
-                    }
-                    // 执行待定回调
-                    if(state.loginPendingCallback){
-                        var cb = state.loginPendingCallback;
-                        state.loginPendingCallback = null;
-                        setTimeout(function(){ cb(); }, 300);
-                    }
-                    // 刷新头部和侧边栏用户信息
-                    if(window.Auth) Auth.checkLogin();
                 }
+                // 执行待定回调
+                if(state.loginPendingCallback){
+                    var cb = state.loginPendingCallback;
+                    state.loginPendingCallback = null;
+                    setTimeout(function(){ cb(); }, 300);
+                }
+                // 刷新头部和侧边栏用户信息
+                if(window.Auth) Auth.checkLogin();
             });
         }
     }

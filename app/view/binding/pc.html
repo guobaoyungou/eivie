@@ -207,26 +207,27 @@
 							<!-- 登录设置Tab -->
 							<div class="layui-tab-item">
 								<div class="layui-form form-label-w8" lay-filter="loginForm" style="margin-top:20px">
-									<div style="color:#999;height:40px;line-height:40px;margin-bottom:10px">配置PC端官网（模板三）的登录弹窗微信公众号关注引导功能</div>
+									<div style="color:#999;height:40px;line-height:40px;margin-bottom:10px">配置PC端官网（模板三）的微信扫码登录功能（带参数二维码 + 关注事件）</div>
 
-									<span style="color:#333">强制关注设置</span><hr/>
+									<span style="color:#333">扫码登录设置</span><hr/>
 									<div class="layui-form-item">
-										<label class="layui-form-label">登录需关注：</label>
+										<label class="layui-form-label">扫码登录：</label>
 										<div class="layui-input-inline">
 											<input type="radio" name="info[require_follow]" title="开启" value="1" {if $info['require_follow']==1}checked{/if}/>
 											<input type="radio" name="info[require_follow]" title="关闭" value="0" {if $info['require_follow']==0}checked{/if}/>
 										</div>
-										<div class="layui-form-mid layui-word-aux">开启后登录弹窗右侧展示公众号关注区，用户必须关注后才能使用</div>
+										<div class="layui-form-mid layui-word-aux">开启后登录弹窗右侧展示微信扫码登录区域，用户扫码关注公众号即可自动登录（二维码通过微信API动态生成）</div>
 									</div>
 									<div class="layui-form-item">
-										<label class="layui-form-label">公众号二维码：</label>
-										<div class="layui-input-inline" style="width:350px">
-											<input type="text" name="info[follow_qrcode]" id="follow_qrcode" class="layui-input" value="{$info['follow_qrcode']}">
-										</div>
-										<button style="float:left;" type="button" class="layui-btn layui-btn-primary" upload-input="follow_qrcode" upload-preview="followQrcodePreview" onclick="uploader(this)">上传图片</button>
-										<div class="layui-form-mid layui-word-aux" style="margin-left:10px">微信公众号关注二维码图片，建议尺寸 430×430 像素</div>
-										<div id="followQrcodePreview" style="float:left;padding-top:10px;margin-left:160px;clear: both;">
-											{if $info['follow_qrcode']}<div class="layui-imgbox" style="width:100px;"><div class="layui-imgbox-img"><img src="{$info['follow_qrcode']}"/></div></div>{/if}
+										<label class="layui-form-label"></label>
+										<div class="layui-input-inline" style="width:500px">
+											<div style="padding:10px 14px;background:#f8f9fa;border-radius:6px;font-size:13px;color:#666;line-height:1.8">
+												<b>原理说明：</b><br/>
+												1. 用户打开登录弹窗时，系统自动调用微信API生成带参数临时二维码（有效期5分钟）<br/>
+												2. 用户用微信扫码，未关注则先关注，已关注则直接推送扫码事件<br/>
+												3. 后端接收微信事件推送，自动绑定并完成登录<br/>
+												<span style="color:#e74c3c">前提条件：必须在「公众号设置」中正确配置微信公众号的AppID/AppSecret</span>
+											</div>
 										</div>
 									</div>
 									<div class="layui-form-item">
@@ -244,14 +245,14 @@
 										<div class="layui-form-mid layui-word-aux">展示在引导区域</div>
 									</div>
 
-									<span style="color:#333">新用户引导设置</span><hr/>
+									<span style="color:#333">展示设置</span><hr/>
 									<div class="layui-form-item">
 										<label class="layui-form-label">新用户引导：</label>
 										<div class="layui-input-inline">
 											<input type="radio" name="info[new_user_follow_guide]" title="开启" value="1" {if $info['new_user_follow_guide']==1}checked{/if}/>
 											<input type="radio" name="info[new_user_follow_guide]" title="关闭" value="0" {if $info['new_user_follow_guide']==0}checked{/if}/>
 										</div>
-										<div class="layui-form-mid layui-word-aux">开启后，新用户首次注册登录后会弹出关注公众号引导浮层（非强制，可关闭）</div>
+										<div class="layui-form-mid layui-word-aux">开启后，新用户手机号登录成功后会弹出微信扫码关注引导浮层（非强制，可关闭）</div>
 									</div>
 
 									<div class="layui-form-item">

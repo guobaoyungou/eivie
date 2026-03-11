@@ -478,7 +478,7 @@ var Auth = (function(){
             document.body.style.overflow = 'hidden';
             return;
         }
-        // 创建弹窗骨架
+        // 创建弹窗骨架 — 使用 pay.css 中的 sub-modal 样式
         var overlay = document.createElement('div');
         overlay.id = 'subModalOverlay';
         overlay.className = 'sub-modal-overlay show';
@@ -561,6 +561,8 @@ var Auth = (function(){
         // 套餐卡片
         var cardsHtml = '';
         var modeLabels = { yearly: '\u6309\u5e74', monthly_auto: '\u8fde\u7eed\u5305\u6708', monthly: '\u5355\u6708' };
+        // Determine recommended version (middle one or second)
+        var recommendedIdx = versionOrder.length >= 2 ? 1 : 0;
         for(var vi = 0; vi < versionOrder.length; vi++){
             var ver = grouped[versionOrder[vi]];
             // 选取\u4f18\u5148\u5c55\u793a\u7684\u8d2d\u4e70\u6a21\u5f0f\uff08\u5e74\u4ed8 > \u5355\u6708 > \u8fde\u7eed\u5305\u6708\uff09
@@ -576,7 +578,8 @@ var Auth = (function(){
             if(!defaultPlan) continue;
 
             var isCurrentVersion = currentSub && currentSub.version_code === ver.code;
-            var cardClass = 'sub-plan-card' + (isCurrentVersion ? ' current' : '');
+            var isRecommended = (vi === recommendedIdx) && !isCurrentVersion;
+            var cardClass = 'sub-plan-card' + (isCurrentVersion ? ' current' : '') + (isRecommended ? ' recommended' : '');
 
             // 购买模式切换按钮
             var modeTabsHtml = '';

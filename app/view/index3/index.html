@@ -302,24 +302,38 @@
                     <p class="login-agreement">登录即表示同意 <a href="javascript:;">用户协议</a> 和 <a href="javascript:;">隐私政策</a></p>
                 </div>
             </div>
-            <!-- 右栏：公众号关注引导（动态渲染） -->
+            <!-- 右栏：微信扫码登录（动态二维码） -->
             <div class="login-modal-right" id="loginModalRight" style="display:none">
                 <div class="follow-divider"></div>
-                <div class="follow-qr-section">
-                    <h4 class="follow-title">关注公众号</h4>
-                    <div class="follow-qr-img" id="followQrImg">
-                        <img src="" alt="公众号二维码" id="followQrImage">
+                <div class="qr-login-section">
+                    <h4 class="qr-login-title">微信扫码登录</h4>
+                    <div class="qr-login-box" id="qrLoginBox">
+                        <!-- loading状态 -->
+                        <div class="qr-loading" id="qrLoading">
+                            <div class="qr-spinner"></div>
+                            <span>正在生成二维码...</span>
+                        </div>
+                        <!-- 二维码图片 -->
+                        <img class="qr-login-img" id="qrLoginImg" src="" alt="扫码登录" style="display:none">
+                        <!-- 过期遮罩 -->
+                        <div class="qr-expired-overlay" id="qrExpiredOverlay" style="display:none">
+                            <div class="qr-expired-content">
+                                <span class="qr-expired-icon">⚠️</span>
+                                <span>二维码已过期</span>
+                                <button class="qr-refresh-btn" id="qrRefreshBtn">点击刷新</button>
+                            </div>
+                        </div>
                     </div>
-                    <p class="follow-appname" id="followAppname"></p>
+                    <p class="qr-login-appname" id="qrLoginAppname"></p>
+                    <p class="qr-login-guide" id="qrLoginGuide">微信扫码关注公众号即可登录</p>
+                    <div class="qr-login-status" id="qrLoginStatus"></div>
                 </div>
-                <p class="follow-guide-text" id="followGuideText">扫码关注公众号后即可登录</p>
-                <div class="follow-status" id="followStatus"></div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- 新用户关注引导浮层 -->
+<!-- 新用户关注引导浮层（手机登录新用户引导） -->
 <div class="follow-guide-overlay" id="followGuideOverlay">
     <div class="follow-guide-modal">
         <button class="follow-guide-close" id="followGuideClose">&times;</button>
@@ -329,7 +343,11 @@
         </div>
         <div class="follow-guide-body">
             <div class="follow-guide-qr" id="followGuideQr">
-                <img src="" alt="公众号二维码" id="followGuideQrImage">
+                <div class="qr-loading" id="followGuideQrLoading">
+                    <div class="qr-spinner"></div>
+                    <span>加载中...</span>
+                </div>
+                <img src="" alt="公众号二维码" id="followGuideQrImage" style="display:none">
             </div>
             <p class="follow-guide-appname" id="followGuideAppname"></p>
             <p class="follow-guide-desc" id="followGuideDesc"></p>
@@ -341,10 +359,10 @@
 {include file="index3/public/tabbar"/}
 
 <!-- JS -->
-<script src="/static/index3/js/api.js?v=8"></script>
+<script src="/static/index3/js/api.js?v=9"></script>
 <script src="/static/index3/js/pay.js?v=2"></script>
 <script src="/static/index3/js/auth.js?v=2"></script>
 <script src="/static/index3/js/sidebar.js?v=1"></script>
-<script src="/static/index3/js/index.js?v=10"></script>
+<script src="/static/index3/js/index.js?v=11"></script>
 </body>
 </html>

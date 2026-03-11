@@ -337,7 +337,7 @@
         height: 1px;
         background: linear-gradient(to right, transparent, var(--border-color) 20%, var(--border-color) 80%, transparent);
     }
-    .login-modal.has-follow-panel .follow-qr-img {
+    .login-modal.has-follow-panel .qr-login-box {
         width: 140px;
         height: 140px;
         border-radius: 12px;
