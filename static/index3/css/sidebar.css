@@ -107,20 +107,38 @@
 .nav-sub .nav-link { padding-left: 46px; font-size: 13px; }
 .sidebar.collapsed .nav-sub { display: none; }
 
-/* 折叠态hover浮动子菜单 */
-.sidebar.collapsed .nav-item .nav-float-sub {
+/* 折叠态hover浮动子菜单（动态生成） */
+.sidebar.collapsed .nav-item.has-sub:hover::before {
+    content: '';
+    position: absolute;
+    left: 60px;
+    top: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.sidebar.collapsed .nav-item.has-sub .nav-float-sub {
     display: none;
     position: absolute;
-    left: 60px; top: 0;
+    left: 60px;
+    top: 0;
     background: var(--bg-card);
     border-radius: 8px;
     box-shadow: var(--shadow-dropdown);
     padding: 6px;
     min-width: 140px;
     z-index: 2000;
+    pointer-events: auto;
 }
-.sidebar.collapsed .nav-item:hover .nav-float-sub { display: block; }
-.nav-float-sub .nav-link { padding: 8px 14px; }
+
+.sidebar.collapsed .nav-item.has-sub:hover .nav-float-sub {
+    display: block;
+}
+
+.nav-float-sub .nav-link {
+    padding: 8px 14px;
+}
 
 /* “开发中”标签 */
 .dev-badge {

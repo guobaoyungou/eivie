@@ -19,6 +19,9 @@
             }
         }
 
+        // 初始化浮动子菜单
+        initFloatSubMenus();
+
         bindEvents();
     }
 
@@ -111,6 +114,30 @@
         sidebar.classList.remove('drawer-open');
         if(overlay) overlay.classList.remove('show');
         body.style.overflow = '';
+    }
+
+    /**
+     * 初始化浮动子菜单（用于折叠态）
+     * 动态复制 .nav-sub 内容到 .nav-float-sub，避免HTML重复
+     */
+    function initFloatSubMenus(){
+        var hasSubItems = sidebar.querySelectorAll('.nav-item.has-sub');
+        hasSubItems.forEach(function(item){
+            var navSub = item.querySelector('.nav-sub');
+            if(!navSub) return;
+
+            // 检查是否已存在 nav-float-sub
+            var floatSub = item.querySelector('.nav-float-sub');
+            if(!floatSub){
+                // 创建浮动子菜单容器
+                floatSub = document.createElement('div');
+                floatSub.className = 'nav-float-sub';
+                item.appendChild(floatSub);
+            }
+
+            // 复制子菜单链接
+            floatSub.innerHTML = navSub.innerHTML;
+        });
     }
 
     document.addEventListener('DOMContentLoaded', init);
