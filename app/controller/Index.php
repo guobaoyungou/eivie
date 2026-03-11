@@ -975,9 +975,11 @@ class Index extends BaseController
 		cache($sessionId . '_smscodetimes', null);
 
 		// 查找或创建会员
+		$isNewUser = false;
 		$member = Db::name('member')->where('aid', $defaultAid)->where('tel', $tel)->find();
 		if(!$member){
 			// 自动注册新会员
+			$isNewUser = true;
 			$data = [
 				'aid' => $defaultAid,
 				'tel' => $tel,
@@ -1014,7 +1016,8 @@ class Index extends BaseController
 			'mid' => $memberInfo['id'],
 			'nickname' => $memberInfo['nickname'] ?? '',
 			'headimg' => $memberInfo['headimg'] ?? '',
-			'tel' => $memberInfo['tel'] ? substr($memberInfo['tel'],0,3).'****'.substr($memberInfo['tel'],-4) : ''
+			'tel' => $memberInfo['tel'] ? substr($memberInfo['tel'],0,3).'****'.substr($memberInfo['tel'],-4) : '',
+			'is_new_user' => $isNewUser
 		]]);
 	}
 
@@ -1767,8 +1770,10 @@ class Index extends BaseController
 		$tablename = $payorder['type'] ?: 'recharge';
 		if($price <= 0) return json(['status'=>0,'msg'=>'订单金额异常']);
 
-		// 获取H5应用支付配置
-		$appinfo = \app\common\System::appinfo($defaultAid, 'h5');
+		// 获取应用支付配置（支持PC端独立配置）
+		$platform = input('post.platform', 'h5');
+		if(!in_array($platform, ['h5', 'pc'])) $platform = 'h5';
+		$appinfo = \app\common\System::appinfo($defaultAid, $platform);
 
 		// 检测浏览器UA
 		$ua = strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
@@ -1795,7 +1800,7 @@ class Index extends BaseController
 				return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付创建失败']);
 			} else {
 				// 普通浏览器：Native支付（二维码）
-				$rs = \app\common\Wxpay::build_pay_native_h5($defaultAid, 0, $mid, $title, $ordernum, $price, $tablename);
+				$rs = \app\common\Wxpay::build_pay_native_h5($defaultAid, 0, $mid, $title, $ordernum, $price, $tablename, '', $platform);
 				if($rs['status'] == 1 && !empty($rs['data']['pay_wx_qrcode_url'])){
 					return json(['status'=>1,'msg'=>'success','data'=>[
 						'pay_method' => 'qrcode',
@@ -1819,24 +1824,36 @@ class Index extends BaseController
 				return json(['status'=>0,'msg'=>'支付宝支付未配置']);
 			}
 
-			$return_url = PRE_URL . '/?s=/index/recharge';
-			$alipay = new \app\common\Alipay();
-			$rs = $alipay->build_h5($defaultAid, 0, $mid, $title, $ordernum, $price, $tablename, '', $return_url);
-
-			if($rs['status'] == 1){
-				// 支付宝返回的可能是表单HTML或跳转URL
-				$payUrl = '';
-				if(is_object($rs['data']) && isset($rs['data']->body)){
-					$payUrl = $rs['data']->body;
-				} elseif(is_string($rs['data'])){
-					$payUrl = $rs['data'];
+			if($platform === 'pc'){
+				// PC端：支付宝当面付预创建（扫码支付二维码）
+				$rs = \app\common\Alipay::build_precreate($defaultAid, 0, $mid, $title, $ordernum, $price, $tablename, '', $platform);
+				if($rs['status'] == 1 && !empty($rs['data']['qrcode_url'])){
+					return json(['status'=>1,'msg'=>'success','data'=>[
+						'pay_method' => 'qrcode',
+						'qrcode_url' => $rs['data']['qrcode_url']
+					]]);
 				}
-				return json(['status'=>1,'msg'=>'success','data'=>[
-					'pay_method' => 'redirect',
-					'redirect_url' => $payUrl
-				]]);
+				return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);
+			} else {
+				$return_url = PRE_URL . '/?s=/index/recharge';
+				$alipay = new \app\common\Alipay();
+				$rs = $alipay->build_h5($defaultAid, 0, $mid, $title, $ordernum, $price, $tablename, '', $return_url);
+
+				if($rs['status'] == 1){
+					// 支付宝返回的可能是表单HTML或跳转URL
+					$payUrl = '';
+					if(is_object($rs['data']) && isset($rs['data']->body)){
+						$payUrl = $rs['data']->body;
+					} elseif(is_string($rs['data'])){
+						$payUrl = $rs['data'];
+					}
+					return json(['status'=>1,'msg'=>'success','data'=>[
+						'pay_method' => 'redirect',
+						'redirect_url' => $payUrl
+					]]);
+				}
+				return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);
 			}
-			return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);
 
 		} else {
 			return json(['status'=>0,'msg'=>'不支持的支付方式']);
@@ -1872,15 +1889,17 @@ class Index extends BaseController
 		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
 
 		$defaultAid = 1;
-		$appinfo = \app\common\System::appinfo($defaultAid, 'h5');
+		$platform = input('param.platform', 'h5');
+		if(!in_array($platform, ['h5', 'pc'])) $platform = 'h5';
+		$appinfo = \app\common\System::appinfo($defaultAid, $platform);
 
 		$pay_types = [];
 		// 检查微信支付
-		if(!empty($appinfo['wxpay_mchid']) && !empty($appinfo['wxpay_mchkey'])){
+		if(!empty($appinfo['wxpay']) && $appinfo['wxpay'] == 1 && !empty($appinfo['wxpay_mchid']) && !empty($appinfo['wxpay_mchkey'])){
 			$pay_types[] = ['id'=>'wxpay','name'=>'微信支付'];
 		}
 		// 检查支付宝
-		if(!empty($appinfo['ali_appid']) && !empty($appinfo['ali_privatekey']) && !empty($appinfo['ali_publickey'])){
+		if(!empty($appinfo['alipay']) && $appinfo['alipay'] == 1 && !empty($appinfo['ali_appid']) && !empty($appinfo['ali_privatekey']) && !empty($appinfo['ali_publickey'])){
 			$pay_types[] = ['id'=>'alipay','name'=>'支付宝支付'];
 		}
 
@@ -2055,5 +2074,153 @@ class Index extends BaseController
 		header('Cache-Control: no-cache');
 		echo $content;
 		exit;
+	}
+
+	/**
+	 * AJAX: 获取PC端登录配置（公众号关注引导）
+	 */
+	public function pc_login_config(){
+		if(!request()->isAjax()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+		$defaultAid = 1;
+		$info = Db::name('admin_setapp_pc')->where('aid', $defaultAid)->find();
+		$data = [
+			'require_follow' => 0,
+			'follow_guide_text' => '扫码关注公众号后即可登录',
+			'follow_appname' => '',
+			'new_user_follow_guide' => 0
+		];
+		if($info){
+			$data['require_follow'] = intval($info['require_follow'] ?? 0);
+			$data['follow_guide_text'] = $info['follow_guide_text'] ?: '扫码关注公众号后即可登录';
+			$data['follow_appname'] = $info['follow_appname'] ?? '';
+			$data['new_user_follow_guide'] = intval($info['new_user_follow_guide'] ?? 0);
+		}
+		// 检查公众号是否已配置（必须有公众号才能使用扫码登录）
+		$mpappinfo = Db::name('admin_setapp_mp')->where('aid', $defaultAid)->find();
+		$data['mp_configured'] = ($mpappinfo && !empty($mpappinfo['appid'])) ? 1 : 0;
+		return json(['status'=>1,'data'=>$data]);
+	}
+
+	/**
+	 * AJAX: 创建微信扫码登录票据（生成带参数临时二维码）
+	 */
+	public function create_qr_login_ticket(){
+		if(!request()->isAjax()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+		$defaultAid = 1;
+
+		// 检查是否开启了扫码登录
+		$pcInfo = Db::name('admin_setapp_pc')->where('aid', $defaultAid)->find();
+		if(!$pcInfo || !$pcInfo['require_follow']){
+			return json(['status'=>0,'msg'=>'扫码登录未开启']);
+		}
+
+		// 获取公众号access_token
+		$accessToken = \app\common\Wechat::access_token($defaultAid, 'mp');
+		if(!$accessToken){
+			return json(['status'=>0,'msg'=>'公众号未配置或access_token获取失败']);
+		}
+
+		// 生成唯一场景值
+		$sceneStr = 'pclogin_' . bin2hex(random_bytes(16));
+		$expireSeconds = 300; // 5分钟过期
+
+		// 调用微信API创建临时带参数二维码
+		$url = 'https://api.weixin.qq.com/cgi-bin/qrcode/create?access_token=' . $accessToken;
+		$postData = json_encode([
+			'expire_seconds' => $expireSeconds,
+			'action_name' => 'QR_STR_SCENE',
+			'action_info' => [
+				'scene' => ['scene_str' => $sceneStr]
+			]
+		], JSON_UNESCAPED_UNICODE);
+
+		$ch = curl_init();
+		curl_setopt_array($ch, [
+			CURLOPT_URL => $url,
+			CURLOPT_POST => true,
+			CURLOPT_POSTFIELDS => $postData,
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_SSL_VERIFYPEER => false,
+			CURLOPT_TIMEOUT => 10,
+			CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+		]);
+		$result = curl_exec($ch);
+		curl_close($ch);
+
+		$res = json_decode($result, true);
+		if(!$res || !isset($res['ticket'])){
+			$errMsg = isset($res['errmsg']) ? $res['errmsg'] : '未知错误';
+			return json(['status'=>0,'msg'=>'生成二维码失败: '.$errMsg]);
+		}
+
+		// 将场景值存入缓存，状态为pending
+		cache($sceneStr, ['status' => 'pending', 'openid' => '', 'mid' => 0, 'create_time' => time()], $expireSeconds + 60);
+
+		// 返回二维码图片URL和场景值
+		$qrUrl = 'https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=' . urlencode($res['ticket']);
+		return json(['status'=>1,'data'=>[
+			'scene_str' => $sceneStr,
+			'qr_url' => $qrUrl,
+			'expire_seconds' => $expireSeconds
+		]]);
+	}
+
+	/**
+	 * AJAX: 查询扫码登录状态
+	 */
+	public function check_qr_login_status(){
+		if(!request()->isAjax()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+		$sceneStr = trim(input('get.scene_str'));
+		if(!$sceneStr || strpos($sceneStr, 'pclogin_') !== 0){
+			return json(['status'=>0,'msg'=>'无效的场景值']);
+		}
+
+		$data = cache($sceneStr);
+		if(!$data){
+			return json(['status'=>0,'msg'=>'二维码已过期','data'=>['expired'=>true]]);
+		}
+
+		if($data['status'] === 'confirmed' && $data['mid'] > 0){
+			// 登录成功，建立session
+			$mid = $data['mid'];
+			$sessionId = \think\facade\Session::getId();
+
+			// 缓存会员session映射（7天）
+			cache($sessionId . '_mid', $mid, 7*86400);
+
+			// 写入session表
+			Db::name('session')->where('session_id', $sessionId)->delete();
+			Db::name('session')->insert([
+				'session_id' => $sessionId,
+				'aid' => 1,
+				'mid' => $mid,
+				'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+				'login_time' => time(),
+				'login_ip' => request()->ip(),
+				'platform' => 'h5'
+			]);
+
+			// 获取会员信息返回
+			$memberInfo = Db::name('member')->where('id', $mid)->field('id,nickname,headimg,tel')->find();
+
+			// 清理场景缓存
+			cache($sceneStr, null);
+
+			return json(['status'=>1,'data'=>[
+				'login_status' => 'success',
+				'mid' => $memberInfo['id'],
+				'nickname' => $memberInfo['nickname'] ?? '',
+				'headimg' => $memberInfo['headimg'] ?? '',
+				'tel' => $memberInfo['tel'] ? substr($memberInfo['tel'],0,3).'****'.substr($memberInfo['tel'],-4) : ''
+			]]);
+		}
+
+		return json(['status'=>1,'data'=>['login_status'=>'pending']]);
 	}
 }

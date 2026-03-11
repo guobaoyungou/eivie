@@ -89,58 +89,8 @@ class Menu
 		$menudata['shop'] = ['name'=>'商城','fullname'=>'商城系统','icon'=>'my-icon my-icon-shop','child'=>$shop_child];
 
 		// ============================================================
-		// 照片生成菜单 (新)
+		// 图片生成和视频生成已整合到创作工具菜单下，此处不再重复
 		// ============================================================
-		if($isadmin || $uid == -1){
-			$photo_gen_child = [];
-			$photo_gen_child[] = ['name'=>'生成任务','path'=>'PhotoGeneration/task_create','authdata'=>'PhotoGeneration/task_create,PhotoGeneration/get_model_schema,PhotoGeneration/get_template_detail'];
-			$photo_gen_child[] = ['name'=>'生成记录','path'=>'PhotoGeneration/record_list','authdata'=>'PhotoGeneration/record_list,PhotoGeneration/record_detail,PhotoGeneration/task_retry,PhotoGeneration/task_cancel,PhotoGeneration/record_delete,PhotoGeneration/convert_to_template'];
-			$photo_gen_child[] = ['name'=>'场景分类','path'=>'PhotoSceneCategory/index','authdata'=>'PhotoSceneCategory/index,PhotoSceneCategory/edit,PhotoSceneCategory/save,PhotoSceneCategory/del,PhotoSceneCategory/choosecategory'];
-			$photo_gen_child[] = ['name'=>'场景分组','path'=>'PhotoSceneGroup/index','authdata'=>'PhotoSceneGroup/index,PhotoSceneGroup/edit,PhotoSceneGroup/save,PhotoSceneGroup/del,PhotoSceneGroup/choosegroup'];
-			$photo_gen_child[] = ['name'=>'场景模板','path'=>'PhotoGeneration/scene_list','authdata'=>'PhotoGeneration/scene_list,PhotoGeneration/scene_edit,PhotoGeneration/scene_save,PhotoGeneration/scene_delete,PhotoGeneration/scene_status'];
-			$photo_gen_child[] = ['name'=>'订单管理','path'=>'PhotoGeneration/order_list','authdata'=>'PhotoGeneration/order_list,PhotoGeneration/order_detail,PhotoGeneration/refund_check'];
-			$menudata['photo_generation'] = ['name'=>'照片生成','fullname'=>'照片生成','icon'=>'layui-icon layui-icon-picture','child'=>$photo_gen_child];
-		}elseif($bid > 0){
-			// 商户用户登录时，检查商户是否开通照片生成功能
-			$business_photo = Db::name('business')->where('id', $bid)->find();
-			if($business_photo && isset($business_photo['photo_generation_enabled']) && $business_photo['photo_generation_enabled'] == 1){
-				$photo_gen_child = [];
-				$photo_gen_child[] = ['name'=>'生成任务','path'=>'PhotoGeneration/task_create','authdata'=>'PhotoGeneration/task_create,PhotoGeneration/get_model_schema,PhotoGeneration/get_template_detail'];
-				$photo_gen_child[] = ['name'=>'生成记录','path'=>'PhotoGeneration/record_list','authdata'=>'PhotoGeneration/record_list,PhotoGeneration/record_detail,PhotoGeneration/task_retry,PhotoGeneration/task_cancel,PhotoGeneration/record_delete,PhotoGeneration/convert_to_template'];
-				$photo_gen_child[] = ['name'=>'场景分类','path'=>'PhotoSceneCategory/index','authdata'=>'PhotoSceneCategory/index,PhotoSceneCategory/edit,PhotoSceneCategory/save,PhotoSceneCategory/del,PhotoSceneCategory/choosecategory'];
-				$photo_gen_child[] = ['name'=>'场景分组','path'=>'PhotoSceneGroup/index','authdata'=>'PhotoSceneGroup/index,PhotoSceneGroup/edit,PhotoSceneGroup/save,PhotoSceneGroup/del,PhotoSceneGroup/choosegroup'];
-				$photo_gen_child[] = ['name'=>'场景模板','path'=>'PhotoGeneration/scene_list','authdata'=>'PhotoGeneration/scene_list,PhotoGeneration/scene_edit,PhotoGeneration/scene_save,PhotoGeneration/scene_delete,PhotoGeneration/scene_status'];
-				$photo_gen_child[] = ['name'=>'订单管理','path'=>'PhotoGeneration/order_list','authdata'=>'PhotoGeneration/order_list,PhotoGeneration/order_detail,PhotoGeneration/refund_check'];
-				$menudata['photo_generation'] = ['name'=>'照片生成','fullname'=>'照片生成','icon'=>'layui-icon layui-icon-picture','child'=>$photo_gen_child];
-			}
-		}
-
-		// ============================================================
-		// 视频生成菜单 (新)
-		// ============================================================
-		if($isadmin || $uid == -1){
-			$video_gen_child = [];
-			$video_gen_child[] = ['name'=>'生成任务','path'=>'VideoGeneration/task_create','authdata'=>'VideoGeneration/task_create,VideoGeneration/get_model_schema,VideoGeneration/get_template_detail'];
-			$video_gen_child[] = ['name'=>'生成记录','path'=>'VideoGeneration/record_list','authdata'=>'VideoGeneration/record_list,VideoGeneration/record_detail,VideoGeneration/task_retry,VideoGeneration/task_cancel,VideoGeneration/record_delete,VideoGeneration/convert_to_template'];
-			$video_gen_child[] = ['name'=>'场景分类','path'=>'VideoSceneCategory/index','authdata'=>'VideoSceneCategory/index,VideoSceneCategory/edit,VideoSceneCategory/save,VideoSceneCategory/del,VideoSceneCategory/choosecategory'];
-			$video_gen_child[] = ['name'=>'场景分组','path'=>'VideoSceneGroup/index','authdata'=>'VideoSceneGroup/index,VideoSceneGroup/edit,VideoSceneGroup/save,VideoSceneGroup/del,VideoSceneGroup/choosegroup'];
-			$video_gen_child[] = ['name'=>'场景模板','path'=>'VideoGeneration/scene_list','authdata'=>'VideoGeneration/scene_list,VideoGeneration/scene_edit,VideoGeneration/scene_save,VideoGeneration/scene_delete,VideoGeneration/scene_status'];
-			$video_gen_child[] = ['name'=>'订单管理','path'=>'VideoGeneration/order_list','authdata'=>'VideoGeneration/order_list,VideoGeneration/order_detail,VideoGeneration/refund_check'];
-			$menudata['video_generation'] = ['name'=>'视频生成','fullname'=>'视频生成','icon'=>'layui-icon layui-icon-video','child'=>$video_gen_child];
-		}elseif($bid > 0){
-			// 商户用户登录时，检查商户是否开通视频生成功能
-			$business_video = Db::name('business')->where('id', $bid)->find();
-			if($business_video && isset($business_video['video_generation_enabled']) && $business_video['video_generation_enabled'] == 1){
-				$video_gen_child = [];
-				$video_gen_child[] = ['name'=>'生成任务','path'=>'VideoGeneration/task_create','authdata'=>'VideoGeneration/task_create,VideoGeneration/get_model_schema,VideoGeneration/get_template_detail'];
-				$video_gen_child[] = ['name'=>'生成记录','path'=>'VideoGeneration/record_list','authdata'=>'VideoGeneration/record_list,VideoGeneration/record_detail,VideoGeneration/task_retry,VideoGeneration/task_cancel,VideoGeneration/record_delete,VideoGeneration/convert_to_template'];
-				$video_gen_child[] = ['name'=>'场景分类','path'=>'VideoSceneCategory/index','authdata'=>'VideoSceneCategory/index,VideoSceneCategory/edit,VideoSceneCategory/save,VideoSceneCategory/del,VideoSceneCategory/choosecategory'];
-				$video_gen_child[] = ['name'=>'场景分组','path'=>'VideoSceneGroup/index','authdata'=>'VideoSceneGroup/index,VideoSceneGroup/edit,VideoSceneGroup/save,VideoSceneGroup/del,VideoSceneGroup/choosegroup'];
-				$video_gen_child[] = ['name'=>'场景模板','path'=>'VideoGeneration/scene_list','authdata'=>'VideoGeneration/scene_list,VideoGeneration/scene_edit,VideoGeneration/scene_save,VideoGeneration/scene_delete,VideoGeneration/scene_status'];
-				$video_gen_child[] = ['name'=>'订单管理','path'=>'VideoGeneration/order_list','authdata'=>'VideoGeneration/order_list,VideoGeneration/order_detail,VideoGeneration/refund_check'];
-				$menudata['video_generation'] = ['name'=>'视频生成','fullname'=>'视频生成','icon'=>'layui-icon layui-icon-video','child'=>$video_gen_child];
-			}
-		}
 
 		// ============================================================
 		// AI旅拍菜单 - 保留业务子菜单，去掉模型配置相关子菜单
@@ -742,7 +692,7 @@ class Menu
 			if(in_array('app',$platform)){
 				$pingtai_child[] = ['name'=>'手机APP','path'=>'Binding/app','authdata'=>'Binding/*'];
 			}
-            if(getcustom('wx_channels')){
+			if(getcustom('wx_channels')){
                 $pingtai_child_channels = [];
                 $pingtai_child_channels[] = ['name'=>'小店绑定','path'=>'WxChannels/bind','authdata'=>'WxChannels/*'];
                 $pingtai_child_channels[] = ['name'=>'商品管理','path'=>'WxChannelsProduct/index','authdata'=>'WxChannelsProduct/*'];
@@ -861,6 +811,27 @@ class Menu
                 }
             }
         }
+		// PC端配置菜单 - 在权限过滤之后强制添加到平台设置中
+		// 因为新增菜单项不在现有管理员的auth_data中，放在过滤前会被auth_type==0的子管理员过滤掉
+		if($isadmin && isset($menudata['pingtai'])){
+			$pcItem = ['name'=>'PC端','path'=>'Binding/pc','authdata'=>'Binding/*'];
+			// 找到插入位置：优先在手机APP之后，其次手机H5之后，否则末尾
+			$existingChildren = array_values($menudata['pingtai']['child']);
+			$insertAfter = -1;
+			foreach($existingChildren as $idx => $child){
+				if(isset($child['name'])){
+					if($child['name'] == '手机APP'){ $insertAfter = $idx; break; }
+					if($child['name'] == '手机H5'){ $insertAfter = $idx; }
+				}
+			}
+			if($insertAfter >= 0){
+				array_splice($existingChildren, $insertAfter + 1, 0, [$pcItem]);
+			} else {
+				$existingChildren[] = $pcItem;
+			}
+			$menudata['pingtai']['child'] = $existingChildren;
+		}
+
 		// 商户API Key配置 - 在权限过滤之后添加，确保始终对商户可见
 		// 因为新增菜单项不在现有商户管理员的auth_data中，放在过滤前会被移除
 		if($bid > 0 && isset($menudata['system'])){
@@ -936,6 +907,7 @@ class Menu
 		$data[] = 'Map/*';
 		$data[] = 'DesignerPage/choosezuobiao';
 		$data[] = 'MerchantApiKey/*'; // 商户API Key配置 - 商户始终可访问
+		$data[] = 'Binding/pc'; // PC端支付配置 - 平台管理员始终可访问
         return $data;
 	}
 

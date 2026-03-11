@@ -766,6 +766,64 @@ class Alipay
         }
     }
 
+    /**
+     * 支付宝当面付预创建（扫码支付）—— PC端二维码支付
+     */
+    public static function build_precreate($aid,$bid,$mid,$title,$ordernum,$price,$tablename,$notify_url='',$pay_platform='pc'){
+        if(!$notify_url) $notify_url = PRE_URL.'/notify.php';
+        $appinfo = \app\common\System::appinfo($aid, $pay_platform);
+        if(empty($appinfo['ali_appid']) || empty($appinfo['ali_privatekey']) || empty($appinfo['ali_publickey'])){
+            return ['status'=>0,'msg'=>'支付宝支付未配置'];
+        }
+
+        //生成支付交易流水
+        $pay_transaction = \app\common\Common::createPayTransaction($aid,$ordernum,$tablename);
+        if(!$pay_transaction){
+            return ['status'=>0,'msg'=>'生成交易流水失败'];
+        }
+        $ordernum = $pay_transaction['transaction_num'];
+
+        require_once(ROOT_PATH.'/extend/aop/AopClient.php');
+        require_once(ROOT_PATH.'/extend/aop/AopCertification.php');
+        require_once(ROOT_PATH.'/extend/aop/request/AlipayTradePrecreateRequest.php');
+
+        $aop = new \AopClient();
+        $aop->gatewayUrl = 'https://openapi.alipay.com/gateway.do';
+        $aop->appId = $appinfo['ali_appid'];
+        $aop->rsaPrivateKey = $appinfo['ali_privatekey'];
+        $aop->alipayrsaPublicKey = $appinfo['ali_publickey'];
+        $aop->apiVersion = '1.0';
+        $aop->signType = 'RSA2';
+        $aop->postCharset = 'utf-8';
+        $aop->format = 'json';
+
+        $bizcontent = [];
+        $bizcontent['out_trade_no'] = ''.$ordernum;
+        $bizcontent['total_amount'] = $price;
+        $bizcontent['subject'] = mb_substr($title,0,42);
+        $bizcontent['passback_params'] = urlencode($aid.':'.$tablename.':'.$pay_platform.':1:'.$bid);
+
+        $request = new \AlipayTradePrecreateRequest();
+        $request->setNotifyUrl($notify_url);
+        $request->setBizContent(json_encode($bizcontent, JSON_UNESCAPED_UNICODE));
+
+        try {
+            $result = $aop->execute($request);
+            $responseNode = str_replace('.', '_', $request->getApiMethodName()) . '_response';
+            $resultCode = $result->$responseNode->code;
+            if(!empty($resultCode) && $resultCode == 10000){
+                $qr_code = $result->$responseNode->qr_code;
+                $qrcode_url = createqrcode($qr_code);
+                return ['status'=>1,'msg'=>'success','data'=>['qrcode_url'=>$qrcode_url]];
+            } else {
+                $sub_msg = $result->$responseNode->sub_msg ?? '支付宝预创建失败';
+                return ['status'=>0,'msg'=>$sub_msg];
+            }
+        } catch(\Exception $e){
+            return ['status'=>0,'msg'=>'支付宝支付异常:'.$e->getMessage()];
+        }
+    }
+
     public static function transfers($aid,$ordernum,$money,$order_title,$identity,$name,$remark='账户提现'){
         //原开通产品：转账到支付宝账户 ，现开通产品：商家转账
         //接口参数一样：开发 > 服务端 > 营销产品 > 红包 > API 列表 > “B2C”现金红包 > 单笔转账接口 https://opendocs.alipay.com/open/02byvi?pathHash=b367173b

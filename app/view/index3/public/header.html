@@ -24,7 +24,7 @@
             <span class="btn-label">邀请有礼</span>
         </a>
         <!-- 未登录态：会员中心 -->
-        <a class="header-btn header-btn-vip hide-mobile" href="javascript:;">
+        <a class="header-btn header-btn-vip hide-mobile" href="javascript:;" onclick="if(window.Index3&&Index3.showLoginModal){Index3.showLoginModal()}else{location.href='/?s=/Backstage/index'}">
             <span>👑</span>
             <span class="btn-label">会员中心</span>
         </a>
@@ -39,7 +39,7 @@
         </button>
         <!-- 未登录态：登录/注册按钮 -->
         <a class="header-btn primary" id="headerLoginBtn" href="{:url('Backstage/index')}">
-            <span class="btn-label">登录/注册</span>
+            <span class="btn-label">商家登录/注册</span>
             <span class="btn-icon-only" style="display:none">👤</span>
         </a>
         <!-- 已登录态：用户头像（默认隐藏） -->

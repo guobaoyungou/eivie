@@ -2168,6 +2168,215 @@ body.sidebar-collapsed .main-content { margin-left: 60px; }
     text-decoration: underline;
 }
 
+/* ====== 登录弹窗双栏布局（公众号关注引导） ====== */
+.login-modal-content {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    position: relative;
+    z-index: 1;
+}
+.login-modal-left {
+    flex: 1;
+    min-width: 0;
+}
+.login-modal-right {
+    display: none;
+    width: 280px;
+    flex-shrink: 0;
+    padding-left: 28px;
+    position: relative;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+.login-modal.has-follow-panel {
+    width: min(92vw, 780px);
+    padding: 40px 36px 32px;
+}
+.login-modal.has-follow-panel .login-modal-right {
+    display: flex;
+}
+.follow-divider {
+    position: absolute;
+    left: 0;
+    top: 10%;
+    bottom: 10%;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, var(--border-color) 20%, var(--border-color) 80%, transparent);
+}
+.follow-qr-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+.follow-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    letter-spacing: -.01em;
+}
+.follow-qr-img {
+    width: 180px;
+    height: 180px;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #fff;
+    padding: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.08);
+    border: 1px solid var(--border-color);
+}
+.follow-qr-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.follow-appname {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0;
+}
+.follow-guide-text {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    margin: 12px 0 0;
+    line-height: 1.5;
+}
+.follow-status {
+    margin-top: 12px;
+    min-height: 24px;
+}
+.follow-status-ok {
+    color: #52c41a;
+    font-weight: 600;
+    font-size: 15px;
+    animation: followOkPulse .6s ease;
+}
+.follow-status-pending {
+    color: var(--accent-color);
+    font-size: 13px;
+    animation: followPendingBlink 1.5s ease-in-out infinite;
+}
+.follow-status-warn {
+    color: #faad14;
+    font-size: 13px;
+}
+@keyframes followOkPulse {
+    0% { transform: scale(.8); opacity: 0; }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+@keyframes followPendingBlink {
+    0%,100% { opacity: 1; }
+    50% { opacity: .5; }
+}
+.login-modal-right.highlight {
+    animation: followHighlight .8s ease;
+}
+@keyframes followHighlight {
+    0% { background: transparent; }
+    30% { background: rgba(7,193,96,.06); }
+    100% { background: transparent; }
+}
+
+/* ====== 新用户关注引导浮层 ====== */
+.follow-guide-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9500;
+    background: rgba(0,0,0,.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    align-items: center;
+    justify-content: center;
+    animation: loginOverlayIn .3s ease;
+}
+.follow-guide-overlay.show {
+    display: flex;
+}
+.follow-guide-modal {
+    position: relative;
+    width: min(88vw, 360px);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    box-shadow:
+        0 24px 80px rgba(0,0,0,.2),
+        0 8px 24px rgba(0,0,0,.12),
+        0 0 0 1px rgba(255,255,255,.06) inset;
+    padding: 36px 28px 28px;
+    animation: loginModalIn .4s cubic-bezier(.32,.72,.24,1);
+    text-align: center;
+}
+.follow-guide-close {
+    position: absolute;
+    top: 14px; right: 14px;
+    width: 32px; height: 32px;
+    border: none; background: var(--hover-bg);
+    border-radius: 50%;
+    font-size: 18px; color: var(--text-tertiary);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .2s;
+    z-index: 1;
+}
+.follow-guide-close:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+    transform: rotate(90deg);
+}
+.follow-guide-header h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 4px;
+}
+.follow-guide-header p {
+    font-size: 14px;
+    color: var(--text-tertiary);
+    margin: 0 0 20px;
+}
+.follow-guide-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+.follow-guide-qr {
+    width: 180px;
+    height: 180px;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #fff;
+    padding: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.08);
+    border: 1px solid var(--border-color);
+}
+.follow-guide-qr img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.follow-guide-appname {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0;
+}
+.follow-guide-desc {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    margin: 4px 0 0;
+    line-height: 1.5;
+}
+
 /* ====== 创作会员订阅弹窗 ====== */
 .sub-modal-overlay {
     display: none;

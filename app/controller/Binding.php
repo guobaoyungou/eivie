@@ -1862,6 +1862,79 @@ class Binding extends Common
 		return View::fetch();
 	}
 
+	//PC端支付设置
+	public function pc(){
+		if(input('param.op') == 'setappid'){
+			$postinfo = input('post.info/a');
+			$data = [];
+			$data['wxpay'] = $postinfo['wxpay'];
+			$data['wxpay_type'] = $postinfo['wxpay_type'];
+			$data['wxpay_appid'] = trim($postinfo['wxpay_appid']);
+			$data['wxpay_mchid'] = trim($postinfo['wxpay_mchid']);
+			$data['wxpay_mchkey'] = trim($postinfo['wxpay_mchkey']);
+			$data['wxpay_sub_mchid'] = trim($postinfo['wxpay_sub_mchid']);
+			$data['wxpay_apiclient_cert'] = str_replace(PRE_URL.'/','',$postinfo['wxpay_apiclient_cert']);
+			$data['wxpay_apiclient_key'] = str_replace(PRE_URL.'/','',$postinfo['wxpay_apiclient_key']);
+
+			// 商家转账/APIv3字段
+			$data['wxpay_serial_no'] = trim($postinfo['wxpay_serial_no']);
+			$data['wxpay_mchkey_v3'] = trim($postinfo['wxpay_mchkey_v3']);
+			$data['wxpay_plate_serialno'] = trim($postinfo['wxpay_plate_serialno']);
+			$data['sign_type'] = $postinfo['sign_type'];
+			$data['public_key_id'] = trim($postinfo['public_key_id']);
+			$data['public_key_pem'] = str_replace(PRE_URL.'/','',$postinfo['public_key_pem']);
+			$data['wxpay_wechatpay_pem'] = str_replace(PRE_URL.'/','',$postinfo['wxpay_wechatpay_pem']);
+
+			if(!empty($data['wxpay_apiclient_cert']) && substr($data['wxpay_apiclient_cert'], -4) != '.pem'){
+				return json(['status'=>0,'msg'=>'PEM证书格式错误']);
+			}
+			if(!empty($data['wxpay_apiclient_key']) && substr($data['wxpay_apiclient_key'], -4) != '.pem'){
+				return json(['status'=>0,'msg'=>'证书密钥格式错误']);
+			}
+			if(!empty($data['wxpay_wechatpay_pem']) && substr($data['wxpay_wechatpay_pem'], -4) != '.pem'){
+				return json(['status'=>0,'msg'=>'平台证书格式错误']);
+			}
+			if(!empty($data['public_key_pem']) && substr($data['public_key_pem'], -4) != '.pem'){
+				return json(['status'=>0,'msg'=>'公钥文件格式错误']);
+			}
+
+			$data['alipay'] = trim($postinfo['alipay']);
+			$data['ali_appid'] = trim($postinfo['ali_appid']);
+			$data['ali_privatekey'] = trim($postinfo['ali_privatekey']);
+			$data['ali_publickey'] = trim($postinfo['ali_publickey']);
+
+			Db::name('admin_setapp_pc')->where('aid',aid)->update($data);
+			\app\common\System::plog('PC端支付设置');
+			return json(['status'=>1,'msg'=>'保存成功','url'=>true]);
+		}
+		// 保存登录设置
+		if(input('param.op') == 'setlogin'){
+			$postinfo = input('post.info/a');
+			$data = [];
+			$data['require_follow'] = intval($postinfo['require_follow'] ?? 0);
+			$data['follow_qrcode'] = trim($postinfo['follow_qrcode'] ?? '');
+			$data['follow_guide_text'] = trim($postinfo['follow_guide_text'] ?? '扫码关注公众号后即可登录');
+			$data['follow_appname'] = trim($postinfo['follow_appname'] ?? '');
+			$data['new_user_follow_guide'] = intval($postinfo['new_user_follow_guide'] ?? 0);
+
+			// 开启强制关注时，二维码必填
+			if($data['require_follow'] == 1 && empty($data['follow_qrcode'])){
+				return json(['status'=>0,'msg'=>'开启登录需关注功能时，公众号二维码为必填项']);
+			}
+
+			Db::name('admin_setapp_pc')->where('aid',aid)->update($data);
+			\app\common\System::plog('PC端登录设置');
+			return json(['status'=>1,'msg'=>'保存成功','url'=>true]);
+		}
+		$info = Db::name('admin_setapp_pc')->where('aid',aid)->find();
+		if(!$info){
+			Db::name('admin_setapp_pc')->insert(['aid'=>aid]);
+			$info = Db::name('admin_setapp_pc')->where('aid',aid)->find();
+		}
+		View::assign('info',$info);
+		return View::fetch();
+	}
+
     //顶部导航背景颜色校验比配16进制颜色代码、RGB(A)颜色代码 其他颜色无效
     public function isValidColor($color) {
         // 正则表达式，用于匹配16进制颜色代码

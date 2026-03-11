@@ -87,6 +87,7 @@ class System
 			Db::name('admin_setapp_qq')->insert(['aid'=>$aid]);
 			Db::name('admin_setapp_h5')->insert(['aid'=>$aid]);
 			Db::name('admin_setapp_app')->insert(['aid'=>$aid]);
+			Db::name('admin_setapp_pc')->insert(['aid'=>$aid]);
 
 			Db::name('freight')->insert([
 				'aid'=>$aid,

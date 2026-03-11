@@ -423,6 +423,58 @@ class ApiWechat extends BaseController
 				if($postObj->Event == 'subscribe'){
 					$eventKey = str_replace('qrscene_','',$postObj->EventKey);
 				}
+				// PC端扫码登录场景值处理
+				if(strpos($eventKey, 'pclogin_') === 0){
+					$sceneStr = $eventKey;
+					$cacheData = cache($sceneStr);
+					if($cacheData && $cacheData['status'] === 'pending'){
+						// 查找或创建会员
+						$member = Db::name('member')->where('aid', aid)->where('mpopenid', $openid)->find();
+						if(!$member){
+							// 尝试通过unionid查找
+							$rs = curl_get('https://api.weixin.qq.com/cgi-bin/user/info?access_token='.\app\common\Wechat::access_token(aid,'mp').'&openid='.$openid.'&lang=zh_CN');
+							$fansinfo = json_decode($rs, true);
+							if($fansinfo && !empty($fansinfo['unionid'])){
+								$member = Db::name('member')->where('aid', aid)->where('unionid', $fansinfo['unionid'])->find();
+								if($member){
+									Db::name('member')->where('id', $member['id'])->update(['mpopenid' => $openid, 'subscribe' => 1, 'subscribe_time' => time()]);
+								}
+							}
+							if(!$member){
+								// 自动注册新会员
+								$data = [
+									'aid' => aid,
+									'mpopenid' => $openid,
+									'nickname' => ($fansinfo && $fansinfo['nickname']) ? $fansinfo['nickname'] : '微信用户',
+									'sex' => ($fansinfo && isset($fansinfo['sex'])) ? $fansinfo['sex'] : 3,
+									'headimg' => ($fansinfo && $fansinfo['headimgurl']) ? $fansinfo['headimgurl'] : PRE_URL.'/static/img/touxiang.png',
+									'unionid' => ($fansinfo && !empty($fansinfo['unionid'])) ? $fansinfo['unionid'] : '',
+									'subscribe' => 1,
+									'subscribe_time' => time(),
+									'createtime' => time(),
+									'last_visittime' => time(),
+									'platform' => 'mp'
+								];
+								$mid = \app\model\Member::add(aid, $data);
+								$member = Db::name('member')->where('id', $mid)->find();
+							}
+						}
+						if($member){
+							// 更新关注状态
+							if($postObj->Event == 'subscribe'){
+								Db::name('member')->where('id', $member['id'])->update(['subscribe' => 1, 'subscribe_time' => time()]);
+							}
+							// 标记登录成功
+							cache($sceneStr, [
+								'status' => 'confirmed',
+								'openid' => $openid,
+								'mid' => $member['id'],
+								'create_time' => $cacheData['create_time']
+							], 300);
+						}
+					}
+					die('success');
+				}
 				$eventKeyArr = explode('_',$eventKey);
 				if($eventKeyArr[0] == 'pid'){ //推广
 					$fromid = intval($eventKeyArr[1]);

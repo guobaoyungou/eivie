@@ -844,13 +844,13 @@ class Wxpay
      * @author: liud
      * @time: 2024/12/2 下午6:09
      */
-    public static function build_pay_native_h5($aid,$bid,$mid,$title,$ordernum,$price,$tablename,$notify_url=''){
+    public static function build_pay_native_h5($aid,$bid,$mid,$title,$ordernum,$price,$tablename,$notify_url='',$pay_platform='h5'){
         if(!$notify_url) $notify_url = PRE_URL.'/notify.php';
         $set = Db::name('admin_set')->where('aid', $aid)->find();
         $package = array();
 
-        $appinfo = \app\common\System::appinfo($aid,'h5');
-        $appid = $appinfo['appid'];
+        $appinfo = \app\common\System::appinfo($aid,$pay_platform);
+        $appid = $appinfo['wxpay_appid'] ?: $appinfo['appid'];
 
         //生成支付交易流水
         $pay_transaction = \app\common\Common::createPayTransaction($aid,$ordernum,$tablename);

@@ -314,6 +314,34 @@
         padding: 32px 24px 24px;
         border-radius: 20px;
     }
+    .login-modal.has-follow-panel {
+        width: calc(100vw - 32px);
+        max-width: 480px;
+        padding: 28px 20px 24px;
+    }
+    .login-modal.has-follow-panel .login-modal-content {
+        flex-direction: column;
+    }
+    .login-modal.has-follow-panel .login-modal-right {
+        width: 100%;
+        padding-left: 0;
+        padding-top: 20px;
+        margin-top: 16px;
+    }
+    .login-modal.has-follow-panel .follow-divider {
+        left: 10%;
+        right: 10%;
+        top: 0;
+        bottom: auto;
+        width: auto;
+        height: 1px;
+        background: linear-gradient(to right, transparent, var(--border-color) 20%, var(--border-color) 80%, transparent);
+    }
+    .login-modal.has-follow-panel .follow-qr-img {
+        width: 140px;
+        height: 140px;
+        border-radius: 12px;
+    }
     .login-modal-title {
         font-size: 20px;
     }
@@ -329,5 +357,15 @@
     }
     .login-modal-header {
         margin-bottom: 22px;
+    }
+    /* 新用户引导浮层移动端 */
+    .follow-guide-modal {
+        width: calc(100vw - 40px);
+        max-width: 340px;
+        padding: 28px 20px 24px;
+    }
+    .follow-guide-qr {
+        width: 140px;
+        height: 140px;
     }
 }

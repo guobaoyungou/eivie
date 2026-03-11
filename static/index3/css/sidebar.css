@@ -103,11 +103,12 @@
 
 /* sub menu */
 .nav-sub { overflow: hidden; max-height: 0; transition: max-height .3s ease; }
-.nav-sub.open { max-height: 200px; }
+.nav-sub.open { max-height: 300px; }
 .nav-sub .nav-link { padding-left: 46px; font-size: 13px; }
 .sidebar.collapsed .nav-sub { display: none; }
 
 /* 折叠态hover浮动子菜单 */
+.nav-float-sub { display: none; }
 .sidebar.collapsed .nav-item .nav-float-sub {
     display: none;
     position: absolute;
@@ -121,6 +122,21 @@
 }
 .sidebar.collapsed .nav-item:hover .nav-float-sub { display: block; }
 .nav-float-sub .nav-link { padding: 8px 14px; }
+
+/* “开发中”标签 */
+.dev-badge {
+    display: inline-block;
+    font-size: 10px;
+    line-height: 1;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: var(--border-light);
+    color: var(--text-tertiary);
+    margin-left: 6px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.nav-link.disabled { opacity: .55; cursor: default; pointer-events: none; }
 
 /* tooltip for collapsed */
 .sidebar.collapsed .nav-item[data-tooltip]:hover::after {

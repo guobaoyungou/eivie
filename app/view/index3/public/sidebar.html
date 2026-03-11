@@ -11,7 +11,7 @@
 
     <!-- 移动端用户区 -->
     <div class="drawer-user">
-        <button class="login-btn" onclick="location.href='{:url(\'Backstage/index\')}'">登录 / 注册</button>
+        <button class="login-btn" onclick="location.href='{:url(\'Backstage/index\')}'">商家登录/注册</button>
         <!-- 已登录态由 auth.js 动态插入 .drawer-user-info -->
     </div>
 
@@ -24,11 +24,12 @@
             </a>
         </div>
 
-        <div class="nav-item has-sub" data-tooltip="创作">
+        <!-- 创作工具（默认展开） -->
+        <div class="nav-item has-sub" data-tooltip="创作工具">
             <a class="nav-link nav-toggle" href="javascript:;">
-                <span class="nav-icon">🎨</span>
-                <span class="nav-text">创作</span>
-                <span class="nav-arrow open">›</span>
+                <span class="nav-icon">✨</span>
+                <span class="nav-text">创作工具</span>
+                <span class="nav-arrow open">▸</span>
             </a>
             <div class="nav-sub open">
                 <a class="nav-link" href="{:url('Index/photo_generation')}">
@@ -37,20 +38,64 @@
                 <a class="nav-link" href="{:url('Index/video_generation')}">
                     <span class="nav-text">视频生成</span>
                 </a>
+                <a class="nav-link disabled" href="javascript:;">
+                    <span class="nav-text">短剧创作</span>
+                    <span class="dev-badge">开发中</span>
+                </a>
+                <a class="nav-link disabled" href="javascript:;">
+                    <span class="nav-text">3D模型</span>
+                    <span class="dev-badge">开发中</span>
+                </a>
+                <a class="nav-link disabled" href="javascript:;">
+                    <span class="nav-text">文案撰写</span>
+                    <span class="dev-badge">开发中</span>
+                </a>
             </div>
-            <!-- 折叠态浮动子菜单 -->
             <div class="nav-float-sub">
-                <a class="nav-link" href="{:url('Index/photo_generation')}">
-                    <span class="nav-text">图片生成</span>
+                <a class="nav-link" href="{:url('Index/photo_generation')}"><span class="nav-text">图片生成</span></a>
+                <a class="nav-link" href="{:url('Index/video_generation')}"><span class="nav-text">视频生成</span></a>
+                <a class="nav-link disabled" href="javascript:;"><span class="nav-text">短剧创作</span><span class="dev-badge">开发中</span></a>
+                <a class="nav-link disabled" href="javascript:;"><span class="nav-text">3D模型</span><span class="dev-badge">开发中</span></a>
+                <a class="nav-link disabled" href="javascript:;"><span class="nav-text">文案撰写</span><span class="dev-badge">开发中</span></a>
+            </div>
+        </div>
+
+        <!-- 营销工具 -->
+        <div class="nav-item has-sub" data-tooltip="营销工具">
+            <a class="nav-link nav-toggle" href="javascript:;">
+                <span class="nav-icon">📢</span>
+                <span class="nav-text">营销工具</span>
+                <span class="nav-arrow">▸</span>
+            </a>
+            <div class="nav-sub">
+                <a class="nav-link" href="{:url('ShopProduct/index')}">
+                    <span class="nav-text">AI商城</span>
                 </a>
-                <a class="nav-link" href="{:url('Index/video_generation')}">
-                    <span class="nav-text">视频生成</span>
+                <a class="nav-link" href="{:url('KanjiaProduct/index')}">
+                    <span class="nav-text">砍价</span>
                 </a>
+                <a class="nav-link" href="{:url('SeckillProduct/index')}">
+                    <span class="nav-text">秒杀</span>
+                </a>
+                <a class="nav-link" href="{:url('TuangouProduct/index')}">
+                    <span class="nav-text">团购</span>
+                </a>
+                <a class="nav-link disabled" href="javascript:;">
+                    <span class="nav-text">大屏互动</span>
+                    <span class="dev-badge">开发中</span>
+                </a>
+            </div>
+            <div class="nav-float-sub">
+                <a class="nav-link" href="{:url('ShopProduct/index')}"><span class="nav-text">AI商城</span></a>
+                <a class="nav-link" href="{:url('KanjiaProduct/index')}"><span class="nav-text">砍价</span></a>
+                <a class="nav-link" href="{:url('SeckillProduct/index')}"><span class="nav-text">秒杀</span></a>
+                <a class="nav-link" href="{:url('TuangouProduct/index')}"><span class="nav-text">团购</span></a>
+                <a class="nav-link disabled" href="javascript:;"><span class="nav-text">大屏互动</span><span class="dev-badge">开发中</span></a>
             </div>
         </div>
 
         <div class="nav-item" data-tooltip="资产">
-            <a class="nav-link" href="/?s=/index/recharge">
+            <a class="nav-link" href="/?s=/index/user_storage">
                 <span class="nav-icon">📦</span>
                 <span class="nav-text">资产</span>
             </a>

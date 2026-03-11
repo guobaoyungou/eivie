@@ -40,6 +40,7 @@
     document.addEventListener('DOMContentLoaded', function(){
         syncAuthState();
         initLoginModal();
+        initFollowGuide();
         initModelTabs();
         initModelCardClick();
         initModelScrollArrows();
@@ -161,7 +162,17 @@
     var loginState = {
         smsCooldown: 0,
         smsTimer: null,
-        submitting: false
+        submitting: false,
+        // 公众号关注相关状态
+        requireFollow: false,
+        followQrcode: '',
+        followGuideText: '',
+        followAppname: '',
+        newUserFollowGuide: false,
+        followPollingTimer: null,
+        followPollingCount: 0,
+        isFollowed: false,
+        configLoaded: false
     };
 
     function showLoginModal(){
@@ -174,8 +185,14 @@
         document.getElementById('loginError').textContent = '';
         var submitBtn = document.getElementById('loginSubmitBtn');
         submitBtn.disabled = false;
-        submitBtn.textContent = '登录 / 注册';
+        submitBtn.textContent = '商家登录/注册';
         submitBtn.classList.remove('loading');
+        // 重置关注状态
+        loginState.isFollowed = false;
+        loginState.followPollingCount = 0;
+        stopFollowPolling();
+        var followStatus = document.getElementById('followStatus');
+        if(followStatus) followStatus.innerHTML = '';
         // 恢复验证码按钮的倒计时状态（如果还在倒计时中）
         var sendBtn = document.getElementById('loginSendBtn');
         if(sendBtn && loginState.smsCooldown > 0){
@@ -187,6 +204,10 @@
             sendBtn.classList.remove('counting');
             sendBtn.textContent = '获取验证码';
         }
+        // 加载登录配置并渲染双栏
+        loadLoginConfig(function(){
+            applyFollowPanel();
+        });
         // 聚焦手机号输入框
         setTimeout(function(){ document.getElementById('loginPhone').focus(); }, 300);
         // 禁止背景滚动
@@ -198,6 +219,125 @@
         if(!overlay) return;
         overlay.classList.remove('show');
         document.body.style.overflow = '';
+        stopFollowPolling();
+    }
+
+    // === 加载登录配置 ===
+    function loadLoginConfig(callback){
+        if(loginState.configLoaded){
+            if(callback) callback();
+            return;
+        }
+        Api.getPcLoginConfig(function(err, res){
+            if(!err && res && res.status === 1 && res.data){
+                var d = res.data;
+                loginState.requireFollow = d.require_follow == 1;
+                loginState.followQrcode = d.follow_qrcode || '';
+                loginState.followGuideText = d.follow_guide_text || '扫码关注公众号后即可登录';
+                loginState.followAppname = d.follow_appname || '';
+                loginState.newUserFollowGuide = d.new_user_follow_guide == 1;
+                loginState.configLoaded = true;
+            }
+            if(callback) callback();
+        });
+    }
+
+    // === 应用公众号关注面板 ===
+    function applyFollowPanel(){
+        var modal = document.getElementById('loginModal');
+        var rightPanel = document.getElementById('loginModalRight');
+        if(!modal || !rightPanel) return;
+
+        if(loginState.requireFollow && loginState.followQrcode){
+            modal.classList.add('has-follow-panel');
+            rightPanel.style.display = '';
+            // 填充内容
+            var qrImg = document.getElementById('followQrImage');
+            if(qrImg) qrImg.src = loginState.followQrcode;
+            var appname = document.getElementById('followAppname');
+            if(appname) appname.textContent = loginState.followAppname;
+            var guideText = document.getElementById('followGuideText');
+            if(guideText) guideText.textContent = loginState.followGuideText;
+        } else {
+            modal.classList.remove('has-follow-panel');
+            rightPanel.style.display = 'none';
+        }
+    }
+
+    // === 关注状态轮询 ===
+    function startFollowPolling(){
+        stopFollowPolling();
+        loginState.followPollingCount = 0;
+        loginState.followPollingTimer = setInterval(function(){
+            loginState.followPollingCount++;
+            if(loginState.followPollingCount > 60){
+                // 超过3分钟
+                stopFollowPolling();
+                var statusEl = document.getElementById('followStatus');
+                if(statusEl) statusEl.innerHTML = '<span class="follow-status-warn">ℹ 请先关注公众号后再使用</span>';
+                return;
+            }
+            Api.checkWechatFollow(function(err, res){
+                if(!err && res && res.status === 1 && res.data && res.data.is_followed){
+                    loginState.isFollowed = true;
+                    stopFollowPolling();
+                    onFollowConfirmed();
+                }
+            });
+        }, 3000);
+    }
+
+    function stopFollowPolling(){
+        if(loginState.followPollingTimer){
+            clearInterval(loginState.followPollingTimer);
+            loginState.followPollingTimer = null;
+        }
+    }
+
+    function onFollowConfirmed(){
+        var statusEl = document.getElementById('followStatus');
+        if(statusEl) statusEl.innerHTML = '<span class="follow-status-ok">✓ 已关注</span>';
+        // 登录完成，关闭弹窗
+        setTimeout(function(){
+            hideLoginModal();
+            if(state.loginPendingCallback){
+                var cb = state.loginPendingCallback;
+                state.loginPendingCallback = null;
+                setTimeout(function(){ cb(); }, 300);
+            }
+            if(window.Auth) Auth.checkLogin();
+        }, 800);
+    }
+
+    // === 新用户关注引导浮层 ===
+    function showNewUserFollowGuide(){
+        if(!loginState.newUserFollowGuide || !loginState.followQrcode) return;
+        var overlay = document.getElementById('followGuideOverlay');
+        if(!overlay) return;
+        var qrImg = document.getElementById('followGuideQrImage');
+        if(qrImg) qrImg.src = loginState.followQrcode;
+        var appname = document.getElementById('followGuideAppname');
+        if(appname) appname.textContent = loginState.followAppname;
+        var desc = document.getElementById('followGuideDesc');
+        if(desc) desc.textContent = loginState.followGuideText;
+        overlay.classList.add('show');
+    }
+
+    function hideNewUserFollowGuide(){
+        var overlay = document.getElementById('followGuideOverlay');
+        if(overlay) overlay.classList.remove('show');
+    }
+
+    function initFollowGuide(){
+        var overlay = document.getElementById('followGuideOverlay');
+        var closeBtn = document.getElementById('followGuideClose');
+        if(!overlay) return;
+        if(closeBtn){
+            closeBtn.addEventListener('click', function(){ hideNewUserFollowGuide(); });
+        }
+        overlay.addEventListener('click', function(e){
+            if(e.target === overlay) hideNewUserFollowGuide();
+        });
     }
 
     function initLoginModal(){
@@ -338,7 +478,7 @@
                     var msg = (res && res.msg) ? res.msg : '登录失败';
                     errorEl.textContent = msg;
                     submitBtn.disabled = false;
-                    submitBtn.textContent = '登录 / 注册';
+                    submitBtn.textContent = '商家登录/注册';
                     submitBtn.classList.remove('loading');
                     return;
                 }
@@ -346,17 +486,50 @@
                 state.isLoggedIn = true;
                 state.loginChecked = true;
                 state.loginUser = res.data || null;
+                var isNewUser = res.data && res.data.is_new_user;
                 showToast('登录成功', 'success');
-                hideLoginModal();
-                // 执行待定回调
-                if(state.loginPendingCallback){
-                    var cb = state.loginPendingCallback;
-                    state.loginPendingCallback = null;
-                    setTimeout(function(){ cb(); }, 300);
-                }
-                // 刷新头部和侧边栏用户信息
-                if(window.Auth){
-                    Auth.checkLogin();
+
+                // 判断是否需要强制关注公众号
+                if(loginState.requireFollow && loginState.followQrcode){
+                    // 先查询关注状态
+                    Api.checkWechatFollow(function(fErr, fRes){
+                        if(!fErr && fRes && fRes.status === 1 && fRes.data && fRes.data.is_followed){
+                            // 已关注，直接完成
+                            loginState.isFollowed = true;
+                            hideLoginModal();
+                            if(state.loginPendingCallback){
+                                var cb = state.loginPendingCallback;
+                                state.loginPendingCallback = null;
+                                setTimeout(function(){ cb(); }, 300);
+                            }
+                            if(window.Auth) Auth.checkLogin();
+                        } else {
+                            // 未关注，高亮右栏提示 + 开始轮询
+                            var rightPanel = document.getElementById('loginModalRight');
+                            if(rightPanel) rightPanel.classList.add('highlight');
+                            var statusEl = document.getElementById('followStatus');
+                            if(statusEl) statusEl.innerHTML = '<span class="follow-status-pending">请先扫码关注公众号...</span>';
+                            submitBtn.disabled = true;
+                            submitBtn.textContent = '请先关注公众号';
+                            submitBtn.classList.remove('loading');
+                            startFollowPolling();
+                        }
+                    });
+                } else {
+                    // 不需要强制关注
+                    hideLoginModal();
+                    // 新用户引导
+                    if(isNewUser && loginState.newUserFollowGuide && loginState.followQrcode){
+                        setTimeout(function(){ showNewUserFollowGuide(); }, 500);
+                    }
+                    // 执行待定回调
+                    if(state.loginPendingCallback){
+                        var cb = state.loginPendingCallback;
+                        state.loginPendingCallback = null;
+                        setTimeout(function(){ cb(); }, 300);
+                    }
+                    // 刷新头部和侧边栏用户信息
+                    if(window.Auth) Auth.checkLogin();
                 }
             });
         }
@@ -1535,6 +1708,7 @@
         openTaskModal: openTaskModal,
         showToast: showToast,
         openScenePopup: openScenePopup,
-        closeScenePopup: closeScenePopup
+        closeScenePopup: closeScenePopup,
+        showLoginModal: showLoginModal
     };
 })();

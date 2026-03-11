@@ -156,13 +156,14 @@ var Api = (function(){
         },
         // ===== 支付相关 =====
         h5Pay: function(params, cb){
+            if(params && !params.platform) params.platform = 'pc';
             request('POST', '/?s=/index/h5_pay', params, cb);
         },
         checkPayStatus: function(params, cb){
             request('GET', '/?s=/index/check_pay_status', params, cb);
         },
         getPayConfig: function(cb){
-            request('GET', '/?s=/index/pay_config', null, cb);
+            request('GET', '/?s=/index/pay_config', {platform: 'pc'}, cb);
         },
         // ===== 云端存储空间 =====
         getStorageInfo: function(cb){
@@ -176,6 +177,13 @@ var Api = (function(){
         },
         checkStorageQuota: function(params, cb){
             request('POST', '/?s=/index/check_storage_quota', params, cb);
+        },
+        // ===== 登录设置相关 =====
+        getPcLoginConfig: function(cb){
+            request('GET', '/?s=/index/pc_login_config', null, cb);
+        },
+        checkWechatFollow: function(cb){
+            request('GET', '/?s=/index/check_wechat_follow', null, cb);
         }
     };
 })();
