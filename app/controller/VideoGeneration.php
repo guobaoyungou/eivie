@@ -599,6 +599,87 @@ class VideoGeneration extends Common
     }
     
     /**
+     * 批量迁移GIF封面为WebP格式
+     * POST请求，返回迁移结果统计
+     */
+    public function batch_migrate_webp()
+    {
+        if (!request()->isPost()) {
+            return json(['status' => 0, 'msg' => '请求方式错误']);
+        }
+        
+        $limit = input('post.limit', 10, 'intval');
+        if ($limit < 1) $limit = 10;
+        if ($limit > 50) $limit = 50;
+        
+        $action = input('post.action', 'migrate'); // migrate=迁移GIF到WebP, generate=生成缺失封面
+        
+        if ($action === 'generate') {
+            // 为gif_cover为空的视频模板生成动态封面
+            $result = $this->service->batchGenerateGifCovers($limit);
+        } else {
+            // 将已有GIF封面迁移为WebP
+            $result = $this->service->batchMigrateToWebpCovers($limit);
+        }
+        
+        // 查询剩余待处理数量
+        $remainGif = Db::name('generation_scene_template')
+            ->where('generation_type', 2)
+            ->where('status', 1)
+            ->where('gif_cover', 'like', '%.gif')
+            ->count();
+        $remainEmpty = Db::name('generation_scene_template')
+            ->where('generation_type', 2)
+            ->where('status', 1)
+            ->where('gif_cover', '')
+            ->where('cover_image', '<>', '')
+            ->count();
+        
+        \app\common\System::plog('批量迁移视频封面WebP action:' . $action . ' 成功:' . $result['success'] . ' 失败:' . $result['failed'], 1);
+        
+        return json([
+            'status' => 1,
+            'msg' => '处理完成',
+            'data' => array_merge($result, [
+                'remain_gif' => $remainGif,
+                'remain_empty' => $remainEmpty
+            ])
+        ]);
+    }
+    
+    /**
+     * 获取封面迁移统计信息
+     */
+    public function cover_migrate_stats()
+    {
+        $totalGif = Db::name('generation_scene_template')
+            ->where('generation_type', 2)
+            ->where('status', 1)
+            ->where('gif_cover', 'like', '%.gif')
+            ->count();
+        $totalWebp = Db::name('generation_scene_template')
+            ->where('generation_type', 2)
+            ->where('status', 1)
+            ->where('gif_cover', 'like', '%.webp')
+            ->count();
+        $totalEmpty = Db::name('generation_scene_template')
+            ->where('generation_type', 2)
+            ->where('status', 1)
+            ->where('gif_cover', '')
+            ->where('cover_image', '<>', '')
+            ->count();
+        
+        return json([
+            'status' => 1,
+            'data' => [
+                'gif_count' => $totalGif,
+                'webp_count' => $totalWebp,
+                'empty_count' => $totalEmpty
+            ]
+        ]);
+    }
+    
+    /**
      * 场景模板附件转存重试
      */
     public function scene_retry_transfer()

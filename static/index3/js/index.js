@@ -985,7 +985,7 @@
                 '<div class="tms-info">' +
                     '<div class="tms-name">' + escapeHtml(scene.template_name) + '</div>' +
                     '<div class="tms-meta">' +
-                        '<span class="tms-price">' + (parseFloat(scene.base_price) > 0 ? '¥' + scene.base_price : '免费') + '</span>' +
+                        '<span class="tms-price">' + (parseFloat(scene.base_price) > 0 ? scene.base_price + '积分' : '免费') + '</span>' +
                         '<span class="tms-uses">' + (scene.use_count || 0) + '次</span>' +
                     '</div>' +
                 '</div>';
@@ -1105,15 +1105,15 @@
                 card.setAttribute('data-type', isPhoto ? 'photo' : 'video');
                 card.innerHTML =
                     buildSceneCoverHtml(item) +
-                    '<div class="sc-hover-btn">制作同款</div>' +
                     '<div class="sc-info">' +
                         '<div class="sc-name">' + escapeHtml(item.template_name) + '</div>' +
                         '<div class="sc-desc">' + escapeHtml(item.description || '') + '</div>' +
                         '<div class="sc-meta">' +
-                            '<span class="sc-price">' + (parseFloat(item.base_price) > 0 ? '¥' + item.base_price : '免费') + '</span>' +
+                            '<span class="sc-price">' + (parseFloat(item.base_price) > 0 ? item.base_price + '积分' : '免费') + '</span>' +
                             '<span class="sc-uses">' + (item.use_count || 0) + '次使用</span>' +
                         '</div>' +
-                    '</div>';
+                    '</div>' +
+                    '<div class="sc-hover-btn">做同款</div>';
                 grid.appendChild(card);
                 bindSceneCard(card);
             });
@@ -1195,11 +1195,11 @@
                 card.setAttribute('data-type', state.currentTab);
                 card.innerHTML =
                     buildSceneCoverHtml(item) +
-                    '<div class="sc-hover-btn">制作同款</div>' +
                     '<div class="sc-info">' +
                         '<div class="sc-name">' + escapeHtml(item.template_name || item.model_name || '') + '</div>' +
                         '<div class="sc-desc">' + escapeHtml(item.description || '') + '</div>' +
-                    '</div>';
+                    '</div>' +
+                    '<div class="sc-hover-btn">做同款</div>';
                 grid.appendChild(card);
                 bindSceneCard(card);
             });
@@ -1353,7 +1353,7 @@
         return '<img class="sc-cover" src="' + coverUrl + '" alt="' + altText + '" loading="lazy">';
     }
 
-    // === 场景卡片点击交互（悬浮"制作同款"按钮） ===
+    // === 场景卡片点击交互（底部“做同款”按钮） ===
     function initSceneCards(){
         // 绑定服务端渲染的卡片
         document.querySelectorAll('.scene-card[data-id]').forEach(function(card){

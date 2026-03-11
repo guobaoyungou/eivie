@@ -1869,6 +1869,19 @@ class GenerationService
             
             Db::commit();
             
+            // 视频类型模板：事务提交后自动生成Animated WebP动态封面
+            if (intval($record->generation_type) == 2 && !empty($template->cover_image) && $this->isVideoUrl($template->cover_image)) {
+                try {
+                    $this->generateGifCover($template->id, $template->cover_image);
+                    Log::info('convertToTemplate: 自动生成动态封面成功', ['template_id' => $template->id]);
+                } catch (\Exception $e) {
+                    Log::warning('convertToTemplate: 自动生成动态封面失败，可稍后在模板列表手动迁移', [
+                        'template_id' => $template->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+            
             return [
                 'status' => 1,
                 'msg' => '模板创建成功',
@@ -1981,7 +1994,8 @@ class GenerationService
     
     /**
      * 压缩封面图
-     * 将超过 800px 宽度的图片缩放到 800px 宽，以 JPEG 质量 85 输出
+     * 将超过 800px 宽度的图片缩放到 800px 宽，优先输出为 WebP 格式（质量85）
+     * 若PHP不支持WebP则回退为JPEG输出
      * 
      * @param string $coverUrl 封面图URL（已转存到本地/OSS的URL）
      * @param AttachmentTransferService $transferService 转存服务实例
@@ -1990,7 +2004,8 @@ class GenerationService
     protected function compressCoverImage($coverUrl, $transferService)
     {
         $maxWidth = 800;
-        $jpegQuality = 85;
+        $quality = 85;
+        $useWebp = function_exists('imagewebp');
         
         // 下载封面图到临时文件
         $tempDir = defined('ROOT_PATH') ? ROOT_PATH . 'runtime/temp/transfer/' : sys_get_temp_dir() . '/transfer/';
@@ -2073,8 +2088,8 @@ class GenerationService
         // 创建缩略图
         $thumbnail = imagecreatetruecolor($newWidth, $newHeight);
         
-        // 保持透明度（PNG/GIF）
-        if ($mimeType === 'image/png' || $mimeType === 'image/gif') {
+        // 保持透明度（PNG/GIF/WebP）
+        if (in_array($mimeType, ['image/png', 'image/gif', 'image/webp'])) {
             imagealphablending($thumbnail, false);
             imagesavealpha($thumbnail, true);
             $transparent = imagecolorallocatealpha($thumbnail, 0, 0, 0, 127);
@@ -2083,9 +2098,15 @@ class GenerationService
         
         imagecopyresampled($thumbnail, $srcImage, 0, 0, 0, 0, $newWidth, $newHeight, $srcWidth, $srcHeight);
         
-        // 输出为 JPEG
-        $compressedFile = $tempDir . 'cover_compressed_' . md5($coverUrl . time() . mt_rand()) . '.jpg';
-        imagejpeg($thumbnail, $compressedFile, $jpegQuality);
+        // 输出为 WebP 或 JPEG
+        $outputExt = $useWebp ? 'webp' : 'jpg';
+        $compressedFile = $tempDir . 'cover_compressed_' . md5($coverUrl . time() . mt_rand()) . '.' . $outputExt;
+        
+        if ($useWebp) {
+            imagewebp($thumbnail, $compressedFile, $quality);
+        } else {
+            imagejpeg($thumbnail, $compressedFile, $quality);
+        }
         
         // 释放资源
         imagedestroy($srcImage);
@@ -2098,6 +2119,7 @@ class GenerationService
         }
         
         Log::info('compressCoverImage: 压缩完成', [
+            'format' => $outputExt,
             'originalSize' => strlen($content),
             'compressedSize' => filesize($compressedFile),
             'originalDimensions' => $srcWidth . 'x' . $srcHeight,
@@ -2109,7 +2131,7 @@ class GenerationService
             // 使用反射调用 uploadToStorage 方法（protected方法）
             $reflection = new \ReflectionMethod($transferService, 'uploadToStorage');
             $reflection->setAccessible(true);
-            $newUrl = $reflection->invoke($transferService, $compressedFile, '', 'jpg');
+            $newUrl = $reflection->invoke($transferService, $compressedFile, '', $outputExt);
             
             @unlink($compressedFile);
             
@@ -2122,6 +2144,17 @@ class GenerationService
         }
         
         return false;
+    }
+    
+    /**
+     * 公开的封面图压缩方法（供控制器调用）
+     * @param string $coverUrl 封面图URL
+     * @param AttachmentTransferService $transferService 转存服务实例
+     * @return string|false 压缩后的新URL，或 false
+     */
+    public function compressCoverImagePublic($coverUrl, $transferService)
+    {
+        return $this->compressCoverImage($coverUrl, $transferService);
     }
     
     /**
@@ -2339,7 +2372,7 @@ class GenerationService
             try {
                 $this->generateGifCover($id, $coverUrl);
             } catch (\Exception $e) {
-                Log::warning('saveTemplate: 自动生成GIF封面失败', [
+                Log::warning('saveTemplate: 自动生成动态封面失败', [
                     'template_id' => $id,
                     'error' => $e->getMessage()
                 ]);
@@ -2495,21 +2528,25 @@ class GenerationService
     }
     
     /**
-     * 将视频封面转换为GIF动画（前30帧）并存储
-     * 使用FFmpeg提取视频前30帧，缩放到300px宽，10fps，生成优化的GIF
+     * 将视频封面转换为动态预览图（Animated WebP优先，GIF回退）并存储
+     * 使用FFmpeg提取视频前30帧，缩放到300px宽，10fps，生成优化的Animated WebP
+     * 若FFmpeg不支持libwebp_anim编码器，则回退为GIF方案
      * 
      * @param int $templateId 模板ID
      * @param string $videoUrl 视频URL
-     * @return string|false GIF的URL，失败返回false
+     * @return string|false 动态封面URL，失败返回false
      */
     public function generateGifCover($templateId, $videoUrl)
     {
-        // 检柡 ffmpeg 是否可用
+        // 检查 ffmpeg 是否可用
         $ffmpegPath = $this->findFfmpeg();
         if (!$ffmpegPath) {
-            Log::warning('generateGifCover: FFmpeg未安装，无法生成GIF封面');
+            Log::warning('generateGifCover: FFmpeg未安装，无法生成动态封面');
             return false;
         }
+        
+        // 检测 libwebp_anim 编码器是否可用
+        $useWebp = $this->checkFfmpegWebpSupport($ffmpegPath);
         
         $tempDir = defined('ROOT_PATH') ? ROOT_PATH . 'runtime/temp/gif/' : sys_get_temp_dir() . '/gif/';
         if (!is_dir($tempDir)) {
@@ -2519,7 +2556,9 @@ class GenerationService
         $uniqueId = md5($videoUrl . $templateId . time() . mt_rand());
         $tempVideo = $tempDir . 'src_' . $uniqueId . '.mp4';
         $tempPalette = $tempDir . 'palette_' . $uniqueId . '.png';
-        $tempGif = $tempDir . 'cover_' . $uniqueId . '.gif';
+        // 根据编码器支持选择输出格式
+        $outputExt = $useWebp ? '.webp' : '.gif';
+        $tempOutput = $tempDir . 'cover_' . $uniqueId . $outputExt;
         
         try {
             // 1. 下载视频到临时文件
@@ -2551,48 +2590,81 @@ class GenerationService
                 return false;
             }
             
-            // 2. 生成调色板（优化GIF色彩质量）
-            $paletteCmd = sprintf(
-                '%s -i %s -vf "fps=10,scale=300:-1:flags=lanczos,palettegen=max_colors=128" -frames:v 1 -y %s 2>&1',
-                escapeshellarg($ffmpegPath),
-                escapeshellarg($tempVideo),
-                escapeshellarg($tempPalette)
-            );
-            exec($paletteCmd, $paletteOutput, $paletteRetCode);
+            $encodeOutput = [];
+            $encodeRetCode = 1;
             
-            // 3. 用调色板生成高质量GIF（前30帧，10fps，宽300px）
-            if ($paletteRetCode === 0 && file_exists($tempPalette)) {
-                $gifCmd = sprintf(
-                    '%s -i %s -i %s -lavfi "fps=10,scale=300:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3" -frames:v 30 -loop 0 -y %s 2>&1',
+            if ($useWebp) {
+                // === Animated WebP 方案 ===
+                // 直接使用 libwebp_anim 编码器，无需调色板步骤
+                $webpCmd = sprintf(
+                    '%s -i %s -vf "fps=10,scale=300:-1:flags=lanczos" -vcodec libwebp_anim -quality 75 -lossless 0 -frames:v 30 -loop 0 -an -y %s 2>&1',
                     escapeshellarg($ffmpegPath),
                     escapeshellarg($tempVideo),
-                    escapeshellarg($tempPalette),
-                    escapeshellarg($tempGif)
+                    escapeshellarg($tempOutput)
                 );
-            } else {
-                // 调色板失败，直接生成GIF（质量稍差）
-                $gifCmd = sprintf(
-                    '%s -i %s -vf "fps=10,scale=300:-1:flags=lanczos" -frames:v 30 -loop 0 -y %s 2>&1',
-                    escapeshellarg($ffmpegPath),
-                    escapeshellarg($tempVideo),
-                    escapeshellarg($tempGif)
-                );
+                exec($webpCmd, $encodeOutput, $encodeRetCode);
+                
+                // WebP 生成失败时回退到 GIF 方案
+                if ($encodeRetCode !== 0 || !file_exists($tempOutput) || filesize($tempOutput) < 100) {
+                    Log::warning('generateGifCover: WebP生成失败，回退到GIF方案', [
+                        'returnCode' => $encodeRetCode,
+                        'output' => implode("\n", array_slice($encodeOutput, -5))
+                    ]);
+                    @unlink($tempOutput);
+                    $useWebp = false;
+                    $outputExt = '.gif';
+                    $tempOutput = $tempDir . 'cover_' . $uniqueId . $outputExt;
+                    $encodeOutput = [];
+                    $encodeRetCode = 1;
+                }
             }
             
-            exec($gifCmd, $gifOutput, $gifRetCode);
+            if (!$useWebp) {
+                // === GIF 回退方案（原有逻辑） ===
+                // 生成调色板（优化GIF色彩质量）
+                $paletteCmd = sprintf(
+                    '%s -i %s -vf "fps=10,scale=300:-1:flags=lanczos,palettegen=max_colors=128" -frames:v 1 -y %s 2>&1',
+                    escapeshellarg($ffmpegPath),
+                    escapeshellarg($tempVideo),
+                    escapeshellarg($tempPalette)
+                );
+                exec($paletteCmd, $paletteOutput, $paletteRetCode);
+                
+                // 用调色板生成高质量GIF（前30帧，10fps，宽300px）
+                if ($paletteRetCode === 0 && file_exists($tempPalette)) {
+                    $gifCmd = sprintf(
+                        '%s -i %s -i %s -lavfi "fps=10,scale=300:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3" -frames:v 30 -loop 0 -y %s 2>&1',
+                        escapeshellarg($ffmpegPath),
+                        escapeshellarg($tempVideo),
+                        escapeshellarg($tempPalette),
+                        escapeshellarg($tempOutput)
+                    );
+                } else {
+                    // 调色板失败，直接生成GIF（质量稍差）
+                    $gifCmd = sprintf(
+                        '%s -i %s -vf "fps=10,scale=300:-1:flags=lanczos" -frames:v 30 -loop 0 -y %s 2>&1',
+                        escapeshellarg($ffmpegPath),
+                        escapeshellarg($tempVideo),
+                        escapeshellarg($tempOutput)
+                    );
+                }
+                
+                exec($gifCmd, $encodeOutput, $encodeRetCode);
+            }
             
-            if ($gifRetCode !== 0 || !file_exists($tempGif) || filesize($tempGif) < 100) {
-                Log::warning('generateGifCover: FFmpeg生成GIF失败', [
-                    'returnCode' => $gifRetCode,
-                    'output' => implode("\n", array_slice($gifOutput, -5))
+            if ($encodeRetCode !== 0 || !file_exists($tempOutput) || filesize($tempOutput) < 100) {
+                Log::warning('generateGifCover: FFmpeg生成动态封面失败', [
+                    'returnCode' => $encodeRetCode,
+                    'format' => $useWebp ? 'webp' : 'gif',
+                    'output' => implode("\n", array_slice($encodeOutput, -5))
                 ]);
                 @unlink($tempVideo);
                 @unlink($tempPalette);
-                @unlink($tempGif);
+                @unlink($tempOutput);
                 return false;
             }
             
-            // 4. 上传GIF到云存储
+            // 4. 上传动态封面到云存储
             $aid = Db::name('generation_scene_template')->where('id', $templateId)->value('aid') ?: (defined('aid') ? aid : 0);
             
             // 复制到upload目录
@@ -2602,54 +2674,55 @@ class GenerationService
                 @mkdir($localDir, 0777, true);
             }
             
-            $gifFilename = 'gif_cover_' . $uniqueId . '.gif';
-            $localPath = $localDir . $gifFilename;
-            @copy($tempGif, $localPath);
+            $coverFilename = ($useWebp ? 'webp_cover_' : 'gif_cover_') . $uniqueId . $outputExt;
+            $localPath = $localDir . $coverFilename;
+            @copy($tempOutput, $localPath);
             
             // 上传到OSS/COS
-            $gifUrl = '';
+            $coverUrl = '';
             if (defined('PRE_URL')) {
-                $localUrl = PRE_URL . '/' . $uploadDir . $gifFilename;
-                $gifUrl = \app\common\Pic::uploadoss($localUrl);
-                if ($gifUrl === false) {
-                    $gifUrl = $localUrl; // OSS失败时使用本地URL
+                $localUrl = PRE_URL . '/' . $uploadDir . $coverFilename;
+                $coverUrl = \app\common\Pic::uploadoss($localUrl);
+                if ($coverUrl === false) {
+                    $coverUrl = $localUrl; // OSS失败时使用本地URL
                 }
             } else {
-                $gifUrl = '/' . $uploadDir . $gifFilename;
+                $coverUrl = '/' . $uploadDir . $coverFilename;
             }
             
             // 5. 更新数据库
-            if (!empty($gifUrl)) {
+            if (!empty($coverUrl)) {
                 Db::name('generation_scene_template')->where('id', $templateId)->update([
-                    'gif_cover' => $gifUrl,
+                    'gif_cover' => $coverUrl,
                     'update_time' => time()
                 ]);
                 
-                Log::info('generateGifCover: GIF封面生成成功', [
+                Log::info('generateGifCover: 动态封面生成成功', [
                     'template_id' => $templateId,
-                    'gif_size' => filesize($tempGif),
-                    'gif_url' => substr($gifUrl, 0, 100)
+                    'format' => $useWebp ? 'webp' : 'gif',
+                    'file_size' => filesize($tempOutput),
+                    'cover_url' => substr($coverUrl, 0, 100)
                 ]);
             }
             
             // 6. 清理临时文件
             @unlink($tempVideo);
             @unlink($tempPalette);
-            @unlink($tempGif);
+            @unlink($tempOutput);
             
-            return $gifUrl;
+            return $coverUrl;
             
         } catch (\Exception $e) {
             @unlink($tempVideo);
             @unlink($tempPalette);
-            @unlink($tempGif);
+            @unlink($tempOutput);
             Log::error('generateGifCover 异常: ' . $e->getMessage());
             return false;
         }
     }
     
     /**
-     * 批量为已有视频模板生成GIF封面
+     * 批量为已有视频模板生成动态封面（gif_cover为空的记录）
      * 用于迁移已有数据
      * @param int $limit 每次处理数量
      * @return array ['processed' => int, 'success' => int, 'failed' => int]
@@ -2689,6 +2762,87 @@ class GenerationService
         }
         
         return ['processed' => $processed, 'success' => $success, 'failed' => $failed];
+    }
+    
+    /**
+     * 批量将已有GIF动态封面迁移为WebP格式
+     * 查找gif_cover字段以.gif结尾的视频模板记录，逐条重新生成WebP版本
+     * @param int $limit 每批处理数量（默认10条，避免FFmpeg并发过高）
+     * @return array ['processed' => int, 'success' => int, 'failed' => int, 'skipped' => int]
+     */
+    public function batchMigrateToWebpCovers($limit = 10)
+    {
+        // 查找gif_cover以.gif结尾的视频模板
+        $templates = Db::name('generation_scene_template')
+            ->where('generation_type', 2)
+            ->where('status', 1)
+            ->where('gif_cover', 'like', '%.gif')
+            ->where('cover_image', '<>', '')
+            ->limit($limit)
+            ->select()
+            ->toArray();
+        
+        $processed = 0;
+        $success = 0;
+        $failed = 0;
+        $skipped = 0;
+        
+        foreach ($templates as $tpl) {
+            if (!$this->isVideoUrl($tpl['cover_image'])) {
+                $skipped++;
+                continue;
+            }
+            $processed++;
+            try {
+                // 调用优化后的generateGifCover，会自动生成WebP
+                $result = $this->generateGifCover($tpl['id'], $tpl['cover_image']);
+                if ($result) {
+                    $success++;
+                    Log::info('batchMigrateToWebpCovers: 模板' . $tpl['id'] . '迁移成功', [
+                        'old_gif' => substr($tpl['gif_cover'], 0, 80),
+                        'new_url' => substr($result, 0, 80)
+                    ]);
+                } else {
+                    $failed++;
+                    Log::warning('batchMigrateToWebpCovers: 模板' . $tpl['id'] . '生成失败，保留原GIF');
+                }
+            } catch (\Exception $e) {
+                $failed++;
+                Log::warning('batchMigrateToWebpCovers: 模板' . $tpl['id'] . '异常: ' . $e->getMessage());
+            }
+        }
+        
+        Log::info('batchMigrateToWebpCovers: 批量迁移完成', [
+            'processed' => $processed,
+            'success' => $success,
+            'failed' => $failed,
+            'skipped' => $skipped
+        ]);
+        
+        return ['processed' => $processed, 'success' => $success, 'failed' => $failed, 'skipped' => $skipped];
+    }
+    
+    /**
+     * 检测FFmpeg是否支持libwebp_anim编码器
+     * @param string $ffmpegPath FFmpeg可执行文件路径
+     * @return bool
+     */
+    protected function checkFfmpegWebpSupport($ffmpegPath)
+    {
+        static $supported = null;
+        if ($supported !== null) {
+            return $supported;
+        }
+        
+        $output = [];
+        exec(escapeshellarg($ffmpegPath) . ' -encoders 2>/dev/null | grep libwebp_anim', $output, $retCode);
+        $supported = ($retCode === 0 && !empty($output));
+        
+        if (!$supported) {
+            Log::warning('generateGifCover: FFmpeg不支持libwebp_anim编码器，将使用GIF方案');
+        }
+        
+        return $supported;
     }
     
     /**

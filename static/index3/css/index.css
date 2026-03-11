@@ -1335,29 +1335,28 @@ body.sidebar-collapsed .main-content { margin-left: 60px; }
     -webkit-backdrop-filter: blur(4px);
 }
 
-/* --- 悬浮「制作同款」按钮 --- */
+/* --- 底部「做同款」按钮 --- */
 .scene-card .sc-hover-btn {
     position: absolute;
-    left: 50%; top: 40%;
-    transform: translate(-50%, -50%);
-    padding: 8px 20px;
+    bottom: 0; left: 0; right: 0;
+    transform: translateY(100%);
+    padding: 10px 0;
     background: var(--accent-color);
     color: #fff;
-    border-radius: 20px;
+    border-radius: 8px 8px 0 0;
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    opacity: 0;
-    transition: opacity .25s, transform .25s;
+    text-align: center;
+    transition: transform .28s cubic-bezier(.4,0,.2,1), background .15s;
     z-index: 10;
     white-space: nowrap;
     pointer-events: none;
-    box-shadow: 0 2px 12px rgba(0,0,0,.18);
+    box-shadow: 0 -2px 12px rgba(0,0,0,.10);
 }
 .scene-card:hover .sc-hover-btn {
-    opacity: 1;
+    transform: translateY(0);
     pointer-events: auto;
-    transform: translate(-50%, -50%) scale(1);
 }
 .scene-card .sc-hover-btn:hover {
     background: var(--accent-hover);

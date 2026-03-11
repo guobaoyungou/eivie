@@ -303,6 +303,7 @@ class Index extends BaseController
 			->limit(12)
 			->select()
 			->toArray();
+		$this->_convertScenePriceToScore($photo_scenes);
 		View::assign('photo_scenes', $photo_scenes);
 
 		// 视频场景模板（首屏12条）
@@ -314,6 +315,7 @@ class Index extends BaseController
 			->limit(12)
 			->select()
 			->toArray();
+		$this->_convertScenePriceToScore($video_scenes);
 		View::assign('video_scenes', $video_scenes);
 
 		return View::fetch('index3/index');
@@ -347,6 +349,7 @@ class Index extends BaseController
 			->page($page, $limit)
 			->select()
 			->toArray();
+		$this->_convertScenePriceToScore($list);
 
 		return json(['code'=>0, 'msg'=>'success', 'data'=>$list]);
 	}
@@ -376,6 +379,7 @@ class Index extends BaseController
 			->limit(20)
 			->select()
 			->toArray();
+		$this->_convertScenePriceToScore($list);
 
 		return json(['code'=>0, 'msg'=>'success', 'data'=>$list]);
 	}
@@ -472,7 +476,9 @@ class Index extends BaseController
 		}
 
 		// 附加该模型关联的推荐场景模板（弹窗第四排用）
-		$info['scene_templates'] = $service->getModelSceneTemplates($id, 8);
+		$sceneTemplates = $service->getModelSceneTemplates($id, 8);
+		$this->_convertScenePriceToScore($sceneTemplates);
+		$info['scene_templates'] = $sceneTemplates;
 
 		return json(['code'=>0, 'msg'=>'success', 'data'=>$info]);
 	}
@@ -547,6 +553,11 @@ class Index extends BaseController
 		$service = new \app\service\GenerationService();
 		$priceInfo = $service->calculateTemplatePrice($template, 0);
 
+		// 获取积分兑换配置，用于价格转积分
+		$cmService = new \app\service\CreativeMemberService();
+		$scoreConfig = $cmService->getScorePayConfig(1);
+		$exchangeRate = $scoreConfig['exchange_rate'];
+
 		// 所有等级价格
 		$allPrices = [];
 		if($template['lvprice'] == 1){
@@ -557,7 +568,8 @@ class Index extends BaseController
 				$levelIds = array_keys($lvpriceData);
 				$levels = Db::name('member_level')->where('id','in',$levelIds)->column('name','id');
 				foreach($lvpriceData as $lid=>$lprice){
-					$allPrices[] = ['level_id'=>$lid,'level_name'=>$levels[$lid]??'未知等级','price'=>floatval($lprice)];
+					$moneyPrice = floatval($lprice);
+					$allPrices[] = ['level_id'=>$lid,'level_name'=>$levels[$lid]??'未知等级','price'=>($moneyPrice > 0) ? $cmService->moneyToScore($moneyPrice, $exchangeRate) : 0];
 				}
 			}
 		}
@@ -637,10 +649,10 @@ class Index extends BaseController
 			'description' => $template['description'],
 			'prompt' => $defaultParams['prompt'] ?? '',
 			'generation_type' => intval($template['generation_type'] ?? 1),
-			'price' => $priceInfo['price'],
-			'base_price' => $priceInfo['base_price'],
-			'price_unit' => $priceInfo['price_unit'],
-			'price_unit_text' => $priceInfo['price_unit_text'],
+			'price' => (floatval($priceInfo['price']) > 0) ? $cmService->moneyToScore(floatval($priceInfo['price']), $exchangeRate) : 0,
+			'base_price' => (floatval($priceInfo['base_price']) > 0) ? $cmService->moneyToScore(floatval($priceInfo['base_price']), $exchangeRate) : 0,
+			'price_unit' => '积分',
+			'price_unit_text' => '按积分计费',
 			'is_member_price' => $priceInfo['is_member_price'],
 			'use_count' => intval($template['use_count'] ?? 0),
 			'output_quantity' => intval($template['output_quantity'] ?? 1),
@@ -769,6 +781,25 @@ class Index extends BaseController
 			}
 		}
 		return $ratios;
+	}
+
+	/**
+	 * 将场景模板列表中的 base_price（人民币）转换为积分值
+	 * 根据系统设置的 ai_score_exchange_rate 兑换比例计算
+	 * @param array &$list 场景模板数组（引用传递）
+	 */
+	private function _convertScenePriceToScore(&$list){
+		if(empty($list)) return;
+		$cmService = new \app\service\CreativeMemberService();
+		$scoreConfig = $cmService->getScorePayConfig(1);
+		$exchangeRate = $scoreConfig['exchange_rate'];
+		foreach($list as &$item){
+			if(isset($item['base_price'])){
+				$money = floatval($item['base_price']);
+				$item['base_price'] = ($money > 0) ? $cmService->moneyToScore($money, $exchangeRate) : 0;
+			}
+		}
+		unset($item);
 	}
 
 	/**

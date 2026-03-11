@@ -22,6 +22,9 @@
               <i class="layui-icon layui-icon-add-1"></i> 新增模板
             </a>
             <button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="datadel(0)">批量删除</button>
+            <button class="layui-btn layui-btn-warm layuiadmin-btn-list" onclick="openMigrateWebp()">
+              <i class="layui-icon layui-icon-refresh-3"></i> 封面迁移WebP
+            </button>
           </div>
           
           <!-- 搜索区 -->
@@ -312,6 +315,86 @@
       layer.msg('请求失败', {icon: 2});
     });
   }
+
+  // 打开封面迁移WebP弹窗
+  function openMigrateWebp() {
+    var loadIndex = layer.load(2, {shade: [0.3, '#000']});
+    $.get("{:url('cover_migrate_stats')}", function(res) {
+      layer.close(loadIndex);
+      if (res.status != 1) {
+        layer.msg('获取统计信息失败', {icon: 2});
+        return;
+      }
+      var stats = res.data;
+      var content = '<div style="padding:20px">' +
+        '<div style="margin-bottom:20px;padding:15px;background:#f8f8f8;border-radius:8px;">' +
+          '<h4 style="margin:0 0 12px 0;font-size:16px;"><i class="layui-icon layui-icon-chart" style="color:#1E9FFF"></i> 当前统计</h4>' +
+          '<p style="margin:6px 0;font-size:14px;">✅ 已为WebP格式：<b style="color:#009688">' + stats.webp_count + '</b> 个</p>' +
+          '<p style="margin:6px 0;font-size:14px;">⚠️ 仍为JPG/PNG格式：<b style="color:#FF5722">' + stats.jpg_png_count + '</b> 个</p>' +
+          '<p style="margin:6px 0;font-size:14px;">⭕ 无封面图：<b style="color:#FFB800">' + stats.empty_count + '</b> 个</p>' +
+        '</div>' +
+        '<div class="layui-form-item">' +
+          '<label class="layui-form-label">每批数量</label>' +
+          '<div class="layui-input-inline" style="width:120px">' +
+            '<input type="number" id="migrateLimit" value="10" min="1" max="50" class="layui-input">' +
+          '</div>' +
+          '<div class="layui-form-mid">条/批（最多50）</div>' +
+        '</div>' +
+        '<p style="margin:10px 0;color:#999;font-size:12px;">提示：仅对宽度超过800px的JPG/PNG封面进行压缩转换为WebP格式</p>' +
+        '<div id="migrateLog" style="margin-top:15px;max-height:200px;overflow-y:auto;font-size:13px;color:#666;border:1px solid #eee;border-radius:4px;padding:10px;display:none;"></div>' +
+      '</div>';
+
+      layer.open({
+        type: 1,
+        title: '照片封面迁移到 WebP',
+        area: ['500px', '460px'],
+        content: content,
+        btn: ['开始压缩JPG/PNG→WebP', '关闭'],
+        yes: function(index, layero) {
+          doMigrateBatch(index, layero);
+        }
+      });
+    }).fail(function() {
+      layer.close(loadIndex);
+      layer.msg('请求失败', {icon: 2});
+    });
+  }
+
+  // 执行批量迁移
+  function doMigrateBatch(layerIndex, layero) {
+    var limit = parseInt($('#migrateLimit').val()) || 10;
+    if (limit < 1) limit = 1;
+    if (limit > 50) limit = 50;
+
+    var $log = $('#migrateLog');
+    $log.show().append('<p>⚙️ 开始压缩JPG/PNG封面为WebP，每批' + limit + '条...</p>');
+
+    // 禁用按钮
+    $(layero).find('.layui-layer-btn a').addClass('layui-btn-disabled');
+
+    $.post("{:url('batch_migrate_webp')}", {limit: limit}, function(res) {
+      // 恢复按钮
+      $(layero).find('.layui-layer-btn a').removeClass('layui-btn-disabled');
+
+      if (res.status == 1) {
+        var d = res.data;
+        $log.append('<p>✅ 处理:' + d.processed + ' | 成功:' + d.success + ' | 失败:' + d.failed + ' | 跳过:' + d.skipped + '</p>');
+        $log.append('<p>ℹ️ 剩余JPG/PNG:' + d.remain_jpg_png + '</p>');
+        $log.scrollTop($log[0].scrollHeight);
+        tableIns.reload();
+
+        if (d.remain_jpg_png == 0) {
+          $log.append('<p style="color:#009688;font-weight:bold">🎉 所有封面已迁移完成！</p>');
+        }
+      } else {
+        $log.append('<p style="color:red">❌ ' + (res.msg || '处理失败') + '</p>');
+      }
+    }).fail(function() {
+      $(layero).find('.layui-layer-btn a').removeClass('layui-btn-disabled');
+      $log.append('<p style="color:red">❌ 请求失败，请检查网络</p>');
+    });
+  }
+
   </script>
 </body>
 </html>

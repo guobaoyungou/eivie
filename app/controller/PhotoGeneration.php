@@ -757,6 +757,129 @@ class PhotoGeneration extends Common
     }
     
     /**
+     * 批量迁移封面为WebP格式
+     * POST请求，返回迁移结果统计
+     */
+    public function batch_migrate_webp()
+    {
+        if (!request()->isPost()) {
+            return json(['status' => 0, 'msg' => '请求方式错误']);
+        }
+        
+        $limit = input('post.limit', 10, 'intval');
+        if ($limit < 1) $limit = 10;
+        if ($limit > 50) $limit = 50;
+        
+        // 照片模板：批量压缩封面图为 WebP
+        $templates = Db::name('generation_scene_template')
+            ->where('generation_type', 1)
+            ->where('status', 1)
+            ->where('cover_image', '<>', '')
+            ->where(function($query) {
+                $query->where('cover_image', 'like', '%.jpg')
+                    ->whereOr('cover_image', 'like', '%.jpeg')
+                    ->whereOr('cover_image', 'like', '%.png');
+            })
+            ->limit($limit)
+            ->field('id, cover_image, aid')
+            ->select()
+            ->toArray();
+        
+        $processed = 0;
+        $success = 0;
+        $failed = 0;
+        $skipped = 0;
+        
+        foreach ($templates as $tpl) {
+            // 跳过视频URL
+            if ($this->service->isVideoUrl($tpl['cover_image'])) {
+                $skipped++;
+                continue;
+            }
+            $processed++;
+            try {
+                $tplAid = $tpl['aid'] ?: (defined('aid') ? aid : 0);
+                $transferService = new \app\service\AttachmentTransferService($tplAid);
+                $compressedUrl = $this->service->compressCoverImagePublic($tpl['cover_image'], $transferService);
+                if ($compressedUrl) {
+                    Db::name('generation_scene_template')->where('id', $tpl['id'])->update([
+                        'cover_image' => $compressedUrl,
+                        'update_time' => time()
+                    ]);
+                    $success++;
+                } else {
+                    $skipped++; // 宽度未超阈或无需压缩
+                }
+            } catch (\Exception $e) {
+                $failed++;
+                \think\facade\Log::warning('batch_migrate_webp: 模板' . $tpl['id'] . '失败: ' . $e->getMessage());
+            }
+        }
+        
+        // 查询剩余待处理数量
+        $remainJpgPng = Db::name('generation_scene_template')
+            ->where('generation_type', 1)
+            ->where('status', 1)
+            ->where('cover_image', '<>', '')
+            ->where(function($query) {
+                $query->where('cover_image', 'like', '%.jpg')
+                    ->whereOr('cover_image', 'like', '%.jpeg')
+                    ->whereOr('cover_image', 'like', '%.png');
+            })
+            ->count();
+        
+        \app\common\System::plog('批量压缩照片封面WebP 成功:' . $success . ' 失败:' . $failed . ' 跳过:' . $skipped, 1);
+        
+        return json([
+            'status' => 1,
+            'msg' => '处理完成',
+            'data' => [
+                'processed' => $processed,
+                'success' => $success,
+                'failed' => $failed,
+                'skipped' => $skipped,
+                'remain_jpg_png' => $remainJpgPng
+            ]
+        ]);
+    }
+    
+    /**
+     * 获取封面迁移统计信息
+     */
+    public function cover_migrate_stats()
+    {
+        $totalJpgPng = Db::name('generation_scene_template')
+            ->where('generation_type', 1)
+            ->where('status', 1)
+            ->where('cover_image', '<>', '')
+            ->where(function($query) {
+                $query->where('cover_image', 'like', '%.jpg')
+                    ->whereOr('cover_image', 'like', '%.jpeg')
+                    ->whereOr('cover_image', 'like', '%.png');
+            })
+            ->count();
+        $totalWebp = Db::name('generation_scene_template')
+            ->where('generation_type', 1)
+            ->where('status', 1)
+            ->where('cover_image', 'like', '%.webp')
+            ->count();
+        $totalEmpty = Db::name('generation_scene_template')
+            ->where('generation_type', 1)
+            ->where('status', 1)
+            ->where('cover_image', '')
+            ->count();
+        
+        return json([
+            'status' => 1,
+            'data' => [
+                'jpg_png_count' => $totalJpgPng,
+                'webp_count' => $totalWebp,
+                'empty_count' => $totalEmpty
+            ]
+        ]);
+    }
+    
+    /**
      * 场景模板附件转存重试
      */
     public function scene_retry_transfer()
