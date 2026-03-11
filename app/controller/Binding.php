@@ -1902,6 +1902,7 @@ class Binding extends Common
 			$data['ali_appid'] = trim($postinfo['ali_appid']);
 			$data['ali_privatekey'] = trim($postinfo['ali_privatekey']);
 			$data['ali_publickey'] = trim($postinfo['ali_publickey']);
+			$data['ali_return_url'] = trim($postinfo['ali_return_url']);
 
 			Db::name('admin_setapp_pc')->where('aid',aid)->update($data);
 			\app\common\System::plog('PC端支付设置');

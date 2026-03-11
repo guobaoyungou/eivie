@@ -469,52 +469,9 @@ var Auth = (function(){
         '</div>';
     }
 
-    // ========== 创作会员订阅弹窗 ==========
+    // ========== 创作会员订阅 —— 跳转到独立页面 ==========
     function showSubscriptionPopup(){
-        // 如果已存在，直接显示
-        var existing = document.getElementById('subModalOverlay');
-        if(existing){
-            existing.classList.add('show');
-            document.body.style.overflow = 'hidden';
-            return;
-        }
-        // 创建弹窗骨架 — 使用 pay.css 中的 sub-modal 样式
-        var overlay = document.createElement('div');
-        overlay.id = 'subModalOverlay';
-        overlay.className = 'sub-modal-overlay show';
-        overlay.innerHTML =
-            '<div class="sub-modal">' +
-                '<button class="sub-modal-close" id="subModalClose">\u2715</button>' +
-                '<div class="sub-modal-header">' +
-                    '<h2 class="sub-modal-title">\u2728 \u521b\u4f5c\u4f1a\u5458\u8ba2\u9605</h2>' +
-                    '<p class="sub-modal-subtitle">\u89e3\u9501\u66f4\u591aAI\u521b\u4f5c\u80fd\u529b\uff0c\u4e13\u5c5e\u79ef\u5206\u52a0\u8d60</p>' +
-                '</div>' +
-                '<div class="sub-modal-body" id="subModalBody">' +
-                    '<div class="sub-loading">\u52a0\u8f7d\u4e2d...</div>' +
-                '</div>' +
-            '</div>';
-        document.body.appendChild(overlay);
-        document.body.style.overflow = 'hidden';
-
-        // 绑定关闭
-        document.getElementById('subModalClose').addEventListener('click', hideSubscriptionPopup);
-        overlay.addEventListener('click', function(e){
-            if(e.target === overlay) hideSubscriptionPopup();
-        });
-
-        // 加载套餐数据
-        Api.getCreativeMemberPlans(function(err, res){
-            var body = document.getElementById('subModalBody');
-            if(!body) return;
-            if(err || !res || res.status !== 1){
-                body.innerHTML = '<div class="sub-error">\u52a0\u8f7d\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5</div>';
-                return;
-            }
-            var data = res.data || {};
-            var plans = data.plans || [];
-            var currentSub = data.current_subscription || null;
-            renderSubscriptionPlans(body, plans, currentSub);
-        });
+        window.location.href = '/?s=/index/creative_member';
     }
 
     function hideSubscriptionPopup(){

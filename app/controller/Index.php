@@ -1152,6 +1152,16 @@ class Index extends BaseController
 	}
 
 	/**
+	 * 创作会员订阅页面
+	 */
+	public function creative_member(){
+		if($this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index')); die;
+		}
+		return View::fetch('index3/creative_member');
+	}
+
+	/**
 	 * AJAX: 获取创作会员套餐列表（PC官网用）
 	 */
 	public function creative_member_plans(){
@@ -1804,6 +1814,12 @@ class Index extends BaseController
 		// 获取应用支付配置（支持PC端独立配置）
 		$platform = input('post.platform', 'h5');
 		if(!in_array($platform, ['h5', 'pc'])) $platform = 'h5';
+
+		// PC端走独立支付逻辑
+		if($platform === 'pc'){
+			return $this->_pcPay($defaultAid, $mid, $payorder, $pay_type, $title, $ordernum, $price, $tablename);
+		}
+
 		$appinfo = \app\common\System::appinfo($defaultAid, $platform);
 
 		// 检测浏览器UA
@@ -1855,40 +1871,107 @@ class Index extends BaseController
 				return json(['status'=>0,'msg'=>'支付宝支付未配置']);
 			}
 
-			if($platform === 'pc'){
-				// PC端：支付宝当面付预创建（扫码支付二维码）
-				$rs = \app\common\Alipay::build_precreate($defaultAid, 0, $mid, $title, $ordernum, $price, $tablename, '', $platform);
-				if($rs['status'] == 1 && !empty($rs['data']['qrcode_url'])){
-					return json(['status'=>1,'msg'=>'success','data'=>[
-						'pay_method' => 'qrcode',
-						'qrcode_url' => $rs['data']['qrcode_url']
-					]]);
-				}
-				return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);
-			} else {
-				$return_url = PRE_URL . '/?s=/index/recharge';
-				$alipay = new \app\common\Alipay();
-				$rs = $alipay->build_h5($defaultAid, 0, $mid, $title, $ordernum, $price, $tablename, '', $return_url);
+			$return_url = PRE_URL . '/?s=/index/recharge';
+			$alipay = new \app\common\Alipay();
+			$rs = $alipay->build_h5($defaultAid, 0, $mid, $title, $ordernum, $price, $tablename, '', $return_url);
 
-				if($rs['status'] == 1){
-					// 支付宝返回的可能是表单HTML或跳转URL
-					$payUrl = '';
-					if(is_object($rs['data']) && isset($rs['data']->body)){
-						$payUrl = $rs['data']->body;
-					} elseif(is_string($rs['data'])){
-						$payUrl = $rs['data'];
-					}
-					return json(['status'=>1,'msg'=>'success','data'=>[
-						'pay_method' => 'redirect',
-						'redirect_url' => $payUrl
-					]]);
+			if($rs['status'] == 1){
+				// 支付宝返回的可能是表单HTML或跳转URL
+				$payUrl = '';
+				if(is_object($rs['data']) && isset($rs['data']->body)){
+					$payUrl = $rs['data']->body;
+				} elseif(is_string($rs['data'])){
+					$payUrl = $rs['data'];
 				}
-				return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);
+				return json(['status'=>1,'msg'=>'success','data'=>[
+					'pay_method' => 'redirect',
+					'redirect_url' => $payUrl
+				]]);
 			}
+			return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);
 
 		} else {
 			return json(['status'=>0,'msg'=>'不支持的支付方式']);
 		}
+	}
+
+	/**
+	 * PC端专属支付逻辑
+	 * 微信：V3 Native下单（二维码）
+	 * 支付宝：电脑网站支付（表单跳转）
+	 */
+	private function _pcPay($aid, $mid, $payorder, $pay_type, $title, $ordernum, $price, $tablename){
+		$appinfo = \app\common\System::appinfo($aid, 'pc');
+
+		if($pay_type === 'wxpay'){
+			// 检查微信V3支付配置
+			if(empty($appinfo['wxpay_mchid']) || empty($appinfo['wxpay_mchkey_v3']) || empty($appinfo['wxpay_apiclient_key']) || empty($appinfo['wxpay_serial_no'])){
+				return json(['status'=>0,'msg'=>'微信支付未配置（V3）']);
+			}
+
+			// PC端：微信V3 Native下单
+			$rs = \app\common\Wxpay::build_native_v3($aid, 0, $mid, $title, $ordernum, $price, $tablename);
+			if($rs['status'] == 1 && !empty($rs['data']['pay_wx_qrcode_url'])){
+				return json(['status'=>1,'msg'=>'success','data'=>[
+					'pay_method' => 'qrcode',
+					'qrcode_url' => $rs['data']['pay_wx_qrcode_url']
+				]]);
+			}
+			return json(['status'=>0,'msg'=>$rs['msg'] ?? '微信支付创建失败']);
+
+		} elseif($pay_type === 'alipay'){
+			// 检查支付宝配置
+			if(empty($appinfo['ali_appid']) || empty($appinfo['ali_privatekey']) || empty($appinfo['ali_publickey'])){
+				return json(['status'=>0,'msg'=>'支付宝支付未配置']);
+			}
+
+			// PC端：电脑网站支付（表单跳转模式）
+			$rs = \app\common\Alipay::build_page_pay($aid, 0, $mid, $title, $ordernum, $price, $tablename);
+			if($rs['status'] == 1){
+				$payMethod = $rs['data']['pay_method'] ?? 'form';
+				// 如果降级为当面付（有qrcode_url但无form_html），切换为qrcode模式
+				if(empty($rs['data']['form_html']) && !empty($rs['data']['qrcode_url'])){
+					$payMethod = 'qrcode';
+				}
+				return json(['status'=>1,'msg'=>'success','data'=>[
+					'pay_method' => $payMethod,
+					'form_html' => $rs['data']['form_html'] ?? '',
+					'qrcode_url' => $rs['data']['qrcode_url'] ?? '',
+				]]);
+			}
+			return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);
+
+		} else {
+			return json(['status'=>0,'msg'=>'不支持的支付方式']);
+		}
+	}
+
+	/**
+	 * 支付宝同步回跳（PC端电脑网站支付完成后浏览器回跳）
+	 * 不用于判断支付是否成功，仅引导用户回到网站
+	 */
+	public function alipay_return(){
+		$out_trade_no = input('param.out_trade_no', '');
+		$trade_no = input('param.trade_no', '');
+		$total_amount = input('param.total_amount', '');
+
+		// 查询订单状态
+		$paid = false;
+		if($out_trade_no){
+			$trade_parts = explode('D', $out_trade_no);
+			$payorder = Db::name('payorder')->where('ordernum', $trade_parts[0])->find();
+			if($payorder && $payorder['status'] == 1){
+				$paid = true;
+			}
+		}
+
+		// 重定向到首页或充值页面，带支付结果参数
+		$redirect_url = PRE_URL . '/?s=/index/recharge&pay_result=' . ($paid ? 'success' : 'pending');
+		if($out_trade_no){
+			$redirect_url .= '&ordernum=' . urlencode($trade_parts[0] ?? $out_trade_no);
+		}
+		header('Location: ' . $redirect_url);
+		exit;
 	}
 
 	/**
@@ -1926,8 +2009,15 @@ class Index extends BaseController
 
 		$pay_types = [];
 		// 检查微信支付
-		if(!empty($appinfo['wxpay']) && $appinfo['wxpay'] == 1 && !empty($appinfo['wxpay_mchid']) && !empty($appinfo['wxpay_mchkey'])){
-			$pay_types[] = ['id'=>'wxpay','name'=>'微信支付'];
+		if($platform === 'pc'){
+			// PC端检查V3配置字段
+			if(!empty($appinfo['wxpay']) && $appinfo['wxpay'] == 1 && !empty($appinfo['wxpay_mchid']) && !empty($appinfo['wxpay_mchkey_v3']) && !empty($appinfo['wxpay_apiclient_key']) && !empty($appinfo['wxpay_serial_no'])){
+				$pay_types[] = ['id'=>'wxpay','name'=>'微信支付'];
+			}
+		} else {
+			if(!empty($appinfo['wxpay']) && $appinfo['wxpay'] == 1 && !empty($appinfo['wxpay_mchid']) && !empty($appinfo['wxpay_mchkey'])){
+				$pay_types[] = ['id'=>'wxpay','name'=>'微信支付'];
+			}
 		}
 		// 检查支付宝
 		if(!empty($appinfo['alipay']) && $appinfo['alipay'] == 1 && !empty($appinfo['ali_appid']) && !empty($appinfo['ali_privatekey']) && !empty($appinfo['ali_publickey'])){

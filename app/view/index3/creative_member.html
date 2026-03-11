@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>创作会员 - {$webinfo.webname}</title>
+    {if $webinfo.ico}<link rel="shortcut icon" type="image/x-icon" href="{$webinfo.ico}">{/if}
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=2">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=2">
+    <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=7">
+    <link rel="stylesheet" href="/static/index3/css/pay.css?v=8">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=6">
+    <script src="/static/index3/js/theme.js?v=1"></script>
+</head>
+<body>
+<div class="layout-wrapper">
+    {include file="index3/public/sidebar"/}
+    <div class="main-content">
+        {include file="index3/public/header"/}
+        <div class="page-content" style="padding:0">
+
+            <!-- Hero 顶部大横幅 -->
+            <div class="cm-hero">
+                <div class="cm-hero-bg"></div>
+                <div class="cm-hero-inner">
+                    <div class="cm-hero-badge">✨ CREATIVE MEMBER</div>
+                    <h1 class="cm-hero-title">创作会员</h1>
+                    <p class="cm-hero-subtitle">解锁无限AI创作能力，专属积分加赠，尊享云端空间</p>
+                    <!-- 当前订阅状态 -->
+                    <div class="cm-hero-status" id="cmHeroStatus" style="display:none"></div>
+                </div>
+            </div>
+
+            <!-- 主内容区 -->
+            <div class="cm-body">
+                <!-- 套餐卡片区 -->
+                <div class="cm-section">
+                    <h2 class="cm-section-title">选择您的套餐</h2>
+                    <div class="cm-plan-grid" id="cmPlanGrid">
+                        <div class="cm-loading">
+                            <div class="cm-loading-spinner"></div>
+                            <span>加载套餐信息...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 权益对比表 -->
+                <div class="cm-section" id="cmBenefitsSection" style="display:none">
+                    <h2 class="cm-section-title">会员权益</h2>
+                    <div class="cm-benefits-grid" id="cmBenefitsGrid"></div>
+                </div>
+
+                <!-- FAQ -->
+                <div class="cm-section">
+                    <h2 class="cm-section-title">常见问题</h2>
+                    <div class="cm-faq-list">
+                        <div class="cm-faq-item">
+                            <div class="cm-faq-q" onclick="this.parentNode.classList.toggle('open')">
+                                <span>开通后多久生效？</span><span class="cm-faq-arrow">›</span>
+                            </div>
+                            <div class="cm-faq-a">付款成功后即时生效，创作积分实时到账。</div>
+                        </div>
+                        <div class="cm-faq-item">
+                            <div class="cm-faq-q" onclick="this.parentNode.classList.toggle('open')">
+                                <span>到期后积分会清空吗？</span><span class="cm-faq-arrow">›</span>
+                            </div>
+                            <div class="cm-faq-a">到期后剩余创作积分将被冻结，续费后自动恢复使用。</div>
+                        </div>
+                        <div class="cm-faq-item">
+                            <div class="cm-faq-q" onclick="this.parentNode.classList.toggle('open')">
+                                <span>可以升级到更高版本吗？</span><span class="cm-faq-arrow">›</span>
+                            </div>
+                            <div class="cm-faq-a">可以随时升级，升级时按剩余天数折算差价。</div>
+                        </div>
+                        <div class="cm-faq-item">
+                            <div class="cm-faq-q" onclick="this.parentNode.classList.toggle('open')">
+                                <span>支持哪些支付方式？</span><span class="cm-faq-arrow">›</span>
+                            </div>
+                            <div class="cm-faq-a">支持微信支付（扫码）和支付宝支付。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{include file="index3/public/tabbar"/}
+
+<script src="/static/index3/js/api.js?v=4"></script>
+<script src="/static/index3/js/auth.js?v=3"></script>
+<script src="/static/index3/js/pay.js?v=3"></script>
+<script src="/static/index3/js/sidebar.js?v=1"></script>
+<script>
+(function(){
+    var plansData = null;
+    var groupedPlans = {};
+    var versionOrder = [];
+
+    function init(){
+        if(!Auth.isChecked()){ setTimeout(init, 200); return; }
+        if(!Auth.isLoggedIn()){ location.href = '/?s=/index/index'; return; }
+        loadPlans();
+    }
+
+    function loadPlans(){
+        Api.getCreativeMemberPlans(function(err, res){
+            var grid = document.getElementById('cmPlanGrid');
+            if(err || !res || res.status !== 1){
+                grid.innerHTML = '<div class="cm-error">加载失败，请刷新页面重试</div>';
+                return;
+            }
+            plansData = res.data || {};
+            var plans = plansData.plans || [];
+            var currentSub = plansData.current_subscription || null;
+
+            if(!plans.length){
+                grid.innerHTML = '<div class="cm-error">暂无可用套餐</div>';
+                return;
+            }
+
+            // 渲染当前订阅状态
+            renderCurrentStatus(currentSub);
+            // 按版本分组
+            groupPlans(plans);
+            // 渲染套餐卡片
+            renderPlans(currentSub);
+            // 渲染权益对比
+            renderBenefits(plans, currentSub);
+        });
+    }
+
+    function renderCurrentStatus(sub){
+        var el = document.getElementById('cmHeroStatus');
+        if(!sub){ el.style.display = 'none'; return; }
+        el.style.display = 'flex';
+        el.innerHTML =
+            '<div class="cm-status-badge">👑 当前已开通</div>' +
+            '<div class="cm-status-name">' + esc(sub.version_name || '') + '</div>' +
+            '<div class="cm-status-expire">到期：' + esc(sub.expire_text || '--') + '</div>';
+    }
+
+    function groupPlans(plans){
+        groupedPlans = {};
+        versionOrder = [];
+        for(var i = 0; i < plans.length; i++){
+            var p = plans[i];
+            var code = p.version_code;
+            if(!groupedPlans[code]){
+                groupedPlans[code] = { name: p.version_name, code: code, modes: {} };
+                versionOrder.push(code);
+            }
+            groupedPlans[code].modes[p.purchase_mode] = p;
+        }
+    }
+
+    function renderPlans(currentSub){
+        var grid = document.getElementById('cmPlanGrid');
+        var modeLabels = { yearly: '按年', monthly_auto: '连续包月', monthly: '单月' };
+        var recommendedIdx = versionOrder.length >= 2 ? 1 : 0;
+        var html = '';
+
+        for(var vi = 0; vi < versionOrder.length; vi++){
+            var ver = groupedPlans[versionOrder[vi]];
+            var modePriority = ['yearly','monthly','monthly_auto'];
+            var defaultPlan = null;
+            var allModes = [];
+            for(var mi = 0; mi < modePriority.length; mi++){
+                if(ver.modes[modePriority[mi]]){
+                    if(!defaultPlan) defaultPlan = ver.modes[modePriority[mi]];
+                    allModes.push(modePriority[mi]);
+                }
+            }
+            if(!defaultPlan) continue;
+
+            var isCurrentVersion = currentSub && currentSub.version_code === ver.code;
+            var isRecommended = (vi === recommendedIdx) && !isCurrentVersion;
+            var cardClass = 'cm-plan-card' + (isCurrentVersion ? ' current' : '') + (isRecommended ? ' recommended' : '');
+
+            // 模式切换
+            var modeTabsHtml = '';
+            if(allModes.length > 1){
+                modeTabsHtml = '<div class="cm-mode-tabs" data-version="' + ver.code + '">';
+                for(var ti = 0; ti < allModes.length; ti++){
+                    var m = allModes[ti];
+                    var activeClass = (ver.modes[m] === defaultPlan) ? ' active' : '';
+                    modeTabsHtml += '<button class="cm-mode-tab' + activeClass + '" data-mode="' + m + '">' + (modeLabels[m]||m) + '</button>';
+                }
+                modeTabsHtml += '</div>';
+            }
+
+            // 价格
+            var priceHtml = '<div class="cm-price-row">';
+            priceHtml += '<span class="cm-price-symbol">¥</span>';
+            priceHtml += '<span class="cm-price-value">' + defaultPlan.price.toFixed(0) + '</span>';
+            if(defaultPlan.price % 1 !== 0) priceHtml = priceHtml.replace(defaultPlan.price.toFixed(0), defaultPlan.price.toFixed(2));
+            if(defaultPlan.original_price && defaultPlan.original_price > defaultPlan.price){
+                priceHtml += '<span class="cm-price-original">¥' + defaultPlan.original_price.toFixed(2) + '</span>';
+            }
+            if(defaultPlan.discount_text){
+                priceHtml += '<span class="cm-price-discount">' + esc(defaultPlan.discount_text) + '</span>';
+            }
+            priceHtml += '</div>';
+
+            // 权益
+            var featHtml = '<ul class="cm-feat-list">';
+            featHtml += '<li><span class="cm-feat-icon">🎨</span>每月 <strong>' + defaultPlan.monthly_score + '</strong> 创作积分</li>';
+            if(defaultPlan.daily_login_score > 0){
+                featHtml += '<li><span class="cm-feat-icon">🎁</span>每日登录赠 <strong>' + defaultPlan.daily_login_score + '</strong> 积分</li>';
+            }
+            if(defaultPlan.max_concurrency > 0 && defaultPlan.max_concurrency < 999){
+                featHtml += '<li><span class="cm-feat-icon">⚡</span>同时 <strong>' + defaultPlan.max_concurrency + '</strong> 个任务并发</li>';
+            } else if(defaultPlan.max_concurrency >= 999){
+                featHtml += '<li><span class="cm-feat-icon">⚡</span><strong>无限</strong>任务并发</li>';
+            }
+            if(defaultPlan.cloud_storage_gb > 0){
+                featHtml += '<li><span class="cm-feat-icon">☁️</span><strong>' + defaultPlan.cloud_storage_gb + 'GB</strong> 云存储空间</li>';
+            }
+            if(defaultPlan.features && defaultPlan.features.length){
+                for(var fi = 0; fi < defaultPlan.features.length; fi++){
+                    featHtml += '<li><span class="cm-feat-icon">✓</span>' + esc(defaultPlan.features[fi]) + '</li>';
+                }
+            }
+            featHtml += '</ul>';
+
+            // 按钮
+            var btnHtml = '';
+            if(isCurrentVersion){
+                btnHtml = '<button class="cm-plan-btn current" disabled>当前套餐</button>';
+            } else {
+                btnHtml = '<button class="cm-plan-btn" data-plan-id="' + defaultPlan.id + '" data-mode="' + defaultPlan.purchase_mode + '">立即订阅</button>';
+            }
+
+            html +=
+                '<div class="' + cardClass + '" data-version="' + ver.code + '">' +
+                    (isRecommended ? '<div class="cm-plan-badge">🔥 推荐</div>' : '') +
+                    (isCurrentVersion ? '<div class="cm-plan-badge current-badge">当前套餐</div>' : '') +
+                    '<div class="cm-plan-name">' + esc(ver.name) + '</div>' +
+                    modeTabsHtml +
+                    priceHtml +
+                    featHtml +
+                    btnHtml +
+                '</div>';
+        }
+
+        grid.innerHTML = html;
+        bindModeSwitch(grid);
+        bindBuyButtons(grid);
+    }
+
+    function renderBenefits(plans, currentSub){
+        // 按版本去重收集权益
+        var versions = [];
+        var seen = {};
+        for(var i = 0; i < plans.length; i++){
+            if(!seen[plans[i].version_code]){
+                seen[plans[i].version_code] = true;
+                versions.push(plans[i]);
+            }
+        }
+        if(versions.length < 2) return; // 单版本不需要对比
+        document.getElementById('cmBenefitsSection').style.display = 'block';
+
+        var html = '<div class="cm-benefits-table"><div class="cm-bt-row cm-bt-header"><div class="cm-bt-cell">权益</div>';
+        for(var v = 0; v < versions.length; v++){
+            html += '<div class="cm-bt-cell">' + esc(versions[v].version_name) + '</div>';
+        }
+        html += '</div>';
+
+        var rows = [
+            {label: '月创作积分', key: 'monthly_score'},
+            {label: '每日登录积分', key: 'daily_login_score'},
+            {label: '任务并发数', key: 'max_concurrency', format: function(v){ return v >= 999 ? '无限' : v; }},
+            {label: '云存储空间', key: 'cloud_storage_gb', format: function(v){ return v + 'GB'; }},
+        ];
+        for(var r = 0; r < rows.length; r++){
+            html += '<div class="cm-bt-row"><div class="cm-bt-cell cm-bt-label">' + rows[r].label + '</div>';
+            for(var v2 = 0; v2 < versions.length; v2++){
+                var val = versions[v2][rows[r].key] || 0;
+                if(rows[r].format) val = rows[r].format(val);
+                html += '<div class="cm-bt-cell cm-bt-value">' + val + '</div>';
+            }
+            html += '</div>';
+        }
+        html += '</div>';
+        document.getElementById('cmBenefitsGrid').innerHTML = html;
+    }
+
+    function bindModeSwitch(container){
+        var tabs = container.querySelectorAll('.cm-mode-tab');
+        for(var k = 0; k < tabs.length; k++){
+            tabs[k].addEventListener('click', function(){
+                var tab = this;
+                var mode = tab.getAttribute('data-mode');
+                var versionCode = tab.parentNode.getAttribute('data-version');
+                var card = container.querySelector('.cm-plan-card[data-version="' + versionCode + '"]');
+                if(!card) return;
+                // 切换active
+                var siblings = tab.parentNode.querySelectorAll('.cm-mode-tab');
+                for(var s = 0; s < siblings.length; s++) siblings[s].classList.remove('active');
+                tab.classList.add('active');
+                // 更新价格
+                var ver = groupedPlans[versionCode];
+                var plan = ver.modes[mode];
+                if(!plan) return;
+                var priceRow = card.querySelector('.cm-price-row');
+                if(priceRow){
+                    var h = '<span class="cm-price-symbol">¥</span><span class="cm-price-value">' + plan.price.toFixed(2) + '</span>';
+                    if(plan.original_price && plan.original_price > plan.price) h += '<span class="cm-price-original">¥' + plan.original_price.toFixed(2) + '</span>';
+                    if(plan.discount_text) h += '<span class="cm-price-discount">' + esc(plan.discount_text) + '</span>';
+                    priceRow.innerHTML = h;
+                }
+                var btn = card.querySelector('.cm-plan-btn:not([disabled])');
+                if(btn){
+                    btn.setAttribute('data-plan-id', plan.id);
+                    btn.setAttribute('data-mode', plan.purchase_mode);
+                }
+            });
+        }
+    }
+
+    function bindBuyButtons(container){
+        var btns = container.querySelectorAll('.cm-plan-btn:not([disabled])');
+        for(var b = 0; b < btns.length; b++){
+            btns[b].addEventListener('click', function(){
+                var btn = this;
+                var planId = btn.getAttribute('data-plan-id');
+                var mode = btn.getAttribute('data-mode');
+                if(!planId) return;
+                btn.disabled = true;
+                btn.textContent = '处理中...';
+                Api.buyCreativeMember({plan_id: planId, purchase_mode: mode}, function(err, res){
+                    if(err || !res){
+                        alert('请求失败，请重试');
+                        btn.disabled = false; btn.textContent = '立即订阅';
+                        return;
+                    }
+                    if(res.status !== 1){
+                        alert(res.msg || '购买失败');
+                        btn.disabled = false; btn.textContent = '立即订阅';
+                        return;
+                    }
+                    var data = res.data || {};
+                    if(!data.need_pay){
+                        alert('开通成功！');
+                        Auth.checkLogin();
+                        setTimeout(function(){ location.reload(); }, 800);
+                    } else if(data.ordernum && window.Pay){
+                        Pay.startPay({
+                            ordernum: data.ordernum,
+                            order_type: 'creative_member',
+                            amount: data.price || '0.00',
+                            title: '创作会员-' + (data.plan_name || '订阅'),
+                            onSuccess: function(){
+                                Auth.checkLogin();
+                                setTimeout(function(){ location.reload(); }, 800);
+                            }
+                        });
+                    } else {
+                        alert('订单创建成功，请前往支付');
+                    }
+                    btn.disabled = false; btn.textContent = '立即订阅';
+                });
+            });
+        }
+    }
+
+    function esc(str){
+        if(!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    init();
+})();
+</script>
+</body>
+</html>

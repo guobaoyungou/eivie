@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=2">
     <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=1">
     <link rel="stylesheet" href="/static/index3/css/index.css?v=7">
-    <link rel="stylesheet" href="/static/index3/css/pay.css?v=2">
+    <link rel="stylesheet" href="/static/index3/css/pay.css?v=8">
     <link rel="stylesheet" href="/static/index3/css/responsive.css?v=6">
     <script src="/static/index3/js/theme.js?v=1"></script>
 </head>
@@ -19,37 +19,46 @@
     {include file="index3/public/sidebar"/}
     <div class="main-content">
         {include file="index3/public/header"/}
-        <div class="page-content" style="max-width:960px;margin:0 auto;padding:24px 16px">
+        <div class="page-content" style="padding:24px 16px">
             <h2 style="font-size:22px;font-weight:700;margin-bottom:24px;color:var(--text-primary,#333)">⭐ 积分购买</h2>
 
-            <!-- 当前积分 Hero -->
-            <div class="hero-card hero-card--green" style="margin-bottom:20px">
-                <div class="hero-label">当前积分</div>
-                <div class="hero-value" id="currentScore">0</div>
-                <div class="hero-sub">积分可用于AI创作、功能解锁等</div>
-            </div>
+            <!-- PC双栏布局容器 -->
+            <div class="score-pc-layout">
+                <!-- 左侧主栏 -->
+                <div class="score-main">
+                    <!-- 积分档位 -->
+                    <div class="page-card">
+                        <div class="page-card-title">🛒 选择积分套餐</div>
+                        <div class="amount-grid amount-grid--green" id="scoreGrid">
+                            <div class="amount-item" style="grid-column:1/-1;text-align:center;color:var(--text-tertiary,#999);padding:30px">加载中...</div>
+                        </div>
+                    </div>
+                </div>
 
-            <!-- 积分档位 -->
-            <div class="page-card">
-                <div class="page-card-title">🛒 选择积分套餐</div>
-                <div class="amount-grid amount-grid--green" id="scoreGrid">
-                    <div class="amount-item" style="grid-column:1/-1;text-align:center;color:var(--text-tertiary,#999);padding:30px">加载中...</div>
+                <!-- 右侧信息栏 -->
+                <div class="score-aside">
+                    <!-- 当前积分 Hero -->
+                    <div class="hero-card hero-card--green">
+                        <div class="hero-label">当前积分</div>
+                        <div class="hero-value" id="currentScore">0</div>
+                        <div class="hero-sub">积分可用于AI创作、功能解锁等</div>
+                    </div>
+
+                    <!-- 购买按钮 -->
+                    <button class="pay-confirm-btn pay-confirm-btn--green" id="buyScoreBtn" disabled>
+                        立即购买
+                    </button>
+                    <div class="safe-pay-tip" style="text-align:center;margin-top:8px;font-size:12px;color:var(--text-tertiary,#999)">🔒 安全支付 · 积分即时到账</div>
                 </div>
             </div>
-
-            <!-- 购买按钮 -->
-            <button class="pay-confirm-btn pay-confirm-btn--green" id="buyScoreBtn" style="width:100%;margin-top:8px" disabled>
-                立即购买
-            </button>
-            <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--text-tertiary,#999)">🔒 安全支付 · 积分即时到账</div>
         </div>
     </div>
 </div>
 {include file="index3/public/tabbar"/}
 
 <script src="/static/index3/js/api.js?v=4"></script>
-<script src="/static/index3/js/auth.js?v=2"></script>
-<script src="/static/index3/js/pay.js?v=1"></script>
+<script src="/static/index3/js/auth.js?v=3"></script>
+<script src="/static/index3/js/pay.js?v=3"></script>
 <script src="/static/index3/js/sidebar.js?v=1"></script>
 <script>
 (function(){

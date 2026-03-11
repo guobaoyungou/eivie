@@ -25,7 +25,7 @@
 							<!-- 支付设置Tab -->
 							<div class="layui-tab-item layui-show">
 								<div class="layui-form form-label-w8" lay-filter="payForm" style="margin-top:20px">
-									<div style="color:#999;height:60px;line-height:60px">配置PC端官网（模板三）的微信扫码支付（Native Pay）和支付宝扫码支付（当面付）</div>
+									<div style="color:#999;height:60px;line-height:60px">配置PC端官网（模板三）的微信扫码支付（Native Pay V3）和支付宝电脑网站支付（Page Pay）</div>
 
 						<span style="color:#333">微信支付设置</span><hr/>
 						<div class="layui-form-item">
@@ -170,7 +170,7 @@
 								<input type="radio" name="info[alipay]" title="开启" value="1" {if $info['alipay']==1}checked{/if}/>
 								<input type="radio" name="info[alipay]" title="关闭" value="0" {if $info['alipay']==0}checked{/if}/>
 							</div>
-							<div class="layui-form-mid layui-word-aux"><a href="https://opendocs.alipay.com/open/194/105072" target="_blank">当面付接入指引</a></div>
+							<div class="layui-form-mid layui-word-aux"><a href="https://opendocs.alipay.com/open/028r8t" target="_blank">电脑网站支付接入指引</a></div>
 						</div>
 						<div class="layui-form-item">
 							<label class="layui-form-label">APPID：</label>
@@ -194,6 +194,13 @@
 								{if $info['ali_publickey']}<div style="position: absolute;left: 0;top: 0;right: 0;bottom: 0; background: #fff;padding: .35rem .7rem;border: 1px solid rgba(0, 0, 0, .15);border-radius: .15rem;color: #636c72;" onclick="$(this).hide()">已隐藏内容，点击查看或编辑</div>{/if}
 							</div>
 							<div class="layui-form-mid layui-word-aux">请填写支付宝公钥，一行字符串</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">同步回跳地址：</label>
+							<div class="layui-input-inline" style="width:500px">
+								<input type="text" name="info[ali_return_url]" value="{$info['ali_return_url']}" class="layui-input" placeholder="{$Think.const.PRE_URL}/?s=/index/alipay_return"/>
+							</div>
+							<div class="layui-form-mid layui-word-aux">支付宝支付完成后浏览器回跳地址，留空则使用系统默认地址</div>
 						</div>
 
 									<div class="layui-form-item">

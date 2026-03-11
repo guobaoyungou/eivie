@@ -950,6 +950,152 @@ class Wxpay
         $wOpt['pay_wx_qrcode_url'] = createqrcode($xml->code_url);
         return ['status'=>1,'data'=>$wOpt];
     }
+
+    /**
+     * 微信支付V3 Native下单（PC端扫码支付）
+     * 使用V3接口 POST /v3/pay/transactions/native
+     * @param int $aid 应用ID
+     * @param int $bid 商户ID
+     * @param int $mid 会员ID
+     * @param string $title 订单标题
+     * @param string $ordernum 订单号
+     * @param float $price 价格（元）
+     * @param string $tablename 表名
+     * @param string $notify_url 回调地址
+     * @return array
+     */
+    public static function build_native_v3($aid, $bid, $mid, $title, $ordernum, $price, $tablename, $notify_url = ''){
+        $title = removeEmoj(htmlspecialchars(stripslashes($title)));
+        $title = str_replace("\t", " ", $title);
+        $title = str_replace('/',' ',$title);
+        $title = mb_substr($title, 0, 42);
+        if(!$notify_url) $notify_url = PRE_URL.'/notify.php';
+
+        // 读取PC端支付配置
+        $appinfo = \app\common\System::appinfo($aid, 'pc');
+        if(empty($appinfo) || empty($appinfo['wxpay_mchid'])){
+            return ['status'=>0,'msg'=>'PC端微信支付未配置商户号'];
+        }
+        if(empty($appinfo['wxpay_mchkey_v3'])){
+            return ['status'=>0,'msg'=>'PC端微信支付未配置APIv3密钥'];
+        }
+        if(empty($appinfo['wxpay_apiclient_key'])){
+            return ['status'=>0,'msg'=>'PC端微信支付未配置商户API私钥'];
+        }
+        if(empty($appinfo['wxpay_serial_no'])){
+            return ['status'=>0,'msg'=>'PC端微信支付未配置商户证书序列号'];
+        }
+        $wxpay_appid = $appinfo['wxpay_appid'] ?: $appinfo['appid'];
+        if(empty($wxpay_appid)){
+            return ['status'=>0,'msg'=>'PC端微信支付未配置AppID'];
+        }
+
+        // 生成支付交易流水
+        $pay_transaction = \app\common\Common::createPayTransaction($aid, $ordernum, $tablename);
+        if(!$pay_transaction){
+            return ['status'=>0,'msg'=>'生成交易流水失败'];
+        }
+        $ordernum = $pay_transaction['transaction_num'];
+
+        try {
+            // 加载商户API私钥
+            $merchantPrivateKey = file_get_contents(ROOT_PATH . $appinfo['wxpay_apiclient_key']);
+            if(empty($merchantPrivateKey)){
+                return ['status'=>0,'msg'=>'无法读取商户API私钥文件'];
+            }
+            $merchantPrivateKeyInstance = Rsa::from($merchantPrivateKey, Rsa::KEY_TYPE_PRIVATE);
+
+            // 根据sign_type构造V3客户端实例
+            $certs = [];
+            $serial = '';
+            if($appinfo['sign_type'] == 1){
+                // 使用微信支付公钥
+                if(empty($appinfo['public_key_id']) || empty($appinfo['public_key_pem'])){
+                    return ['status'=>0,'msg'=>'PC端微信支付未配置支付公钥'];
+                }
+                $publicKeyContent = file_get_contents($appinfo['public_key_pem']);
+                if(empty($publicKeyContent)){
+                    return ['status'=>0,'msg'=>'无法读取微信支付公钥文件'];
+                }
+                $platformPublicKeyInstance = Rsa::from($publicKeyContent, Rsa::KEY_TYPE_PUBLIC);
+                $certs[$appinfo['public_key_id']] = $platformPublicKeyInstance;
+                $serial = $appinfo['public_key_id'];
+            } else {
+                // 使用平台证书
+                if(empty($appinfo['wxpay_wechatpay_pem'])){
+                    return ['status'=>0,'msg'=>'PC端微信支付未配置平台证书'];
+                }
+                $platCertContent = file_get_contents(ROOT_PATH . $appinfo['wxpay_wechatpay_pem']);
+                if(empty($platCertContent)){
+                    return ['status'=>0,'msg'=>'无法读取微信支付平台证书文件'];
+                }
+                $platformPublicKeyInstance = Rsa::from($platCertContent, Rsa::KEY_TYPE_PUBLIC);
+                if(!empty($appinfo['wxpay_plate_serialno'])){
+                    $platformCertificateSerial = $appinfo['wxpay_plate_serialno'];
+                } else {
+                    $platformCertificateSerial = PemUtil::parseCertificateSerialNo($platCertContent);
+                }
+                $certs[$platformCertificateSerial] = $platformPublicKeyInstance;
+                $serial = $platformCertificateSerial;
+            }
+
+            // 构造APIv3客户端实例
+            $instance = Builder::factory([
+                'mchid'      => $appinfo['wxpay_mchid'],
+                'serial'     => $appinfo['wxpay_serial_no'],
+                'privateKey' => $merchantPrivateKeyInstance,
+                'Wechatpay-Serial' => $serial,
+                'certs'      => $certs,
+            ]);
+
+            // attach 参数：aid:tablename:pc:bid
+            $attach = $aid . ':' . $tablename . ':pc:' . $bid;
+
+            // 构建V3 Native下单请求参数
+            $params = [
+                'appid'        => $wxpay_appid,
+                'mchid'        => $appinfo['wxpay_mchid'],
+                'description'  => $title,
+                'out_trade_no' => $ordernum,
+                'notify_url'   => $notify_url,
+                'attach'       => $attach,
+                'amount'       => [
+                    'total'    => intval(bcmul($price, 100, 0)),
+                    'currency' => 'CNY',
+                ],
+            ];
+
+            Log::write(['pc_wxpay_v3_native_request' => $params], 'info');
+
+            // 发起V3 Native下单请求
+            $resp = $instance->chain('v3/pay/transactions/native')->post(['json' => $params]);
+            $statusCode = $resp->getStatusCode();
+            $body = json_decode($resp->getBody(), true);
+
+            Log::write(['pc_wxpay_v3_native_response' => ['status_code' => $statusCode, 'body' => $body]], 'info');
+
+            if($statusCode == 200 && !empty($body['code_url'])){
+                // 将code_url生成二维码图片
+                $qrcodeUrl = createqrcode($body['code_url']);
+                return ['status'=>1,'data'=>['pay_wx_qrcode_url'=>$qrcodeUrl]];
+            } else {
+                $errMsg = $body['message'] ?? '微信V3 Native下单失败';
+                return ['status'=>0,'msg'=>$errMsg];
+            }
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            if($e->hasResponse()){
+                $errBody = json_decode($e->getResponse()->getBody(), true);
+                Log::write(['pc_wxpay_v3_native_error' => $errBody], 'error');
+                return ['status'=>0,'msg'=>$errBody['message'] ?? '微信V3请求异常'];
+            }
+            Log::write(['pc_wxpay_v3_native_exception' => $e->getMessage()], 'error');
+            return ['status'=>0,'msg'=>'微信V3请求异常：'.$e->getMessage()];
+        } catch (\Exception $e) {
+            Log::write(['pc_wxpay_v3_native_exception' => $e->getMessage()], 'error');
+            return ['status'=>0,'msg'=>'微信V3支付异常：'.$e->getMessage()];
+        }
+    }
+
 	//创建微支付参数H5 QQ小程序
 	public static function build_qq($aid,$bid,$mid,$title,$ordernum,$price,$tablename,$notify_url=''){
 		if(!$notify_url) $notify_url = PRE_URL.'/notify.php';

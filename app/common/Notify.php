@@ -114,7 +114,15 @@ class Notify
         if($xml && strpos($xml,'prod_mode') > 0 && strpos($xml,'type') > 0 && strpos($xml,'object') && strpos($xml,'data') > 0){
             $this->adapay();die;
         }
-        
+
+        // 微信支付V3回调检测（JSON格式 + Wechatpay-Signature头）
+        $header = request()->header();
+        if($xml && !empty($header['wechatpay-signature']) && !empty($header['wechatpay-serial'])){
+            $jsonBody = json_decode($xml, true);
+            if($jsonBody && isset($jsonBody['resource'])){
+                $this->wxpayV3Notify($xml, $header);die;
+            }
+        }
 		
 		if(!$xml) die('fail');
 		libxml_disable_entity_loader(true);
@@ -1530,6 +1538,172 @@ class Notify
 			}
 		}
 	}
+
+    /**
+     * 微信支付V3回调处理
+     * @param string $inBody 原始请求体JSON
+     * @param array $header 请求头
+     */
+    private function wxpayV3Notify($inBody, $header){
+        Log::write(['wxpayV3Notify start', 'body' => $inBody], 'info');
+
+        // 先从JSON中提取attach信息（未加密的summary或从resource中尝试）
+        $inBodyArray = json_decode($inBody, true);
+        if(!$inBodyArray || !isset($inBodyArray['resource'])){
+            Log::write('wxpayV3Notify: invalid body', 'error');
+            echo json_encode(['code' => 'FAIL', 'message' => 'invalid body']); return;
+        }
+
+        // 解密resource获取业务数据（需要先确定aid和platform来获取apiv3key）
+        // V3回调的summary中不含attach，需要先尝试从attach或数据库获取
+        // 策略：先用resource.associated_data判断，或遍历可能的配置
+        // 由于PC端V3回调只有一个来源(admin_setapp_pc)，先尝试该配置
+        $resource = $inBodyArray['resource'];
+        $ciphertext = $resource['ciphertext'] ?? '';
+        $nonce = $resource['nonce'] ?? '';
+        $aad = $resource['associated_data'] ?? '';
+
+        // 尝试从admin_setapp_pc获取V3密钥解密
+        $pcConfigs = Db::name('admin_setapp_pc')->where('wxpay', 1)->select()->toArray();
+        $decryptedData = null;
+        $matchedConfig = null;
+
+        foreach($pcConfigs as $pcConf){
+            if(empty($pcConf['wxpay_mchkey_v3'])) continue;
+            try {
+                $apiv3Key = $pcConf['wxpay_mchkey_v3'];
+                $decrypted = AesGcm::decrypt($ciphertext, $apiv3Key, $nonce, $aad);
+                $decryptedData = json_decode($decrypted, true);
+                if($decryptedData && isset($decryptedData['out_trade_no'])){
+                    $matchedConfig = $pcConf;
+                    break;
+                }
+            } catch(\Exception $e){
+                continue;
+            }
+        }
+
+        if(!$decryptedData || !$matchedConfig){
+            Log::write('wxpayV3Notify: decrypt failed or no matching config', 'error');
+            echo json_encode(['code' => 'FAIL', 'message' => 'decrypt failed']); return;
+        }
+
+        Log::write(['wxpayV3Notify decrypted', $decryptedData], 'info');
+
+        // 验签
+        $inWechatpaySignature = $header['wechatpay-signature'] ?? '';
+        $inWechatpayTimestamp = $header['wechatpay-timestamp'] ?? '';
+        $inWechatpaySerial = $header['wechatpay-serial'] ?? '';
+        $inWechatpayNonce = $header['wechatpay-nonce'] ?? '';
+
+        if(!$inWechatpaySignature || !$inWechatpayTimestamp || !$inWechatpaySerial || !$inWechatpayNonce){
+            Log::write('wxpayV3Notify: missing signature headers', 'error');
+            echo json_encode(['code' => 'FAIL', 'message' => 'missing headers']); return;
+        }
+
+        // 根据sign_type获取公钥验签
+        try {
+            if($matchedConfig['sign_type'] == 0){
+                // 平台证书
+                $platPem = file_get_contents(ROOT_PATH . $matchedConfig['wxpay_wechatpay_pem']);
+                $publicKey = Rsa::from($platPem, Rsa::KEY_TYPE_PUBLIC);
+            } else {
+                // 支付公钥
+                $pubKeyPem = file_get_contents($matchedConfig['public_key_pem']);
+                $publicKey = Rsa::from($pubKeyPem, Rsa::KEY_TYPE_PUBLIC);
+            }
+
+            $timeOffsetStatus = 300 >= abs(Formatter::timestamp() - (int)$inWechatpayTimestamp);
+            $verifiedStatus = Rsa::verify(
+                Formatter::joinedByLineFeed($inWechatpayTimestamp, $inWechatpayNonce, $inBody),
+                $inWechatpaySignature,
+                $publicKey
+            );
+
+            if(!$timeOffsetStatus || !$verifiedStatus){
+                Log::write('wxpayV3Notify: signature verify failed', 'error');
+                echo json_encode(['code' => 'FAIL', 'message' => 'verify failed']); return;
+            }
+        } catch(\Exception $e){
+            Log::write(['wxpayV3Notify: verify exception', $e->getMessage()], 'error');
+            echo json_encode(['code' => 'FAIL', 'message' => 'verify exception']); return;
+        }
+
+        // 检查交易状态
+        if(($decryptedData['trade_state'] ?? '') !== 'SUCCESS'){
+            Log::write(['wxpayV3Notify: trade_state not SUCCESS', $decryptedData['trade_state'] ?? ''], 'info');
+            echo json_encode(['code' => 'SUCCESS', 'message' => '成功']); return;
+        }
+
+        // 解析attach: aid:tablename:platform:bid
+        $attach = explode(':', $decryptedData['attach'] ?? '');
+        $aid = intval($attach[0] ?? 0);
+        $tablename = $attach[1] ?? '';
+        $platform = $attach[2] ?? 'pc';
+        $bid = intval($attach[3] ?? 0);
+
+        if(!$aid || !$tablename){
+            Log::write('wxpayV3Notify: invalid attach', 'error');
+            echo json_encode(['code' => 'FAIL', 'message' => 'invalid attach']); return;
+        }
+
+        define('aid', $aid);
+
+        $out_trade_no = $decryptedData['out_trade_no'] ?? '';
+        $transaction_id = $decryptedData['transaction_id'] ?? '';
+        $total_fee = intval($decryptedData['amount']['total'] ?? 0); // 单位：分
+
+        // 更新交易流水
+        $trade_no = explode('D', $out_trade_no);
+        $payorder = Db::name('payorder')->where(['aid' => $aid, 'type' => $tablename, 'ordernum' => $trade_no[0]])->find();
+
+        if($bid){
+            Db::name('payorder')->where('id', $payorder['id'])->update(['isbusinesspay' => 1]);
+            if(isset($trade_no[1]) && $trade_no[1]){
+                Db::name('pay_transaction')->where(['aid' => $aid, 'type' => $tablename, 'payorderid' => $payorder['id']])->update(['isbusinesspay' => 1]);
+            }
+        }
+
+        // 记录支付日志
+        $paymoney = $total_fee * 0.01;
+        $data = [
+            'aid' => $aid,
+            'mid' => $payorder['mid'] ?? 0,
+            'openid' => $decryptedData['payer']['openid'] ?? '',
+            'tablename' => $tablename,
+            'givescore' => $this->givescore,
+            'ordernum' => $out_trade_no,
+            'mch_id' => $decryptedData['mchid'] ?? '',
+            'transaction_id' => $transaction_id,
+            'total_fee' => $paymoney,
+            'createtime' => time(),
+            'platform' => $platform,
+            'bid' => $bid,
+        ];
+
+        $wxpay_log = Db::name('wxpay_log')->where('transaction_id', $transaction_id)->where('ordernum', $out_trade_no)->where('aid', $aid)->field('id')->find();
+        if($wxpay_log){
+            Log::write('wxpayV3Notify: wxpay_log duplicate');
+        } else {
+            Db::name('wxpay_log')->insert($data);
+        }
+
+        // 设置订单支付状态
+        $rs = $this->setorder($tablename, $out_trade_no, $transaction_id, $total_fee, '微信支付', 2, 8);
+        if($rs['status'] == 1){
+            \app\common\Member::uplv($aid, $payorder['mid'] ?? 0);
+        }
+
+        // 退款处理
+        if($rs['status'] == 2){
+            $refundPayorder = $rs['payorder'];
+            \app\common\Wxpay::refund_v3($aid, $platform, $refundPayorder['ordernum'], $refundPayorder['money'], $paymoney, $rs['msg']);
+        }
+
+        // V3回调成功响应（JSON格式）
+        echo json_encode(['code' => 'SUCCESS', 'message' => '成功']);
+        return;
+    }
 
     /**
      * @param $tablename

@@ -159,6 +159,22 @@ var Pay = (function(){
                 window.open(data.redirect_url, '_blank');
                 startPolling(ordernum);
                 showPollingStatus();
+            } else if(data.pay_method === 'form'){
+                // 支付宝电脑网站支付：新窗口渲柳表单HTML并自动提交
+                var formHtml = data.form_html || '';
+                if(formHtml){
+                    var payWin = window.open('', '_blank');
+                    if(payWin){
+                        payWin.document.write(formHtml);
+                        payWin.document.close();
+                    } else {
+                        showToast('请允许弹出窗口后重试', 'warning');
+                        resetConfirmBtn();
+                        return;
+                    }
+                }
+                startPolling(ordernum);
+                showPollingStatus();
             } else if(data.pay_method === 'jsapi'){
                 callJsapiPay(data.jsapi_params, ordernum);
             } else {
