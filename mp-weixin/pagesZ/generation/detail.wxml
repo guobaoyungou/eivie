@@ -18,7 +18,8 @@
     <view class="price-row">
       <view class="price-info">
         <text class="price-label">价格：</text>
-        <text class="price">¥{{detail.price}}</text>
+        <text class="price score-price" wx:if="{{detail.score_pay_enabled}}">{{detail.price_in_score}} 积分</text>
+        <text class="price" wx:else>¥{{detail.price}}</text>
         <text class="price-unit">{{detail.price_unit_text}}</text>
       </view>
       <view wx:if="{{detail.is_member_price}}" class="member-tag">会员价</view>
@@ -37,7 +38,8 @@
   <view class="bottom-bar">
     <view class="price-display">
       <text class="total-label">合计：</text>
-      <text class="total-price">¥{{detail.price}}</text>
+      <text class="total-price score-price" wx:if="{{detail.score_pay_enabled}}">{{detail.price_in_score}} 积分</text>
+      <text class="total-price" wx:else>¥{{detail.price}}</text>
     </view>
     <view class="btn-primary" bindtap="goCreate">立即使用</view>
   </view>

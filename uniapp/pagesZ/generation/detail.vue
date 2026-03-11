@@ -19,7 +19,8 @@
 			<view class="price-row">
 				<view class="price-info">
 					<text class="price-label">价格：</text>
-					<text class="price">¥{{detail.price}}</text>
+					<text class="price score-price" v-if="detail.score_pay_enabled">{{detail.price_in_score}} 积分</text>
+					<text class="price" v-else>¥{{detail.price}}</text>
 					<text class="price-unit">{{detail.price_unit_text}}</text>
 				</view>
 				<view v-if="detail.is_member_price" class="member-tag">会员价</view>
@@ -38,7 +39,8 @@
 		<view class="bottom-bar">
 			<view class="price-display">
 				<text class="total-label">合计：</text>
-				<text class="total-price">¥{{detail.price}}</text>
+				<text class="total-price score-price" v-if="detail.score_pay_enabled">{{detail.price_in_score}} 积分</text>
+				<text class="total-price" v-else>¥{{detail.price}}</text>
 			</view>
 			<view class="btn-primary" @tap="goCreate">立即使用</view>
 		</view>
@@ -137,4 +139,7 @@ export default {
 .total-label { font-size: 28rpx; color: #666; }
 .total-price { font-size: 40rpx; color: #FF6B00; font-weight: bold; }
 .btn-primary { background: linear-gradient(135deg, #FF6B00, #FF9500); color: #fff; font-size: 32rpx; font-weight: bold; padding: 24rpx 60rpx; border-radius: 44rpx; }
+
+/* 积分价格 */
+.score-price { color: #FF6B00; }
 </style>

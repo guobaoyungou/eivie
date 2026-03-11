@@ -50,7 +50,17 @@ Page({
     idPhotoGuideShownMap: {},
     idPhotoTypeName: '',
     idPhotoCorrectTips: [],
-    idPhotoWrongTips: []
+    idPhotoWrongTips: [],
+    // 余额/积分不足弹窗
+    showInsufficientPopup: false,
+    insufficientType: '', // balance_insufficient / score_insufficient
+    insufficientTitle: '',
+    insufficientMsg: '',
+    insufficientBtnText: '',
+    insufficientExtra: {},
+    // 积分模式
+    scorePayEnabled: false,
+    priceInScore: 0
   },
 
   onLoad: function(opt) {
@@ -139,7 +149,9 @@ Page({
           idPhotoTypeName: detail.id_photo_type_name || '',
           idPhotoCorrectTips: idPhotoTips.correct,
           idPhotoWrongTips: idPhotoTips.wrong,
-          totalPrice: that.data.generationType == 1 ? (price * defaultQuantity).toFixed(2) : price.toFixed(2)
+          totalPrice: that.data.generationType == 1 ? (price * defaultQuantity).toFixed(2) : price.toFixed(2),
+          scorePayEnabled: detail.score_pay_enabled || false,
+          priceInScore: detail.price_in_score || 0
         });
       } else {
         app.alert(res.msg);
@@ -504,8 +516,48 @@ Page({
           });
         }
       } else {
-        app.alert(res.msg);
+        // 处理余额/积分不足
+        var errorType = res.error_type || 'normal';
+        if (errorType == 'score_insufficient') {
+          var extra = res.extra || {};
+          that.setData({
+            showInsufficientPopup: true,
+            insufficientType: 'score_insufficient',
+            insufficientTitle: '积分不足',
+            insufficientMsg: '当前可用积分 ' + (extra.current_score || 0) + '，本次需要 ' + (extra.required_score || 0) + ' 积分',
+            insufficientBtnText: '购买创作会员',
+            insufficientExtra: extra
+          });
+        } else if (errorType == 'balance_insufficient') {
+          var extra = res.extra || {};
+          that.setData({
+            showInsufficientPopup: true,
+            insufficientType: 'balance_insufficient',
+            insufficientTitle: '余额不足',
+            insufficientMsg: '当前余额 ￥' + (extra.current_balance || 0) + '，还需 ￥' + (extra.need_amount || 0),
+            insufficientBtnText: '去充值',
+            insufficientExtra: extra
+          });
+        } else {
+          app.alert(res.msg);
+        }
       }
     });
+  },
+
+  // 关闭余额/积分不足弹窗
+  closeInsufficientPopup: function() {
+    this.setData({ showInsufficientPopup: false });
+  },
+
+  // 余额/积分不足弹窗主按钮点击
+  onInsufficientAction: function() {
+    this.setData({ showInsufficientPopup: false });
+    if (this.data.insufficientType == 'balance_insufficient') {
+      wx.navigateTo({ url: '/pagesExt/money/recharge' });
+    } else if (this.data.insufficientType == 'score_insufficient') {
+      // 跳转到创作会员购买页（如没有则充值页）
+      wx.navigateTo({ url: '/pagesExt/money/recharge' });
+    }
   }
 });

@@ -36,4 +36,9 @@
 
     --scrollbar-thumb: #4E5969;
     --scrollbar-track: transparent;
+
+    --dropdown-bg: #2a2a2a;
+    --dropdown-border: #3a3a3a;
+    --dropdown-shadow: rgba(0,0,0,0.4);
+    --asset-bg: #1e1e1e;
 }

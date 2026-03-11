@@ -12,6 +12,7 @@
     <!-- 移动端用户区 -->
     <div class="drawer-user">
         <button class="login-btn" onclick="location.href='{:url(\'Backstage/index\')}'">登录 / 注册</button>
+        <!-- 已登录态由 auth.js 动态插入 .drawer-user-info -->
     </div>
 
     <!-- 导航菜单 -->
@@ -49,7 +50,7 @@
         </div>
 
         <div class="nav-item" data-tooltip="资产">
-            <a class="nav-link" href="javascript:;">
+            <a class="nav-link" href="/?s=/index/recharge">
                 <span class="nav-icon">📦</span>
                 <span class="nav-text">资产</span>
             </a>
@@ -58,7 +59,7 @@
         <div class="nav-divider"></div>
 
         <div class="nav-item" data-tooltip="个人中心">
-            <a class="nav-link" href="javascript:;">
+            <a class="nav-link" href="/?s=/index/user_center">
                 <span class="nav-icon">👤</span>
                 <span class="nav-text">个人中心</span>
             </a>

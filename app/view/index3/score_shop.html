@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>积分购买 - {$webinfo.webname}</title>
+    {if $webinfo.ico}<link rel="shortcut icon" type="image/x-icon" href="{$webinfo.ico}">{/if}
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=7">
+    <link rel="stylesheet" href="/static/index3/css/pay.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=6">
+    <script src="/static/index3/js/theme.js?v=1"></script>
+</head>
+<body>
+<div class="layout-wrapper">
+    {include file="index3/public/sidebar"/}
+    <div class="main-content">
+        {include file="index3/public/header"/}
+        <div class="page-content" style="max-width:800px;margin:0 auto;padding:24px 16px">
+            <h2 style="font-size:22px;font-weight:700;margin-bottom:24px;color:var(--text-primary,#333)">⭐ 积分购买</h2>
+
+            <!-- 当前积分 -->
+            <div class="page-card" style="text-align:center;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none">
+                <div style="font-size:13px;opacity:.8">当前积分</div>
+                <div id="currentScore" style="font-size:36px;font-weight:700;margin:8px 0">0</div>
+            </div>
+
+            <!-- 积分档位 -->
+            <div class="page-card">
+                <div class="page-card-title">🛒 选择积分套餐</div>
+                <div class="amount-grid" id="scoreGrid">
+                    <div class="amount-item" style="grid-column:1/-1;text-align:center;color:var(--text-tertiary,#999);padding:30px">加载中...</div>
+                </div>
+            </div>
+
+            <!-- 购买按钮 -->
+            <button class="pay-confirm-btn" id="buyScoreBtn" style="width:100%;margin-top:8px;background:#10b981" disabled>
+                立即购买
+            </button>
+        </div>
+    </div>
+</div>
+{include file="index3/public/tabbar"/}
+
+<script src="/static/index3/js/api.js?v=4"></script>
+<script src="/static/index3/js/auth.js?v=2"></script>
+<script src="/static/index3/js/pay.js?v=1"></script>
+<script src="/static/index3/js/sidebar.js?v=1"></script>
+<script>
+(function(){
+    var selectedPackage = null;
+
+    function init(){
+        if(!Auth.isChecked()){ setTimeout(init, 200); return; }
+        if(!Auth.isLoggedIn()){ location.href = '/?s=/index/index'; return; }
+        var user = Auth.getUser();
+        if(user) document.getElementById('currentScore').textContent = user.score || 0;
+        loadConfig();
+    }
+
+    function loadConfig(){
+        Api.getScoreConfig(function(err, res){
+            if(err || !res || res.status !== 1){
+                document.getElementById('scoreGrid').innerHTML = '<div class="amount-item" style="grid-column:1/-1;text-align:center;color:#ef4444;padding:30px">' + (res && res.msg || '加载失败') + '</div>';
+                return;
+            }
+            renderPackages(res.data);
+        });
+    }
+
+    function renderPackages(data){
+        var levels = data.levels || [];
+        var html = '';
+        for(var i = 0; i < levels.length; i++){
+            var pkg = levels[i];
+            var giveHtml = '';
+            if(pkg.give_score > 0) giveHtml = '额外赠送 ' + pkg.give_score + ' 积分';
+            html += '<div class="amount-item" data-index="' + i + '" data-score="' + pkg.score + '" data-price="' + pkg.price + '">' +
+                '<div class="amount-main"><span>' + pkg.score + '</span><small> 积分</small></div>' +
+                '<div style="font-size:16px;color:var(--color-primary,#6366f1);font-weight:600;margin-top:4px">¥' + pkg.price + '</div>' +
+                (giveHtml ? '<div class="amount-give">' + giveHtml + '</div>' : '') +
+                '</div>';
+        }
+        if(!html) html = '<div class="amount-item" style="grid-column:1/-1;text-align:center;color:var(--text-tertiary,#999);padding:30px">暂无积分套餐</div>';
+        document.getElementById('scoreGrid').innerHTML = html;
+
+        // 绑定选择
+        var items = document.querySelectorAll('.amount-item[data-index]');
+        for(var k = 0; k < items.length; k++){
+            items[k].addEventListener('click', function(){
+                for(var j = 0; j < items.length; j++) items[j].classList.remove('active');
+                this.classList.add('active');
+                selectedPackage = {
+                    score: parseInt(this.getAttribute('data-score')),
+                    price: parseFloat(this.getAttribute('data-price'))
+                };
+                updateBtn();
+            });
+        }
+    }
+
+    function updateBtn(){
+        var btn = document.getElementById('buyScoreBtn');
+        if(selectedPackage && selectedPackage.price > 0){
+            btn.disabled = false;
+            btn.textContent = '立即购买 ¥' + selectedPackage.price.toFixed(2);
+        } else {
+            btn.disabled = true;
+            btn.textContent = '请选择积分套餐';
+        }
+    }
+
+    document.getElementById('buyScoreBtn').addEventListener('click', function(){
+        if(!selectedPackage) return;
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = '创建订单中...';
+        Api.createScoreOrder({score: selectedPackage.score, money: selectedPackage.price}, function(err, res){
+            if(err || !res || res.status !== 1){
+                btn.disabled = false;
+                btn.textContent = '立即购买 ¥' + selectedPackage.price.toFixed(2);
+                alert(res && res.msg || '创建订单失败');
+                return;
+            }
+            Pay.startPay({
+                ordernum: res.data.ordernum,
+                order_type: 'score',
+                amount: selectedPackage.price.toFixed(2),
+                title: '积分购买',
+                onSuccess: function(){
+                    Auth.checkLogin();
+                    setTimeout(function(){ location.reload(); }, 1000);
+                }
+            });
+            btn.disabled = false;
+            btn.textContent = '立即购买 ¥' + selectedPackage.price.toFixed(2);
+        });
+    });
+
+    init();
+})();
+</script>
+</body>
+</html>

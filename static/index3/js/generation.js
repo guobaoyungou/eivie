@@ -361,18 +361,36 @@
             showToast('请输入提示词', 'warning');
             return;
         }
+        var promptText = prompt.value.trim();
+        if(promptText.length < 2){
+            showToast('提示词至少2个字符', 'warning');
+            return;
+        }
+        if(promptText.length > 2000){
+            showToast('提示词不能超过2000个字符', 'warning');
+            return;
+        }
 
-        var formData = {
-            prompt: prompt.value.trim(),
-            model: state.selectedModelId || '',
-            ratio: getPillValue('ratio'),
-            quality: getPillValue('quality')
-        };
+        // 检查是否已选择模型或模板
+        var selectedTemplateId = 0;
+        var activeTemplate = document.querySelector('.gt-item.active');
+        if(activeTemplate){
+            selectedTemplateId = parseInt(activeTemplate.getAttribute('data-template-id')) || 0;
+        }
 
-        if(state.pageType === 'photo'){
-            formData.count = getPillValue('count');
-        } else {
-            formData.duration = getPillValue('duration');
+        if(!state.selectedModelId && !selectedTemplateId){
+            showToast('请选择模型或模板', 'warning');
+            return;
+        }
+
+        // 检查登录状态
+        if(window.Auth && Auth.isChecked && Auth.isChecked() && !Auth.isLoggedIn()){
+            if(typeof Auth.showLogin === 'function'){
+                Auth.showLogin(function(){ handleGenerate(); });
+            } else {
+                showToast('请先登录后再生成', 'warning');
+            }
+            return;
         }
 
         // 显示加载状态
@@ -382,17 +400,84 @@
             btn.innerHTML = '<span class="gf-submit-text">生成中...</span>';
         }
 
-        // TODO: 调用API提交生成任务
-        console.log('生成请求:', state.pageType, formData);
+        // 如果有参考图需要上传，先上传后再提交
+        if(state.uploadedFile){
+            Api.uploadImage(state.uploadedFile, function(err, res){
+                if(err || !res || res.status !== 1){
+                    restoreGenerateBtn(btn);
+                    showToast(res && res.msg ? res.msg : '图片上传失败', 'error');
+                    return;
+                }
+                doSubmitGeneration(btn, promptText, selectedTemplateId, [res.url]);
+            });
+        } else {
+            doSubmitGeneration(btn, promptText, selectedTemplateId, []);
+        }
+    }
 
-        // 模拟异步请求
-        setTimeout(function(){
-            if(btn){
-                btn.disabled = false;
-                btn.innerHTML = '<span class="gf-submit-text">✨ 立即生成</span>';
+    function doSubmitGeneration(btn, promptText, selectedTemplateId, refImageUrls){
+        var postData = {
+            prompt: promptText,
+            generation_type: state.pageType === 'photo' ? 1 : 2,
+            ratio: getPillValue('ratio'),
+            quality: getPillValue('quality')
+        };
+
+        // 确定是模板驱动还是模型直选
+        if(selectedTemplateId > 0){
+            postData.template_id = selectedTemplateId;
+        } else {
+            postData.template_id = 0;
+            postData.model_id = state.selectedModelId;
+        }
+
+        if(state.pageType === 'photo'){
+            var countVal = getPillValue('count');
+            if(countVal) postData.quantity = countVal;
+        }
+
+        if(refImageUrls && refImageUrls.length > 0){
+            postData.ref_images = refImageUrls;
+        }
+
+        Api.createGenerationOrder(postData, function(err, res){
+            restoreGenerateBtn(btn);
+
+            if(err){
+                showToast('网络错误，请重试', 'error');
+                return;
             }
-            showToast('生成任务已提交', 'success');
-        }, 2000);
+
+            if(!res || res.status !== 1){
+                var msg = (res && res.msg) ? res.msg : '提交失败';
+                // 未登录检测
+                if(msg.indexOf('登录') > -1 || msg.indexOf('登陆') > -1){
+                    if(window.Auth && typeof Auth.showLogin === 'function'){
+                        Auth.showLogin(function(){ handleGenerate(); });
+                    } else {
+                        showToast(msg, 'warning');
+                    }
+                    return;
+                }
+                showToast(msg, 'error');
+                return;
+            }
+
+            // 成功
+            showToast('生成任务已提交！', 'success');
+
+            // 如果需要支付，引导支付流程
+            if(res.data && res.data.need_pay){
+                showToast('请完成支付后查看生成结果', 'info');
+            }
+        });
+    }
+
+    function restoreGenerateBtn(btn){
+        if(btn){
+            btn.disabled = false;
+            btn.innerHTML = '<span class="gf-submit-text">✨ 立即生成</span>';
+        }
     }
 
     // ====================================================
@@ -402,6 +487,11 @@
         document.querySelectorAll('.gt-item').forEach(function(item){
             item.addEventListener('click', function(){
                 var templateId = this.getAttribute('data-template-id');
+                // 切换选中态
+                document.querySelectorAll('.gt-item').forEach(function(el){
+                    el.classList.remove('active');
+                });
+                this.classList.add('active');
                 if(templateId){
                     loadTemplateData(templateId);
                 }
@@ -410,7 +500,15 @@
     }
 
     function loadTemplateData(templateId){
-        console.log('加载模板ID:', templateId);
+        // 选中模板时清空模型直选
+        state.selectedModelId = null;
+        state.selectedModelName = '';
+        var card = document.getElementById('modelCard');
+        if(card){
+            var textEl = card.querySelector('.gf-model-card-text');
+            if(textEl) textEl.textContent = '选择模型';
+            card.classList.remove('selected');
+        }
         showToast('已选择模板', 'info');
     }
 

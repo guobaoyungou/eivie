@@ -164,7 +164,8 @@ class GenerationService
             'scene_id' => $data['scene_id'] ?? 0,
             'capability_type' => $data['capability_type'] ?? 0,
             'input_params' => $inputParams,
-            'output_type' => $data['generation_type'] == GenerationRecord::TYPE_PHOTO ? 'image' : 'video'
+            'output_type' => $data['generation_type'] == GenerationRecord::TYPE_PHOTO ? 'image' : 'video',
+            'order_id' => $data['order_id'] ?? 0
         ]);
         
         // 直接同步执行生成任务（请求立即处理）
@@ -471,7 +472,24 @@ class GenerationService
             $paramDef = $properties[$key] ?? null;
             $paramType = $paramDef['type'] ?? 'string';
             
-            $body[$key] = $this->convertParamValue($value, $paramType);
+            $converted = $this->convertParamValue($value, $paramType);
+            
+            // 枚举类型校验：若值不在 options 列表中，回退到 schema 默认值
+            if ($paramDef && ($paramType === 'enum') && !empty($paramDef['options']) && is_array($paramDef['options'])) {
+                if (!in_array($converted, $paramDef['options'], true) && !in_array((string)$converted, $paramDef['options'], true)) {
+                    $fallback = $paramDef['default'] ?? null;
+                    if ($fallback !== null) {
+                        \think\facade\Log::info('buildRequestBody: 参数 ' . $key . ' 值 "' . $converted . '" 不在枚举选项中，回退到默认值 "' . $fallback . '"', [
+                            'options' => $paramDef['options'],
+                            'original_value' => $converted,
+                            'default_value' => $fallback
+                        ]);
+                        $converted = $fallback;
+                    }
+                }
+            }
+            
+            $body[$key] = $converted;
         }
         
         // 特殊处理：豆包SeeDream 的 image 参数
@@ -1813,6 +1831,42 @@ class GenerationService
             
             $template = GenerationSceneTemplate::createFromRecord($record, $templateData);
             
+            // 维护模板引用关联：将被引用的用户文件标记为不可删除
+            try {
+                $storageService = new StorageService();
+                $refUrls = [];
+                if (!empty($template->cover_image)) {
+                    $refUrls[] = $template->cover_image;
+                }
+                $defaultParams = $template->default_params;
+                if (is_string($defaultParams)) {
+                    $defaultParams = json_decode($defaultParams, true) ?: [];
+                }
+                if (!empty($defaultParams['image_url'])) {
+                    $refUrls[] = $defaultParams['image_url'];
+                }
+                if (!empty($defaultParams['ref_image'])) {
+                    $refUrls[] = $defaultParams['ref_image'];
+                }
+                // 多张参考图
+                if (!empty($defaultParams['ref_images']) && is_array($defaultParams['ref_images'])) {
+                    $refUrls = array_merge($refUrls, $defaultParams['ref_images']);
+                }
+                $mid = 0;
+                if ($record->order_id > 0) {
+                    $orderRow = Db::name('generation_order')->where('id', $record->order_id)->field('mid')->find();
+                    $mid = intval($orderRow['mid'] ?? 0);
+                }
+                if ($mid <= 0 && $record->uid > 0) {
+                    $mid = $record->uid;
+                }
+                if (!empty($refUrls) && $mid > 0) {
+                    $storageService->updateTemplateRefByUrls($template->id, array_unique($refUrls), $mid);
+                }
+            } catch (\Exception $e) {
+                Log::warning('convertToTemplate 模板引用关联失败: ' . $e->getMessage());
+            }
+            
             Db::commit();
             
             return [
@@ -2278,6 +2332,20 @@ class GenerationService
             $id = Db::name('generation_scene_template')->insertGetId($saveData);
         }
         
+        // 视频类型模板：自动将视频封面转换为GIF（异步不阻塞保存）
+        $genType = $data['generation_type'] ?? ($saveData['generation_type'] ?? 0);
+        $coverUrl = $saveData['cover_image'] ?? '';
+        if (intval($genType) == 2 && !empty($coverUrl) && $this->isVideoUrl($coverUrl)) {
+            try {
+                $this->generateGifCover($id, $coverUrl);
+            } catch (\Exception $e) {
+                Log::warning('saveTemplate: 自动生成GIF封面失败', [
+                    'template_id' => $id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+        
         return ['status' => 1, 'msg' => '保存成功', 'id' => $id];
     }
     
@@ -2400,8 +2468,251 @@ class GenerationService
             return ['status' => 0, 'msg' => '模板不存在'];
         }
         
+        // 移除模板引用关联
+        try {
+            $storageService = new StorageService();
+            $storageService->removeTemplateRefs($templateId);
+        } catch (\Exception $e) {
+            Log::warning('deleteTemplate 移除模板引用失败: ' . $e->getMessage());
+        }
+        
         $template->delete();
         return ['status' => 1, 'msg' => '删除成功'];
+    }
+    
+    /**
+     * 检查URL是否为视频文件
+     * @param string $url
+     * @return bool
+     */
+    public function isVideoUrl($url)
+    {
+        if (empty($url)) return false;
+        $parsed = parse_url(strtolower($url), PHP_URL_PATH);
+        if (!$parsed) return false;
+        $ext = pathinfo($parsed, PATHINFO_EXTENSION);
+        return in_array($ext, ['mp4', 'webm', 'mov', 'avi', 'mkv', 'flv', 'm4v']);
+    }
+    
+    /**
+     * 将视频封面转换为GIF动画（前30帧）并存储
+     * 使用FFmpeg提取视频前30帧，缩放到300px宽，10fps，生成优化的GIF
+     * 
+     * @param int $templateId 模板ID
+     * @param string $videoUrl 视频URL
+     * @return string|false GIF的URL，失败返回false
+     */
+    public function generateGifCover($templateId, $videoUrl)
+    {
+        // 检柡 ffmpeg 是否可用
+        $ffmpegPath = $this->findFfmpeg();
+        if (!$ffmpegPath) {
+            Log::warning('generateGifCover: FFmpeg未安装，无法生成GIF封面');
+            return false;
+        }
+        
+        $tempDir = defined('ROOT_PATH') ? ROOT_PATH . 'runtime/temp/gif/' : sys_get_temp_dir() . '/gif/';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0777, true);
+        }
+        
+        $uniqueId = md5($videoUrl . $templateId . time() . mt_rand());
+        $tempVideo = $tempDir . 'src_' . $uniqueId . '.mp4';
+        $tempPalette = $tempDir . 'palette_' . $uniqueId . '.png';
+        $tempGif = $tempDir . 'cover_' . $uniqueId . '.gif';
+        
+        try {
+            // 1. 下载视频到临时文件
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $videoUrl,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS => 5,
+                CURLOPT_TIMEOUT => 120,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+            ]);
+            $videoContent = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($videoContent === false || $httpCode != 200 || empty($videoContent)) {
+                Log::warning('generateGifCover: 视频下载失败', ['url' => substr($videoUrl, 0, 100), 'httpCode' => $httpCode]);
+                return false;
+            }
+            
+            @file_put_contents($tempVideo, $videoContent);
+            unset($videoContent); // 释放内存
+            
+            if (!file_exists($tempVideo) || filesize($tempVideo) < 1000) {
+                Log::warning('generateGifCover: 视频文件过小或不存在');
+                @unlink($tempVideo);
+                return false;
+            }
+            
+            // 2. 生成调色板（优化GIF色彩质量）
+            $paletteCmd = sprintf(
+                '%s -i %s -vf "fps=10,scale=300:-1:flags=lanczos,palettegen=max_colors=128" -frames:v 1 -y %s 2>&1',
+                escapeshellarg($ffmpegPath),
+                escapeshellarg($tempVideo),
+                escapeshellarg($tempPalette)
+            );
+            exec($paletteCmd, $paletteOutput, $paletteRetCode);
+            
+            // 3. 用调色板生成高质量GIF（前30帧，10fps，宽300px）
+            if ($paletteRetCode === 0 && file_exists($tempPalette)) {
+                $gifCmd = sprintf(
+                    '%s -i %s -i %s -lavfi "fps=10,scale=300:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3" -frames:v 30 -loop 0 -y %s 2>&1',
+                    escapeshellarg($ffmpegPath),
+                    escapeshellarg($tempVideo),
+                    escapeshellarg($tempPalette),
+                    escapeshellarg($tempGif)
+                );
+            } else {
+                // 调色板失败，直接生成GIF（质量稍差）
+                $gifCmd = sprintf(
+                    '%s -i %s -vf "fps=10,scale=300:-1:flags=lanczos" -frames:v 30 -loop 0 -y %s 2>&1',
+                    escapeshellarg($ffmpegPath),
+                    escapeshellarg($tempVideo),
+                    escapeshellarg($tempGif)
+                );
+            }
+            
+            exec($gifCmd, $gifOutput, $gifRetCode);
+            
+            if ($gifRetCode !== 0 || !file_exists($tempGif) || filesize($tempGif) < 100) {
+                Log::warning('generateGifCover: FFmpeg生成GIF失败', [
+                    'returnCode' => $gifRetCode,
+                    'output' => implode("\n", array_slice($gifOutput, -5))
+                ]);
+                @unlink($tempVideo);
+                @unlink($tempPalette);
+                @unlink($tempGif);
+                return false;
+            }
+            
+            // 4. 上传GIF到云存储
+            $aid = Db::name('generation_scene_template')->where('id', $templateId)->value('aid') ?: (defined('aid') ? aid : 0);
+            
+            // 复制到upload目录
+            $uploadDir = 'upload/generation_template/' . $aid . '/' . date('Ym') . '/';
+            $localDir = defined('ROOT_PATH') ? ROOT_PATH . $uploadDir : $uploadDir;
+            if (!is_dir($localDir)) {
+                @mkdir($localDir, 0777, true);
+            }
+            
+            $gifFilename = 'gif_cover_' . $uniqueId . '.gif';
+            $localPath = $localDir . $gifFilename;
+            @copy($tempGif, $localPath);
+            
+            // 上传到OSS/COS
+            $gifUrl = '';
+            if (defined('PRE_URL')) {
+                $localUrl = PRE_URL . '/' . $uploadDir . $gifFilename;
+                $gifUrl = \app\common\Pic::uploadoss($localUrl);
+                if ($gifUrl === false) {
+                    $gifUrl = $localUrl; // OSS失败时使用本地URL
+                }
+            } else {
+                $gifUrl = '/' . $uploadDir . $gifFilename;
+            }
+            
+            // 5. 更新数据库
+            if (!empty($gifUrl)) {
+                Db::name('generation_scene_template')->where('id', $templateId)->update([
+                    'gif_cover' => $gifUrl,
+                    'update_time' => time()
+                ]);
+                
+                Log::info('generateGifCover: GIF封面生成成功', [
+                    'template_id' => $templateId,
+                    'gif_size' => filesize($tempGif),
+                    'gif_url' => substr($gifUrl, 0, 100)
+                ]);
+            }
+            
+            // 6. 清理临时文件
+            @unlink($tempVideo);
+            @unlink($tempPalette);
+            @unlink($tempGif);
+            
+            return $gifUrl;
+            
+        } catch (\Exception $e) {
+            @unlink($tempVideo);
+            @unlink($tempPalette);
+            @unlink($tempGif);
+            Log::error('generateGifCover 异常: ' . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 批量为已有视频模板生成GIF封面
+     * 用于迁移已有数据
+     * @param int $limit 每次处理数量
+     * @return array ['processed' => int, 'success' => int, 'failed' => int]
+     */
+    public function batchGenerateGifCovers($limit = 10)
+    {
+        // 查找视频类型模板，cover_image为视频且gif_cover为空
+        $templates = Db::name('generation_scene_template')
+            ->where('generation_type', 2)
+            ->where('status', 1)
+            ->where('gif_cover', '')
+            ->where('cover_image', '<>', '')
+            ->limit($limit)
+            ->select()
+            ->toArray();
+        
+        $processed = 0;
+        $success = 0;
+        $failed = 0;
+        
+        foreach ($templates as $tpl) {
+            if (!$this->isVideoUrl($tpl['cover_image'])) {
+                continue;
+            }
+            $processed++;
+            try {
+                $result = $this->generateGifCover($tpl['id'], $tpl['cover_image']);
+                if ($result) {
+                    $success++;
+                } else {
+                    $failed++;
+                }
+            } catch (\Exception $e) {
+                $failed++;
+                Log::warning('batchGenerateGifCovers: 模板' . $tpl['id'] . '失败: ' . $e->getMessage());
+            }
+        }
+        
+        return ['processed' => $processed, 'success' => $success, 'failed' => $failed];
+    }
+    
+    /**
+     * 查找FFmpeg可执行文件路径
+     * @return string|false
+     */
+    protected function findFfmpeg()
+    {
+        // 尝试常见路径
+        $paths = ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/opt/bin/ffmpeg'];
+        foreach ($paths as $path) {
+            if (file_exists($path) && is_executable($path)) {
+                return $path;
+            }
+        }
+        
+        // 尝试 which 命令
+        $output = [];
+        exec('which ffmpeg 2>/dev/null', $output, $retCode);
+        if ($retCode === 0 && !empty($output[0])) {
+            return trim($output[0]);
+        }
+        
+        return false;
     }
     
     /**

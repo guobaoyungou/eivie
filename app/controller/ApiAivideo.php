@@ -21,6 +21,14 @@ class ApiAivideo extends ApiCommon
     public $mid;
 
     /**
+     * 控制器中间件
+     * 存储空间预检中间件仅在创建生成订单时触发
+     */
+    protected $middleware = [
+        'StorageQuotaCheck' => ['only' => ['create_generation_order']],
+    ];
+
+    /**
      * 初始化
      */
     public function initialize()
@@ -982,6 +990,17 @@ class ApiAivideo extends ApiCommon
             'default_params' => $defaultParams
         ];
         
+        // ===== 积分支付信息 =====
+        $creativeMemberService = new \app\service\CreativeMemberService();
+        $scorePayConfig = $creativeMemberService->getScorePayConfig($this->aid);
+        $result['score_pay_enabled'] = $scorePayConfig['enabled'];
+        $result['score_exchange_rate'] = $scorePayConfig['exchange_rate'];
+        if ($scorePayConfig['enabled'] && floatval($priceInfo['price']) > 0) {
+            $result['price_in_score'] = $creativeMemberService->moneyToScore(floatval($priceInfo['price']), $scorePayConfig['exchange_rate']);
+        } else {
+            $result['price_in_score'] = 0;
+        }
+        
         return jsonEncode([
             'status' => 1,
             'msg' => '获取成功',
@@ -1440,5 +1459,169 @@ class ApiAivideo extends ApiCommon
         }
 
         return jsonEncode(['status' => 1, 'data' => $result]);
+    }
+
+    // =====================================================
+    // 创作会员与积分支付 API
+    // =====================================================
+
+    /**
+     * 获取创作会员套餐列表
+     * GET
+     */
+    public function creative_member_plans()
+    {
+        $service = new \app\service\CreativeMemberService();
+        $result = $service->getPlanList($this->aid, $this->mid ?: 0);
+        return jsonEncode(['status' => 1, 'data' => $result]);
+    }
+
+    /**
+     * 购买创作会员
+     * POST: plan_id, purchase_mode
+     */
+    public function buy_creative_member()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $planId = input('post.plan_id/d', 0);
+        $purchaseMode = input('post.purchase_mode', '');
+
+        if (!$planId) {
+            return jsonEncode(['status' => 0, 'msg' => '请选择套餐']);
+        }
+        if (!in_array($purchaseMode, ['yearly', 'monthly_auto', 'monthly'])) {
+            return jsonEncode(['status' => 0, 'msg' => '购买模式无效']);
+        }
+
+        $service = new \app\service\CreativeMemberService();
+        $result = $service->buyCreativeMember($this->aid, $this->mid, $planId, $purchaseMode);
+        return jsonEncode($result);
+    }
+
+    /**
+     * 获取用户积分与余额信息
+     * GET
+     */
+    public function user_balance_info()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $service = new \app\service\CreativeMemberService();
+        $info = $service->getUserBalanceInfo($this->mid, $this->aid);
+        return jsonEncode(['status' => 1, 'data' => $info]);
+    }
+
+    /**
+     * 每日登录领取积分
+     * POST
+     */
+    public function daily_login_bonus()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $service = new \app\service\CreativeMemberService();
+        $result = $service->dailyLoginBonus($this->aid, $this->mid);
+        return jsonEncode($result);
+    }
+
+    // =================================================================
+    // 云端存储空间管理
+    // =================================================================
+
+    /**
+     * 获取用户存储空间信息
+     * GET
+     */
+    public function user_storage_info()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        try {
+            $service = new \app\service\StorageService();
+            $info = $service->getUserStorageInfo($this->aid, $this->mid);
+            return jsonEncode(['status' => 1, 'msg' => 'success', 'data' => $info]);
+        } catch (\Exception $e) {
+            return jsonEncode(['status' => 0, 'msg' => '获取存储信息失败']);
+        }
+    }
+
+    /**
+     * 获取用户文件列表
+     * GET
+     */
+    public function user_storage_files()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $filters = [
+            'file_type' => input('param.file_type', 'all'),
+            'source_type' => input('param.source_type', 'all'),
+            'page' => input('param.page/d', 1),
+            'limit' => input('param.limit/d', 20),
+        ];
+
+        try {
+            $service = new \app\service\StorageService();
+            $result = $service->getUserStorageFiles($this->aid, $this->mid, $filters);
+            return jsonEncode(['status' => 1, 'msg' => 'success', 'data' => $result]);
+        } catch (\Exception $e) {
+            return jsonEncode(['status' => 0, 'msg' => '获取文件列表失败']);
+        }
+    }
+
+    /**
+     * 删除用户文件
+     * POST
+     */
+    public function delete_storage_file()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $fileIds = input('post.file_ids/a', []);
+        if (empty($fileIds)) {
+            return jsonEncode(['status' => 0, 'msg' => '请选择要删除的文件']);
+        }
+
+        try {
+            $service = new \app\service\StorageService();
+            $result = $service->deleteFiles($this->aid, $this->mid, $fileIds);
+            return jsonEncode($result);
+        } catch (\Exception $e) {
+            return jsonEncode(['status' => 0, 'msg' => '删除失败']);
+        }
+    }
+
+    /**
+     * 存储空间预检
+     * POST
+     */
+    public function check_storage_quota()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+
+        $requiredBytes = input('post.required_bytes/d', 0);
+
+        try {
+            $service = new \app\service\StorageService();
+            $result = $service->checkQuota($this->aid, $this->mid, $requiredBytes);
+            return jsonEncode(['status' => 1, 'msg' => 'success', 'data' => $result]);
+        } catch (\Exception $e) {
+            return jsonEncode(['status' => 0, 'msg' => '配额检查失败']);
+        }
     }
 }

@@ -14,7 +14,8 @@
 					<view class="template-card-item" :class="{active: selectedTemplateId == item.id}" v-for="(item, idx) in filteredTemplateList" :key="item.id" @tap="onSelectTemplate(item)">
 						<image :src="item.cover_image || '/static/img/placeholder.png'" class="template-card-cover" mode="aspectFill"></image>
 						<text class="template-card-name">{{item.template_name}}</text>
-						<text class="template-card-price">¥{{item.price}}</text>
+						<text class="template-card-price" v-if="scorePayEnabled">{{item.price_in_score || '-'}} 积分</text>
+						<text class="template-card-price" v-else>¥{{item.price}}</text>
 					</view>
 				</view>
 			</scroll-view>
@@ -113,7 +114,8 @@
 		<view class="bottom-bar">
 			<view class="price-display">
 				<text class="total-label">合计：</text>
-				<text class="total-price">¥{{totalPrice}}</text>
+				<text class="total-price score-price" v-if="scorePayEnabled">{{totalPriceInScore}} 积分</text>
+				<text class="total-price" v-else>¥{{totalPrice}}</text>
 			</view>
 			<view class="btn-primary" :class="{disabled: submitting || !selectedTemplateId}" @tap="submitGeneration">
 				{{submitting ? '提交中...' : '立即生成'}}
@@ -122,6 +124,17 @@
 		<view style="height: 120rpx;"></view>
 	</block>
 	
+	<!-- 余额/积分不足弹窗 -->
+	<view class="insufficient-mask" v-if="showInsufficientPopup" @tap="closeInsufficientPopup">
+		<view class="insufficient-popup" @tap.stop>
+			<view class="insufficient-icon">{{insufficientType == 'score_insufficient' ? '⭐' : '💰'}}</view>
+			<view class="insufficient-title">{{insufficientTitle}}</view>
+			<view class="insufficient-msg">{{insufficientMsg}}</view>
+			<view class="insufficient-btn" @tap="onInsufficientAction">{{insufficientBtnText}}</view>
+			<view class="insufficient-close" @tap="closeInsufficientPopup">关闭</view>
+		</view>
+	</view>
+
 	<loading v-if="loading"></loading>
 	<!-- #ifdef MP-WEIXIN -->
 	<wxxieyi></wxxieyi>
@@ -160,7 +173,17 @@ export default {
 			],
 			promptVisible: true,
 			showIdPhotoGuide: false,
-			idPhotoGuideShownMap: {}
+			idPhotoGuideShownMap: {},
+			// 余额/积分不足弹窗
+			showInsufficientPopup: false,
+			insufficientType: '',
+			insufficientTitle: '',
+			insufficientMsg: '',
+			insufficientBtnText: '',
+			insufficientExtra: {},
+			// 积分支付模式
+			scorePayEnabled: false,
+			priceInScore: 0
 		};
 	},
 	
@@ -172,6 +195,13 @@ export default {
 				return (price * this.quantity).toFixed(2);
 			}
 			return price.toFixed(2);
+		},
+		totalPriceInScore() {
+			if (!this.priceInScore) return 0;
+			if (this.generationType == 1) {
+				return this.priceInScore * this.quantity;
+			}
+			return this.priceInScore;
 		},
 		filteredTemplateList() {
 			if (!this.searchKeyword) return this.templateList;
@@ -323,6 +353,10 @@ export default {
 				that.showIdPhotoGuide = true;
 			}
 			
+			// 积分支付信息
+			that.scorePayEnabled = detail.score_pay_enabled || false;
+			that.priceInScore = detail.price_in_score || 0;
+			
 			// 设置标题
 			var title = that.generationType == 1 ? '图片生成' : '视频生成';
 			uni.setNavigationBarTitle({ title: title });
@@ -375,6 +409,19 @@ export default {
 			this.showIdPhotoGuide = false;
 		},
 		
+		closeInsufficientPopup() {
+			this.showInsufficientPopup = false;
+		},
+		
+		onInsufficientAction() {
+			this.showInsufficientPopup = false;
+			if (this.insufficientType == 'balance_insufficient') {
+				uni.navigateTo({ url: '/pagesExt/money/recharge' });
+			} else if (this.insufficientType == 'score_insufficient') {
+				uni.navigateTo({ url: '/pagesExt/money/recharge' });
+			}
+		},
+		
 		submitGeneration() {
 			var that = this;
 			
@@ -419,13 +466,33 @@ export default {
 							url: '/pages/pay/pay?ordernum=' + data.ordernum + '&tablename=generation'
 						});
 					} else {
-						// 免费，直接跳到结果页
+						// 免费/积分已支付，直接跳到结果页
 						uni.redirectTo({
 							url: '/pagesZ/generation/result?order_id=' + data.order_id
 						});
 					}
 				} else {
-					app.alert(res.msg);
+					// 处理余额/积分不足
+					var errorType = res.error_type || 'normal';
+					if (errorType == 'score_insufficient') {
+						var extra = res.extra || {};
+						that.showInsufficientPopup = true;
+						that.insufficientType = 'score_insufficient';
+						that.insufficientTitle = '积分不足';
+						that.insufficientMsg = '当前可用积分 ' + (extra.current_score || 0) + '，本次需要 ' + (extra.required_score || 0) + ' 积分';
+						that.insufficientBtnText = '购买创作会员';
+						that.insufficientExtra = extra;
+					} else if (errorType == 'balance_insufficient') {
+						var extra = res.extra || {};
+						that.showInsufficientPopup = true;
+						that.insufficientType = 'balance_insufficient';
+						that.insufficientTitle = '余额不足';
+						that.insufficientMsg = '当前余额 ￥' + (extra.current_balance || 0) + '，还需 ￥' + (extra.need_amount || 0);
+						that.insufficientBtnText = '去充值';
+						that.insufficientExtra = extra;
+					} else {
+						app.alert(res.msg);
+					}
 				}
 			});
 		}
@@ -481,6 +548,18 @@ export default {
 .total-price { font-size: 40rpx; color: #FF6B00; font-weight: bold; }
 .btn-primary { background: linear-gradient(135deg, #FF6B00, #FF9500); color: #fff; font-size: 32rpx; font-weight: bold; padding: 24rpx 60rpx; border-radius: 44rpx; }
 .btn-primary.disabled { opacity: 0.6; }
+
+/* 积分价格 */
+.score-price { color: #FF6B00; }
+
+/* 余额/积分不足弹窗 */
+.insufficient-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+.insufficient-popup { width: 560rpx; background: #fff; border-radius: 24rpx; padding: 50rpx 40rpx; text-align: center; }
+.insufficient-icon { font-size: 80rpx; margin-bottom: 20rpx; }
+.insufficient-title { font-size: 36rpx; font-weight: bold; color: #333; margin-bottom: 16rpx; }
+.insufficient-msg { font-size: 28rpx; color: #666; line-height: 1.6; margin-bottom: 40rpx; }
+.insufficient-btn { background: linear-gradient(135deg, #FF6B00, #FF9500); color: #fff; font-size: 32rpx; font-weight: bold; padding: 24rpx 0; border-radius: 44rpx; margin-bottom: 20rpx; }
+.insufficient-close { font-size: 28rpx; color: #999; padding: 10rpx 0; }
 
 /* 证件照拍照指引弹窗 */
 .guide-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 999; display: flex; align-items: center; justify-content: center; }

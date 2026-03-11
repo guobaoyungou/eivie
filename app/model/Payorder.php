@@ -62,8 +62,12 @@ class Payorder
 		$id = Db::name('payorder')->insertGetId($data);
 		if($type == 'shop_hb' || $type == 'scoreshop_hb' || $type == 'shop_fenqi'){
 			//Db::name('shop_order')->where('ordernum','like',$ordernum.'%')->update(['payorderid'=>$id]);
+		}elseif(in_array($type, ['score_buy','creative_member'])){
+			// 积分购买和创作会员无独立order表，跳过关联更新
 		}else{
-			Db::name($type.'_order')->where('id',$orderid)->update(['payorderid'=>$id]);
+			if($orderid > 0){
+				Db::name($type.'_order')->where('id',$orderid)->update(['payorderid'=>$id]);
+			}
 		}
         //创建新的支付单，关闭旧的支付单
         Db::name('payorder')->where('id','<>',$id)->where('aid',$data['aid'])->where('bid',$data['bid'])->where('orderid',$data['orderid'])->where('type',$data['type'])->where('status',0)->update(['status'=>2]);
@@ -331,6 +335,55 @@ class Payorder
                 \app\common\Member::addServiceFee($payorder['aid'],$payorder['mid'],$payorder['money'],$paytype);
                 return ['status'=>1,'msg'=>''];
             }
+        }elseif($type=='score_buy'){
+            // H5积分购买 - 无独立order表，直接通过payorder记录处理
+            $aid = $payorder['aid'];
+            $mid = $payorder['mid'];
+            $total_score = intval($payorder['score']); // score字段存储的是含赠送的总积分
+            if($total_score > 0){
+                \app\common\Member::addscore($aid, $mid, $total_score, '积分购买');
+            }
+            // 升级等级
+            \app\common\Member::uplv($aid, $mid);
+            return ['status'=>1,'msg'=>''];
+        }elseif($type=='creative_member'){
+            // H5创作会员购买 - 通过payorder记录激活订阅
+            $aid = $payorder['aid'];
+            $mid = $payorder['mid'];
+            try {
+                $service = new \app\service\CreativeMemberService();
+                $plan = null;
+                // 优先通过orderid存储的plan_id查找套餐
+                if(!empty($payorder['orderid'])){
+                    $plan = Db::name('creative_member_plan')
+                        ->where('id', intval($payorder['orderid']))
+                        ->where('status', 1)
+                        ->find();
+                }
+                // 兑容旧订单：通过价格匹配套餐
+                if(!$plan){
+                    $plan = Db::name('creative_member_plan')
+                        ->where('aid', $aid)
+                        ->where('price', $payorder['money'])
+                        ->where('status', 1)
+                        ->find();
+                }
+                if(!$plan){
+                    $plan = Db::name('creative_member_plan')
+                        ->where('price', $payorder['money'])
+                        ->where('status', 1)
+                        ->find();
+                }
+                if($plan){
+                    $subId = $service->activateSubscription($aid, $mid, $plan, $payorder['id']);
+                    Db::name('payorder')->where('id', $payorder['id'])->update(['orderid' => $subId]);
+                } else {
+                    Log::error('创作会员支付回调：找不到匹配套餐, payorder_id='.$payorder['id']);
+                }
+            } catch(\Exception $e) {
+                Log::error('创作会员激活失败: '.$e->getMessage());
+            }
+            return ['status'=>1,'msg'=>''];
         }else{
 			Db::name($type.'_order')->where('id',$payorder['orderid'])->update(['status'=>1,'paytime'=>time(),'paytype'=>$paytype,'paytypeid'=>$paytypeid,'paynum'=>$paynum,'platform'=>$payorder['platform']]);
 		}

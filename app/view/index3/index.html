@@ -13,8 +13,9 @@
     <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
     <!-- 组件CSS -->
     <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=1">
-    <link rel="stylesheet" href="/static/index3/css/index.css?v=3">
-    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=3">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=8">
+    <link rel="stylesheet" href="/static/index3/css/pay.css?v=2">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=6">
     <!-- 主题JS（提前加载防闪烁） -->
     <script src="/static/index3/js/theme.js?v=1"></script>
 </head>
@@ -121,8 +122,9 @@
                     <div class="scene-grid">
                         {if $photo_scenes}
                         {foreach $photo_scenes as $scene}
-                        <div class="scene-card">
+                        <div class="scene-card" data-id="{$scene.id}" data-type="photo">
                             <img class="sc-cover" src="{$scene.cover_image|default='/static/index3/img/placeholder.png'}" alt="{$scene.template_name}" loading="lazy">
+                            <div class="sc-hover-btn">制作同款</div>
                             <div class="sc-info">
                                 <div class="sc-name">{$scene.template_name}</div>
                                 <div class="sc-desc">{$scene.description}</div>
@@ -155,8 +157,17 @@
                     <div class="scene-grid">
                         {if $video_scenes}
                         {foreach $video_scenes as $scene}
-                        <div class="scene-card">
+                        <div class="scene-card" data-id="{$scene.id}" data-type="video">
+                            {if $scene.gif_cover}
+                            <div class="sc-cover-wrap">
+                                <img class="sc-cover" src="{$scene.gif_cover}" alt="{$scene.template_name}" loading="lazy">
+                                <video class="sc-video" src="{$scene.cover_image}" muted loop playsinline preload="none"></video>
+                                <span class="sc-video-badge">▶ 视频</span>
+                            </div>
+                            {else/}
                             <img class="sc-cover" src="{$scene.cover_image|default='/static/index3/img/placeholder.png'}" alt="{$scene.template_name}" loading="lazy">
+                            {/if}
+                            <div class="sc-hover-btn">制作同款</div>
                             <div class="sc-info">
                                 <div class="sc-name">{$scene.template_name}</div>
                                 <div class="sc-desc">{$scene.description}</div>
@@ -210,12 +221,94 @@
     </div>
 </div>
 
+<!-- 底部场景任务弹窗 -->
+<div class="scene-popup-overlay" id="scenePopupOverlay"></div>
+<div class="scene-popup" id="scenePopup">
+    <div class="sp-header">
+        <span class="sp-title">创建生成任务</span>
+        <div class="sp-header-actions">
+            <button class="sp-expand-btn" id="spExpandBtn" title="展开/收起">↕</button>
+            <button class="sp-close-btn" id="spCloseBtn">&times;</button>
+        </div>
+    </div>
+    <div class="sp-body" id="spBody">
+        <div class="sp-loading" id="spLoading"><span class="sp-spinner"></span>加载中...</div>
+        <div id="spContent" style="display:none">
+            <!-- Row 1: 类型标题 -->
+            <div class="sp-row-type" id="spRowType"></div>
+            <!-- Row 2: 提示词 -->
+            <div class="sp-row-prompt">
+                <textarea class="sp-prompt-textarea" id="spPrompt" placeholder="请输入提示词描述您想要生成的内容..."></textarea>
+            </div>
+            <!-- Row 3: 参考图 -->
+            <div class="sp-row-images" id="spRowImages">
+                <div class="sp-image-add" id="spImageAdd" title="添加参考图">+</div>
+            </div>
+            <!-- Row 4: 参数 + 生成 -->
+            <div class="sp-row-params">
+                <div class="sp-param-group" id="spRatioGroup">
+                    <div class="sp-param-label">比例</div>
+                    <div class="sp-param-trigger" id="spRatioTrigger">
+                        <span id="spRatioValue">1:1</span>
+                        <span class="sp-arrow">▼</span>
+                    </div>
+                    <div class="sp-dropdown-panel" id="spRatioPanel"></div>
+                </div>
+                <div class="sp-param-group" id="spQuantityGroup">
+                    <div class="sp-param-label">数量</div>
+                    <div class="sp-param-trigger" id="spQuantityTrigger">
+                        <span id="spQuantityValue">1</span>
+                        <span class="sp-arrow">▼</span>
+                    </div>
+                    <div class="sp-dropdown-panel" id="spQuantityPanel"></div>
+                </div>
+                <button class="sp-submit-btn" id="spSubmitBtn">立即生成</button>
+            </div>
+        </div>
+    </div>
+</div>
+<input type="file" id="spFileInput" accept="image/*" style="display:none">
+
+<!-- 毛玻璃登录弹窗 -->
+<div class="login-modal-overlay" id="loginModalOverlay">
+    <div class="login-modal">
+        <button class="login-modal-close" id="loginModalClose">&times;</button>
+        <div class="login-modal-header">
+            <div class="login-logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="20" fill="var(--accent-color)" opacity=".12"/><path d="M20 10c-5.5 0-10 4.5-10 10s4.5 10 10 10 10-4.5 10-10-4.5-10-10-10zm0 3c1.66 0 3 1.57 3 3.5S21.66 20 20 20s-3-1.57-3-3.5S18.34 13 20 13zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08s5.97 1.09 6 3.08c-1.29 1.94-3.5 3.22-6 3.22z" fill="var(--accent-color)"/></svg>
+            </div>
+            <h3 class="login-modal-title">欢迎登录</h3>
+            <p class="login-modal-subtitle">登录后可使用AI创作功能</p>
+        </div>
+        <div class="login-modal-body">
+            <div class="login-form-group">
+                <div class="login-input-wrap">
+                    <span class="login-input-icon">📱</span>
+                    <input type="tel" class="login-input" id="loginPhone" placeholder="请输入手机号" maxlength="11" autocomplete="tel">
+                </div>
+            </div>
+            <div class="login-form-group">
+                <div class="login-input-wrap login-code-wrap">
+                    <span class="login-input-icon">🔒</span>
+                    <input type="text" class="login-input" id="loginCode" placeholder="请输入验证码" maxlength="6" autocomplete="one-time-code">
+                    <button class="login-send-btn" id="loginSendBtn">获取验证码</button>
+                </div>
+            </div>
+            <div class="login-error" id="loginError"></div>
+            <button class="login-submit-btn" id="loginSubmitBtn">登录 / 注册</button>
+            <p class="login-agreement">登录即表示同意 <a href="javascript:;">用户协议</a> 和 <a href="javascript:;">隐私政策</a></p>
+        </div>
+    </div>
+</div>
+
 <!-- 移动端组件 -->
 {include file="index3/public/tabbar"/}
 
 <!-- JS -->
-<script src="/static/index3/js/api.js?v=2"></script>
+<script src="/static/index3/js/api.js?v=7"></script>
+<script src="/static/index3/js/pay.js?v=2"></script>
+<script src="/static/index3/js/auth.js?v=2"></script>
 <script src="/static/index3/js/sidebar.js?v=1"></script>
-<script src="/static/index3/js/index.js?v=3"></script>
+<script src="/static/index3/js/index.js?v=8"></script>
 </body>
 </html>

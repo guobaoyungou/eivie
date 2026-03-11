@@ -2370,6 +2370,37 @@
 										</div>
 									</div>
 									{/if}
+								  <!-- AI创作积分支付设置 -->
+								  <fieldset class="layui-elem-field layui-field-title" style="margin-top: 30px;">
+									  <legend>AI创作积分支付</legend>
+								  </fieldset>
+									<div class="layui-form-item">
+										<label class="layui-form-label">AI创作积分支付：</label>
+										<div class="layui-input-inline" style="width:70px">
+											<input type="checkbox" name="info[ai_score_pay_status]" value="1" lay-text="开启|关闭" lay-skin="switch" lay-filter="ai_score_pay_status" {if $info['ai_score_pay_status']==1}checked{/if}>
+										</div>
+										<div class="layui-form-mid layui-word-aux">开启后AI创作（图片/视频生成）将以积分方式结算</div>
+									</div>
+									<div id="ai_score_pay_div" {if $info['ai_score_pay_status']!=1}style="display:none"{/if}>
+										<div class="layui-form-item">
+											<label class="layui-form-label">积分兑换比例：</label>
+											<div class="layui-input-inline layui-module-itemL">
+												<div>1积分可抵扣</div>
+												<input type="text" name="info[ai_score_exchange_rate]" class="layui-input" value="{$info.ai_score_exchange_rate|default='0.0100'}">
+												元
+											</div>
+											<div class="layui-form-mid layui-word-aux">如填0.01表示100积分=1元；如填0.1表示10积分=1元</div>
+										</div>
+										<div class="layui-form-item">
+											<label class="layui-form-label">支付模式：</label>
+											<div class="layui-input-inline" style="width:400px">
+												<input type="radio" name="info[ai_score_pay_mode]" title="全额积分支付" value="0" {if !$info['ai_score_pay_mode'] || $info['ai_score_pay_mode']==0}checked{/if}/>
+												<input type="radio" name="info[ai_score_pay_mode]" title="积分优先+余额补足" value="1" {if $info['ai_score_pay_mode']==1}checked{/if}/>
+											</div>
+											<div class="layui-form-mid layui-word-aux">全额积分：仅用积分支付；积分优先+余额补足：积分不足部分使用余额补足</div>
+										</div>
+									</div>
+								  <!-- AI创作积分支付设置 结束 -->
 									{if getcustom('score_transfer') || getcustom('score_friend_transfer')}
 								  <fieldset class="layui-elem-field layui-field-title" style="margin-top: 30px;">
 									  <legend>{:t('积分')}转赠</legend>
@@ -5652,6 +5683,7 @@
 		if(!field['info[withdraw_bankcard]'])  field['info[withdraw_bankcard]'] = 0
 		if(!field['info[withdraw_aliaccount]'])  field['info[withdraw_aliaccount]'] = 0
 		if(!field['info[scorebdkyf]'])  field['info[scorebdkyf]'] = 0
+		if(!field['info[ai_score_pay_status]'])  field['info[ai_score_pay_status]'] = 0
 		if(!field['info[wxkf]'])  field['info[wxkf]'] = 0
 		{if getcustom('teamfenhong_pingji') && ($auth_data == 'all' || in_array('teamfenhong_pingji',$auth_data))}
 		if(!field['info[teamfenhong_differential_pj]'])  field['info[teamfenhong_differential_pj]'] = 0
@@ -5868,6 +5900,15 @@
 				}
 			})	
 		{/if}
+
+		// AI创作积分支付开关
+		layui.form.on('switch(ai_score_pay_status)', function(data){
+			if(data.elem.checked){
+				$('#ai_score_pay_div').show();
+			}else{
+				$('#ai_score_pay_div').hide();
+			}
+		});
 
 		layui.form.on('radio(commission_withdrawfee_fenxiao)', function(data){
 			if(data.value=='0' || data.value=='-1'){

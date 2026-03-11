@@ -1,1 +1,46 @@
-.dp-photo-generation{width:100%;height:auto;position:relative;overflow:hidden;padding:0;background:#fff}
+.dp-photo-generation{width:100%;height:auto;position:relative;overflow:visible;padding:0;background:#fff}
+.grid7-container{display:flex;flex-wrap:wrap;gap:12rpx;width:100%}
+.grid7-card{width:calc((100% - 24rpx) / 3);background:#fff;overflow:hidden;position:relative;border-radius:8rpx}
+.grid7-cover{width:100%;height:0;overflow:hidden;position:relative}
+.grid7-cover-img{position:absolute;top:0;left:0;width:100%;height:100%}
+.grid7-info{padding:8rpx}
+.grid7-name{font-size:22rpx;color:#333;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:32rpx}
+.grid7-price{font-size:22rpx;color:#FF6B00;font-weight:bold;line-height:30rpx}
+.grid7-hover-btn{position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);padding:10rpx 0;opacity:0;pointer-events:none}
+.grid7-hover-btn.grid7-hover-show{opacity:1;pointer-events:auto}
+.grid7-hover-text{color:#fff;font-size:22rpx;font-weight:bold}
+.task-popup-mask{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9998}
+.task-popup{position:fixed;bottom:0;left:0;right:0;background:#fff;border-radius:24rpx 24rpx 0 0;z-index:9999;max-height:40vh;overflow-y:auto;padding:24rpx 30rpx;padding-bottom:calc(24rpx + env(safe-area-inset-bottom));box-shadow:0 -4rpx 20rpx rgba(0,0,0,0.1)}
+.task-popup.task-popup-expanded{max-height:80vh}
+.popup-row{margin-bottom:20rpx}
+.popup-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:16rpx;border-bottom:1rpx solid #f0f0f0}
+.popup-type-title{font-size:32rpx;font-weight:bold;color:#333}
+.popup-header-btns{display:flex;align-items:center;gap:16rpx}
+.popup-btn-expand,.popup-btn-close{width:56rpx;height:56rpx;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#f5f5f5}
+.popup-btn-icon{font-size:28rpx;color:#666}
+.popup-prompt{position:relative}
+.popup-prompt-input{width:100%;min-height:120rpx;font-size:26rpx;color:#333;padding:16rpx;background:#f8f8f8;border-radius:12rpx;line-height:1.6;box-sizing:border-box}
+.popup-prompt-count{position:absolute;bottom:8rpx;right:16rpx;font-size:22rpx;color:#999}
+.popup-upload-label{font-size:26rpx;color:#333;font-weight:bold;margin-bottom:12rpx}
+.popup-upload-area{display:flex;flex-wrap:wrap;gap:12rpx}
+.popup-upload-item{width:120rpx;height:120rpx;border-radius:8rpx;overflow:hidden;position:relative}
+.popup-upload-thumb{width:100%;height:100%}
+.popup-upload-del{position:absolute;top:0;right:0;width:32rpx;height:32rpx;background:rgba(0,0,0,0.5);color:#fff;font-size:20rpx;display:flex;align-items:center;justify-content:center;border-radius:0 0 0 8rpx}
+.popup-upload-add{width:120rpx;height:120rpx;border:2rpx dashed #ddd;border-radius:8rpx;display:flex;align-items:center;justify-content:center}
+.popup-upload-add-icon{font-size:48rpx;color:#ccc}
+.popup-params{display:flex;align-items:center;justify-content:space-between;padding-top:16rpx;border-top:1rpx solid #f0f0f0}
+.popup-param-group{display:flex;gap:16rpx}
+.popup-param-item{display:flex;align-items:center;background:#f5f5f5;border-radius:12rpx;padding:12rpx 20rpx;gap:8rpx}
+.popup-param-label{font-size:24rpx;color:#666}
+.popup-param-value{font-size:24rpx;color:#333;font-weight:bold}
+.popup-param-arrow{font-size:18rpx;color:#999}
+.popup-generate-btn{background:linear-gradient(135deg,#FF6B00,#FF9500);border-radius:40rpx;padding:16rpx 48rpx}
+.popup-generate-btn.popup-generate-disabled{opacity:0.6}
+.popup-generate-text{color:#fff;font-size:28rpx;font-weight:bold}
+.popup-dropdown{position:absolute;bottom:0;left:0;right:0;z-index:10000}
+.popup-dropdown-mask{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3)}
+.popup-dropdown-content{position:relative;background:#fff;border-radius:16rpx 16rpx 0 0;padding:24rpx;z-index:1}
+.popup-dropdown-title{font-size:28rpx;font-weight:bold;color:#333;margin-bottom:16rpx}
+.popup-dropdown-grid{display:flex;flex-wrap:wrap;gap:12rpx}
+.popup-dropdown-item{padding:12rpx 24rpx;border-radius:8rpx;background:#f5f5f5;font-size:24rpx;color:#333}
+.popup-dropdown-item.popup-dropdown-active{background:#FFF0E0;color:#FF6B00;font-weight:bold}

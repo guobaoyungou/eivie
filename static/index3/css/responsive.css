@@ -36,7 +36,7 @@
     .nav-float-sub .nav-link .nav-text { display: inline !important; opacity: 1 !important; width: auto !important; }
 
     .main-content { margin-left: 60px; }
-    .scene-grid { grid-template-columns: repeat(3, 1fr); }
+    .scene-grid { grid-template-columns: repeat(5, 1fr); }
     .model-card { flex: 0 0 200px; }
     .model-tab-card { padding: 8px 14px; }
 }
@@ -47,7 +47,7 @@
     .main-content { margin-left: 10vw; }
     .sidebar.collapsed { width: 60px; min-width: 60px; }
     .sidebar.collapsed ~ .main-content { margin-left: 60px; }
-    .scene-grid { grid-template-columns: repeat(4, 1fr); }
+    .scene-grid { grid-template-columns: repeat(7, 1fr); }
 }
 
 /* ===== Tablet (768px – 1023px) ===== */
@@ -81,7 +81,7 @@
     .header-search { display: none; }
     .header-search-icon-mobile { display: flex; }
 
-    .scene-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .scene-grid { grid-template-columns: repeat(4, 1fr); gap: 12px; }
     .model-card { flex: 0 0 180px; }
     .model-card:hover { transform: none; box-shadow: var(--shadow-card); }
     .scene-card:hover { transform: none; box-shadow: var(--shadow-card); }
@@ -102,6 +102,12 @@
     .tm-scenes .tms-card { flex: 0 0 110px; }
 
     .header-btn.hide-tablet { display: none; }
+
+    /* 平板端下拉弹窗适配 */
+    .user-dropdown {
+        right: 12px;
+    }
+    .header-balance-info { display: none !important; }
 }
 
 /* ===== Mobile (<768px) ===== */
@@ -142,7 +148,26 @@
 
     .page-content { padding: 16px 12px 80px; }
 
-    .scene-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .scene-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+    /* 底部弹窗移动端适配：回归底部全宽抽屉 */
+    .scene-popup {
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: auto;
+        min-height: 240px;
+        border-radius: 16px 16px 0 0;
+        border-bottom: none;
+        transform: translateY(100%);
+    }
+    .scene-popup.show {
+        transform: translateY(0);
+    }
+    .scene-popup .sp-body { padding: 14px 16px; gap: 12px; }
+    .scene-popup .sp-header { padding: 12px 16px 10px; }
+    .scene-popup .sp-row-params { flex-direction: column; align-items: flex-start; }
+    .scene-popup .sp-submit-btn { width: 100%; text-align: center; margin-left: 0; }
     .model-card { 
         flex: 0 0 calc(50vw - 28px); 
         min-width: 150px;
@@ -246,5 +271,63 @@
     .toast {
         min-width: auto;
         font-size: 13px;
+    }
+
+    /* 移动端下拉弹窗改为底部抽屉 */
+    .user-dropdown {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        border-radius: 20px 20px 0 0;
+        transform: translateY(100%);
+        transform-origin: bottom center;
+        transition: transform .3s cubic-bezier(.32,.72,.24,1), opacity .3s, visibility 0s .3s;
+    }
+    .user-dropdown.show {
+        transform: translateY(0);
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transition: transform .3s cubic-bezier(.32,.72,.24,1), opacity .3s, visibility 0s 0s;
+    }
+    .header-balance-info { display: none !important; }
+    .header-msg-icon { display: none !important; }
+
+    /* 侧边栏已登录用户区 */
+    .drawer-user-info {
+        padding: 0;
+    }
+    .drawer-user-avatar {
+        width: 36px; height: 36px;
+    }
+    .drawer-user-name {
+        font-size: 13px;
+    }
+
+    /* 登录弹窗移动端适配 */
+    .login-modal {
+        width: calc(100vw - 32px);
+        max-width: 420px;
+        padding: 32px 24px 24px;
+        border-radius: 20px;
+    }
+    .login-modal-title {
+        font-size: 20px;
+    }
+    .login-input-wrap {
+        height: 48px;
+        border-radius: 12px;
+        padding: 0 14px;
+    }
+    .login-submit-btn {
+        height: 48px;
+        font-size: 15px;
+        border-radius: 12px;
+    }
+    .login-modal-header {
+        margin-bottom: 22px;
     }
 }

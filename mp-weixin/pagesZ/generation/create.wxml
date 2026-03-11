@@ -129,8 +129,14 @@
   <view class="bottom-bar">
     <view class="price-display">
       <text class="total-label">合计</text>
-      <text class="total-price">￥{{totalPrice}}</text>
-      <text class="price-unit" wx:if="{{detail.price_unit_text}}">{{detail.price_unit_text}}</text>
+      <block wx:if="{{scorePayEnabled && priceInScore > 0}}">
+        <text class="total-price score-price">{{priceInScore * quantity}}</text>
+        <text class="price-unit">积分</text>
+      </block>
+      <block wx:else>
+        <text class="total-price">￥{{totalPrice}}</text>
+        <text class="price-unit" wx:if="{{detail.price_unit_text}}">{{detail.price_unit_text}}</text>
+      </block>
     </view>
     <view class="btn-submit {{submitting?'disabled':''}}" bindtap="submitGeneration">
       {{submitting ? '提交中...' : '立即生成'}}
@@ -142,6 +148,22 @@
 <view wx:if="{{loading}}" class="loading-wrap">
   <view class="loading-spinner"></view>
   <text class="loading-text">加载中...</text>
+</view>
+
+<!-- 余额/积分不足弹窗 -->
+<view class="insufficient-mask" wx:if="{{showInsufficientPopup}}" bindtap="closeInsufficientPopup">
+  <view class="insufficient-popup" catchtap="">
+    <view class="insufficient-icon">
+      <text wx:if="{{insufficientType == 'score_insufficient'}}">💎</text>
+      <text wx:else>💰</text>
+    </view>
+    <view class="insufficient-title">{{insufficientTitle}}</view>
+    <view class="insufficient-msg">{{insufficientMsg}}</view>
+    <view class="insufficient-btns">
+      <view class="insufficient-btn-primary" bindtap="onInsufficientAction">{{insufficientBtnText}}</view>
+      <view class="insufficient-btn-close" bindtap="closeInsufficientPopup">关闭</view>
+    </view>
+  </view>
 </view>
 
 <!-- 隐私授权弹窗（原生 WXML，不依赖 wxxieyi 组件） -->

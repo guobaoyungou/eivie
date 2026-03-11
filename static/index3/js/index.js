@@ -18,10 +18,28 @@
         activeModelTab: 'recommend',
         providerDataCache: {},
         providerLoading: {},
-        cacheTimestamp: {} // 缓存时间戳，5分钟过期
+        cacheTimestamp: {},
+        // 登录状态
+        isLoggedIn: false,
+        loginChecked: false,
+        loginUser: null,
+        // 场景弹窗状态
+        popupTemplateId: 0,
+        popupGenerationType: 1,
+        popupExpanded: false,
+        popupDetail: null,
+        popupRefImages: [],
+        popupSelectedRatio: '1:1',
+        popupSelectedQuantity: 1,
+        popupSubmitting: false,
+        popupRatioOptions: [],
+        popupQuantityOptions: [1,2,3,4,5,6,7,8,9],
+        loginPendingCallback: null
     };
 
     document.addEventListener('DOMContentLoaded', function(){
+        syncAuthState();
+        initLoginModal();
         initModelTabs();
         initModelCardClick();
         initModelScrollArrows();
@@ -35,6 +53,8 @@
         initFullscreenSearch();
         initTaskModalOverlay();
         initKeyboardNavigation();
+        initSceneCards();
+        initScenePopup();
     });
     
     // === 键盘导航支持 ===
@@ -65,6 +85,281 @@
                 }
             }
         });
+    }
+
+    // === 登录状态同步（从Auth模块） ===
+    function syncAuthState(){
+        // Auth模块已在DOMContentLoaded时自动调用checkLogin
+        // 这里延迟同步状态
+        var syncInterval = setInterval(function(){
+            if(window.Auth && Auth.isChecked()){
+                clearInterval(syncInterval);
+                state.isLoggedIn = Auth.isLoggedIn();
+                state.loginUser = Auth.getUser();
+                state.loginChecked = true;
+            }
+        }, 100);
+        // 5秒超时停止
+        setTimeout(function(){ clearInterval(syncInterval); }, 5000);
+    }
+
+    // === 登录状态检测 ===
+    function checkLoginStatus(callback){
+        if(window.Auth){
+            if(Auth.isChecked()){
+                state.isLoggedIn = Auth.isLoggedIn();
+                state.loginUser = Auth.getUser();
+                state.loginChecked = true;
+                if(callback) callback(state.isLoggedIn);
+                return;
+            }
+            Auth.checkLogin(function(loggedIn){
+                state.isLoggedIn = loggedIn;
+                state.loginUser = Auth.getUser();
+                state.loginChecked = true;
+                if(callback) callback(loggedIn);
+            });
+        } else {
+            Api.checkLogin(function(err, res){
+                if(!err && res && res.status === 1){
+                    state.isLoggedIn = true;
+                    state.loginUser = res.data || null;
+                } else {
+                    state.isLoggedIn = false;
+                    state.loginUser = null;
+                }
+                state.loginChecked = true;
+                if(callback) callback(state.isLoggedIn);
+            });
+        }
+    }
+
+    /**
+     * 要求登录后才执行回调。
+     * 如果已登录，直接执行 callback；
+     * 如果未登录，弹出毛玻璃登录界面。
+     */
+    function requireLogin(callback){
+        // 如果已经检测过且已登录，直接执行
+        if(state.loginChecked && state.isLoggedIn){
+            callback();
+            return;
+        }
+        // 重新检测一次（防止缓存过期）
+        checkLoginStatus(function(loggedIn){
+            if(loggedIn){
+                callback();
+            } else {
+                // 保存待执行回调，弹出登录模态框
+                state.loginPendingCallback = callback;
+                showLoginModal();
+            }
+        });
+    }
+
+    // === 登录弹窗状态 ===
+    var loginState = {
+        smsCooldown: 0,
+        smsTimer: null,
+        submitting: false
+    };
+
+    function showLoginModal(){
+        var overlay = document.getElementById('loginModalOverlay');
+        if(!overlay) return;
+        overlay.classList.add('show');
+        // 清空上次的状态
+        document.getElementById('loginPhone').value = '';
+        document.getElementById('loginCode').value = '';
+        document.getElementById('loginError').textContent = '';
+        var submitBtn = document.getElementById('loginSubmitBtn');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '登录 / 注册';
+        submitBtn.classList.remove('loading');
+        // 恢复验证码按钮的倒计时状态（如果还在倒计时中）
+        var sendBtn = document.getElementById('loginSendBtn');
+        if(sendBtn && loginState.smsCooldown > 0){
+            sendBtn.disabled = true;
+            sendBtn.classList.add('counting');
+            sendBtn.textContent = loginState.smsCooldown + 's 后重新获取';
+        } else if(sendBtn){
+            sendBtn.disabled = false;
+            sendBtn.classList.remove('counting');
+            sendBtn.textContent = '获取验证码';
+        }
+        // 聚焦手机号输入框
+        setTimeout(function(){ document.getElementById('loginPhone').focus(); }, 300);
+        // 禁止背景滚动
+        document.body.style.overflow = 'hidden';
+    }
+
+    function hideLoginModal(){
+        var overlay = document.getElementById('loginModalOverlay');
+        if(!overlay) return;
+        overlay.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    function initLoginModal(){
+        var overlay = document.getElementById('loginModalOverlay');
+        var closeBtn = document.getElementById('loginModalClose');
+        var phoneInput = document.getElementById('loginPhone');
+        var codeInput = document.getElementById('loginCode');
+        var sendBtn = document.getElementById('loginSendBtn');
+        var submitBtn = document.getElementById('loginSubmitBtn');
+        var errorEl = document.getElementById('loginError');
+        if(!overlay) return;
+
+        // 关闭按钮
+        closeBtn.addEventListener('click', function(){
+            hideLoginModal();
+            state.loginPendingCallback = null;
+        });
+        // 点击遮罩关闭
+        overlay.addEventListener('click', function(e){
+            if(e.target === overlay){
+                hideLoginModal();
+                state.loginPendingCallback = null;
+            }
+        });
+        // Esc关闭
+        document.addEventListener('keydown', function(e){
+            if(e.key === 'Escape' && overlay.classList.contains('show')){
+                hideLoginModal();
+                state.loginPendingCallback = null;
+            }
+        });
+
+        // 手机号输入只允许数字
+        phoneInput.addEventListener('input', function(){
+            this.value = this.value.replace(/\D/g, '').substring(0, 11);
+            errorEl.textContent = '';
+        });
+        codeInput.addEventListener('input', function(){
+            this.value = this.value.replace(/\D/g, '').substring(0, 6);
+            errorEl.textContent = '';
+        });
+
+        // 发送验证码
+        sendBtn.addEventListener('click', function(){
+            if(sendBtn.disabled || loginState.smsCooldown > 0) return;
+            var tel = phoneInput.value.trim();
+            if(!tel || tel.length !== 11){
+                errorEl.textContent = '请输入正确的手机号';
+                phoneInput.focus();
+                return;
+            }
+            errorEl.textContent = '';
+            sendBtn.disabled = true;
+            sendBtn.textContent = '发送中...';
+            sendBtn.classList.add('sending');
+
+            Api.sendSms({tel: tel}, function(err, res){
+                sendBtn.classList.remove('sending');
+                if(err || !res || res.status !== 1){
+                    var msg = (res && res.msg) ? res.msg : '发送失败';
+                    errorEl.textContent = msg;
+                    sendBtn.disabled = false;
+                    sendBtn.textContent = '获取验证码';
+                    return;
+                }
+                showToast('验证码已发送', 'success');
+                // 启动倒计时
+                startSmsCooldown(sendBtn);
+                // 聚焦验证码输入框
+                codeInput.focus();
+            });
+        });
+
+        /**
+         * 启动短信倒计时（60秒），按钮显示 "Ns 后重新获取" + 进度条动画
+         */
+        function startSmsCooldown(btn){
+            // 清理旧计时器
+            if(loginState.smsTimer){ clearInterval(loginState.smsTimer); }
+            loginState.smsCooldown = 60;
+            btn.disabled = true;
+            btn.classList.add('counting');
+            btn.textContent = '60s 后重新获取';
+            // CSS 动画：通过自定义属性驱动进度条
+            btn.style.setProperty('--cd-duration', '60s');
+            // 强制重绘以重新触发动画
+            btn.classList.remove('cd-animate');
+            void btn.offsetWidth;
+            btn.classList.add('cd-animate');
+
+            loginState.smsTimer = setInterval(function(){
+                loginState.smsCooldown--;
+                if(loginState.smsCooldown <= 0){
+                    clearInterval(loginState.smsTimer);
+                    loginState.smsTimer = null;
+                    loginState.smsCooldown = 0;
+                    btn.disabled = false;
+                    btn.classList.remove('counting', 'cd-animate');
+                    btn.textContent = '重新获取';
+                } else {
+                    btn.textContent = loginState.smsCooldown + 's 后重新获取';
+                }
+            }, 1000);
+        }
+
+        // 提交登录
+        submitBtn.addEventListener('click', function(){
+            doPhoneLogin();
+        });
+        // 回车提交
+        codeInput.addEventListener('keydown', function(e){
+            if(e.key === 'Enter') doPhoneLogin();
+        });
+
+        function doPhoneLogin(){
+            if(loginState.submitting) return;
+            var tel = phoneInput.value.trim();
+            var smscode = codeInput.value.trim();
+            if(!tel || tel.length !== 11){
+                errorEl.textContent = '请输入正确的手机号';
+                phoneInput.focus();
+                return;
+            }
+            if(!smscode || smscode.length < 4){
+                errorEl.textContent = '请输入验证码';
+                codeInput.focus();
+                return;
+            }
+            errorEl.textContent = '';
+            loginState.submitting = true;
+            submitBtn.disabled = true;
+            submitBtn.textContent = '登录中...';
+            submitBtn.classList.add('loading');
+
+            Api.phoneLogin({tel: tel, smscode: smscode}, function(err, res){
+                loginState.submitting = false;
+                if(err || !res || res.status !== 1){
+                    var msg = (res && res.msg) ? res.msg : '登录失败';
+                    errorEl.textContent = msg;
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '登录 / 注册';
+                    submitBtn.classList.remove('loading');
+                    return;
+                }
+                // 登录成功
+                state.isLoggedIn = true;
+                state.loginChecked = true;
+                state.loginUser = res.data || null;
+                showToast('登录成功', 'success');
+                hideLoginModal();
+                // 执行待定回调
+                if(state.loginPendingCallback){
+                    var cb = state.loginPendingCallback;
+                    state.loginPendingCallback = null;
+                    setTimeout(function(){ cb(); }, 300);
+                }
+                // 刷新头部和侧边栏用户信息
+                if(window.Auth){
+                    Auth.checkLogin();
+                }
+            });
+        }
     }
 
     // === Toast 提示函数 ===
@@ -557,8 +852,11 @@
             list.forEach(function(item){
                 var card = document.createElement('div');
                 card.className = 'scene-card';
+                card.setAttribute('data-id', item.id);
+                card.setAttribute('data-type', isPhoto ? 'photo' : 'video');
                 card.innerHTML =
-                    '<img class="sc-cover" src="' + (item.cover_image || '/static/index3/img/placeholder.png') + '" alt="' + escapeHtml(item.template_name) + '" loading="lazy">' +
+                    buildSceneCoverHtml(item) +
+                    '<div class="sc-hover-btn">制作同款</div>' +
                     '<div class="sc-info">' +
                         '<div class="sc-name">' + escapeHtml(item.template_name) + '</div>' +
                         '<div class="sc-desc">' + escapeHtml(item.description || '') + '</div>' +
@@ -568,6 +866,7 @@
                         '</div>' +
                     '</div>';
                 grid.appendChild(card);
+                bindSceneCard(card);
             });
 
             if(isPhoto) state.photoPage++;
@@ -643,13 +942,17 @@
             list.forEach(function(item){
                 var card = document.createElement('div');
                 card.className = 'scene-card';
+                card.setAttribute('data-id', item.id || '');
+                card.setAttribute('data-type', state.currentTab);
                 card.innerHTML =
-                    '<img class="sc-cover" src="' + (item.cover_image || '/static/index3/img/placeholder.png') + '" alt="' + escapeHtml(item.template_name || item.model_name || '') + '" loading="lazy">' +
+                    buildSceneCoverHtml(item) +
+                    '<div class="sc-hover-btn">制作同款</div>' +
                     '<div class="sc-info">' +
                         '<div class="sc-name">' + escapeHtml(item.template_name || item.model_name || '') + '</div>' +
                         '<div class="sc-desc">' + escapeHtml(item.description || '') + '</div>' +
                     '</div>';
                 grid.appendChild(card);
+                bindSceneCard(card);
             });
         });
     }
@@ -778,9 +1081,449 @@
         }
     }
 
+    // === 构建场景卡片封面HTML（视频类型：GIF + hover视频，图片类型：普通img） ===
+    function buildSceneCoverHtml(item){
+        var altText = escapeHtml(item.template_name || item.model_name || '');
+        var coverUrl = item.cover_image || '/static/index3/img/placeholder.png';
+        var gifCover = item.gif_cover || '';
+        var isVideo = (parseInt(item.generation_type) === 2);
+
+        if(isVideo && gifCover){
+            return '<div class="sc-cover-wrap">' +
+                '<img class="sc-cover" src="' + gifCover + '" alt="' + altText + '" loading="lazy">' +
+                '<video class="sc-video" src="' + coverUrl + '" muted loop playsinline preload="none"></video>' +
+                '<span class="sc-video-badge">▶ 视频</span>' +
+            '</div>';
+        } else if(isVideo && !gifCover){
+            // 视频模板但无GIF，用cover_image作为video源，首帧会显示为poster
+            return '<div class="sc-cover-wrap">' +
+                '<video class="sc-cover" src="' + coverUrl + '" muted loop playsinline preload="metadata" style="object-fit:cover"></video>' +
+                '<span class="sc-video-badge">▶ 视频</span>' +
+            '</div>';
+        }
+        return '<img class="sc-cover" src="' + coverUrl + '" alt="' + altText + '" loading="lazy">';
+    }
+
+    // === 场景卡片点击交互（悬浮"制作同款"按钮） ===
+    function initSceneCards(){
+        // 绑定服务端渲染的卡片
+        document.querySelectorAll('.scene-card[data-id]').forEach(function(card){
+            bindSceneCard(card);
+        });
+    }
+
+    function bindSceneCard(card){
+        var btn = card.querySelector('.sc-hover-btn');
+        if(btn){
+            btn.addEventListener('click', function(e){
+                e.stopPropagation();
+                var id = card.getAttribute('data-id');
+                var type = card.getAttribute('data-type');
+                var genType = (type === 'video') ? 2 : 1;
+                openScenePopup(id, genType);
+            });
+        }
+        // 卡片自身点击也打开弹窗
+        card.addEventListener('click', function(){
+            var id = this.getAttribute('data-id');
+            var type = this.getAttribute('data-type');
+            var genType = (type === 'video') ? 2 : 1;
+            openScenePopup(id, genType);
+        });
+        // 视频卡片hover交互：鼠标移入播放视频，移出暂停
+        bindVideoCardHover(card);
+    }
+
+    // === 视频卡片hover播放/暂停 ===
+    function bindVideoCardHover(card){
+        var wrap = card.querySelector('.sc-cover-wrap');
+        if(!wrap) return;
+        var video = wrap.querySelector('video');
+        if(!video) return;
+
+        card.addEventListener('mouseenter', function(){
+            try { video.play(); } catch(e){}
+        });
+        card.addEventListener('mouseleave', function(){
+            try {
+                video.pause();
+                video.currentTime = 0;
+            } catch(e){}
+        });
+    }
+
+    // === 场景弹窗初始化 ===
+    function initScenePopup(){
+        var overlay = document.getElementById('scenePopupOverlay');
+        var closeBtn = document.getElementById('spCloseBtn');
+        var expandBtn = document.getElementById('spExpandBtn');
+        var imageAdd = document.getElementById('spImageAdd');
+        var fileInput = document.getElementById('spFileInput');
+        var submitBtn = document.getElementById('spSubmitBtn');
+        var ratioTrigger = document.getElementById('spRatioTrigger');
+        var quantityTrigger = document.getElementById('spQuantityTrigger');
+
+        if(overlay) overlay.addEventListener('click', closeScenePopup);
+        if(closeBtn) closeBtn.addEventListener('click', closeScenePopup);
+        if(expandBtn) expandBtn.addEventListener('click', togglePopupExpand);
+        if(imageAdd) imageAdd.addEventListener('click', function(){ fileInput.click(); });
+        if(fileInput) fileInput.addEventListener('change', handleImageUpload);
+        if(submitBtn) submitBtn.addEventListener('click', submitSceneGeneration);
+        if(ratioTrigger) ratioTrigger.addEventListener('click', function(e){
+            e.stopPropagation();
+            toggleDropdown('spRatioPanel', 'spRatioTrigger');
+        });
+        if(quantityTrigger) quantityTrigger.addEventListener('click', function(e){
+            e.stopPropagation();
+            toggleDropdown('spQuantityPanel', 'spQuantityTrigger');
+        });
+
+        // 点击其他地方关闭下拉面板
+        document.addEventListener('click', function(){
+            closeAllDropdowns();
+        });
+
+        // Esc关闭弹窗
+        document.addEventListener('keydown', function(e){
+            if(e.key === 'Escape'){
+                var popup = document.getElementById('scenePopup');
+                if(popup && popup.classList.contains('show')){
+                    closeScenePopup();
+                }
+            }
+        });
+    }
+
+    // === 打开场景弹窗 ===
+    function openScenePopup(templateId, generationType){
+        var overlay = document.getElementById('scenePopupOverlay');
+        var popup = document.getElementById('scenePopup');
+        var loading = document.getElementById('spLoading');
+        var content = document.getElementById('spContent');
+
+        if(!popup) return;
+
+        state.popupTemplateId = templateId;
+        state.popupGenerationType = generationType;
+        state.popupExpanded = false;
+        state.popupRefImages = [];
+        state.popupSelectedRatio = '1:1';
+        state.popupSelectedQuantity = 1;
+        state.popupDetail = null;
+
+        // 显示弹窗
+        overlay.classList.add('show');
+        popup.classList.add('show');
+        popup.classList.remove('expanded');
+        loading.style.display = 'flex';
+        content.style.display = 'none';
+        document.body.style.overflow = 'hidden';
+
+        // 加载模板详情
+        Api.getSceneDetail({template_id: templateId}, function(err, res){
+            loading.style.display = 'none';
+
+            if(err || !res || res.status !== 1){
+                content.style.display = 'none';
+                showToast(res && res.msg ? res.msg : '加载模板详情失败', 'error');
+                return;
+            }
+
+            var data = res.data;
+            state.popupDetail = data;
+
+            // 解析比例选项
+            var cap = data.model_capability || {};
+            state.popupRatioOptions = cap.supported_ratios || ['1:1','2:3','3:2','3:4','4:3','9:16','16:9'];
+
+            // 默认比例：优先使用模板的 default_params.ratio，否则取支持列表第一项
+            var defaultRatio = '';
+            if(data.default_params && data.default_params.ratio){
+                defaultRatio = data.default_params.ratio;
+            }
+            if(!defaultRatio || state.popupRatioOptions.indexOf(defaultRatio) === -1){
+                defaultRatio = state.popupRatioOptions[0] || '1:1';
+            }
+            state.popupSelectedRatio = defaultRatio;
+
+            // 默认数量：使用模板的 output_quantity
+            state.popupSelectedQuantity = data.output_quantity || 1;
+
+            // 数量选项：根据模型能力 max_images 限制范围
+            var maxImages = cap.max_images || 9;
+            if(maxImages < 1) maxImages = 1;
+            if(maxImages > 9) maxImages = 9;
+            var qtyOptions = [];
+            for(var qi = 1; qi <= maxImages; qi++){
+                qtyOptions.push(qi);
+            }
+            state.popupQuantityOptions = qtyOptions;
+            // 确保默认数量在有效范围内
+            if(state.popupSelectedQuantity > maxImages){
+                state.popupSelectedQuantity = maxImages;
+            }
+            if(state.popupSelectedQuantity < 1){
+                state.popupSelectedQuantity = 1;
+            }
+
+            // Row 1: 类型标题
+            var typeText = (generationType === 2) ? '🎬 视频生成' : '🖼️ 图片生成';
+            var rowType = document.getElementById('spRowType');
+            rowType.innerHTML = '<span class="sp-type-badge">' + typeText + '</span>' +
+                '<span class="sp-template-name">' + escapeHtml(data.template_name) + '</span>';
+
+            // 填充提示词
+            var promptEl = document.getElementById('spPrompt');
+            promptEl.value = data.prompt || '';
+
+            // 填充参考图（ref_image 可能是字符串或数组）
+            var imagesRow = document.getElementById('spRowImages');
+            imagesRow.innerHTML = '';
+            state.popupRefImages = [];
+            if(data.ref_image){
+                if(Array.isArray(data.ref_image)){
+                    for(var ri = 0; ri < data.ref_image.length; ri++){
+                        if(data.ref_image[ri]){
+                            state.popupRefImages.push(data.ref_image[ri]);
+                        }
+                    }
+                } else {
+                    state.popupRefImages.push(data.ref_image);
+                }
+            }
+            renderPopupRefImages();
+
+            // 填充比例下拉
+            renderRatioPanel();
+            document.getElementById('spRatioValue').textContent = state.popupSelectedRatio;
+
+            // 填充数量下拉（视频隐藏数量选择）
+            var qtyGroup = document.getElementById('spQuantityGroup');
+            if(generationType === 2){
+                qtyGroup.style.display = 'none';
+            } else {
+                qtyGroup.style.display = '';
+                renderQuantityPanel();
+                document.getElementById('spQuantityValue').textContent = state.popupSelectedQuantity;
+            }
+
+            content.style.display = 'flex';
+        });
+    }
+
+    // === 关闭场景弹窗 ===
+    function closeScenePopup(){
+        var overlay = document.getElementById('scenePopupOverlay');
+        var popup = document.getElementById('scenePopup');
+        if(overlay) overlay.classList.remove('show');
+        if(popup){
+            popup.classList.remove('show');
+            popup.classList.remove('expanded');
+        }
+        document.body.style.overflow = '';
+        closeAllDropdowns();
+    }
+
+    // === 切换弹窗展开/收起 ===
+    function togglePopupExpand(){
+        var popup = document.getElementById('scenePopup');
+        if(!popup) return;
+        state.popupExpanded = !state.popupExpanded;
+        popup.classList.toggle('expanded', state.popupExpanded);
+    }
+
+    // === 渲染参考图 ===
+    function renderPopupRefImages(){
+        var container = document.getElementById('spRowImages');
+        if(!container) return;
+        container.innerHTML = '';
+        state.popupRefImages.forEach(function(url, idx){
+            var item = document.createElement('div');
+            item.className = 'sp-image-item';
+            item.innerHTML = '<img src="' + escapeHtml(url) + '" alt="参考图">' +
+                '<button class="sp-image-remove" data-idx="' + idx + '">&times;</button>';
+            container.appendChild(item);
+            item.querySelector('.sp-image-remove').addEventListener('click', function(){
+                var i = parseInt(this.getAttribute('data-idx'));
+                state.popupRefImages.splice(i, 1);
+                renderPopupRefImages();
+            });
+        });
+        // 最多3张参考图
+        if(state.popupRefImages.length < 3){
+            var addBtn = document.createElement('div');
+            addBtn.className = 'sp-image-add';
+            addBtn.textContent = '+';
+            addBtn.title = '添加参考图';
+            addBtn.addEventListener('click', function(){
+                requireLogin(function(){
+                    document.getElementById('spFileInput').click();
+                });
+            });
+            container.appendChild(addBtn);
+        }
+    }
+
+    // === 图片上传 ===
+    function handleImageUpload(){
+        var fileInput = document.getElementById('spFileInput');
+        if(!fileInput.files || !fileInput.files[0]) return;
+        var file = fileInput.files[0];
+        if(file.size > 10 * 1024 * 1024){
+            showToast('图片大小不能超过10MB', 'warning');
+            fileInput.value = '';
+            return;
+        }
+
+        showToast('上传中...', 'info');
+        Api.uploadImage(file, function(err, res){
+            fileInput.value = '';
+            if(err || !res || res.status !== 1){
+                showToast(res && res.msg ? res.msg : '上传失败', 'error');
+                return;
+            }
+            state.popupRefImages.push(res.url);
+            renderPopupRefImages();
+            showToast('上传成功', 'success');
+        });
+    }
+
+    // === 渲染比例下拉面板 ===
+    function renderRatioPanel(){
+        var panel = document.getElementById('spRatioPanel');
+        if(!panel) return;
+        panel.innerHTML = '';
+        state.popupRatioOptions.forEach(function(r){
+            var item = document.createElement('div');
+            item.className = 'sp-dropdown-item' + (r === state.popupSelectedRatio ? ' active' : '');
+            item.textContent = r;
+            item.addEventListener('click', function(e){
+                e.stopPropagation();
+                state.popupSelectedRatio = r;
+                document.getElementById('spRatioValue').textContent = r;
+                renderRatioPanel();
+                closeAllDropdowns();
+            });
+            panel.appendChild(item);
+        });
+    }
+
+    // === 渲染数量下拉面板 ===
+    function renderQuantityPanel(){
+        var panel = document.getElementById('spQuantityPanel');
+        if(!panel) return;
+        panel.innerHTML = '';
+        state.popupQuantityOptions.forEach(function(q){
+            var item = document.createElement('div');
+            item.className = 'sp-dropdown-item' + (q === state.popupSelectedQuantity ? ' active' : '');
+            item.textContent = q + '张';
+            item.addEventListener('click', function(e){
+                e.stopPropagation();
+                state.popupSelectedQuantity = q;
+                document.getElementById('spQuantityValue').textContent = q;
+                renderQuantityPanel();
+                closeAllDropdowns();
+            });
+            panel.appendChild(item);
+        });
+    }
+
+    // === 下拉面板切换 ===
+    function toggleDropdown(panelId, triggerId){
+        var panel = document.getElementById(panelId);
+        var trigger = document.getElementById(triggerId);
+        var isOpen = panel.classList.contains('show');
+        closeAllDropdowns();
+        if(!isOpen){
+            panel.classList.add('show');
+            if(trigger) trigger.classList.add('open');
+        }
+    }
+
+    function closeAllDropdowns(){
+        document.querySelectorAll('.sp-dropdown-panel.show').forEach(function(p){ p.classList.remove('show'); });
+        document.querySelectorAll('.sp-param-trigger.open').forEach(function(t){ t.classList.remove('open'); });
+    }
+
+    // === 提交生成任务 ===
+    function submitSceneGeneration(){
+        if(state.popupSubmitting) return;
+
+        // 登录检测
+        if(!state.isLoggedIn){
+            requireLogin(function(){
+                submitSceneGeneration();
+            });
+            return;
+        }
+
+        var prompt = (document.getElementById('spPrompt').value || '').trim();
+        if(prompt.length < 2){
+            showToast('请填写提示词（至少2个字符）', 'warning');
+            return;
+        }
+
+        state.popupSubmitting = true;
+        var submitBtn = document.getElementById('spSubmitBtn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '提交中...';
+
+        var postData = {
+            template_id: state.popupTemplateId,
+            generation_type: state.popupGenerationType,
+            prompt: prompt,
+            ratio: state.popupSelectedRatio
+        };
+
+        // 参考图（使用数组格式提交，便于后端 /a 修饰符正确解析）
+        if(state.popupRefImages.length > 0){
+            postData['ref_images'] = state.popupRefImages;
+        }
+
+        // 数量（图片生成）
+        if(state.popupGenerationType === 1){
+            postData.quantity = state.popupSelectedQuantity;
+        }
+
+        Api.createGenerationOrder(postData, function(err, res){
+            state.popupSubmitting = false;
+            submitBtn.disabled = false;
+            submitBtn.textContent = '立即生成';
+
+            if(err){
+                showToast('网络错误，请重试', 'error');
+                return;
+            }
+
+            if(!res || res.status !== 1){
+                var msg = (res && res.msg) ? res.msg : '提交失败';
+                // 未登录检测
+                if(msg.indexOf('登录') > -1 || msg.indexOf('登陆') > -1){
+                    state.isLoggedIn = false;
+                    state.loginChecked = true;
+                    requireLogin(function(){
+                        submitSceneGeneration();
+                    });
+                    return;
+                }
+                // 余额不足
+                if(msg.indexOf('余额') > -1 || msg.indexOf('充值') > -1 || msg.indexOf('费用') > -1){
+                    showToast(msg, 'warning');
+                    return;
+                }
+                showToast(msg, 'error');
+                return;
+            }
+
+            showToast('生成任务已提交！', 'success');
+            closeScenePopup();
+        });
+    }
+
     // === Helpers ===
     function escapeHtml(str){
         if(!str) return '';
+        if(typeof str !== 'string') str = String(str);
         return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
@@ -790,6 +1533,8 @@
         doSearch: doSearch, 
         closeTaskModal: closeTaskModal, 
         openTaskModal: openTaskModal,
-        showToast: showToast 
+        showToast: showToast,
+        openScenePopup: openScenePopup,
+        closeScenePopup: closeScenePopup
     };
 })();

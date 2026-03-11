@@ -1,0 +1,359 @@
+/**
+ * pay.css — 支付弹窗 & 页面通用样式
+ */
+
+/* ===== 支付方式选择弹窗 ===== */
+.pay-modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 10000;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; visibility: hidden;
+    transition: opacity .3s, visibility .3s;
+}
+.pay-modal-overlay.show { opacity: 1; visibility: visible; }
+
+.pay-modal {
+    background: var(--bg-primary, #fff);
+    border-radius: 16px;
+    width: 420px; max-width: 92vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    transform: translateY(30px) scale(.96);
+    transition: transform .3s;
+    overflow: hidden;
+}
+.pay-modal-overlay.show .pay-modal { transform: translateY(0) scale(1); }
+
+.pay-modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px 12px;
+    border-bottom: 1px solid var(--border-color, #eee);
+}
+.pay-modal-title { font-size: 18px; font-weight: 600; color: var(--text-primary, #333); }
+.pay-modal-close {
+    width: 32px; height: 32px;
+    border: none; background: var(--bg-secondary, #f5f5f5);
+    border-radius: 50%; cursor: pointer;
+    font-size: 16px; color: var(--text-tertiary, #999);
+    display: flex; align-items: center; justify-content: center;
+    transition: background .2s;
+}
+.pay-modal-close:hover { background: var(--bg-hover, #eee); }
+
+/* 订单信息 */
+.pay-order-info {
+    padding: 16px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg-secondary, #f8f9fa);
+}
+.pay-order-type { font-size: 14px; color: var(--text-secondary, #666); }
+.pay-order-amount { font-size: 24px; font-weight: 700; color: var(--color-primary, #6366f1); }
+.pay-order-amount small { font-size: 14px; font-weight: 400; }
+
+/* 支付方式列表 */
+.pay-type-list { padding: 16px 24px; }
+.pay-type-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px;
+    border: 2px solid var(--border-color, #eee);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    margin-bottom: 10px;
+}
+.pay-type-item:last-child { margin-bottom: 0; }
+.pay-type-item:hover { border-color: var(--color-primary, #6366f1); background: var(--bg-secondary, #f8f9fa); }
+.pay-type-item.active { border-color: var(--color-primary, #6366f1); background: rgba(99,102,241,.06); }
+
+.pay-type-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+.pay-type-icon.wxpay { background: #09bb07; color: #fff; }
+.pay-type-icon.alipay { background: #1677ff; color: #fff; }
+.pay-type-name { font-size: 15px; font-weight: 500; color: var(--text-primary, #333); flex: 1; }
+.pay-type-check {
+    width: 22px; height: 22px;
+    border: 2px solid var(--border-color, #ddd);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .2s;
+}
+.pay-type-item.active .pay-type-check {
+    border-color: var(--color-primary, #6366f1);
+    background: var(--color-primary, #6366f1);
+}
+.pay-type-item.active .pay-type-check::after {
+    content: '✓'; color: #fff; font-size: 13px; font-weight: 700;
+}
+
+/* 确认支付按钮 */
+.pay-confirm-wrap { padding: 8px 24px 24px; }
+.pay-confirm-btn {
+    width: 100%; height: 48px;
+    background: var(--color-primary, #6366f1);
+    color: #fff; border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 600;
+    cursor: pointer;
+    transition: background .2s, opacity .2s;
+}
+.pay-confirm-btn:hover { opacity: .9; }
+.pay-confirm-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* 支付状态区域 */
+.pay-status-area {
+    padding: 30px 24px;
+    text-align: center;
+    display: none;
+}
+.pay-status-area.show { display: block; }
+
+.pay-qrcode-wrap { margin: 0 auto 16px; }
+.pay-qrcode-wrap img { max-width: 200px; border-radius: 8px; border: 1px solid var(--border-color, #eee); }
+.pay-qrcode-tip { font-size: 13px; color: var(--text-tertiary, #999); margin-top: 8px; }
+
+.pay-loading { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 20px 0; }
+.pay-loading .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border-color, #eee);
+    border-top-color: var(--color-primary, #6366f1);
+    border-radius: 50%;
+    animation: pay-spin .6s linear infinite;
+}
+@keyframes pay-spin { to { transform: rotate(360deg); } }
+
+.pay-result { padding: 20px 0; }
+.pay-result-icon { font-size: 48px; margin-bottom: 12px; }
+.pay-result-text { font-size: 16px; font-weight: 500; color: var(--text-primary, #333); }
+.pay-result-desc { font-size: 13px; color: var(--text-tertiary, #999); margin-top: 6px; }
+
+/* ===== 通用页面容器 ===== */
+.page-card {
+    background: var(--bg-primary, #fff);
+    border-radius: 16px;
+    border: 1px solid var(--border-color, #eee);
+    padding: 24px;
+    margin-bottom: 20px;
+}
+.page-card-title {
+    font-size: 18px; font-weight: 600; color: var(--text-primary, #333);
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+}
+
+/* ===== 充值/积分档位网格 ===== */
+.amount-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.amount-item {
+    border: 2px solid var(--border-color, #eee);
+    border-radius: 12px;
+    padding: 16px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s ease;
+    position: relative;
+    overflow: hidden;
+}
+.amount-item:hover { border-color: var(--color-primary, #6366f1); }
+.amount-item.active { border-color: var(--color-primary, #6366f1); background: rgba(99,102,241,.06); }
+.amount-main { font-size: 22px; font-weight: 700; color: var(--text-primary, #333); }
+.amount-main small { font-size: 13px; font-weight: 400; }
+.amount-give {
+    font-size: 12px; color: var(--color-primary, #6366f1);
+    margin-top: 4px;
+    background: rgba(99,102,241,.08);
+    border-radius: 4px;
+    padding: 2px 6px;
+    display: inline-block;
+}
+.amount-item .badge-hot {
+    position: absolute; top: -1px; right: -1px;
+    background: #ef4444; color: #fff;
+    font-size: 10px; padding: 2px 8px;
+    border-radius: 0 10px 0 10px;
+}
+
+/* 自定义金额 */
+.custom-amount-wrap {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px;
+}
+.custom-amount-input {
+    flex: 1; height: 44px;
+    border: 2px solid var(--border-color, #eee);
+    border-radius: 10px;
+    padding: 0 14px;
+    font-size: 16px;
+    color: var(--text-primary, #333);
+    background: var(--bg-primary, #fff);
+    outline: none;
+    transition: border-color .2s;
+}
+.custom-amount-input:focus { border-color: var(--color-primary, #6366f1); }
+.custom-amount-label { font-size: 14px; color: var(--text-secondary, #666); white-space: nowrap; }
+
+/* ===== 会员等级卡片 ===== */
+.level-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+}
+.level-card {
+    border: 2px solid var(--border-color, #eee);
+    border-radius: 14px;
+    padding: 20px;
+    transition: all .2s ease;
+    position: relative;
+}
+.level-card:hover { border-color: var(--color-primary, #6366f1); box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+.level-card.current { border-color: #10b981; background: rgba(16,185,129,.04); }
+.level-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.level-card-icon { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; }
+.level-card-icon-emoji { font-size: 36px; }
+.level-card-name { font-size: 18px; font-weight: 600; color: var(--text-primary, #333); }
+.level-card-badge {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 12px; padding: 3px 10px;
+    border-radius: 20px; font-weight: 500;
+}
+.level-card-badge.current-badge { background: #10b981; color: #fff; }
+.level-card-condition { font-size: 13px; color: var(--text-secondary, #666); margin-bottom: 8px; }
+.level-card-discount { font-size: 14px; color: var(--color-primary, #6366f1); font-weight: 500; margin-bottom: 14px; }
+.level-card-price { font-size: 14px; color: var(--text-tertiary, #999); margin-bottom: 14px; }
+.level-card-price strong { color: var(--color-primary, #6366f1); font-size: 20px; }
+.level-card-btn {
+    width: 100%; height: 40px;
+    border: none; border-radius: 10px;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: all .2s;
+}
+.level-card-btn.btn-primary { background: var(--color-primary, #6366f1); color: #fff; }
+.level-card-btn.btn-primary:hover { opacity: .9; }
+.level-card-btn.btn-disabled { background: var(--bg-secondary, #f5f5f5); color: var(--text-tertiary, #999); cursor: not-allowed; }
+.level-card-btn.btn-current { background: #10b981; color: #fff; cursor: default; }
+
+/* ===== 个人中心 ===== */
+.uc-profile-card {
+    display: flex; align-items: center; gap: 16px;
+    padding: 24px;
+    background: linear-gradient(135deg, var(--color-primary, #6366f1), #8b5cf6);
+    border-radius: 16px;
+    color: #fff;
+    margin-bottom: 20px;
+}
+.uc-avatar { width: 64px; height: 64px; border-radius: 50%; border: 3px solid rgba(255,255,255,.3); object-fit: cover; }
+.uc-user-info { flex: 1; }
+.uc-nickname { font-size: 20px; font-weight: 600; }
+.uc-meta { font-size: 13px; opacity: .8; margin-top: 4px; display: flex; gap: 12px; }
+.uc-level-tag { background: rgba(255,255,255,.2); padding: 2px 10px; border-radius: 20px; font-size: 12px; }
+
+.uc-asset-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.uc-asset-item {
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #eee);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s ease;
+}
+.uc-asset-item:hover { border-color: var(--color-primary, #6366f1); }
+.uc-asset-value { font-size: 22px; font-weight: 700; color: var(--text-primary, #333); }
+.uc-asset-label { font-size: 13px; color: var(--text-tertiary, #999); margin-top: 4px; }
+
+.uc-menu-list {
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #eee);
+    border-radius: 14px;
+    overflow: hidden;
+}
+.uc-menu-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color, #eee);
+    text-decoration: none; color: var(--text-primary, #333);
+    transition: all .2s ease;
+    cursor: pointer;
+}
+.uc-menu-item:last-child { border-bottom: none; }
+.uc-menu-item:hover { background: var(--bg-secondary, #f8f9fa); }
+.uc-menu-icon { font-size: 18px; width: 24px; text-align: center; }
+.uc-menu-text { flex: 1; font-size: 15px; }
+.uc-menu-arrow { color: var(--text-tertiary, #ccc); font-size: 14px; }
+.uc-menu-badge { font-size: 12px; color: var(--color-primary, #6366f1); background: rgba(99,102,241,.1); padding: 2px 8px; border-radius: 10px; }
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+    .amount-grid { grid-template-columns: repeat(2, 1fr); }
+    .level-grid { grid-template-columns: 1fr; }
+    .uc-asset-grid { grid-template-columns: repeat(3, 1fr); }
+    .uc-profile-card { padding: 18px; }
+    .uc-avatar { width: 52px; height: 52px; }
+    .pay-modal { width: 96vw; border-radius: 12px; }
+}
+@media (max-width: 480px) {
+    .uc-asset-grid { gap: 8px; }
+    .uc-asset-item { padding: 12px 8px; }
+    .uc-asset-value { font-size: 18px; }
+}
+
+/* ===== PC端适配 (>= 1024px) ===== */
+@media (min-width: 1024px) {
+    /* 充值/积分档位: 4列 */
+    .amount-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .amount-item { padding: 20px 16px; }
+    .amount-main { font-size: 26px; }
+
+    /* 等级卡片: 更宽的最小宽度 */
+    .level-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+    .level-card { padding: 24px; }
+    .level-card-name { font-size: 20px; }
+    .level-card-icon { width: 56px; height: 56px; }
+    .level-card-btn { height: 44px; font-size: 15px; }
+
+    /* 个人中心 */
+    .uc-profile-card { padding: 28px 32px; gap: 20px; }
+    .uc-avatar { width: 72px; height: 72px; }
+    .uc-nickname { font-size: 22px; }
+    .uc-asset-grid { gap: 16px; }
+    .uc-asset-item { padding: 20px; border-radius: 14px; }
+    .uc-asset-value { font-size: 26px; }
+    .uc-asset-label { font-size: 14px; }
+    .uc-menu-item { padding: 18px 24px; }
+    .uc-menu-text { font-size: 16px; }
+
+    /* 支付弹窗 */
+    .pay-modal { width: 480px; }
+    .pay-type-item { padding: 16px 20px; }
+    .pay-confirm-btn { height: 52px; font-size: 17px; }
+
+    /* 通用页面卡片 */
+    .page-card { padding: 28px; border-radius: 18px; }
+    .page-card-title { font-size: 20px; margin-bottom: 24px; }
+
+    /* Hover 效果增强 */
+    .amount-item:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+    .level-card:hover { transform: translateY(-2px); }
+    .uc-asset-item:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+    .uc-menu-item:hover { padding-left: 28px; }
+}
+
+/* ===== 超宽屏适配 (>= 1440px) ===== */
+@media (min-width: 1440px) {
+    .amount-grid { grid-template-columns: repeat(5, 1fr); }
+    .level-grid { grid-template-columns: repeat(3, 1fr); }
+}

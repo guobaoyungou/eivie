@@ -29,3 +29,6 @@
 .btn-primary { background: linear-gradient(135deg, #FF6B00, #FF9500); color: #fff; font-size: 32rpx; font-weight: bold; padding: 24rpx 60rpx; border-radius: 44rpx; }
 
 .loading-wrap { display: flex; justify-content: center; align-items: center; padding: 40rpx; color: #999; font-size: 28rpx; }
+
+/* 积分价格 */
+.score-price { color: #FF6B00; }

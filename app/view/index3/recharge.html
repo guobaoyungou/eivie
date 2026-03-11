@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>余额充值 - {$webinfo.webname}</title>
+    {if $webinfo.ico}<link rel="shortcut icon" type="image/x-icon" href="{$webinfo.ico}">{/if}
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=7">
+    <link rel="stylesheet" href="/static/index3/css/pay.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=6">
+    <script src="/static/index3/js/theme.js?v=1"></script>
+</head>
+<body>
+<div class="layout-wrapper">
+    {include file="index3/public/sidebar"/}
+    <div class="main-content">
+        {include file="index3/public/header"/}
+        <div class="page-content" style="max-width:800px;margin:0 auto;padding:24px 16px">
+            <h2 style="font-size:22px;font-weight:700;margin-bottom:24px;color:var(--text-primary,#333)">💰 余额充值</h2>
+
+            <!-- 当前余额 -->
+            <div class="page-card" style="text-align:center;background:linear-gradient(135deg,var(--color-primary,#6366f1),#8b5cf6);color:#fff;border:none">
+                <div style="font-size:13px;opacity:.8">当前余额</div>
+                <div id="currentMoney" style="font-size:36px;font-weight:700;margin:8px 0">¥0.00</div>
+            </div>
+
+            <!-- 充值档位 -->
+            <div class="page-card">
+                <div class="page-card-title">⚡ 选择充值金额</div>
+                <div class="amount-grid" id="amountGrid">
+                    <div class="amount-item" style="grid-column:1/-1;text-align:center;color:var(--text-tertiary,#999);padding:30px">加载中...</div>
+                </div>
+                <!-- 自定义金额 -->
+                <div class="custom-amount-wrap" id="customAmountWrap" style="display:none">
+                    <span class="custom-amount-label">自定义金额：</span>
+                    <input type="number" class="custom-amount-input" id="customAmountInput" placeholder="请输入充值金额" min="1" step="0.01">
+                    <span class="custom-amount-label">元</span>
+                </div>
+            </div>
+
+            <!-- 支付按钮 -->
+            <button class="pay-confirm-btn" id="rechargeBtn" style="width:100%;margin-top:8px" disabled>
+                立即充值
+            </button>
+        </div>
+    </div>
+</div>
+{include file="index3/public/tabbar"/}
+
+<script src="/static/index3/js/api.js?v=4"></script>
+<script src="/static/index3/js/auth.js?v=2"></script>
+<script src="/static/index3/js/pay.js?v=1"></script>
+<script src="/static/index3/js/sidebar.js?v=1"></script>
+<script>
+(function(){
+    var selectedAmount = 0;
+    var rechargeConfig = null;
+
+    // 等登录检测完成后加载
+    function init(){
+        if(!Auth.isChecked()){
+            setTimeout(init, 200);
+            return;
+        }
+        if(!Auth.isLoggedIn()){
+            location.href = '/?s=/index/index';
+            return;
+        }
+        var user = Auth.getUser();
+        if(user) document.getElementById('currentMoney').textContent = '¥' + (user.money || '0.00');
+        loadConfig();
+    }
+
+    function loadConfig(){
+        Api.getRechargeConfig(function(err, res){
+            if(err || !res || res.status !== 1){
+                document.getElementById('amountGrid').innerHTML = '<div class="amount-item" style="grid-column:1/-1;text-align:center;color:#ef4444;padding:30px">' + (res && res.msg || '加载失败') + '</div>';
+                return;
+            }
+            rechargeConfig = res.data;
+            renderAmounts(res.data);
+        });
+    }
+
+    function renderAmounts(data){
+        var levels = data.levels || [];
+        var html = '';
+        for(var i = 0; i < levels.length; i++){
+            var lv = levels[i];
+            var giveHtml = '';
+            if(lv.give_money > 0) giveHtml += '赠¥' + lv.give_money;
+            if(lv.give_score > 0) giveHtml += (giveHtml ? ' + ' : '赠') + lv.give_score + '积分';
+            html += '<div class="amount-item" data-money="' + lv.money + '">' +
+                '<div class="amount-main">¥<span>' + lv.money + '</span></div>' +
+                (giveHtml ? '<div class="amount-give">' + giveHtml + '</div>' : '') +
+                '</div>';
+        }
+        if(data.custom_amount){
+            html += '<div class="amount-item" data-money="custom"><div class="amount-main" style="font-size:15px">自定义金额</div></div>';
+        }
+        document.getElementById('amountGrid').innerHTML = html;
+        if(data.custom_amount) document.getElementById('customAmountWrap').style.display = 'flex';
+
+        // 绑定选择
+        var items = document.querySelectorAll('.amount-item');
+        for(var k = 0; k < items.length; k++){
+            items[k].addEventListener('click', function(){
+                for(var j = 0; j < items.length; j++) items[j].classList.remove('active');
+                this.classList.add('active');
+                var money = this.getAttribute('data-money');
+                if(money === 'custom'){
+                    selectedAmount = 0;
+                    document.getElementById('customAmountInput').focus();
+                } else {
+                    selectedAmount = parseFloat(money);
+                }
+                updateBtn();
+            });
+        }
+        // 自定义输入
+        var customInput = document.getElementById('customAmountInput');
+        if(customInput){
+            customInput.addEventListener('input', function(){
+                var customItem = document.querySelector('.amount-item[data-money="custom"]');
+                if(customItem && customItem.classList.contains('active')){
+                    selectedAmount = parseFloat(this.value) || 0;
+                    updateBtn();
+                }
+            });
+        }
+    }
+
+    function updateBtn(){
+        var btn = document.getElementById('rechargeBtn');
+        if(selectedAmount > 0){
+            btn.disabled = false;
+            btn.textContent = '立即充值 ¥' + selectedAmount.toFixed(2);
+        } else {
+            btn.disabled = true;
+            btn.textContent = '请选择充值金额';
+        }
+    }
+
+    // 充值按钮
+    document.getElementById('rechargeBtn').addEventListener('click', function(){
+        if(selectedAmount <= 0) return;
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = '创建订单中...';
+        Api.createRechargeOrder({money: selectedAmount}, function(err, res){
+            if(err || !res || res.status !== 1){
+                btn.disabled = false;
+                btn.textContent = '立即充值 ¥' + selectedAmount.toFixed(2);
+                alert(res && res.msg || '创建订单失败');
+                return;
+            }
+            // 调起支付
+            Pay.startPay({
+                ordernum: res.data.ordernum,
+                order_type: 'recharge',
+                amount: selectedAmount.toFixed(2),
+                title: '余额充值',
+                onSuccess: function(){
+                    Auth.checkLogin();
+                    setTimeout(function(){ location.reload(); }, 1000);
+                }
+            });
+            btn.disabled = false;
+            btn.textContent = '立即充值 ¥' + selectedAmount.toFixed(2);
+        });
+    });
+
+    init();
+})();
+</script>
+</body>
+</html>

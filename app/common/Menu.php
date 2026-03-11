@@ -288,6 +288,12 @@ class Menu
 			}
 			//优惠券记录
             $member_child[] = ['name'=>'优惠券','path'=>'Coupon/record','authdata'=>'Coupon/record,Coupon/recordexcel,Coupon/recorddel,Coupon/recordsetst,Coupon/decCouponOne,Coupon/delay,Coupon/creategiveqr,Coupon/creategiveqr2','hide'=>true];
+			// 创作会员管理
+			$creative_member_child = [];
+			$creative_member_child[] = ['name'=>'套餐管理','path'=>'CreativeMember/plan_list','authdata'=>'CreativeMember/plan_list,CreativeMember/plan_edit,CreativeMember/plan_save,CreativeMember/plan_del,CreativeMember/plan_status'];
+			$creative_member_child[] = ['name'=>'订阅记录','path'=>'CreativeMember/subscription_list','authdata'=>'CreativeMember/subscription_list'];
+			$creative_member_child[] = ['name'=>'积分流水','path'=>'CreativeMember/score_log','authdata'=>'CreativeMember/score_log'];
+			$member_child[] = ['name'=>'创作会员','child'=>$creative_member_child];
 			$menudata['member'] = ['name'=>t('会员'),'fullname'=>t('会员').'管理','icon'=>'my-icon my-icon-member','child'=>$member_child];
             
 		}else{

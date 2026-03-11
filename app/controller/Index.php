@@ -25,6 +25,15 @@ use app\service\ModelSquareService;
 class Index extends BaseController
 {
 	public $webinfo;
+
+	/**
+	 * 控制器中间件
+	 * 存储空间预检中间件仅在上传和创建生成订单时触发
+	 */
+	protected $middleware = [
+		'StorageQuotaCheck' => ['only' => ['upload_image', 'create_generation_order']],
+	];
+
 	public function initialize(){
 		if(MN == 'notify' || MN == 'notify2' || MN == 'notify3' || MN == 'linghuoxinpay' || MN == 'linghuoxinsign' || MN == 'payreturn'){
 
@@ -287,7 +296,7 @@ class Index extends BaseController
 
 		// 图片场景模板（首屏12条）
 		$photo_scenes = Db::name('generation_scene_template')
-			->field('id, template_name, cover_image, base_price, use_count, description')
+			->field('id, template_name, cover_image, gif_cover, generation_type, base_price, use_count, description')
 			->where('generation_type', 1)
 			->where('status', 1)
 			->order('sort desc, id desc')
@@ -298,7 +307,7 @@ class Index extends BaseController
 
 		// 视频场景模板（首屏12条）
 		$video_scenes = Db::name('generation_scene_template')
-			->field('id, template_name, cover_image, base_price, use_count, description')
+			->field('id, template_name, cover_image, gif_cover, generation_type, base_price, use_count, description')
 			->where('generation_type', 2)
 			->where('status', 1)
 			->order('sort desc, id desc')
@@ -332,7 +341,7 @@ class Index extends BaseController
 		}
 
 		$list = Db::name('generation_scene_template')
-			->field('id, template_name, cover_image, base_price, use_count, description')
+			->field('id, template_name, cover_image, gif_cover, generation_type, base_price, use_count, description')
 			->where($where)
 			->order('sort desc, id desc')
 			->page($page, $limit)
@@ -359,7 +368,7 @@ class Index extends BaseController
 
 		// 搜索场景模板
 		$list = Db::name('generation_scene_template')
-			->field('id, template_name, cover_image, base_price, use_count, description')
+			->field('id, template_name, cover_image, gif_cover, generation_type, base_price, use_count, description')
 			->where('generation_type', $type)
 			->where('status', 1)
 			->where('template_name', 'like', $keyword)
@@ -512,5 +521,1539 @@ class Index extends BaseController
 		View::assign('recommend_templates', $recommend_templates);
 
 		return View::fetch('index3/video_generation');
+	}
+
+	/**
+	 * AJAX: 场景模板详情（PC官网弹窗用，无需aid鉴权）
+	 */
+	public function scene_template_detail(){
+		if(!request()->isAjax()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+		$templateId = input('param.template_id/d', 0);
+		if(!$templateId){
+			return json(['status'=>0,'msg'=>'缺少模板ID']);
+		}
+
+		$template = Db::name('generation_scene_template')
+			->where('id', $templateId)
+			->where('status', 1)
+			->find();
+		if(!$template){
+			return json(['status'=>0,'msg'=>'模板不存在或已下架']);
+		}
+
+		// 价格计算（游客身份，memberLevelId=0）
+		$service = new \app\service\GenerationService();
+		$priceInfo = $service->calculateTemplatePrice($template, 0);
+
+		// 所有等级价格
+		$allPrices = [];
+		if($template['lvprice'] == 1){
+			$lvpriceData = is_string($template['lvprice_data'])
+				? json_decode($template['lvprice_data'], true)
+				: ($template['lvprice_data'] ?: []);
+			if(!empty($lvpriceData)){
+				$levelIds = array_keys($lvpriceData);
+				$levels = Db::name('member_level')->where('id','in',$levelIds)->column('name','id');
+				foreach($lvpriceData as $lid=>$lprice){
+					$allPrices[] = ['level_id'=>$lid,'level_name'=>$levels[$lid]??'未知等级','price'=>floatval($lprice)];
+				}
+			}
+		}
+
+		// 解析默认参数
+		$defaultParams = is_string($template['default_params'])
+			? json_decode($template['default_params'], true)
+			: ($template['default_params'] ?: []);
+
+		// 参考图
+		$refImage = '';
+		if(!empty($defaultParams['image'])){
+			$refImage = $defaultParams['image'];
+		} elseif(!empty($defaultParams['first_frame_image'])){
+			$refImage = $defaultParams['first_frame_image'];
+		}
+
+		// 模型能力
+		$modelCapability = ['max_images'=>1,'supported_ratios'=>['1:1'],'supported_sizes'=>[]];
+		if(!empty($template['model_id'])){
+			$modelInfo = Db::name('model_info')
+				->where('id',$template['model_id'])
+				->field('id,model_code,model_name,input_schema')
+				->find();
+			if($modelInfo){
+				$inputSchema = is_string($modelInfo['input_schema'])
+					? json_decode($modelInfo['input_schema'], true)
+					: ($modelInfo['input_schema'] ?: []);
+				$props = $inputSchema['properties'] ?? $inputSchema;
+				if(isset($props['n'])){
+					$maxN = intval($props['n']['maximum'] ?? $props['n']['max'] ?? 9);
+					$modelCapability['max_images'] = $maxN > 0 ? $maxN : 9;
+				}
+				$sizeEnum = [];
+				if(isset($props['size'])){
+					$sizeEnum = $props['size']['enum'] ?? $props['size']['options'] ?? [];
+					$modelCapability['supported_sizes'] = $sizeEnum;
+				}
+				if(!empty($sizeEnum)){
+					$parsedRatios = $this->_parseSupportedRatios($sizeEnum);
+					if(!empty($parsedRatios)){
+						$modelCapability['supported_ratios'] = $parsedRatios;
+					}
+				}
+				$modelCapability['model_name'] = $modelInfo['model_name'] ?? '';
+				$modelCapability['model_code'] = $modelInfo['model_code'] ?? '';
+			}
+		}
+		if(count($modelCapability['supported_ratios']) <= 1){
+			$modelCapability['supported_ratios'] = ['1:1','2:3','3:2','3:4','4:3','9:16','16:9','4:5','5:4','21:9'];
+		}
+
+		// 示例图
+		$sampleImages = [];
+		if(!empty($template['source_record_id'])){
+			$outputs = Db::name('generation_output')
+				->where('record_id',$template['source_record_id'])
+				->field('output_url,thumbnail_url,output_type')
+				->limit(4)->select()->toArray();
+			foreach($outputs as $out){
+				$sampleImages[] = $out['thumbnail_url'] ?: $out['output_url'];
+			}
+		}
+
+		// 证件照类型名称
+		$idPhotoTypeMap = [0=>'',1=>'身份证照',2=>'护照/港澳通行证',3=>'驾驶证',4=>'一寸照',5=>'二寸照'];
+		$isIdPhoto = intval($template['is_id_photo'] ?? 0);
+		$idPhotoType = intval($template['id_photo_type'] ?? 0);
+		$idPhotoTypeName = ($isIdPhoto == 1) ? ($idPhotoTypeMap[$idPhotoType] ?? '') : '';
+
+		$result = [
+			'id' => $template['id'],
+			'template_name' => $template['template_name'],
+			'cover_image' => $template['cover_image'],
+			'gif_cover' => $template['gif_cover'] ?? '',
+			'ref_image' => $refImage,
+			'description' => $template['description'],
+			'prompt' => $defaultParams['prompt'] ?? '',
+			'generation_type' => intval($template['generation_type'] ?? 1),
+			'price' => $priceInfo['price'],
+			'base_price' => $priceInfo['base_price'],
+			'price_unit' => $priceInfo['price_unit'],
+			'price_unit_text' => $priceInfo['price_unit_text'],
+			'is_member_price' => $priceInfo['is_member_price'],
+			'use_count' => intval($template['use_count'] ?? 0),
+			'output_quantity' => intval($template['output_quantity'] ?? 1),
+			'prompt_visible' => intval($template['prompt_visible'] ?? 1),
+			'is_id_photo' => $isIdPhoto,
+			'id_photo_type' => $idPhotoType,
+			'id_photo_type_name' => $idPhotoTypeName,
+			'all_prices' => $allPrices,
+			'sample_images' => $sampleImages,
+			'model_capability' => $modelCapability,
+			'default_params' => $defaultParams
+		];
+
+		return json(['status'=>1,'msg'=>'获取成功','data'=>$result]);
+	}
+
+	/**
+	 * AJAX: 创建生成订单（PC官网弹窗用，无需aid鉴权）
+	 */
+	public function create_generation_order(){
+		if(!request()->isAjax() || !request()->isPost()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+
+		$templateId = input('post.template_id/d', 0);
+		$modelId = input('post.model_id/d', 0);
+		$generationType = input('post.generation_type/d', 1);
+		$prompt = input('post.prompt', '');
+		$refImages = input('post.ref_images/a', []);
+		$quantity = input('post.quantity/d', 0);
+		$ratio = input('post.ratio', '');
+		$quality = input('post.quality', '');
+
+		if(!$templateId && !$modelId){
+			return json(['status'=>0,'msg'=>'请选择场景模板或模型']);
+		}
+		$prompt = trim($prompt);
+		if(mb_strlen($prompt) < 2){
+			return json(['status'=>0,'msg'=>'请填写提示词（至少2个字符）']);
+		}
+		if(mb_strlen($prompt) > 2000){
+			return json(['status'=>0,'msg'=>'提示词不能超过2000个字符']);
+		}
+
+		// 从session获取会员身份（PC网站使用cookie session）
+		$sessionId = \think\facade\Session::getId();
+		$mid = 0;
+		$aid = 1; // 默认aid
+		$memberLevelId = 0;
+
+		if($sessionId){
+			$mid = cache($sessionId . '_mid');
+			if($mid){
+				$member = Db::name('member')->where('id', $mid)->field('id,aid,levelid')->find();
+				if($member){
+					$aid = $member['aid'];
+					$memberLevelId = intval($member['levelid']);
+				} else {
+					$mid = 0;
+				}
+			}
+		}
+
+		if(!$mid){
+			return json(['status'=>0,'msg'=>'请先登录后再生成']);
+		}
+
+		$orderService = new \app\service\GenerationOrderService();
+		
+		// 模型直选分支：template_id=0 && model_id>0
+		if(!$templateId && $modelId > 0){
+			$result = $orderService->createOrderByModel([
+				'aid' => $aid,
+				'bid' => 0,
+				'mid' => $mid,
+				'model_id' => $modelId,
+				'generation_type' => $generationType,
+				'user_prompt' => $prompt,
+				'ref_images' => $refImages,
+				'quantity' => $quantity,
+				'ratio' => $ratio,
+				'quality' => $quality
+			]);
+			return json($result);
+		}
+		
+		// 模板驱动分支：template_id>0
+		$result = $orderService->createOrderWithParams([
+			'aid' => $aid,
+			'bid' => 0,
+			'mid' => $mid,
+			'scene_id' => $templateId,
+			'generation_type' => $generationType,
+			'member_level_id' => $memberLevelId,
+			'user_prompt' => $prompt,
+			'ref_images' => $refImages,
+			'quantity' => $quantity,
+			'ratio' => $ratio,
+			'quality' => $quality
+		]);
+
+		return json($result);
+	}
+
+	/**
+	 * 辅助：从size枚举解析比例列表
+	 */
+	private function _parseSupportedRatios($sizeEnum){
+		$map = [
+			'512x512'=>'1:1','1024x1024'=>'1:1','2048x2048'=>'1:1',
+			'512x768'=>'2:3','1024x1536'=>'2:3','2048x3072'=>'2:3',
+			'768x512'=>'3:2','1536x1024'=>'3:2','3072x2048'=>'3:2',
+			'384x512'=>'3:4','768x1024'=>'3:4','1536x2048'=>'3:4',
+			'512x384'=>'4:3','1024x768'=>'4:3','2048x1536'=>'4:3',
+			'360x640'=>'9:16','720x1280'=>'9:16','1440x2560'=>'9:16',
+			'640x360'=>'16:9','1280x720'=>'16:9','2560x1440'=>'16:9',
+			'512x640'=>'4:5','1024x1280'=>'4:5','2048x2560'=>'4:5',
+			'640x512'=>'5:4','1280x1024'=>'5:4','2560x2048'=>'5:4',
+			'1260x540'=>'21:9','2520x1080'=>'21:9','3780x1620'=>'21:9',
+		];
+		$ratios = [];
+		foreach($sizeEnum as $size){
+			$size = str_replace('*','x',strtolower(trim($size)));
+			if(isset($map[$size]) && !in_array($map[$size],$ratios)){
+				$ratios[] = $map[$size];
+			}
+		}
+		return $ratios;
+	}
+
+	/**
+	 * AJAX: 检查登录状态（PC官网用）
+	 */
+	public function check_login(){
+		if(!request()->isAjax()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+		$sessionId = \think\facade\Session::getId();
+		$mid = 0;
+		if($sessionId){
+			$mid = cache($sessionId . '_mid');
+		}
+		if($mid){
+			$member = Db::name('member')->where('id', $mid)->field('id,nickname,headimg,money,score,levelid,tel')->find();
+			if($member){
+				// 查询会员等级
+				$level_name = '普通会员';
+				$level_icon = '';
+				if(!empty($member['levelid'])){
+					$level = Db::name('member_level')->where('id', $member['levelid'])->field('name,icon')->find();
+					if($level){
+						$level_name = $level['name'] ?: '普通会员';
+						$level_icon = $level['icon'] ?: '';
+					}
+				}
+				// 手机号脱敏
+				$tel = '';
+				if(!empty($member['tel']) && strlen($member['tel']) >= 7){
+					$tel = substr($member['tel'], 0, 3) . '****' . substr($member['tel'], -4);
+				}
+				// 查询创作会员订阅状态
+				$has_creative_member = false;
+				$creative_version = '';
+				$creative_version_name = '';
+				$creative_expire_text = '';
+				$creative_remaining_score = 0;
+				try {
+					$activeSub = Db::name('creative_member_subscription')
+						->where('mid', $member['id'])
+						->where('status', 1)
+						->where('expire_time', '>', time())
+						->order('id desc')
+						->find();
+					if($activeSub){
+						$has_creative_member = true;
+						$creative_version = $activeSub['version_code'] ?? '';
+						$creative_remaining_score = intval($activeSub['remaining_score'] ?? 0);
+						$creative_expire_text = date('Y-m-d', $activeSub['expire_time']);
+						// 查询版本名称
+						$planInfo = Db::name('creative_member_plan')
+							->where('id', $activeSub['plan_id'])
+							->field('version_name')
+							->find();
+						$creative_version_name = $planInfo['version_name'] ?? ucfirst($creative_version);
+					}
+				} catch(\Exception $e) {
+					// 表不存在时忽略
+				}
+
+				return json(['status'=>1,'msg'=>'已登录','data'=>[
+					'mid' => $member['id'],
+					'nickname' => $member['nickname'] ?? '',
+					'headimg' => $member['headimg'] ?? '',
+					'money' => number_format(floatval($member['money']), 2, '.', ''),
+					'score' => intval($member['score']),
+					'level_name' => $level_name,
+					'level_icon' => $level_icon,
+					'tel' => $tel,
+					'has_creative_member' => $has_creative_member,
+					'creative_version' => $creative_version,
+					'creative_version_name' => $creative_version_name,
+					'creative_expire_text' => $creative_expire_text,
+					'creative_remaining_score' => $creative_remaining_score
+				]]);
+			}
+		}
+		return json(['status'=>0,'msg'=>'未登录']);
+	}
+
+	/**
+	 * AJAX: 退出登录（PC官网用）
+	 */
+	public function logout(){
+		if(!request()->isAjax()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+		$sessionId = \think\facade\Session::getId();
+		if($sessionId){
+			cache($sessionId . '_mid', null);
+			Db::name('session')->where('session_id', $sessionId)->delete();
+		}
+		return json(['status'=>1,'msg'=>'已退出登录']);
+	}
+
+	/**
+	 * AJAX: 发送短信验证码（PC官网登录用）
+	 */
+	public function send_sms(){
+		if(!request()->isAjax() || !request()->isPost()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+		$tel = trim(input('post.tel'));
+		$defaultAid = 1;
+		if(!checkTel($defaultAid, $tel)){
+			return json(['status'=>0,'msg'=>'请输入正确的手机号']);
+		}
+		// 防频刷：60秒内只能发一次
+		$sessionId = \think\facade\Session::getId();
+		$lastSendTime = cache($sessionId . '_sms_time');
+		if($lastSendTime && (time() - $lastSendTime) < 60){
+			$remain = 60 - (time() - $lastSendTime);
+			return json(['status'=>0,'msg'=>'请'.$remain.'秒后再试']);
+		}
+		$code = rand(100000, 999999);
+		cache($sessionId . '_smscode', md5($tel.'-'.$code), 600);
+		cache($sessionId . '_smscodetimes', 0);
+		cache($sessionId . '_sms_time', time(), 120);
+
+		// 读取短信配置，直接调用对应通道，避免Sms::send()内部强制status=1的问题
+		$smsset = Db::name('admin_set_sms')->where('aid', $defaultAid)->find();
+		if(!$smsset || $smsset['status'] != 1){
+			return json(['status'=>0,'msg'=>'短信功能未开启，请在后台-系统设置-短信设置中配置']);
+		}
+		if(!$smsset['accesskey'] || !$smsset['accesssecret']){
+			return json(['status'=>0,'msg'=>'短信参数未配置，请在后台-短信设置中填写AccessKey']);
+		}
+		$signName = $smsset['sign_name'];
+		if(!$signName){
+			return json(['status'=>0,'msg'=>'短信签名未配置，请在后台-短信设置中填写签名']);
+		}
+		if($smsset['tmpl_smscode_st'] != 1){
+			return json(['status'=>0,'msg'=>'短信验证码模板未开启']);
+		}
+		$templateCode = $smsset['tmpl_smscode'];
+		if(!$templateCode){
+			return json(['status'=>0,'msg'=>'短信验证码模板ID未配置']);
+		}
+		$templateParam = ['code' => $code];
+
+		if($smsset['smstype'] == 1){
+			// 阿里云短信
+			$rs = \app\common\Sms::alisms($defaultAid, $smsset['accesskey'], $smsset['accesssecret'], $signName, $templateCode, $tel, $templateParam);
+		}elseif($smsset['smstype'] == 2){
+			// 腾讯云短信
+			if(!$smsset['sdkappid']){
+				return json(['status'=>0,'msg'=>'腾讯云短信AppID未配置']);
+			}
+			if($smsset['code_length'] == 1){
+				// code_length=1时需要截取参数长度，直接通过Sms::send走
+				$rs = \app\common\Sms::send($defaultAid, $tel, 'tmpl_smscode', $templateParam);
+				// Sms::send内部强制status=1，需通过msg/error判断实际结果
+				if(!empty($rs['error']) || (isset($rs['msg']) && !in_array($rs['msg'], ['发送成功','操作成功']))){
+					$errorMsg = $rs['error'] ?? ($rs['msg'] ?? '短信发送失败');
+					return json(['status'=>0,'msg'=>'短信发送失败：'.$errorMsg]);
+				}
+				return json(['status'=>1,'msg'=>'发送成功']);
+			}
+			$rs = \app\common\Sms::tencentsms($defaultAid, $smsset['accesskey'], $smsset['accesssecret'], $smsset['sdkappid'], $signName, $templateCode, $tel, $templateParam);
+		}elseif($smsset['smstype'] == 4){
+			// 定制短信通道
+			$rs = \app\common\Sms::customChannelSms($defaultAid, $smsset['accesskey'], $smsset['accesssecret'], $signName, $templateCode, $tel, $templateParam);
+		}else{
+			return json(['status'=>0,'msg'=>'不支持的短信通道类型']);
+		}
+
+		// 检查真实发送结果
+		if(!$rs || (isset($rs['status']) && $rs['status'] != 1)){
+			$errorMsg = $rs['error'] ?? ($rs['msg'] ?? '短信发送失败');
+			return json(['status'=>0,'msg'=>'短信发送失败：'.$errorMsg]);
+		}
+		return json(['status'=>1,'msg'=>'发送成功']);
+	}
+
+	/**
+	 * AJAX: 手机验证码登录（PC官网用，自动注册新会员）
+	 */
+	public function phone_login(){
+		if(!request()->isAjax() || !request()->isPost()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+		$tel = trim(input('post.tel'));
+		$smscode = trim(input('post.smscode'));
+		$defaultAid = 1;
+
+		if(!checkTel($defaultAid, $tel)){
+			return json(['status'=>0,'msg'=>'请输入正确的手机号']);
+		}
+		if(!$smscode){
+			return json(['status'=>0,'msg'=>'请输入验证码']);
+		}
+
+		$sessionId = \think\facade\Session::getId();
+		// 验证短信验证码
+		$cachedCode = cache($sessionId . '_smscode');
+		$smscodetimes = cache($sessionId . '_smscodetimes') ?: 0;
+		if(md5($tel.'-'.$smscode) != $cachedCode || $smscodetimes > 5){
+			cache($sessionId . '_smscodetimes', $smscodetimes + 1);
+			return json(['status'=>0,'msg'=>'验证码错误或已过期']);
+		}
+		// 清除验证码缓存
+		cache($sessionId . '_smscode', null);
+		cache($sessionId . '_smscodetimes', null);
+
+		// 查找或创建会员
+		$member = Db::name('member')->where('aid', $defaultAid)->where('tel', $tel)->find();
+		if(!$member){
+			// 自动注册新会员
+			$data = [
+				'aid' => $defaultAid,
+				'tel' => $tel,
+				'nickname' => substr($tel,0,3).'****'.substr($tel,-4),
+				'sex' => 3,
+				'headimg' => PRE_URL.'/static/img/touxiang.png',
+				'createtime' => time(),
+				'last_visittime' => time(),
+				'platform' => 'h5'
+			];
+			$mid = \app\model\Member::add($defaultAid, $data);
+		}else{
+			$mid = $member['id'];
+		}
+
+		// 缓存会员session映射（7天）
+		cache($sessionId . '_mid', $mid, 7*86400);
+
+		// 写入session表
+		Db::name('session')->where('session_id', $sessionId)->delete();
+		Db::name('session')->insert([
+			'session_id' => $sessionId,
+			'aid' => $defaultAid,
+			'mid' => $mid,
+			'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+			'login_time' => time(),
+			'login_ip' => request()->ip(),
+			'platform' => 'h5'
+		]);
+
+		// 获取会员信息返回
+		$memberInfo = Db::name('member')->where('id', $mid)->field('id,nickname,headimg,tel')->find();
+		return json(['status'=>1,'msg'=>'登录成功','data'=>[
+			'mid' => $memberInfo['id'],
+			'nickname' => $memberInfo['nickname'] ?? '',
+			'headimg' => $memberInfo['headimg'] ?? '',
+			'tel' => $memberInfo['tel'] ? substr($memberInfo['tel'],0,3).'****'.substr($memberInfo['tel'],-4) : ''
+		]]);
+	}
+
+	/**
+	 * AJAX: 图片上传（PC官网弹窗用，无需aid鉴权）
+	 */
+	public function upload_image(){
+		if(!request()->isPost()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+
+		$file = request()->file('file');
+		if(!$file){
+			$errorNo = isset($_FILES['file']['error']) ? $_FILES['file']['error'] : 4;
+			$errMap = [
+				1 => '上传的文件超过了 upload_max_filesize 限制',
+				2 => '上传文件大小超过了表单限制',
+				3 => '文件只有部分被上传',
+				4 => '没有文件被上传',
+				6 => '找不到临时文件夹',
+				7 => '文件写入失败',
+			];
+			return json(['status'=>0,'msg'=>$errMap[$errorNo] ?? '上传失败']);
+		}
+
+		$defaultAid = 1;
+
+		try {
+			// 验证文件类型
+			$allowedExt = ['jpg','jpeg','png','gif','bmp','webp'];
+			$ext = strtolower($file->getOriginalExtension() ?: 'png');
+			if(!in_array($ext, $allowedExt)){
+				return json(['status'=>0,'msg'=>'不支持的图片格式，仅支持: '.implode(',',$allowedExt)]);
+			}
+
+			// 验证文件大小（10MB）
+			if($file->getSize() > 10 * 1024 * 1024){
+				return json(['status'=>0,'msg'=>'图片大小不能超过10MB']);
+			}
+
+			// 保存文件
+			$savename = \think\facade\Filesystem::putFile(''.$defaultAid, $file);
+			$filepath = 'upload/' . str_replace('\\', '/', $savename);
+
+			// 缩略图处理
+			if(in_array($ext, ['jpg','jpeg','png','bmp','webp'])){
+				$remote = Db::name('sysset')->where('name','remote')->value('value');
+				$remote = json_decode($remote, true);
+				$maxwidth = ($remote['thumb']==1 ? $remote['thumb_width'] : 0);
+				$maxheight = ($remote['thumb']==1 ? $remote['thumb_height'] : 0);
+				$thumb_quality = $remote['thumb_quality'] ?? 100;
+
+				if($maxwidth > 0 && $maxheight > 0){
+					$size = getimagesize(ROOT_PATH . $filepath);
+					$width = $size[0] ?? 0;
+					$height = $size[1] ?? 0;
+					if($width > $maxwidth || $height > $maxheight){
+						$image = \think\Image::open(ROOT_PATH . $filepath);
+						$thumbpath = substr($filepath, 0, strlen($filepath) - strlen($ext) - 1) . '_thumb.' . $ext;
+						$image->thumb($maxwidth, $maxheight)->save(ROOT_PATH . $thumbpath, null, $thumb_quality);
+						$filepath = $thumbpath;
+					}
+				}
+			}
+
+			$url = PRE_URL . '/' . $filepath;
+
+			// OSS上传
+			$url = \app\common\Pic::uploadoss($url, false, false);
+			if($url === false){
+				$url = PRE_URL . '/' . $filepath;
+			}
+
+			// 记录到用户云端存储空间
+			try {
+				$uploadMid = $this->_getLoginMid();
+				if($uploadMid > 0){
+					$uploadAid = 1;
+					$uploadFileSize = $file->getSize();
+					$storageService = new \app\service\StorageService();
+					$storageService->addFile($uploadAid, $uploadMid, [
+						'file_url' => $url,
+						'thumbnail_url' => $url,
+						'file_type' => 'image',
+						'source_type' => 'upload',
+						'source_id' => 0,
+						'file_size' => $uploadFileSize,
+					]);
+				}
+			} catch(\Exception $e) {
+				// 存储记录失败不影响上传结果
+			}
+
+			return json(['status'=>1,'msg'=>'上传成功','url'=>$url]);
+
+		} catch (\think\exception\ValidateException $e) {
+			return json(['status'=>0,'msg'=>$e->getMessage()]);
+		} catch (\Exception $e) {
+			return json(['status'=>0,'msg'=>'上传失败: '.$e->getMessage()]);
+		}
+	}
+
+	/**
+	 * AJAX: 获取创作会员套餐列表（PC官网用）
+	 */
+	public function creative_member_plans(){
+		if(!request()->isAjax()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+		$defaultAid = 1;
+		$mid = 0;
+		$sessionId = \think\facade\Session::getId();
+		if($sessionId){
+			$mid = cache($sessionId . '_mid');
+		}
+		try {
+			$service = new \app\service\CreativeMemberService();
+			$result = $service->getPlanList($defaultAid, intval($mid));
+			return json(['status'=>1,'msg'=>'success','data'=>$result]);
+		} catch(\Exception $e) {
+			return json(['status'=>0,'msg'=>'获取套餐列表失败']);
+		}
+	}
+
+	/**
+	 * AJAX: 购买创作会员（PC官网用）
+	 */
+	public function buy_creative_member(){
+		if(!request()->isAjax() || !request()->isPost()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+		$sessionId = \think\facade\Session::getId();
+		$mid = 0;
+		if($sessionId){
+			$mid = cache($sessionId . '_mid');
+		}
+		if(!$mid){
+			return json(['status'=>0,'msg'=>'请先登录']);
+		}
+		$planId = intval(input('post.plan_id'));
+		$purchaseMode = input('post.purchase_mode', '');
+		if(!$planId || !$purchaseMode){
+			return json(['status'=>0,'msg'=>'参数错误']);
+		}
+		$defaultAid = 1;
+		try {
+			$service = new \app\service\CreativeMemberService();
+			$result = $service->buyCreativeMember($defaultAid, intval($mid), $planId, $purchaseMode);
+			return json($result);
+		} catch(\Exception $e) {
+			return json(['status'=>0,'msg'=>'购买失败']);
+		}
+	}
+
+	// =================================================================
+	// H5 用户交互流程与支付功能
+	// =================================================================
+
+	/**
+	 * 获取当前登录用户信息（内部辅助）
+	 */
+	private function _getLoginMid(){
+		$sessionId = \think\facade\Session::getId();
+		if($sessionId){
+			return intval(cache($sessionId . '_mid'));
+		}
+		return 0;
+	}
+
+	/**
+	 * 余额充值页面
+	 */
+	public function recharge(){
+		if($this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index')); die;
+		}
+		return View::fetch('index3/recharge');
+	}
+
+	/**
+	 * AJAX: 获取充值配置
+	 */
+	public function recharge_config(){
+		if(!request()->isAjax()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$defaultAid = 1;
+		$set = Db::name('admin_set')->where('aid', $defaultAid)->find();
+
+		// 检查充值功能是否开启
+		if(empty($set['recharge'])){
+			return json(['status'=>0,'msg'=>'充值功能暂未开放']);
+		}
+
+		// 充值档位
+		$recharge_set = Db::name('sysset')->where('name','recharge')->value('value');
+		$recharge_set = $recharge_set ? json_decode($recharge_set, true) : [];
+		$levels = [];
+		if(!empty($recharge_set['list'])){
+			foreach($recharge_set['list'] as $item){
+				$levels[] = [
+					'money' => floatval($item['money'] ?? 0),
+					'give_money' => floatval($item['give_money'] ?? 0),
+					'give_score' => intval($item['give_score'] ?? 0),
+				];
+			}
+		}
+		if(empty($levels)){
+			// 默认档位
+			$levels = [
+				['money'=>10,'give_money'=>0,'give_score'=>0],
+				['money'=>50,'give_money'=>0,'give_score'=>0],
+				['money'=>100,'give_money'=>5,'give_score'=>0],
+				['money'=>200,'give_money'=>15,'give_score'=>0],
+				['money'=>500,'give_money'=>50,'give_score'=>10],
+				['money'=>1000,'give_money'=>120,'give_score'=>30],
+			];
+		}
+
+		$min_amount = floatval($recharge_set['min_amount'] ?? 1);
+		$custom_amount = isset($recharge_set['custom_amount']) ? intval($recharge_set['custom_amount']) : 1;
+
+		return json(['status'=>1,'msg'=>'success','data'=>[
+			'levels' => $levels,
+			'custom_amount' => (bool)$custom_amount,
+			'min_amount' => $min_amount > 0 ? $min_amount : 1,
+		]]);
+	}
+
+	/**
+	 * AJAX: 创建充值订单
+	 */
+	public function create_recharge_order(){
+		if(!request()->isAjax() || !request()->isPost()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$money = floatval(input('post.money'));
+		$defaultAid = 1;
+
+		if($money <= 0) return json(['status'=>0,'msg'=>'请输入正确的充值金额']);
+
+		$set = Db::name('admin_set')->where('aid', $defaultAid)->find();
+		if(empty($set['recharge'])) return json(['status'=>0,'msg'=>'充值功能暂未开放']);
+
+		// 最低充值金额校验
+		$recharge_minimum = floatval($set['recharge_minimum'] ?? 0);
+		if($recharge_minimum > 0 && $money < $recharge_minimum){
+			return json(['status'=>0,'msg'=>'最低充值金额为'.$recharge_minimum.'元']);
+		}
+
+		// 生成订单号
+		$ordernum = 'RC' . date('YmdHis') . rand(1000,9999);
+
+		Db::startTrans();
+		try {
+			// 创建 recharge_order（表字段：aid,mid,money,ordernum,createtime,status,platform）
+			$rechargeData = [
+				'aid' => $defaultAid,
+				'mid' => $mid,
+				'ordernum' => $ordernum,
+				'money' => $money,
+				'status' => 0,
+				'createtime' => time(),
+				'platform' => 'h5',
+			];
+			$rechargeOrderId = Db::name('recharge_order')->insertGetId($rechargeData);
+
+			// 创建 payorder（通过标准方式，确保字段完整）
+			$payorderId = \app\model\Payorder::createorder(
+				$defaultAid, 0, $mid,
+				'recharge',
+				$rechargeOrderId,
+				$ordernum,
+				'余额充值¥'.$money,
+				$money
+			);
+			// 更新 recharge_order 关联 payorderid
+			Db::name('recharge_order')->where('id', $rechargeOrderId)->update(['payorderid' => $payorderId]);
+			// 标记平台
+			Db::name('payorder')->where('id', $payorderId)->update(['platform' => 'h5']);
+
+			Db::commit();
+			return json(['status'=>1,'msg'=>'订单创建成功','data'=>['ordernum'=>$ordernum]]);
+		} catch(\Exception $e) {
+			Db::rollback();
+			return json(['status'=>0,'msg'=>'创建订单失败：'.$e->getMessage()]);
+		}
+	}
+
+	/**
+	 * 积分购买页面
+	 */
+	public function score_shop(){
+		if($this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index')); die;
+		}
+		return View::fetch('index3/score_shop');
+	}
+
+	/**
+	 * AJAX: 获取积分购买配置
+	 */
+	public function score_config(){
+		if(!request()->isAjax()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$defaultAid = 1;
+		$set = Db::name('admin_set')->where('aid', $defaultAid)->find();
+
+		// 积分购买配置
+		$score_set = Db::name('sysset')->where('name','score_shop')->value('value');
+		$score_set = $score_set ? json_decode($score_set, true) : [];
+
+		$levels = [];
+		if(!empty($score_set['list'])){
+			foreach($score_set['list'] as $item){
+				$levels[] = [
+					'score' => intval($item['score'] ?? 0),
+					'price' => floatval($item['price'] ?? 0),
+					'give_score' => intval($item['give_score'] ?? 0),
+				];
+			}
+		}
+
+		if(empty($levels)){
+			// 默认档位
+			$scorein_money = floatval($set['scorein_money'] ?? 1);
+			$scorein_score = intval($set['scorein_score'] ?? 1);
+			if($scorein_money > 0 && $scorein_score > 0){
+				$ratio = $scorein_score / $scorein_money;
+				$levels = [
+					['score'=>intval(10*$ratio),'price'=>10,'give_score'=>0],
+					['score'=>intval(50*$ratio),'price'=>50,'give_score'=>intval(5*$ratio)],
+					['score'=>intval(100*$ratio),'price'=>100,'give_score'=>intval(15*$ratio)],
+					['score'=>intval(200*$ratio),'price'=>200,'give_score'=>intval(30*$ratio)],
+					['score'=>intval(500*$ratio),'price'=>500,'give_score'=>intval(100*$ratio)],
+				];
+			} else {
+				$levels = [
+					['score'=>100,'price'=>10,'give_score'=>0],
+					['score'=>500,'price'=>50,'give_score'=>50],
+					['score'=>1000,'price'=>100,'give_score'=>150],
+				];
+			}
+		}
+
+		return json(['status'=>1,'msg'=>'success','data'=>['levels'=>$levels]]);
+	}
+
+	/**
+	 * AJAX: 创建积分购买订单
+	 */
+	public function create_score_order(){
+		if(!request()->isAjax() || !request()->isPost()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$score = intval(input('post.score'));
+		$money = floatval(input('post.money'));
+		$defaultAid = 1;
+
+		if($score <= 0 || $money <= 0) return json(['status'=>0,'msg'=>'参数错误']);
+
+		// 查找赠送积分
+		$give_score = 0;
+		$score_set = Db::name('sysset')->where('name','score_shop')->value('value');
+		$score_set = $score_set ? json_decode($score_set, true) : [];
+		if(!empty($score_set['list'])){
+			foreach($score_set['list'] as $item){
+				if(intval($item['score']) == $score && abs(floatval($item['price']) - $money) < 0.01){
+					$give_score = intval($item['give_score'] ?? 0);
+					break;
+				}
+			}
+		}
+
+		$total_score = $score + $give_score;
+		$ordernum = 'SP' . date('YmdHis') . rand(1000,9999);
+
+		Db::startTrans();
+		try {
+			// 创建 payorder（score字段存储购买积分总数，type=score_buy用于回调处理）
+			$payorderId = \app\model\Payorder::createorder(
+				$defaultAid, 0, $mid,
+				'score_buy',
+				0,
+				$ordernum,
+				'积分购买'.$score.'积分',
+				$money,
+				$total_score
+			);
+			Db::name('payorder')->where('id', $payorderId)->update(['platform' => 'h5']);
+
+			Db::commit();
+			return json(['status'=>1,'msg'=>'订单创建成功','data'=>['ordernum'=>$ordernum]]);
+		} catch(\Exception $e) {
+			Db::rollback();
+			return json(['status'=>0,'msg'=>'创建订单失败：'.$e->getMessage()]);
+		}
+	}
+
+	/**
+	 * 会员等级页面
+	 */
+	public function member_level(){
+		if($this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index')); die;
+		}
+		return View::fetch('index3/member_level');
+	}
+
+	/**
+	 * AJAX: 获取等级列表
+	 */
+	public function level_list(){
+		if(!request()->isAjax()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$defaultAid = 1;
+		$member = Db::name('member')->where('id', $mid)->field('id,levelid,money,score')->find();
+		if(!$member) return json(['status'=>0,'msg'=>'用户不存在']);
+
+		// 当前等级
+		$currentSort = 0;
+		$current_level = ['id'=>0,'name'=>'普通会员','icon'=>'','sort'=>0];
+		if($member['levelid'] > 0){
+			$cl = Db::name('member_level')->where('id', $member['levelid'])->where('aid', $defaultAid)->find();
+			if($cl){
+				$current_level = ['id'=>$cl['id'],'name'=>$cl['name'],'icon'=>$cl['icon'] ?? '','sort'=>intval($cl['sort'])];
+				$currentSort = intval($cl['sort']);
+			}
+		}
+
+		// 获取会员累计数据用于条件判断（与系统ApiMy保持一致：shop_order取status=3已完成）
+		$totalOrderMoney = Db::name('shop_order')->where('aid', $defaultAid)->where('mid', $mid)->where('status', 3)->sum('totalprice') ?: 0;
+		$totalRechargeMoney = Db::name('recharge_order')->where('aid', $defaultAid)->where('mid', $mid)->where('status', 1)->sum('money') ?: 0;
+
+		// 所有等级
+		$allLevels = Db::name('member_level')
+			->where('aid', $defaultAid)
+			->order('sort asc, id asc')
+			->select()
+			->toArray();
+
+		$levels = [];
+		foreach($allLevels as $lv){
+			$lvSort = intval($lv['sort']);
+			$canApply = intval($lv['can_apply'] ?? 0);
+			$applyPaymoney = floatval($lv['apply_paymoney'] ?? 0);
+			$applyCheck = intval($lv['apply_check'] ?? 0);
+			// 处理NULL值（数据库中默认等级这两个字段可能为NULL）
+			$applyOrdermoney = floatval(empty($lv['apply_ordermoney']) ? 0 : $lv['apply_ordermoney']);
+			$applyRechargemoney = floatval(empty($lv['apply_rechargemoney']) ? 0 : $lv['apply_rechargemoney']);
+
+			// 构建升级条件描述（条件间用"或"连接，与系统保持一致）
+			$applyConditions = [];
+			if($applyOrdermoney > 0) $applyConditions[] = '累计消费满¥'.number_format($applyOrdermoney,2);
+			if($applyRechargemoney > 0) $applyConditions[] = '累计充值满¥'.number_format($applyRechargemoney,2);
+			$conditionText = $applyConditions ? implode(' 或 ', $applyConditions) : '';
+			if($applyPaymoney > 0){
+				$payText = ($lv['apply_paytxt'] ?: '升级费用').'¥'.number_format($applyPaymoney,2);
+				$conditionText = $conditionText ? $conditionText . '，并支付' . $payText : $payText;
+			}
+			if(!$conditionText && $lv['isdefault']) $conditionText = '默认等级';
+
+			// 判断是否可以申请升级（仅能向上升级，且can_apply=1）
+			// 条件判断使用OR逻辑（与系统ApiMy.php保持一致）：满足任一条件即可申请
+			$realCanApply = 0;
+			$needPay = 0;
+			$meetCondition = false;
+
+			if($canApply == 1 && $lvSort > $currentSort){
+				// OR逻辑：无条件 / 满足订单金额 / 满足充值金额 → 任一即可
+				if($applyOrdermoney <= 0 && $applyRechargemoney <= 0){
+					$meetCondition = true; // 无金额条件，直接可申请
+				}
+				if($applyOrdermoney > 0 && $totalOrderMoney >= $applyOrdermoney){
+					$meetCondition = true; // 消费金额条件满足
+				}
+				if($applyRechargemoney > 0 && $totalRechargeMoney >= $applyRechargemoney){
+					$meetCondition = true; // 充值金额条件满足
+				}
+
+				if($meetCondition){
+					$realCanApply = 1;
+					if($applyPaymoney > 0) $needPay = 1;
+				}
+			}
+
+			$item = [
+				'id' => $lv['id'],
+				'name' => $lv['name'],
+				'icon' => $lv['icon'] ?? '',
+				'sort' => $lvSort,
+				'condition_text' => $conditionText,
+				'discount' => floatval($lv['discount'] ?? 0),
+				'can_apply' => $realCanApply,
+				'need_pay' => $needPay,
+				'apply_paymoney' => $applyPaymoney,
+				'apply_check' => $applyCheck,
+				'is_default' => intval($lv['isdefault'] ?? 0),
+				'explain' => $lv['explain'] ?? '',
+				'meet_condition' => $meetCondition ? 1 : 0,
+				'can_apply_setting' => $canApply, // 后台是否开启了申请升级
+			];
+			$levels[] = $item;
+		}
+
+		return json(['status'=>1,'msg'=>'success','data'=>[
+			'current_level' => $current_level,
+			'levels' => $levels,
+		]]);
+	}
+
+	/**
+	 * AJAX: 申请等级
+	 */
+	public function apply_level(){
+		if(!request()->isAjax() || !request()->isPost()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$level_id = intval(input('post.level_id'));
+		if(!$level_id) return json(['status'=>0,'msg'=>'参数错误']);
+
+		$defaultAid = 1;
+		$member = Db::name('member')->where('id', $mid)->find();
+		if(!$member) return json(['status'=>0,'msg'=>'用户不存在']);
+
+		$level = Db::name('member_level')->where('id', $level_id)->where('aid', $defaultAid)->find();
+		if(!$level) return json(['status'=>0,'msg'=>'等级不存在']);
+
+		// 必须开启申请
+		if(intval($level['can_apply'] ?? 0) != 1){
+			return json(['status'=>0,'msg'=>'该等级暂不可申请']);
+		}
+
+		// 等级排序校验：只能向上升级
+		$currentSort = 0;
+		if($member['levelid'] > 0){
+			$currentSort = intval(Db::name('member_level')->where('id', $member['levelid'])->value('sort') ?: 0);
+		}
+		if(intval($level['sort']) <= $currentSort){
+			return json(['status'=>0,'msg'=>'您当前等级已等于或高于该等级']);
+		}
+
+		// 检查申请条件（OR逻辑，与系统ApiMy.php保持一致）
+		$applyOrdermoney = floatval(empty($level['apply_ordermoney']) ? 0 : $level['apply_ordermoney']);
+		$applyRechargemoney = floatval(empty($level['apply_rechargemoney']) ? 0 : $level['apply_rechargemoney']);
+
+		$canapply = 0;
+		if($applyOrdermoney <= 0 && $applyRechargemoney <= 0){
+			$canapply = 1; // 无金额条件，直接可申请
+		}
+		if($applyOrdermoney > 0){
+			$totalOrderMoney = Db::name('shop_order')->where('aid', $defaultAid)->where('mid', $mid)->where('status', 3)->sum('totalprice') ?: 0;
+			if($totalOrderMoney >= $applyOrdermoney){
+				$canapply = 1; // 消费金额条件满足
+			}
+		}
+		if($applyRechargemoney > 0){
+			$totalRechargeMoney = Db::name('recharge_order')->where('aid', $defaultAid)->where('mid', $mid)->where('status', 1)->sum('money') ?: 0;
+			if($totalRechargeMoney >= $applyRechargemoney){
+				$canapply = 1; // 充值金额条件满足
+			}
+		}
+
+		if(!$canapply){
+			$msg = '不满足申请条件';
+			if($applyOrdermoney > 0) $msg = '需累计消费满¥'.number_format($applyOrdermoney,2);
+			if($applyRechargemoney > 0) $msg = '需累计充值满¥'.number_format($applyRechargemoney,2);
+			if($applyOrdermoney > 0 && $applyRechargemoney > 0) $msg = '需累计消费满¥'.number_format($applyOrdermoney,2).'或充值满¥'.number_format($applyRechargemoney,2);
+			return json(['status'=>0,'msg'=>$msg]);
+		}
+
+		// 检查是否有待审核的记录
+		$hasPending = Db::name('member_levelup_order')->where('aid', $defaultAid)->where('mid', $mid)->where('levelid', $level_id)->where('status', 1)->where('type', 0)->find();
+		if($hasPending){
+			return json(['status'=>0,'msg'=>'您已经提交过该等级的申请，请等待审核']);
+		}
+
+		$applyPaymoney = floatval($level['apply_paymoney'] ?? 0);
+
+		// 构建升级订单数据（所有升级操作都创建member_levelup_order记录）
+		$ordernum = 'LV' . date('YmdHis') . rand(1000,9999);
+		$orderData = [
+			'aid' => $defaultAid,
+			'mid' => $mid,
+			'levelid' => $level_id,
+			'ordernum' => $ordernum,
+			'totalprice' => $applyPaymoney,
+			'title' => '升级成为'.$level['name'],
+			'createtime' => time(),
+			'beforelevelid' => intval($member['levelid']),
+			'platform' => 'h5',
+			'pid' => intval($member['pid'] ?? 0),
+			'type' => 0, // 0=升级
+		];
+
+		if($applyPaymoney > 0){
+			// 付费等级：创建member_levelup_order + payorder
+			Db::startTrans();
+			try {
+				$orderData['status'] = 0; // 待支付
+				$levelupOrderId = Db::name('member_levelup_order')->insertGetId($orderData);
+
+				$payorderId = \app\model\Payorder::createorder(
+					$defaultAid, 0, $mid,
+					'member_levelup',
+					$levelupOrderId,
+					$ordernum,
+					'升级成为'.$level['name'],
+					$applyPaymoney
+				);
+				Db::name('member_levelup_order')->where('id', $levelupOrderId)->update(['payorderid' => $payorderId]);
+				Db::name('payorder')->where('id', $payorderId)->update(['platform' => 'h5']);
+
+				Db::commit();
+				return json(['status'=>1,'msg'=>'请完成支付','data'=>[
+					'need_pay' => true,
+					'ordernum' => $ordernum,
+					'price' => number_format($applyPaymoney, 2, '.', ''),
+				]]);
+			} catch(\Exception $e) {
+				Db::rollback();
+				return json(['status'=>0,'msg'=>'创建订单失败：'.$e->getMessage()]);
+			}
+		} else {
+			// 免费等级：创建member_levelup_order记录 + 调用系统标准升级流程
+			$orderData['status'] = 1; // 已支付（免费）
+			$levelupOrderId = Db::name('member_levelup_order')->insertGetId($orderData);
+
+			// 调用系统标准的升级处理流程（包含审核判断、分销提成、等级有效期等逻辑）
+			\app\model\Payorder::member_levelup_pay($levelupOrderId);
+
+			if(intval($level['apply_check'] ?? 0) == 1){
+				return json(['status'=>1,'msg'=>'申请已提交，请等待审核','data'=>['need_pay'=>false]]);
+			} else {
+				return json(['status'=>1,'msg'=>'升级成功','data'=>['need_pay'=>false]]);
+			}
+		}
+	}
+
+	/**
+	 * 个人中心页面
+	 */
+	public function user_center(){
+		if($this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index')); die;
+		}
+		return View::fetch('index3/user_center');
+	}
+
+	/**
+	 * AJAX: 获取个人中心数据
+	 */
+	public function user_center_data(){
+		if(!request()->isAjax()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$member = Db::name('member')->where('id', $mid)->find();
+		if(!$member) return json(['status'=>0,'msg'=>'用户不存在']);
+
+		// 等级信息
+		$level_name = '普通会员';
+		$level_icon = '';
+		if(!empty($member['levelid'])){
+			$level = Db::name('member_level')->where('id', $member['levelid'])->field('name,icon')->find();
+			if($level){
+				$level_name = $level['name'] ?: '普通会员';
+				$level_icon = $level['icon'] ?: '';
+			}
+		}
+
+		// 手机号脱敏
+		$tel = '';
+		if(!empty($member['tel']) && strlen($member['tel']) >= 7){
+			$tel = substr($member['tel'], 0, 3) . '****' . substr($member['tel'], -4);
+		}
+
+		// 创作会员状态
+		$creative_member = ['has_creative_member'=>false];
+		try {
+			$activeSub = Db::name('creative_member_subscription')
+				->where('mid', $mid)->where('status', 1)->where('expire_time', '>', time())
+				->order('id desc')->find();
+			if($activeSub){
+				$creative_member['has_creative_member'] = true;
+				$creative_member['creative_version'] = $activeSub['version_code'] ?? '';
+				$creative_member['creative_remaining_score'] = intval($activeSub['remaining_score'] ?? 0);
+				$creative_member['creative_expire_text'] = date('Y-m-d', $activeSub['expire_time']);
+				$planInfo = Db::name('creative_member_plan')->where('id', $activeSub['plan_id'])->field('version_name')->find();
+				$creative_member['creative_version_name'] = $planInfo['version_name'] ?? '';
+			}
+		} catch(\Exception $e) {}
+
+		// 订单统计
+		$order_stats = ['total'=>0,'pending'=>0];
+		try {
+			$order_stats['total'] = Db::name('payorder')->where('mid', $mid)->count();
+			$order_stats['pending'] = Db::name('payorder')->where('mid', $mid)->where('status', 0)->count();
+		} catch(\Exception $e) {}
+
+		return json(['status'=>1,'msg'=>'success','data'=>[
+			'userinfo' => [
+				'mid' => $member['id'],
+				'nickname' => $member['nickname'] ?? '',
+				'headimg' => $member['headimg'] ?? '',
+				'tel' => $tel,
+				'realname' => $member['realname'] ?? '',
+			],
+			'money' => number_format(floatval($member['money']), 2, '.', ''),
+			'score' => intval($member['score']),
+			'level_name' => $level_name,
+			'level_icon' => $level_icon,
+			'creative_member' => $creative_member,
+			'order_stats' => $order_stats,
+		]]);
+	}
+
+	/**
+	 * AJAX: H5支付调起（统一入口）
+	 */
+	public function h5_pay(){
+		if(!request()->isAjax() || !request()->isPost()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$ordernum = input('post.ordernum', '');
+		$pay_type = input('post.pay_type', '');
+		$order_type = input('post.order_type', '');
+
+		if(!$ordernum || !$pay_type) return json(['status'=>0,'msg'=>'参数错误']);
+
+		$defaultAid = 1;
+
+		// 查询订单
+		$payorder = Db::name('payorder')->where('ordernum', $ordernum)->where('mid', $mid)->find();
+		if(!$payorder) return json(['status'=>0,'msg'=>'订单不存在']);
+		if($payorder['status'] == 1) return json(['status'=>0,'msg'=>'订单已支付']);
+
+		$price = floatval($payorder['money']);
+		$title = $payorder['title'] ?: '订单支付';
+		// payorder.type作为Wxpay/Alipay的tablename参数，用于notify回调路由
+		$tablename = $payorder['type'] ?: 'recharge';
+		if($price <= 0) return json(['status'=>0,'msg'=>'订单金额异常']);
+
+		// 获取H5应用支付配置
+		$appinfo = \app\common\System::appinfo($defaultAid, 'h5');
+
+		// 检测浏览器UA
+		$ua = strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
+		$isWechat = (strpos($ua, 'micromessenger') !== false);
+
+		if($pay_type === 'wxpay'){
+			// 检查微信支付配置
+			if(empty($appinfo['wxpay_mchid']) || empty($appinfo['wxpay_mchkey'])){
+				return json(['status'=>0,'msg'=>'微信支付未配置']);
+			}
+
+			if($isWechat){
+				// 微信浏览器内：JSAPI支付
+				$member = Db::name('member')->where('id', $mid)->find();
+				$openid = $member['mpopenid'] ?? '';
+				if(empty($openid)) return json(['status'=>0,'msg'=>'请先绑定微信账号']);
+				$rs = \app\common\Wxpay::build_mp($defaultAid, 0, $mid, $title, $ordernum, $price, $tablename, '', $openid);
+				if($rs['status'] == 1){
+					return json(['status'=>1,'msg'=>'success','data'=>[
+						'pay_method' => 'jsapi',
+						'jsapi_params' => $rs['data']
+					]]);
+				}
+				return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付创建失败']);
+			} else {
+				// 普通浏览器：Native支付（二维码）
+				$rs = \app\common\Wxpay::build_pay_native_h5($defaultAid, 0, $mid, $title, $ordernum, $price, $tablename);
+				if($rs['status'] == 1 && !empty($rs['data']['pay_wx_qrcode_url'])){
+					return json(['status'=>1,'msg'=>'success','data'=>[
+						'pay_method' => 'qrcode',
+						'qrcode_url' => $rs['data']['pay_wx_qrcode_url']
+					]]);
+				}
+				// 回退到H5支付
+				$rs2 = \app\common\Wxpay::build_h5($defaultAid, 0, $mid, $title, $ordernum, $price, $tablename);
+				if($rs2['status'] == 1 && !empty($rs2['data']['mweb_url'])){
+					return json(['status'=>1,'msg'=>'success','data'=>[
+						'pay_method' => 'redirect',
+						'redirect_url' => $rs2['data']['mweb_url']
+					]]);
+				}
+				return json(['status'=>0,'msg'=>$rs['msg'] ?? $rs2['msg'] ?? '微信支付创建失败']);
+			}
+
+		} elseif($pay_type === 'alipay'){
+			// 检查支付宝配置
+			if(empty($appinfo['ali_appid']) || empty($appinfo['ali_privatekey']) || empty($appinfo['ali_publickey'])){
+				return json(['status'=>0,'msg'=>'支付宝支付未配置']);
+			}
+
+			$return_url = PRE_URL . '/?s=/index/recharge';
+			$alipay = new \app\common\Alipay();
+			$rs = $alipay->build_h5($defaultAid, 0, $mid, $title, $ordernum, $price, $tablename, '', $return_url);
+
+			if($rs['status'] == 1){
+				// 支付宝返回的可能是表单HTML或跳转URL
+				$payUrl = '';
+				if(is_object($rs['data']) && isset($rs['data']->body)){
+					$payUrl = $rs['data']->body;
+				} elseif(is_string($rs['data'])){
+					$payUrl = $rs['data'];
+				}
+				return json(['status'=>1,'msg'=>'success','data'=>[
+					'pay_method' => 'redirect',
+					'redirect_url' => $payUrl
+				]]);
+			}
+			return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);
+
+		} else {
+			return json(['status'=>0,'msg'=>'不支持的支付方式']);
+		}
+	}
+
+	/**
+	 * AJAX: 轮询支付状态
+	 */
+	public function check_pay_status(){
+		if(!request()->isAjax()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$ordernum = input('param.ordernum', '');
+		if(!$ordernum) return json(['status'=>0,'msg'=>'参数错误']);
+
+		$payorder = Db::name('payorder')->where('ordernum', $ordernum)->where('mid', $mid)->find();
+		if(!$payorder) return json(['status'=>0,'msg'=>'订单不存在']);
+
+		return json(['status'=>1,'msg'=>'success','data'=>[
+			'paid' => ($payorder['status'] == 1),
+			'ordernum' => $ordernum,
+		]]);
+	}
+
+	/**
+	 * AJAX: 获取可用支付方式
+	 */
+	public function pay_config(){
+		if(!request()->isAjax()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$defaultAid = 1;
+		$appinfo = \app\common\System::appinfo($defaultAid, 'h5');
+
+		$pay_types = [];
+		// 检查微信支付
+		if(!empty($appinfo['wxpay_mchid']) && !empty($appinfo['wxpay_mchkey'])){
+			$pay_types[] = ['id'=>'wxpay','name'=>'微信支付'];
+		}
+		// 检查支付宝
+		if(!empty($appinfo['ali_appid']) && !empty($appinfo['ali_privatekey']) && !empty($appinfo['ali_publickey'])){
+			$pay_types[] = ['id'=>'alipay','name'=>'支付宝支付'];
+		}
+
+		return json(['status'=>1,'msg'=>'success','data'=>['pay_types'=>$pay_types]]);
+	}
+
+	// =================================================================
+	// 云端存储空间管理
+	// =================================================================
+
+	/**
+	 * 用户空间页面
+	 */
+	public function user_storage(){
+		if($this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index')); die;
+		}
+		return View::fetch('index3/user_storage');
+	}
+
+	/**
+	 * AJAX: 获取用户存储空间信息
+	 */
+	public function user_storage_info(){
+		if(!request()->isAjax()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$defaultAid = 1;
+		try {
+			$service = new \app\service\StorageService();
+			$info = $service->getUserStorageInfo($defaultAid, intval($mid));
+			return json(['status'=>1,'msg'=>'success','data'=>$info]);
+		} catch(\Exception $e) {
+			return json(['status'=>0,'msg'=>'获取存储信息失败']);
+		}
+	}
+
+	/**
+	 * AJAX: 获取用户文件列表
+	 */
+	public function user_storage_files(){
+		if(!request()->isAjax()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$defaultAid = 1;
+		$filters = [
+			'file_type' => input('param.file_type', 'all'),
+			'source_type' => input('param.source_type', 'all'),
+			'page' => input('param.page/d', 1),
+			'limit' => input('param.limit/d', 20),
+		];
+
+		try {
+			$service = new \app\service\StorageService();
+			$result = $service->getUserStorageFiles($defaultAid, intval($mid), $filters);
+			return json(['status'=>1,'msg'=>'success','data'=>$result]);
+		} catch(\Exception $e) {
+			return json(['status'=>0,'msg'=>'获取文件列表失败']);
+		}
+	}
+
+	/**
+	 * AJAX: 删除用户文件
+	 */
+	public function delete_storage_file(){
+		if(!request()->isAjax() || !request()->isPost()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$fileIds = input('post.file_ids/a', []);
+		if(empty($fileIds)){
+			return json(['status'=>0,'msg'=>'请选择要删除的文件']);
+		}
+
+		$defaultAid = 1;
+		try {
+			$service = new \app\service\StorageService();
+			$result = $service->deleteFiles($defaultAid, intval($mid), $fileIds);
+			return json($result);
+		} catch(\Exception $e) {
+			return json(['status'=>0,'msg'=>'删除失败']);
+		}
+	}
+
+	/**
+	 * AJAX: 存储空间预检
+	 */
+	public function check_storage_quota(){
+		if(!request()->isAjax() || !request()->isPost()) return json(['status'=>0,'msg'=>'非法请求']);
+		$mid = $this->_getLoginMid();
+		if(!$mid) return json(['status'=>0,'msg'=>'请先登录']);
+
+		$requiredBytes = input('post.required_bytes/d', 0);
+		$defaultAid = 1;
+		try {
+			$service = new \app\service\StorageService();
+			$result = $service->checkQuota($defaultAid, intval($mid), $requiredBytes);
+			return json(['status'=>1,'msg'=>'success','data'=>$result]);
+		} catch(\Exception $e) {
+			return json(['status'=>0,'msg'=>'配额检查失败']);
+		}
+	}
+
+	/**
+	 * 文件下载代理（解决第三方链接跨域下载问题）
+	 */
+	public function download_storage_file(){
+		$mid = $this->_getLoginMid();
+		if(!$mid){
+			header('HTTP/1.1 403 Forbidden');
+			echo '请先登录'; exit;
+		}
+
+		$fileId = input('param.file_id/d', 0);
+		if(!$fileId){
+			header('HTTP/1.1 400 Bad Request');
+			echo '参数错误'; exit;
+		}
+
+		$defaultAid = 1;
+		$file = \app\model\UserStorageFile::getById($fileId);
+		if(!$file || $file['mid'] != $mid || $file['is_deleted']){
+			header('HTTP/1.1 404 Not Found');
+			echo '文件不存在'; exit;
+		}
+
+		$url = $file['file_url'];
+		if(empty($url)){
+			header('HTTP/1.1 404 Not Found');
+			echo '文件地址为空'; exit;
+		}
+
+		// 检测文件名称和扩展名
+		$ext = 'jpg';
+		if($file['file_type'] === 'video') $ext = 'mp4';
+		$urlPath = parse_url($url, PHP_URL_PATH);
+		if($urlPath){
+			$pathExt = strtolower(pathinfo($urlPath, PATHINFO_EXTENSION));
+			if(in_array($pathExt, ['jpg','jpeg','png','gif','webp','mp4','mov','avi','webm'])){
+				$ext = $pathExt;
+			}
+		}
+		$filename = ($file['file_type'] === 'video' ? 'video' : 'image') . '_' . $file['id'] . '.' . $ext;
+
+		// 代理下载
+		$ch = curl_init();
+		curl_setopt_array($ch, [
+			CURLOPT_URL => $url,
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_MAXREDIRS => 5,
+			CURLOPT_TIMEOUT => 120,
+			CURLOPT_SSL_VERIFYPEER => false,
+			CURLOPT_SSL_VERIFYHOST => false,
+			CURLOPT_USERAGENT => 'Mozilla/5.0',
+		]);
+		$content = curl_exec($ch);
+		$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		$contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream';
+		curl_close($ch);
+
+		if($httpCode != 200 || $content === false){
+			header('HTTP/1.1 502 Bad Gateway');
+			echo '文件下载失败，链接可能已过期'; exit;
+		}
+
+		header('Content-Type: ' . $contentType);
+		header('Content-Disposition: attachment; filename="' . $filename . '"');
+		header('Content-Length: ' . strlen($content));
+		header('Cache-Control: no-cache');
+		echo $content;
+		exit;
 	}
 }

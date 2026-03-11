@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>个人中心 - {$webinfo.webname}</title>
+    {if $webinfo.ico}<link rel="shortcut icon" type="image/x-icon" href="{$webinfo.ico}">{/if}
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=7">
+    <link rel="stylesheet" href="/static/index3/css/pay.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=6">
+    <script src="/static/index3/js/theme.js?v=1"></script>
+</head>
+<body>
+<div class="layout-wrapper">
+    {include file="index3/public/sidebar"/}
+    <div class="main-content">
+        {include file="index3/public/header"/}
+        <div class="page-content" style="max-width:800px;margin:0 auto;padding:24px 16px">
+
+            <!-- 用户信息卡片 -->
+            <div class="uc-profile-card" id="profileCard">
+                <img class="uc-avatar" id="ucAvatar" src="/static/index3/img/default_avatar.svg" alt="头像">
+                <div class="uc-user-info">
+                    <div class="uc-nickname" id="ucNickname">加载中...</div>
+                    <div class="uc-meta">
+                        <span id="ucTel"></span>
+                        <span id="ucMid"></span>
+                    </div>
+                    <a class="uc-level-tag" id="ucLevelTag" href="/?s=/index/member_level" style="text-decoration:none;color:#fff;margin-top:4px;display:inline-block">👑 普通会员</a>
+                </div>
+            </div>
+
+            <!-- 资产概览 -->
+            <div class="uc-asset-grid">
+                <a class="uc-asset-item" href="/?s=/index/recharge" style="text-decoration:none;color:inherit">
+                    <div class="uc-asset-value" id="ucMoney">¥0.00</div>
+                    <div class="uc-asset-label">账户余额</div>
+                </a>
+                <a class="uc-asset-item" href="/?s=/index/score_shop" style="text-decoration:none;color:inherit">
+                    <div class="uc-asset-value" id="ucScore">0</div>
+                    <div class="uc-asset-label">积分</div>
+                </a>
+                <a class="uc-asset-item" href="/?s=/index/member_level" style="text-decoration:none;color:inherit">
+                    <div class="uc-asset-value" id="ucLevelName" style="font-size:16px">-</div>
+                    <div class="uc-asset-label">会员等级</div>
+                </a>
+            </div>
+
+            <!-- 创作会员卡片 -->
+            <div class="page-card" id="creativeMemberCard" style="display:none">
+                <div class="page-card-title">✨ 创作会员</div>
+                <div id="creativeMemberContent"></div>
+            </div>
+
+            <!-- 功能菜单 -->
+            <div class="uc-menu-list">
+                <a class="uc-menu-item" href="/?s=/index/recharge">
+                    <span class="uc-menu-icon">💰</span>
+                    <span class="uc-menu-text">余额充值</span>
+                    <span class="uc-menu-arrow">›</span>
+                </a>
+                <a class="uc-menu-item" href="/?s=/index/score_shop">
+                    <span class="uc-menu-icon">⭐</span>
+                    <span class="uc-menu-text">积分购买</span>
+                    <span class="uc-menu-arrow">›</span>
+                </a>
+                <a class="uc-menu-item" href="/?s=/index/member_level">
+                    <span class="uc-menu-icon">👑</span>
+                    <span class="uc-menu-text">会员等级</span>
+                    <span class="uc-menu-arrow">›</span>
+                </a>
+                <a class="uc-menu-item" href="javascript:;" onclick="Auth.showSubscriptionPopup()">
+                    <span class="uc-menu-icon">🎨</span>
+                    <span class="uc-menu-text">创作会员</span>
+                    <span class="uc-menu-arrow">›</span>
+                </a>
+                <a class="uc-menu-item" href="/?s=/index/help">
+                    <span class="uc-menu-icon">❓</span>
+                    <span class="uc-menu-text">帮助中心</span>
+                    <span class="uc-menu-arrow">›</span>
+                </a>
+                <a class="uc-menu-item" href="/?s=/index/lianxi">
+                    <span class="uc-menu-icon">📞</span>
+                    <span class="uc-menu-text">联系我们</span>
+                    <span class="uc-menu-arrow">›</span>
+                </a>
+            </div>
+
+            <!-- 退出登录 -->
+            <button id="logoutBtn" style="width:100%;height:48px;margin-top:20px;background:var(--bg-primary,#fff);border:1px solid var(--border-color,#eee);border-radius:12px;font-size:15px;color:#ef4444;cursor:pointer;transition:all .2s">
+                退出登录
+            </button>
+        </div>
+    </div>
+</div>
+{include file="index3/public/tabbar"/}
+
+<script src="/static/index3/js/api.js?v=4"></script>
+<script src="/static/index3/js/auth.js?v=2"></script>
+<script src="/static/index3/js/pay.js?v=1"></script>
+<script src="/static/index3/js/sidebar.js?v=1"></script>
+<script>
+(function(){
+    function init(){
+        if(!Auth.isChecked()){ setTimeout(init, 200); return; }
+        if(!Auth.isLoggedIn()){ location.href = '/?s=/index/index'; return; }
+        loadUserCenter();
+    }
+
+    function loadUserCenter(){
+        Api.getUserCenterData(function(err, res){
+            if(err || !res || res.status !== 1){
+                // Fallback to checkLogin data
+                var user = Auth.getUser();
+                if(user) renderUserData({userinfo: user, money: user.money, score: user.score, level_name: user.level_name, level_icon: user.level_icon});
+                return;
+            }
+            renderUserData(res.data);
+        });
+    }
+
+    function renderUserData(data){
+        var ui = data.userinfo || data;
+        document.getElementById('ucNickname').textContent = ui.nickname || '用户';
+        document.getElementById('ucAvatar').src = ui.headimg || '/static/index3/img/default_avatar.svg';
+        document.getElementById('ucAvatar').onerror = function(){ this.src = '/static/index3/img/default_avatar.svg'; };
+        document.getElementById('ucTel').textContent = ui.tel || '';
+        document.getElementById('ucMid').textContent = 'ID: ' + (ui.mid || ui.id || '');
+        document.getElementById('ucMoney').textContent = '¥' + (data.money || '0.00');
+        document.getElementById('ucScore').textContent = data.score || 0;
+        document.getElementById('ucLevelName').textContent = data.level_name || '普通会员';
+        document.getElementById('ucLevelTag').textContent = '👑 ' + (data.level_name || '普通会员');
+
+        // 创作会员
+        var cm = data.creative_member || ui;
+        if(cm && cm.has_creative_member){
+            document.getElementById('creativeMemberCard').style.display = 'block';
+            document.getElementById('creativeMemberContent').innerHTML =
+                '<div style="display:flex;justify-content:space-between;align-items:center">' +
+                    '<div><strong>' + escapeHtml(cm.creative_version_name || '创作会员') + '</strong></div>' +
+                    '<div style="font-size:13px;color:var(--text-tertiary,#999)">到期：' + escapeHtml(cm.creative_expire_text || '--') + '</div>' +
+                '</div>' +
+                '<div style="margin-top:8px;font-size:13px;color:var(--text-secondary,#666)">剩余创作积分：' + (cm.creative_remaining_score || 0) + '</div>';
+        }
+    }
+
+    function escapeHtml(str){
+        if(!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', function(){
+        Auth.logout();
+        setTimeout(function(){ location.href = '/'; }, 500);
+    });
+
+    init();
+})();
+</script>
+</body>
+</html>

@@ -8,6 +8,7 @@ namespace app\service;
 use think\facade\Db;
 use think\facade\Log;
 use app\model\GenerationRecord;
+use app\service\CreativeMemberService;
 
 class GenerationOrderService
 {
@@ -255,10 +256,12 @@ class GenerationOrderService
         ]);
         
         if ($result['status'] == 1) {
+            // 查询生成记录的实际状态（同步任务可能已经完成）
+            $actualStatus = $this->getActualTaskStatus($result['record_id']);
             // 更新订单的生成记录ID和任务状态
             Db::name('generation_order')->where('id', $orderId)->update([
                 'record_id' => $result['record_id'],
-                'task_status' => self::TASK_STATUS_PROCESSING,
+                'task_status' => $actualStatus,
                 'updatetime' => time()
             ]);
         }
@@ -300,6 +303,22 @@ class GenerationOrderService
         ]);
         
         return true;
+    }
+    
+    /**
+     * 查询生成记录的实际状态，映射为订单任务状态
+     * 解决同步任务已完成但订单被覆写为“处理中”的竞态问题
+     * @param int $recordId 生成记录ID
+     * @return int 订单任务状态
+     */
+    protected function getActualTaskStatus($recordId)
+    {
+        $recordStatus = Db::name('generation_record')->where('id', $recordId)->value('status');
+        if ($recordStatus === null) {
+            return self::TASK_STATUS_PROCESSING;
+        }
+        // 生成记录状态与订单任务状态常量一致（0=待处理,1=处理中,2=成功,3=失败,4=已取消）
+        return intval($recordStatus);
     }
     
     /**
@@ -792,6 +811,49 @@ class GenerationOrderService
         $payPrice = floatval($priceInfo['price']);
         $basePrice = floatval($priceInfo['base_price']);
         
+        // ===== 并发任务检查 =====
+        $creativeMemberService = new CreativeMemberService();
+        $concurrency = $creativeMemberService->checkConcurrency($aid, $mid);
+        if (!$concurrency['allowed']) {
+            return [
+                'status' => 0,
+                'msg' => '当前并发任务已满（' . $concurrency['current'] . '/' . $concurrency['max'] . '），请等待任务完成后再提交',
+                'error_type' => 'concurrency_limit',
+            ];
+        }
+        
+        // ===== 积分支付逻辑 =====
+        $scorePayConfig = $creativeMemberService->getScorePayConfig($aid);
+        $useScorePay = false;
+        $requiredScore = 0;
+        
+        if ($payPrice > 0 && $scorePayConfig['enabled']) {
+            $useScorePay = true;
+            $requiredScore = $creativeMemberService->moneyToScore($payPrice, $scorePayConfig['exchange_rate']);
+            
+            // 检查用户总可用积分
+            $totalScore = $creativeMemberService->getTotalAvailableScore($aid, $mid);
+            $member = Db::name('member')->where('id', $mid)->where('aid', $aid)->field('id,money,score')->find();
+            
+            if ($totalScore < $requiredScore) {
+                return [
+                    'status' => 0,
+                    'msg' => '积分不足，当前可用积分' . $totalScore . '，本次需要' . $requiredScore . '积分',
+                    'error_type' => 'score_insufficient',
+                    'extra' => [
+                        'current_score' => intval($member['score'] ?? 0),
+                        'required_score' => $requiredScore,
+                        'need_amount' => $requiredScore - $totalScore,
+                        'current_balance' => floatval($member['money'] ?? 0),
+                        'price_in_score' => $requiredScore,
+                    ]
+                ];
+            }
+        } elseif ($payPrice > 0 && !$scorePayConfig['enabled']) {
+            // 传统支付模式下，检查余额（余额支付场景，前端可能直接跳支付页）
+            $member = Db::name('member')->where('id', $mid)->where('aid', $aid)->field('id,money,score')->find();
+        }
+        
         // 生成唯一订单号
         $ordernum = $this->generateOrdernum($generationType);
         
@@ -824,6 +886,9 @@ class GenerationOrderService
                 'user_prompt' => $userPrompt,
                 'ref_images' => !empty($refImages) ? json_encode($refImages, JSON_UNESCAPED_UNICODE) : '',
                 'template_snapshot' => $templateSnapshot,
+                'pay_mode' => 'money',
+                'score_pay_amount' => 0,
+                'score_pay_money' => 0,
                 'status' => 1,
                 'createtime' => time(),
                 'updatetime' => time()
@@ -837,6 +902,7 @@ class GenerationOrderService
                     'pay_status' => self::PAY_STATUS_PAID,
                     'pay_time' => time(),
                     'paytype' => '免费',
+                    'pay_mode' => 'free',
                     'updatetime' => time()
                 ]);
                 
@@ -857,7 +923,58 @@ class GenerationOrderService
                 ];
             }
             
-            // 创建支付订单
+            // ===== 积分支付：直接扣除积分并标记已支付 =====
+            if ($useScorePay && $requiredScore > 0) {
+                $consumeResult = $creativeMemberService->consumeScore($aid, $mid, $requiredScore, $orderId);
+                if ($consumeResult['status'] != 1) {
+                    Db::rollback();
+                    $member = Db::name('member')->where('id', $mid)->where('aid', $aid)->field('id,money,score')->find();
+                    return [
+                        'status' => 0,
+                        'msg' => '积分不足',
+                        'error_type' => 'score_insufficient',
+                        'extra' => [
+                            'current_score' => intval($member['score'] ?? 0),
+                            'required_score' => $requiredScore,
+                            'need_amount' => $requiredScore - $creativeMemberService->getTotalAvailableScore($aid, $mid),
+                            'current_balance' => floatval($member['money'] ?? 0),
+                            'price_in_score' => $requiredScore,
+                        ]
+                    ];
+                }
+                
+                $scorePayMoney = $creativeMemberService->scoreToMoney($requiredScore, $scorePayConfig['exchange_rate']);
+                
+                Db::name('generation_order')->where('id', $orderId)->update([
+                    'pay_status' => self::PAY_STATUS_PAID,
+                    'pay_time' => time(),
+                    'paytype' => '积分支付',
+                    'pay_mode' => 'score',
+                    'score_pay_amount' => $requiredScore,
+                    'score_pay_money' => $scorePayMoney,
+                    'updatetime' => time()
+                ]);
+                
+                Db::commit();
+                
+                // 触发生成任务
+                $this->triggerGenerationTaskWithParams($orderId, $userPrompt, $refImages, $quantity, $ratio, $quality);
+                
+                return [
+                    'status' => 1,
+                    'msg' => '订单创建成功',
+                    'data' => [
+                        'order_id' => $orderId,
+                        'ordernum' => $ordernum,
+                        'total_price' => $payPrice,
+                        'need_pay' => false,
+                        'pay_mode' => 'score',
+                        'score_paid' => $requiredScore,
+                    ]
+                ];
+            }
+            
+            // ===== 传统支付流程（余额/微信支付）=====
             $payorderData = [
                 'aid' => $aid,
                 'bid' => $bid,
@@ -875,6 +992,7 @@ class GenerationOrderService
             
             Db::name('generation_order')->where('id', $orderId)->update([
                 'payorderid' => $payorderId,
+                'pay_mode' => 'money',
                 'updatetime' => time()
             ]);
             
@@ -893,8 +1011,17 @@ class GenerationOrderService
             ];
         } catch (\Exception $e) {
             Db::rollback();
-            Log::error('创建生成订单失败: ' . $e->getMessage());
-            return ['status' => 0, 'msg' => '订单创建失败'];
+            Log::error('创建生成订单失败: ' . $e->getMessage() . ' | trace: ' . $e->getTraceAsString());
+            // 区分数据库异常与业务校验异常，非生产环境透传详细信息
+            $errMsg = '订单创建失败';
+            if (strpos($e->getMessage(), 'Unknown column') !== false) {
+                $errMsg = '订单创建失败：数据表字段缺失，请联系管理员执行数据库迁移';
+            } elseif (strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                $errMsg = '订单创建失败：订单号重复，请重试';
+            } elseif (app()->isDebug()) {
+                $errMsg = '订单创建失败：' . $e->getMessage();
+            }
+            return ['status' => 0, 'msg' => $errMsg, 'error_type' => 'normal'];
         }
     }
     
@@ -996,14 +1123,162 @@ class GenerationOrderService
         ]);
         
         if ($result['status'] == 1) {
+            // 查询生成记录的实际状态（同步任务可能已经完成）
+            $actualStatus = $this->getActualTaskStatus($result['record_id']);
             Db::name('generation_order')->where('id', $orderId)->update([
                 'record_id' => $result['record_id'],
-                'task_status' => self::TASK_STATUS_PROCESSING,
+                'task_status' => $actualStatus,
                 'updatetime' => time()
             ]);
         }
         
         return $result;
+    }
+    
+    /**
+     * 创建生成订单（模型直选模式，无需场景模板）
+     * @param array $data [aid, bid, mid, model_id, generation_type, user_prompt, ref_images, quantity, ratio, quality]
+     * @return array
+     */
+    public function createOrderByModel($data)
+    {
+        $aid = $data['aid'] ?? 0;
+        $bid = $data['bid'] ?? 0;
+        $mid = $data['mid'] ?? 0;
+        $modelId = $data['model_id'] ?? 0;
+        $generationType = $data['generation_type'] ?? self::TYPE_PHOTO;
+        $userPrompt = $data['user_prompt'] ?? '';
+        $refImages = $data['ref_images'] ?? [];
+        $quantity = $data['quantity'] ?? 1;
+        $ratio = $data['ratio'] ?? '';
+        $quality = $data['quality'] ?? '';
+        
+        if (!$modelId) {
+            return ['status' => 0, 'msg' => '请选择模型'];
+        }
+        
+        // 校验模型存在且已启用
+        $model = Db::name('model_info')
+            ->where('id', $modelId)
+            ->where('is_active', 1)
+            ->find();
+        
+        if (!$model) {
+            return ['status' => 0, 'msg' => '模型不存在或已禁用'];
+        }
+        
+        // 模型直选模式为免费（费用由系统级API Key承担）
+        $ordernum = $this->generateOrdernum($generationType);
+        
+        Db::startTrans();
+        try {
+            $orderData = [
+                'aid' => $aid,
+                'bid' => $bid,
+                'mid' => $mid,
+                'ordernum' => $ordernum,
+                'generation_type' => $generationType,
+                'scene_id' => 0,
+                'scene_name' => '模型直选-' . ($model['model_name'] ?? ''),
+                'model_id' => $modelId,
+                'total_price' => 0,
+                'pay_price' => 0,
+                'pay_status' => self::PAY_STATUS_PAID,
+                'pay_time' => time(),
+                'paytype' => '免费',
+                'refund_status' => self::REFUND_STATUS_NONE,
+                'task_status' => self::TASK_STATUS_PENDING,
+                'user_prompt' => $userPrompt,
+                'ref_images' => !empty($refImages) ? json_encode($refImages, JSON_UNESCAPED_UNICODE) : '',
+                'template_snapshot' => '',
+                'status' => 1,
+                'createtime' => time(),
+                'updatetime' => time()
+            ];
+            
+            $orderId = Db::name('generation_order')->insertGetId($orderData);
+            
+            Db::commit();
+            
+            // 构建生成参数
+            $inputParams = ['prompt' => $userPrompt];
+            if (!empty($refImages)) {
+                if (count($refImages) == 1) {
+                    $inputParams['image'] = $refImages[0];
+                    $inputParams['first_frame_image'] = $refImages[0];
+                } else {
+                    $inputParams['images'] = $refImages;
+                }
+            }
+            if ($quantity > 0) {
+                $inputParams['max_images'] = $quantity;
+            }
+            if (!empty($ratio)) {
+                $qualityVal = (!empty($quality) && in_array($quality, ['standard', 'hd', 'ultra'])) ? $quality : 'hd';
+                $ratioSizeMap = [
+                    '1:1' => ['standard' => '512x512', 'hd' => '1024x1024', 'ultra' => '2048x2048'],
+                    '2:3' => ['standard' => '512x768', 'hd' => '1024x1536', 'ultra' => '2048x3072'],
+                    '3:2' => ['standard' => '768x512', 'hd' => '1536x1024', 'ultra' => '3072x2048'],
+                    '3:4' => ['standard' => '384x512', 'hd' => '768x1024', 'ultra' => '1536x2048'],
+                    '4:3' => ['standard' => '512x384', 'hd' => '1024x768', 'ultra' => '2048x1536'],
+                    '9:16' => ['standard' => '360x640', 'hd' => '720x1280', 'ultra' => '1440x2560'],
+                    '16:9' => ['standard' => '640x360', 'hd' => '1280x720', 'ultra' => '2560x1440'],
+                    '4:5' => ['standard' => '512x640', 'hd' => '1024x1280', 'ultra' => '2048x2560'],
+                    '5:4' => ['standard' => '640x512', 'hd' => '1280x1024', 'ultra' => '2560x2048'],
+                    '21:9' => ['standard' => '1260x540', 'hd' => '2520x1080', 'ultra' => '3780x1620'],
+                ];
+                if (isset($ratioSizeMap[$ratio][$qualityVal])) {
+                    $inputParams['size'] = $ratioSizeMap[$ratio][$qualityVal];
+                } elseif (isset($ratioSizeMap[$ratio]['hd'])) {
+                    $inputParams['size'] = $ratioSizeMap[$ratio]['hd'];
+                } else {
+                    $inputParams['size'] = $ratio;
+                }
+            }
+            
+            // 调用 GenerationService 创建任务
+            $generationService = new GenerationService();
+            $result = $generationService->createTask([
+                'aid' => $aid,
+                'bid' => $bid,
+                'uid' => 0,
+                'mid' => $mid,
+                'generation_type' => $generationType,
+                'model_id' => $modelId,
+                'scene_id' => 0,
+                'input_params' => $inputParams,
+                'order_id' => $orderId
+            ]);
+            
+            if ($result['status'] == 1) {
+                // 查询生成记录的实际状态（同步任务可能已经完成）
+                $actualStatus = $this->getActualTaskStatus($result['record_id']);
+                Db::name('generation_order')->where('id', $orderId)->update([
+                    'record_id' => $result['record_id'],
+                    'task_status' => $actualStatus,
+                    'updatetime' => time()
+                ]);
+            }
+            
+            return [
+                'status' => 1,
+                'msg' => '订单创建成功',
+                'data' => [
+                    'order_id' => $orderId,
+                    'ordernum' => $ordernum,
+                    'total_price' => 0,
+                    'need_pay' => false
+                ]
+            ];
+        } catch (\Exception $e) {
+            Db::rollback();
+            Log::error('创建模型直选订单失败: ' . $e->getMessage() . ' | trace: ' . $e->getTraceAsString());
+            $errMsg = '订单创建失败';
+            if (app()->isDebug()) {
+                $errMsg = '订单创建失败：' . $e->getMessage();
+            }
+            return ['status' => 0, 'msg' => $errMsg];
+        }
     }
     
     /**

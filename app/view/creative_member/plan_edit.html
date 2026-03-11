@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>编辑创作会员套餐</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-card">
+      <div class="layui-card-header">
+        <i class="layui-icon layui-icon-edit"></i> {if $info['id']}编辑套餐{else/}新增套餐{/if}
+      </div>
+      <div class="layui-card-body" pad15>
+        <div class="layui-form form-label-w8" lay-filter="planForm">
+          <input type="hidden" name="id" value="{$info.id}">
+
+          <fieldset class="layui-elem-field layui-field-title"><legend>基本信息</legend></fieldset>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">版本代码：</label>
+            <div class="layui-input-inline">
+              <select name="version_code" lay-verify="required">
+                <option value="basic" {if $info['version_code']=='basic'}selected{/if}>basic (基础版)</option>
+                <option value="pro" {if $info['version_code']=='pro'}selected{/if}>pro (专业版)</option>
+                <option value="master" {if $info['version_code']=='master'}selected{/if}>master (大师版)</option>
+                <option value="flagship" {if $info['version_code']=='flagship'}selected{/if}>flagship (旗舰版)</option>
+                <option value="premium" {if $info['version_code']=='premium'}selected{/if}>premium (尊享版)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">版本名称：</label>
+            <div class="layui-input-inline">
+              <input type="text" name="version_name" lay-verify="required" class="layui-input" value="{$info.version_name}" placeholder="如：基础版">
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">购买模式：</label>
+            <div class="layui-input-inline">
+              <select name="purchase_mode" lay-verify="required">
+                <option value="yearly" {if $info['purchase_mode']=='yearly'}selected{/if}>按年购买</option>
+                <option value="monthly_auto" {if $info['purchase_mode']=='monthly_auto'}selected{/if}>连续包月</option>
+                <option value="monthly" {if $info['purchase_mode']=='monthly'}selected{/if}>单月购买</option>
+              </select>
+            </div>
+          </div>
+
+          <fieldset class="layui-elem-field layui-field-title"><legend>定价信息</legend></fieldset>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">售价(元)：</label>
+            <div class="layui-input-inline">
+              <input type="number" name="price" lay-verify="required|number" class="layui-input" value="{$info.price}" step="0.01">
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">原价(元)：</label>
+            <div class="layui-input-inline">
+              <input type="number" name="original_price" class="layui-input" value="{$info.original_price}" step="0.01">
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">折扣文案：</label>
+            <div class="layui-input-inline">
+              <input type="text" name="discount_text" class="layui-input" value="{$info.discount_text}" placeholder="如：68折">
+            </div>
+          </div>
+
+          <fieldset class="layui-elem-field layui-field-title"><legend>权益配置</legend></fieldset>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">每月积分：</label>
+            <div class="layui-input-inline">
+              <input type="number" name="monthly_score" lay-verify="required|number" class="layui-input" value="{$info.monthly_score}">
+            </div>
+            <div class="layui-form-mid layui-word-aux">每月发放的创作积分数量</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">每日登录积分：</label>
+            <div class="layui-input-inline">
+              <input type="number" name="daily_login_score" class="layui-input" value="{$info.daily_login_score}">
+            </div>
+            <div class="layui-form-mid layui-word-aux">每日登录赠送积分，默认20</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">最大并发数：</label>
+            <div class="layui-input-inline">
+              <input type="number" name="max_concurrency" class="layui-input" value="{$info.max_concurrency}">
+            </div>
+            <div class="layui-form-mid layui-word-aux">同时执行的生成任务上限，9999表示无限</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">云端存储(GB)：</label>
+            <div class="layui-input-inline">
+              <input type="number" name="cloud_storage_gb" class="layui-input" value="{$info.cloud_storage_gb}">
+            </div>
+          </div>
+
+          <fieldset class="layui-elem-field layui-field-title"><legend>模型权益 (JSON)</legend></fieldset>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">模型权益：</label>
+            <div class="layui-input-block" style="width:600px">
+              <textarea name="model_rights" class="layui-textarea" rows="6" placeholder='[{"model_code":"basic_f2","free_days":365,"free_type":"free_score"}]'>{$info.model_rights|json_encode=JSON_UNESCAPED_UNICODE|default=''}</textarea>
+            </div>
+            <div class="layui-form-mid layui-word-aux">JSON数组格式，每项含model_code、free_days、free_type</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">功能权益：</label>
+            <div class="layui-input-block" style="width:600px">
+              <textarea name="features" class="layui-textarea" rows="4" placeholder='["登录每日赠送20积分","会员专属可商用模型"]'>{$info.features|json_encode=JSON_UNESCAPED_UNICODE|default=''}</textarea>
+            </div>
+            <div class="layui-form-mid layui-word-aux">JSON字符串数组</div>
+          </div>
+
+          <fieldset class="layui-elem-field layui-field-title"><legend>其他设置</legend></fieldset>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">排序：</label>
+            <div class="layui-input-inline" style="width:100px">
+              <input type="number" name="sort" class="layui-input" value="{$info.sort}">
+            </div>
+            <div class="layui-form-mid layui-word-aux">数字越小越靠前</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">状态：</label>
+            <div class="layui-input-inline">
+              <input type="radio" name="status" value="1" title="启用" {if $info['status']==1}checked{/if}>
+              <input type="radio" name="status" value="0" title="禁用" {if $info['status']==0}checked{/if}>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <div class="layui-input-block">
+              <button class="layui-btn" lay-submit lay-filter="submitPlan">保存</button>
+              <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  layui.form.on('submit(submitPlan)', function(obj) {
+    var loadIndex = layer.load();
+    $.post("{:url('plan_save')}", obj.field, function(res) {
+      layer.close(loadIndex);
+      if (res.status == 1) {
+        layer.msg('保存成功', {icon: 1, time: 1000}, function() {
+          // 刷新父页面表格
+          if (parent && parent.layui && parent.layui.table) {
+            parent.layui.table.reload('tabledata');
+          }
+          // 关闭当前弹窗
+          var index = parent.layer.getFrameIndex(window.name);
+          parent.layer.close(index);
+        });
+      } else {
+        layer.msg(res.msg, {icon: 2});
+      }
+    });
+    return false;
+  });
+  </script>
+</body>
+</html>

@@ -168,6 +168,7 @@ class GenerationRecord extends Model
         $record->aid = $data['aid'] ?? 0;
         $record->bid = $data['bid'] ?? 0;
         $record->uid = $data['uid'] ?? 0;
+        $record->order_id = $data['order_id'] ?? 0;
         $record->generation_type = $data['generation_type'];
         $record->model_id = $data['model_id'];
         $record->model_code = $data['model_code'] ?? '';
@@ -207,6 +208,66 @@ class GenerationRecord extends Model
         
         // 同步更新关联订单的任务状态
         $this->syncOrderTaskStatus(self::STATUS_SUCCESS);
+        
+        // 将生成的输出文件记入用户云端存储空间
+        $this->recordOutputsToStorage();
+    }
+
+    /**
+     * 将生成输出记录到用户云端存储空间
+     */
+    protected function recordOutputsToStorage()
+    {
+        try {
+            // 获取用户身份：优先从关联订单获取 mid
+            $aid = $this->aid;
+            $mid = 0;
+            if ($this->order_id > 0) {
+                $order = Db::name('generation_order')->where('id', $this->order_id)->field('aid,mid')->find();
+                if ($order) {
+                    $aid = $order['aid'];
+                    $mid = intval($order['mid']);
+                }
+            }
+            // 兜底：使用 record 的 uid
+            if ($mid <= 0 && $this->uid > 0) {
+                $mid = $this->uid;
+            }
+            if ($mid <= 0 || $aid <= 0) return;
+
+            // 获取该记录的所有输出
+            $outputs = GenerationOutput::getByRecordId($this->id);
+            if (empty($outputs)) return;
+
+            $storageService = new \app\service\StorageService();
+            foreach ($outputs as $output) {
+                // 避免重复入库
+                $existing = \app\model\UserStorageFile::getBySource('generated', $output['id'], $mid);
+                if ($existing) continue;
+
+                $fileSize = intval($output['file_size'] ?? 0);
+                // 如果 file_size 为 0，尝试通过 HEAD 请求获取
+                if ($fileSize <= 0 && !empty($output['output_url'])) {
+                    $fileSize = \app\service\StorageService::getRemoteFileSize($output['output_url']);
+                }
+
+                $fileType = ($output['output_type'] ?? 'image') === 'video' ? 'video' : 'image';
+
+                $storageService->addFile($aid, $mid, [
+                    'file_url' => $output['output_url'] ?? '',
+                    'thumbnail_url' => $output['thumbnail_url'] ?? '',
+                    'file_type' => $fileType,
+                    'source_type' => 'generated',
+                    'source_id' => $output['id'],
+                    'file_size' => $fileSize,
+                    'width' => intval($output['width'] ?? 0),
+                    'height' => intval($output['height'] ?? 0),
+                    'duration' => intval($output['duration'] ?? 0),
+                ]);
+            }
+        } catch (\Exception $e) {
+            \think\facade\Log::warning('recordOutputsToStorage error: ' . $e->getMessage());
+        }
     }
     
     /**

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>创作会员套餐管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          <i class="layui-icon layui-icon-group"></i> 创作会员套餐管理
+        </div>
+        <div class="layui-card-body" pad15>
+          <!-- 操作按钮区 -->
+          <div class="layui-col-md4" style="padding-bottom:10px">
+            <a class="layui-btn layuiadmin-btn-list" href="javascript:void(0)" onclick="openmax('{:url(\'plan_edit\')}')">
+              <i class="layui-icon layui-icon-add-1"></i> 新增套餐
+            </a>
+          </div>
+
+          <!-- 搜索区 -->
+          <div class="layui-form layui-col-md8 layui-form-search">
+            <div class="layui-inline">
+              <label class="layui-form-label">版本</label>
+              <div class="layui-input-inline" style="width:120px">
+                <select name="version_code">
+                  <option value="">全部</option>
+                  <option value="basic">基础版</option>
+                  <option value="pro">专业版</option>
+                  <option value="master">大师版</option>
+                  <option value="flagship">旗舰版</option>
+                  <option value="premium">尊享版</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">模式</label>
+              <div class="layui-input-inline" style="width:120px">
+                <select name="purchase_mode">
+                  <option value="">全部</option>
+                  <option value="yearly">按年</option>
+                  <option value="monthly_auto">连续包月</option>
+                  <option value="monthly">单月</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">状态</label>
+              <div class="layui-input-inline" style="width:100px">
+                <select name="status">
+                  <option value="">全部</option>
+                  <option value="1">启用</option>
+                  <option value="0">禁用</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn layuiadmin-btn-replys" lay-submit lay-filter="LAY-search">
+                <i class="layui-icon layui-icon-search"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 数据表格 -->
+          <div class="layui-col-md12">
+            <table id="tabledata" lay-filter="tabledata"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  var table = layui.table;
+  var datawhere = {};
+
+  var tableIns = table.render({
+    elem: '#tabledata',
+    url: "{$Request.url}",
+    page: true,
+    cols: [[
+      {field: 'id', title: 'ID', sort: true, width: 60},
+      {field: 'version_name', title: '版本名称', width: 100},
+      {field: 'version_code', title: '版本代码', width: 90},
+      {field: 'mode_text', title: '购买模式', width: 100},
+      {field: 'price', title: '售价(元)', width: 100, templet: function(d) {
+        return '<span style="color:#FF6B00;font-weight:bold">¥' + d.price + '</span>';
+      }},
+      {field: 'original_price', title: '原价(元)', width: 100, templet: function(d) {
+        return '<span style="text-decoration:line-through;color:#999">¥' + d.original_price + '</span>';
+      }},
+      {field: 'discount_text', title: '折扣', width: 70},
+      {field: 'monthly_score', title: '每月积分', width: 90, templet: function(d) {
+        return '<span class="layui-badge layui-bg-blue">' + d.monthly_score + '</span>';
+      }},
+      {field: 'max_concurrency', title: '最大并发', width: 80},
+      {field: 'cloud_storage_gb', title: '存储(GB)', width: 80},
+      {field: 'model_rights_count', title: '模型权益', width: 80, templet: function(d) {
+        return d.model_rights_count > 0 ? '<span class="layui-badge layui-bg-green">' + d.model_rights_count + '项</span>' : '-';
+      }},
+      {field: 'sort', title: '排序', width: 60, sort: true},
+      {field: 'status', title: '状态', width: 80, templet: function(d) {
+        var checked = d.status == 1 ? 'checked' : '';
+        return '<input type="checkbox" name="status" lay-skin="switch" lay-text="启用|禁用" lay-filter="statusSwitch" data-id="'+d.id+'" '+checked+'>';
+      }},
+      {field: 'operation', title: '操作', width: 150, fixed: 'right', templet: function(d) {
+        var html = '';
+        html += '<button class="table-btn" onclick="openmax(\'{:url(\'plan_edit\')}/id/'+d.id+'\')">编辑</button>';
+        html += '<button class="table-btn" style="color:#FF5722" onclick="datadel('+d.id+')">删除</button>';
+        return html;
+      }}
+    ]]
+  });
+
+  table.on('sort(tabledata)', function(obj) {
+    datawhere.field = obj.field;
+    datawhere.order = obj.type;
+    tableIns.reload({initSort: obj, where: datawhere});
+  });
+
+  layui.form.on('submit(LAY-search)', function(obj) {
+    datawhere = obj.field;
+    tableIns.reload({where: datawhere, page: {curr: 1}});
+    return false;
+  });
+
+  layui.form.on('switch(statusSwitch)', function(obj) {
+    var id = $(this).data('id');
+    var status = obj.elem.checked ? 1 : 0;
+    $.post("{:url('plan_status')}", {id: id, status: status}, function(res) {
+      if (res.status != 1) {
+        layer.msg(res.msg);
+        obj.elem.checked = !obj.elem.checked;
+        layui.form.render('checkbox');
+      }
+    });
+  });
+
+  function datadel(id) {
+    layer.confirm('确定要删除该套餐吗？', {icon: 7}, function(index) {
+      layer.close(index);
+      $.post("{:url('plan_del')}", {id: id}, function(res) {
+        layer.msg(res.msg);
+        if (res.status == 1) tableIns.reload();
+      });
+    });
+  }
+  </script>
+</body>
+</html>
