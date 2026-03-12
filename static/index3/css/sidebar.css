@@ -194,7 +194,8 @@
     pointer-events: none;
 }
 
-.sidebar.collapsed .nav-item.has-sub .nav-float-sub {
+/* 浮动子菜单：默认隐藏，仅在折叠态hover时显示 */
+.nav-float-sub {
     display: none;
     position: absolute;
     left: 60px;

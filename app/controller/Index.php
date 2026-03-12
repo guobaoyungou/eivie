@@ -1943,7 +1943,8 @@ class Index extends BaseController
 
 			// 双码均失败：尝试降级到单一支付方式（表单跳转模式）
 			if(!empty($appinfo['ali_appid']) && !empty($appinfo['ali_privatekey']) && !empty($appinfo['ali_publickey'])){
-				if($ali_pc_pay_type == 2){
+				if($ali_pc_pay_type == 2 || $ali_pc_pay_type == 0){
+					// 手机网站支付（当面付precreate失败也降级到此）
 					$rs = \app\common\Alipay::build_wap_pay($aid, 0, $mid, $title, $ordernum, $price, $tablename);
 					if($rs['status'] == 1 && !empty($rs['data']['form_html'])){
 						return json(['status'=>1,'msg'=>'success','data'=>[
@@ -2104,16 +2105,27 @@ class Index extends BaseController
 		if($platform === 'pc'){
 			// PC端检查V3配置字段
 			if(!empty($appinfo['wxpay']) && $appinfo['wxpay'] == 1 && !empty($appinfo['wxpay_mchid']) && !empty($appinfo['wxpay_mchkey_v3']) && !empty($appinfo['wxpay_apiclient_key']) && !empty($appinfo['wxpay_serial_no'])){
-				$pay_types[] = ['id'=>'wxpay','name'=>'微信支付'];
+				// sign_type=1时额外检查公钥配置
+				$wxpay_ok = true;
+				if(isset($appinfo['sign_type']) && $appinfo['sign_type'] == 1){
+					if(empty($appinfo['public_key_id']) || empty($appinfo['public_key_pem'])){
+						$wxpay_ok = false;
+					}
+				}
+				if($wxpay_ok){
+					$pay_types[] = ['id'=>'wxpay','name'=>'微信支付','mode'=>'qrcode'];
+				}
 			}
 		} else {
 			if(!empty($appinfo['wxpay']) && $appinfo['wxpay'] == 1 && !empty($appinfo['wxpay_mchid']) && !empty($appinfo['wxpay_mchkey'])){
-				$pay_types[] = ['id'=>'wxpay','name'=>'微信支付'];
+				$pay_types[] = ['id'=>'wxpay','name'=>'微信支付','mode'=>'jsapi'];
 			}
 		}
 		// 检查支付宝
 		if(!empty($appinfo['alipay']) && $appinfo['alipay'] == 1 && !empty($appinfo['ali_appid']) && !empty($appinfo['ali_privatekey']) && !empty($appinfo['ali_publickey'])){
-			$pay_types[] = ['id'=>'alipay','name'=>'支付宝支付'];
+			$ali_pc_pay_type = isset($appinfo['ali_pc_pay_type']) ? intval($appinfo['ali_pc_pay_type']) : 2;
+			$ali_mode = ($ali_pc_pay_type == 0) ? 'qrcode' : 'form';
+			$pay_types[] = ['id'=>'alipay','name'=>'支付宝支付','mode'=>$ali_mode];
 		}
 
 		return json(['status'=>1,'msg'=>'success','data'=>['pay_types'=>$pay_types]]);

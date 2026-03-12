@@ -1013,7 +1013,7 @@ class Wxpay
                 if(empty($appinfo['public_key_id']) || empty($appinfo['public_key_pem'])){
                     return ['status'=>0,'msg'=>'PC端微信支付未配置支付公钥'];
                 }
-                $publicKeyContent = file_get_contents($appinfo['public_key_pem']);
+                $publicKeyContent = file_get_contents(ROOT_PATH . $appinfo['public_key_pem']);
                 if(empty($publicKeyContent)){
                     return ['status'=>0,'msg'=>'无法读取微信支付公钥文件'];
                 }

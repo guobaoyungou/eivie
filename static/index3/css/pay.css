@@ -262,6 +262,12 @@
     font-size: 14px;
     color: #ef4444;
 }
+.pay-dual-info {
+    padding: 30px 0;
+    text-align: center;
+    font-size: 14px;
+    color: var(--color-primary, #6366f1);
+}
 
 /* ===== 通用页面容器 ===== */
 .page-card {

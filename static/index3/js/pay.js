@@ -58,14 +58,21 @@ var Pay = (function(){
             }
 
             var hasWxpay = false, hasAlipay = false;
+            var wxMode = '', aliMode = '';
             for(var i = 0; i < payTypes.length; i++){
-                if(payTypes[i].id === 'wxpay') hasWxpay = true;
-                if(payTypes[i].id === 'alipay') hasAlipay = true;
+                if(payTypes[i].id === 'wxpay') { hasWxpay = true; wxMode = payTypes[i].mode || 'qrcode'; }
+                if(payTypes[i].id === 'alipay') { hasAlipay = true; aliMode = payTypes[i].mode || 'form'; }
             }
 
             if(hasWxpay && hasAlipay){
-                // 两种支付方式都可用：尝试双码模式
-                showDualQrcodeModal(options);
+                // 两种支付方式都可用：检查是否都支持二维码
+                if(wxMode === 'qrcode' && aliMode === 'qrcode'){
+                    // 双码模式：同时展示微信和支付宝二维码
+                    showDualQrcodeModal(options);
+                } else {
+                    // 混合模式：展示支付方式选择弹窗，用户自己选择
+                    showPayModal(options, payTypes);
+                }
             } else if(payTypes.length === 1){
                 // 只有一种支付方式：直接调用，显示二维码或表单
                 showSinglePayModal(options, payTypes[0]);
@@ -208,7 +215,7 @@ var Pay = (function(){
                 startPolling(ordernum);
                 showPollingStatus();
             } else if(data.pay_method === 'form'){
-                // 支付宝电脑网站支付：新窗口渲柳表单HTML并自动提交
+                // 支付宝电脑网站支付：新窗口渲染表单HTML并自动提交
                 var formHtml = data.form_html || '';
                 if(formHtml){
                     var payWin = window.open('', '_blank');
@@ -391,9 +398,36 @@ var Pay = (function(){
                 renderDualQrcodes(data.wxpay_qrcode, data.alipay_qrcode);
                 startPolling(options.ordernum);
             } else if(data.pay_method === 'qrcode'){
-                // 后备：只有单一支付方式
+                // 后备：只有单一支付方式二维码
                 renderDualQrcodes(data.qrcode_url, '');
                 startPolling(options.ordernum);
+            } else if(data.pay_method === 'form'){
+                // 后备：二维码不可用，降级为表单跳转（如支付宝手机网站支付/电脑网站支付）
+                var formHtml = data.form_html || '';
+                if(formHtml){
+                    var payWin = window.open('', '_blank');
+                    if(payWin){
+                        payWin.document.write(formHtml);
+                        payWin.document.close();
+                        startPolling(options.ordernum);
+                        if(qrcodeArea) qrcodeArea.innerHTML = '<div class="pay-dual-info">已在新窗口打开支付页面，请在新窗口完成支付</div>';
+                        showPollingStatus();
+                    } else {
+                        if(qrcodeArea) qrcodeArea.innerHTML = '<div class="pay-dual-error">请允许弹出窗口后重试</div>';
+                    }
+                } else {
+                    if(qrcodeArea) qrcodeArea.innerHTML = '<div class="pay-dual-error">支付表单生成失败，请重试</div>';
+                }
+            } else if(data.pay_method === 'redirect'){
+                // 后备：跳转支付
+                if(data.redirect_url){
+                    window.open(data.redirect_url, '_blank');
+                    startPolling(options.ordernum);
+                    if(qrcodeArea) qrcodeArea.innerHTML = '<div class="pay-dual-info">已在新窗口打开支付页面，请在新窗口完成支付</div>';
+                    showPollingStatus();
+                } else {
+                    if(qrcodeArea) qrcodeArea.innerHTML = '<div class="pay-dual-error">支付链接获取失败</div>';
+                }
             } else {
                 if(qrcodeArea){
                     qrcodeArea.innerHTML = '<div class="pay-dual-error">暂无可用的扫码支付方式</div>';
