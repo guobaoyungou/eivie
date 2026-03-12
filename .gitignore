@@ -47,3 +47,4 @@ node_modules/
 
 # 文档目录（中文）
 文档/
+*.tar.gz
