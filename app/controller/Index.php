@@ -1920,8 +1920,9 @@ class Index extends BaseController
 				}
 			}
 
-			// 尝试生成支付宝二维码（使用当面付预创建，返回可扫码的二维码）
-			if(!empty($appinfo['ali_appid']) && !empty($appinfo['ali_privatekey']) && !empty($appinfo['ali_publickey'])){
+			// 尝试生成支付宝二维码（仅当配置为当面付模式时才能生成二维码）
+			$ali_pc_pay_type = isset($appinfo['ali_pc_pay_type']) ? intval($appinfo['ali_pc_pay_type']) : 2;
+			if($ali_pc_pay_type == 0 && !empty($appinfo['ali_appid']) && !empty($appinfo['ali_privatekey']) && !empty($appinfo['ali_publickey'])){
 				try {
 					$rs = \app\common\Alipay::build_precreate($aid, 0, $mid, $title, $ordernum, $price, $tablename);
 					if($rs['status'] == 1 && !empty($rs['data']['qrcode_url'])){
@@ -1932,15 +1933,36 @@ class Index extends BaseController
 				}
 			}
 
-			if(empty($result['wxpay_qrcode']) && empty($result['alipay_qrcode'])){
-				return json(['status'=>0,'msg'=>'没有可用的支付方式，请联系管理员配置']);
+			if(!empty($result['wxpay_qrcode']) || !empty($result['alipay_qrcode'])){
+				return json(['status'=>1,'msg'=>'success','data'=>[
+					'pay_method' => 'dual_qrcode',
+					'wxpay_qrcode' => $result['wxpay_qrcode'],
+					'alipay_qrcode' => $result['alipay_qrcode'],
+				]]);
 			}
 
-			return json(['status'=>1,'msg'=>'success','data'=>[
-				'pay_method' => 'dual_qrcode',
-				'wxpay_qrcode' => $result['wxpay_qrcode'],
-				'alipay_qrcode' => $result['alipay_qrcode'],
-			]]);
+			// 双码均失败：尝试降级到单一支付方式（表单跳转模式）
+			if(!empty($appinfo['ali_appid']) && !empty($appinfo['ali_privatekey']) && !empty($appinfo['ali_publickey'])){
+				if($ali_pc_pay_type == 2){
+					$rs = \app\common\Alipay::build_wap_pay($aid, 0, $mid, $title, $ordernum, $price, $tablename);
+					if($rs['status'] == 1 && !empty($rs['data']['form_html'])){
+						return json(['status'=>1,'msg'=>'success','data'=>[
+							'pay_method' => 'form',
+							'form_html' => $rs['data']['form_html'],
+						]]);
+					}
+				} elseif($ali_pc_pay_type == 1){
+					$rs = \app\common\Alipay::build_page_pay($aid, 0, $mid, $title, $ordernum, $price, $tablename);
+					if($rs['status'] == 1 && !empty($rs['data']['form_html'])){
+						return json(['status'=>1,'msg'=>'success','data'=>[
+							'pay_method' => 'form',
+							'form_html' => $rs['data']['form_html'],
+						]]);
+					}
+				}
+			}
+
+			return json(['status'=>0,'msg'=>'没有可用的支付方式，请检查支付配置（微信需填写证书序列号，支付宝需开通对应产品）']);
 		}
 
 		// ===== 单一支付方式 =====
@@ -1966,15 +1988,50 @@ class Index extends BaseController
 				return json(['status'=>0,'msg'=>'支付宝支付未配置']);
 			}
 
-			// PC端：当面付预创建（二维码扫码支付）
-			$rs = \app\common\Alipay::build_precreate($aid, 0, $mid, $title, $ordernum, $price, $tablename);
-			if($rs['status'] == 1 && !empty($rs['data']['qrcode_url'])){
-				return json(['status'=>1,'msg'=>'success','data'=>[
-					'pay_method' => 'qrcode',
-					'qrcode_url' => $rs['data']['qrcode_url'],
-				]]);
+			// 根据配置的支付模式选择调用方式
+			$ali_pc_pay_type = isset($appinfo['ali_pc_pay_type']) ? intval($appinfo['ali_pc_pay_type']) : 2;
+
+			if($ali_pc_pay_type == 1){
+				// 电脑网站支付（alipay.trade.page.pay）- 跳转支付宝收银台
+				$rs = \app\common\Alipay::build_page_pay($aid, 0, $mid, $title, $ordernum, $price, $tablename);
+				if($rs['status'] == 1 && !empty($rs['data']['form_html'])){
+					return json(['status'=>1,'msg'=>'success','data'=>[
+						'pay_method' => 'form',
+						'form_html' => $rs['data']['form_html'],
+					]]);
+				}
+				// 降级尝试当面付二维码
+				$rs2 = \app\common\Alipay::build_precreate($aid, 0, $mid, $title, $ordernum, $price, $tablename);
+				if($rs2['status'] == 1 && !empty($rs2['data']['qrcode_url'])){
+					return json(['status'=>1,'msg'=>'success','data'=>[
+						'pay_method' => 'qrcode',
+						'qrcode_url' => $rs2['data']['qrcode_url'],
+					]]);
+				}
+				return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);
+
+			} elseif($ali_pc_pay_type == 2){
+				// 手机网站支付（alipay.trade.wap.pay）- 跳转支付宝H5收银台
+				$rs = \app\common\Alipay::build_wap_pay($aid, 0, $mid, $title, $ordernum, $price, $tablename);
+				if($rs['status'] == 1 && !empty($rs['data']['form_html'])){
+					return json(['status'=>1,'msg'=>'success','data'=>[
+						'pay_method' => 'form',
+						'form_html' => $rs['data']['form_html'],
+					]]);
+				}
+				return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);
+
+			} else {
+				// 当面付预创建（alipay.trade.precreate）- 二维码扫码支付
+				$rs = \app\common\Alipay::build_precreate($aid, 0, $mid, $title, $ordernum, $price, $tablename);
+				if($rs['status'] == 1 && !empty($rs['data']['qrcode_url'])){
+					return json(['status'=>1,'msg'=>'success','data'=>[
+						'pay_method' => 'qrcode',
+						'qrcode_url' => $rs['data']['qrcode_url'],
+					]]);
+				}
+				return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);
 			}
-			return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);
 
 		} else {
 			return json(['status'=>0,'msg'=>'不支持的支付方式']);

@@ -452,6 +452,11 @@
 			- parseFloat($('.layui-layout-right').css('width'));
 		//shortcutWidth = Math.min(600, shortcutWidth);
 		var container = $('.shortcut-menu-box');
+		// 检查元素是否存在
+		if (!container.length || !container[0]) {
+			console.warn('shortcut-menu-box元素不存在');
+			return;
+		}
 		if (shortcutWidth<100) {
 			container.hide();
 			return;
@@ -908,32 +913,38 @@
 			saveRetryCount(wsRetryCount);
 			console.log('WebSocket尝试连接... (今日第' + wsRetryCount + '次)');
 			
-			websocket = new WebSocket('wss://{$_SERVER['HTTP_HOST']}/wss');
-			websocket.onopen = function(evt) {
-				console.log('WebSocket连接成功');
-				// 连接成功，重置计数
-				wsRetryCount = 0;
-				saveRetryCount(0);
-				websocket.send(JSON.stringify({ type:'khinit',token:'{$socket_token}',data:{ aid:{$aid},mid:{$socket_mid} } }))
-				if(senddata){
-					websocket.send(JSON.stringify(senddata))
-				}
-			};
-			websocket.onclose = function(evt) {
-					console.log('WebSocket连接关闭');
-					console.log(evt);
-			};
-			websocket.onmessage = function(res) {
-				console.log(res.data)
-				try{
-					var data = JSON.parse(res.data);
-					receiveMessage(data);
-				}catch(e){}
-			};
-			websocket.onerror = function(evt) {
-					console.log('WebSocket连接错误 (今日已重试' + wsRetryCount + '次)');
-					console.log(evt);
-			};
+			try {
+				websocket = new WebSocket('wss://{$_SERVER['HTTP_HOST']}/wss');
+				websocket.onopen = function(evt) {
+					console.log('WebSocket连接成功');
+					// 连接成功，重置计数
+					wsRetryCount = 0;
+					saveRetryCount(0);
+					websocket.send(JSON.stringify({ type:'khinit',token:'{$socket_token}',data:{ aid:{$aid},mid:{$socket_mid} } }))
+					if(senddata){
+						websocket.send(JSON.stringify(senddata))
+					}
+				};
+				websocket.onclose = function(evt) {
+						console.log('WebSocket连接关闭');
+						console.log(evt);
+				};
+				websocket.onmessage = function(res) {
+					console.log(res.data)
+					try{
+						var data = JSON.parse(res.data);
+						receiveMessage(data);
+					}catch(e){
+						console.error('WebSocket消息解析失败:', e);
+					}
+				};
+				websocket.onerror = function(evt) {
+						console.log('WebSocket连接错误 (今日已重试' + wsRetryCount + '次)');
+						console.log(evt);
+				};
+			} catch(e) {
+				console.error('WebSocket创建失败:', e);
+			}
 		}else{
 			if(senddata)
 			websocket.send(JSON.stringify(senddata))

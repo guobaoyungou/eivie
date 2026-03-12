@@ -906,6 +906,88 @@ class Alipay
         }
     }
 
+    /**
+     * 支付宝手机网站支付（alipay.trade.wap.pay）- PC端使用
+     * 用户在PC端跳转到支付宝H5收银台页面完成支付
+     * 适用于已开通「手机网站支付」产品的商户（最常见的产品授权）
+     * @param int $aid 应用ID
+     * @param int $bid 商户ID
+     * @param int $mid 会员ID
+     * @param string $title 订单标题
+     * @param string $ordernum 订单号
+     * @param float $price 价格（元）
+     * @param string $tablename 表名
+     * @param string $notify_url 回调地址
+     * @param string $return_url 同步回跳地址
+     * @return array
+     */
+    public static function build_wap_pay($aid, $bid, $mid, $title, $ordernum, $price, $tablename, $notify_url = '', $return_url = ''){
+        if(!$notify_url) $notify_url = PRE_URL . '/notify.php';
+
+        // 读取PC端支付配置
+        $appinfo = \app\common\System::appinfo($aid, 'pc');
+        if(empty($appinfo['ali_appid']) || empty($appinfo['ali_privatekey']) || empty($appinfo['ali_publickey'])){
+            return ['status'=>0,'msg'=>'支付宝支付未配置'];
+        }
+
+        // 同步回跳地址：优先使用配置的ali_return_url，否则使用系统默认
+        if(empty($return_url)){
+            $return_url = !empty($appinfo['ali_return_url']) ? $appinfo['ali_return_url'] : PRE_URL . '/?s=/index/alipay_return';
+        }
+
+        // 生成支付交易流水
+        $pay_transaction = \app\common\Common::createPayTransaction($aid, $ordernum, $tablename);
+        if(!$pay_transaction){
+            return ['status'=>0,'msg'=>'生成交易流水失败'];
+        }
+        $ordernum = $pay_transaction['transaction_num'];
+
+        require_once(ROOT_PATH . '/extend/aop/AopClient.php');
+        require_once(ROOT_PATH . '/extend/aop/AopCertification.php');
+        require_once(ROOT_PATH . '/extend/aop/request/AlipayTradeWapPayRequest.php');
+
+        $aop = new \AopClient();
+        $aop->gatewayUrl = 'https://openapi.alipay.com/gateway.do';
+        $aop->appId = $appinfo['ali_appid'];
+        $aop->rsaPrivateKey = $appinfo['ali_privatekey'];
+        $aop->alipayrsaPublicKey = $appinfo['ali_publickey'];
+        $aop->apiVersion = '1.0';
+        $aop->signType = 'RSA2';
+        $aop->postCharset = 'utf-8';
+        $aop->format = 'json';
+
+        $bizcontent = [];
+        $bizcontent['out_trade_no'] = '' . $ordernum;
+        $bizcontent['total_amount'] = $price;
+        $bizcontent['subject'] = mb_substr($title, 0, 42);
+        $bizcontent['product_code'] = 'QUICK_WAP_WAY';
+        $bizcontent['quit_url'] = $return_url;
+        $bizcontent['passback_params'] = urlencode($aid . ':' . $tablename . ':pc:1:' . $bid);
+
+        $request = new \AlipayTradeWapPayRequest();
+        $request->setNotifyUrl($notify_url);
+        $request->setReturnUrl($return_url);
+        $request->setBizContent(json_encode($bizcontent, JSON_UNESCAPED_UNICODE));
+
+        writeLog(json_encode(['pc_alipay_wap_pay_request' => $bizcontent]));
+
+        try {
+            // 使用pageExecute POST方式生成表单HTML，浏览器自动提交跳转到支付宝收银台
+            $result = $aop->pageExecute($request, 'POST');
+
+            if(!empty($result)){
+                writeLog('pc_alipay_wap_pay_success: form_html generated');
+                return ['status'=>1,'msg'=>'success','data'=>['form_html'=>$result, 'pay_method'=>'form']];
+            } else {
+                writeLog('pc_alipay_wap_pay_fail: empty result');
+                return ['status'=>0,'msg'=>'支付宝手机网站支付创建失败'];
+            }
+        } catch(\Exception $e){
+            writeLog('pc_alipay_wap_pay_exception: ' . $e->getMessage());
+            return ['status'=>0,'msg'=>'支付宝支付异常:'.$e->getMessage()];
+        }
+    }
+
     public static function transfers($aid,$ordernum,$money,$order_title,$identity,$name,$remark='账户提现'){
         //原开通产品：转账到支付宝账户 ，现开通产品：商家转账
         //接口参数一样：开发 > 服务端 > 营销产品 > 红包 > API 列表 > “B2C”现金红包 > 单笔转账接口 https://opendocs.alipay.com/open/02byvi?pathHash=b367173b

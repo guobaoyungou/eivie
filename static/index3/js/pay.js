@@ -45,8 +45,35 @@ var Pay = (function(){
             return;
         }
 
-        // PC普通浏览器：直接展示双码弹窗（微信+支付宝二维码并列）
-        showDualQrcodeModal(options);
+        // PC普通浏览器：先检查可用支付方式，再决定展示模式
+        Api.getPayConfig(function(err, res){
+            if(err || !res || res.status !== 1){
+                showToast('获取支付配置失败', 'error');
+                return;
+            }
+            var payTypes = (res.data && res.data.pay_types) ? res.data.pay_types : [];
+            if(payTypes.length === 0){
+                showToast('没有可用的支付方式，请联系管理员配置', 'error');
+                return;
+            }
+
+            var hasWxpay = false, hasAlipay = false;
+            for(var i = 0; i < payTypes.length; i++){
+                if(payTypes[i].id === 'wxpay') hasWxpay = true;
+                if(payTypes[i].id === 'alipay') hasAlipay = true;
+            }
+
+            if(hasWxpay && hasAlipay){
+                // 两种支付方式都可用：尝试双码模式
+                showDualQrcodeModal(options);
+            } else if(payTypes.length === 1){
+                // 只有一种支付方式：直接调用，显示二维码或表单
+                showSinglePayModal(options, payTypes[0]);
+            } else {
+                // 多种支付方式但非标准组合：展示选择弹窗
+                showPayModal(options, payTypes);
+            }
+        });
     }
 
     // ========== 支付方式选择弹窗 ==========
@@ -125,6 +152,43 @@ var Pay = (function(){
             document.body.style.overflow = '';
             setTimeout(function(){ if(overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 300);
         }
+    }
+
+    // ========== 单一支付方式弹窗（仅一种可用时直接调用） ==========
+    function showSinglePayModal(options, payType){
+        // 移除已有弹窗
+        var existing = document.getElementById('payModalOverlay');
+        if(existing) existing.parentNode.removeChild(existing);
+
+        var overlay = document.createElement('div');
+        overlay.id = 'payModalOverlay';
+        overlay.className = 'pay-modal-overlay show';
+
+        var payLabel = payType.name || (payType.id === 'wxpay' ? '微信支付' : '支付宝支付');
+
+        overlay.innerHTML =
+            '<div class="pay-modal">' +
+                '<div class="pay-modal-header">' +
+                    '<div class="pay-modal-title">' + escapeHtml(payLabel) + '</div>' +
+                    '<button class="pay-modal-close" id="payModalClose">✕</button>' +
+                '</div>' +
+                '<div class="pay-order-info">' +
+                    '<div class="pay-order-type">' + escapeHtml(options.title || '订单支付') + '</div>' +
+                    '<div class="pay-order-amount"><small>¥</small>' + (options.amount || '0.00') + '</div>' +
+                '</div>' +
+                '<div class="pay-status-area show" id="payStatusArea">' +
+                    '<div class="pay-loading"><div class="spinner"></div><span>正在创建支付订单...</span></div>' +
+                '</div>' +
+            '</div>';
+
+        document.body.appendChild(overlay);
+        document.body.style.overflow = 'hidden';
+
+        document.getElementById('payModalClose').addEventListener('click', closePayModal);
+        overlay.addEventListener('click', function(e){ if(e.target === overlay) closePayModal(); });
+
+        // 直接调用支付
+        callH5Pay(options.ordernum, payType.id, options.order_type);
     }
 
     // ========== 调用H5支付接口 ==========

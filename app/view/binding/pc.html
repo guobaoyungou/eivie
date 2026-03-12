@@ -170,7 +170,16 @@
 								<input type="radio" name="info[alipay]" title="开启" value="1" {if $info['alipay']==1}checked{/if}/>
 								<input type="radio" name="info[alipay]" title="关闭" value="0" {if $info['alipay']==0}checked{/if}/>
 							</div>
-							<div class="layui-form-mid layui-word-aux"><a href="https://opendocs.alipay.com/open/028r8t" target="_blank">电脑网站支付接入指引</a></div>
+							<div class="layui-form-mid layui-word-aux"><a href="https://opendocs.alipay.com/open/028r8t" target="_blank">支付宝支付接入指引</a></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">支付模式：</label>
+							<div class="layui-input-inline" style="width: 500px;">
+								<input type="radio" name="info[ali_pc_pay_type]" title="手机网站支付" value="2" {if !$info['ali_pc_pay_type'] || $info['ali_pc_pay_type']==2}checked{/if}/>
+								<input type="radio" name="info[ali_pc_pay_type]" title="电脑网站支付" value="1" {if $info['ali_pc_pay_type']==1}checked{/if}/>
+								<input type="radio" name="info[ali_pc_pay_type]" title="当面付(二维码)" value="0" {if $info && $info['ali_pc_pay_type']===0}checked{/if}/>
+							</div>
+							<div class="layui-form-mid layui-word-aux">请选择已在<a href="https://open.alipay.com" target="_blank">支付宝开放平台</a>开通的支付产品，推荐使用「手机网站支付」（最常见）</div>
 						</div>
 						<div class="layui-form-item">
 							<label class="layui-form-label">APPID：</label>

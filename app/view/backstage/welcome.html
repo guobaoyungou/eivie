@@ -921,8 +921,22 @@ function changeDataChartday(obj,day){
 	$(obj).addClass('screen-options-active');
 	getDataChart(day);
 }
-var dataChart = echarts.init(document.getElementById("dataChart"));
+var dataChart = null;
+function initDataChart() {
+	var chartDom = document.getElementById("dataChart");
+	if (chartDom && !dataChart) {
+		dataChart = echarts.init(chartDom);
+	}
+}
 function getDataChart(day){
+		// 确保图表已初始化
+		if (!dataChart) {
+			initDataChart();
+		}
+		if (!dataChart) {
+			console.warn('dataChart元素不存在，无法初始化图表');
+			return;
+		}
 		//var index = layer.load();
 		$.post('',{op:'getDataChart',day:day},function(res){
 			//layer.close(index);
@@ -964,83 +978,97 @@ function getDataChart(day){
 
 	//本月订单统计
 	{if $orderMonthCountAll > 0 }
-	var getMonthOrder = echarts.init(document.getElementById("getMonthOrder"));
-	var channel_order_data = "{$channel_order_data}";
-	var orderMonthCountAll = {$orderMonthCountAll};
-	option_channel = {
-	tooltip: {
-		//trigger: 'item'
-		formatter: function(params) {
-			var tooltipHtml = '<div> <span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:'+params.data.itemStyle.color+';"></span>'+ params.name+' ' + params.value+ "单</div>";
-			return tooltipHtml;	
-		}
-	},
-	color:['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'],
-	series: [
-		{
-		type: 'pie',
-		padAngle: 3,
-		itemStyle: {
-		  borderRadius: 0.5
+	var getMonthOrder = null;
+	function initMonthOrder() {
+		var chartDom = document.getElementById("getMonthOrder");
+		if (chartDom && !getMonthOrder) {
+			getMonthOrder = echarts.init(chartDom);
+			var channel_order_data = "{$channel_order_data}";
+			var orderMonthCountAll = {$orderMonthCountAll};
+			option_channel = {
+		tooltip: {
+			//trigger: 'item'
+			formatter: function(params) {
+				var tooltipHtml = '<div> <span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:'+params.data.itemStyle.color+';"></span>'+ params.name+' ' + params.value+ "单</div>";
+				return tooltipHtml;	
+			}
 		},
-		radius: ['35%', '45%'],
-		avoidLabelOverlap: false,
-		// data: [
-		//         { value: 1048, name: '15.4%' },
-		//         { value: 735, name: '1.4%' },
-		//         { value: 580, name: '35.4%' },
-		//         { value: 484, name: '5.4%' },
-		//         { value: 300, name: '50.1%' }
-		//       ],
-		data: {:json_encode($channel_order_data)},
+		color:['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'],
+		series: [
+			{
+			type: 'pie',
+			padAngle: 3,
+			itemStyle: {
+			  borderRadius: 0.5
+			},
+			radius: ['35%', '45%'],
+			avoidLabelOverlap: false,
+			// data: [
+			//         { value: 1048, name: '15.4%' },
+			//         { value: 735, name: '1.4%' },
+			//         { value: 580, name: '35.4%' },
+			//         { value: 484, name: '5.4%' },
+			//         { value: 300, name: '50.1%' }
+			//       ],
+			data: {:json_encode($channel_order_data)},
+			}
+		]
+		};
+			getMonthOrder.setOption(option_channel,true);
 		}
-	]
-	};
-	getMonthOrder.setOption(option_channel,true);
+	}
+	// 页面加载完成后初始化
+	$(function() {
+		initMonthOrder();
+	});
 	{/if}
 	//会员概览
 	{if bid == 0 || $memberCount > 0}
-	var getMemberGailan = echarts.init(document.getElementById("getMemberGailan"));
-	var channel_order_data = "{$channel_order_data}";
-	var orderMonthCountAll = {$orderMonthCountAll};
-	// 判断字数超出后字体大小改变
-	{if $memberCount && $memberHuoyueCount}
-		var memberCountLength = {$memberCount};
-		var memberHuoyueCountLength = {$memberHuoyueCount};
-		if((memberCountLength.toString().length >= 6) || (memberHuoyueCountLength.toString().length >= 6)){
-			$('.top-view-options').find('.num-text').css({'fontSize': '20px'})
-		}else{
-			$('.top-view-options').find('.num-text').css({'fontSize': '30px'})
-		}
-	{/if}
-	option_member = {
-		title: [
-			{
-			text: ''
+	var getMemberGailan = null;
+	function initMemberGailan() {
+	var chartDom = document.getElementById("getMemberGailan");
+	if (chartDom && !getMemberGailan) {
+		getMemberGailan = echarts.init(chartDom);
+		var channel_order_data = "{$channel_order_data}";
+		var orderMonthCountAll = {$orderMonthCountAll};
+		// 判断字数超出后字体大小改变
+		{if $memberCount && $memberHuoyueCount}
+			var memberCountLength = {$memberCount};
+			var memberHuoyueCountLength = {$memberHuoyueCount};
+			if((memberCountLength.toString().length >= 6) || (memberHuoyueCountLength.toString().length >= 6)){
+				$('.top-view-options').find('.num-text').css({'fontSize': '20px'})
+			}else{
+				$('.top-view-options').find('.num-text').css({'fontSize': '30px'})
 			}
-		],
-		polar: {
-			radius: [20, '75%']
-		},
-		angleAxis: {
-			show: false, 
-			max: 100,
-			startAngle: 90,
-			axisLine: {
-					show: true, // x轴刻度分割线
-				},
-				axisLabel: {
-					show: true // x轴刻度文本
-				},
-				splitLine: {
-					show: true // 切分线显示
+		{/if}
+		option_member = {
+			title: [
+				{
+				text: ''
 				}
-		},
-		radiusAxis: {
-			type: 'category',
-			axisLine: {
-					show:true , // x轴刻度分割线
-					lineStyle: {
+			],
+			polar: {
+				radius: [20, '75%']
+			},
+			angleAxis: {
+				show: false, 
+				max: 100,
+				startAngle: 90,
+				axisLine: {
+						show: true, // x轴刻度分割线
+					},
+					axisLabel: {
+						show: true // x轴刻度文本
+					},
+					splitLine: {
+						show: true // 切分线显示
+					}
+			},
+			radiusAxis: {
+				type: 'category',
+				axisLine: {
+						show:true , // x轴刻度分割线
+						lineStyle: {
                 color: 'E3E9F3' // 修改为你想要的颜色
             }
 				
@@ -1073,15 +1101,20 @@ function getDataChart(day){
 			// 			color: 'rgba(97, 97, 249, 0.4)'
 			// 			}
 			// 		}
-			// 		}
 			// 		],
 			coordinateSystem: 'polar'
 		}
 		};
 
-	getMemberGailan.setOption(option_member,true);
+		getMemberGailan.setOption(option_member,true);
+	}
+}
+// 页面加载完成后初始化
+$(function() {
+	initMemberGailan();
 	layui.form.render('select');
-	{/if}
+});
+{/if}
 </script>
 {include file="public/copyright"/}
 </body>
