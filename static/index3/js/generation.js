@@ -10,6 +10,7 @@
         pageType: 'photo',          // 'photo' | 'video'
         selectedModelId: null,
         selectedModelName: '',
+        selectedTemplateId: null,   // 新增：选中的模板ID
         modelListCache: null,       // 模型列表缓存
         templateBarCollapsed: false,
         uploadedFile: null
@@ -374,11 +375,13 @@
             return;
         }
 
-        // 检查是否已选择模型或模板
-        var selectedTemplateId = 0;
-        var activeTemplate = document.querySelector('.gt-item.active');
-        if(activeTemplate){
-            selectedTemplateId = parseInt(activeTemplate.getAttribute('data-template-id')) || 0;
+        // 优先使用state中的selectedTemplateId，如果没有则从 DOM 获取
+        var selectedTemplateId = state.selectedTemplateId || 0;
+        if(!selectedTemplateId){
+            var activeTemplate = document.querySelector('.gt-item.active');
+            if(activeTemplate){
+                selectedTemplateId = parseInt(activeTemplate.getAttribute('data-template-id')) || 0;
+            }
         }
 
         if(!state.selectedModelId && !selectedTemplateId){
@@ -506,6 +509,7 @@
         // 选中模板时清空模型直选
         state.selectedModelId = null;
         state.selectedModelName = '';
+        state.selectedTemplateId = parseInt(templateId) || null;  // 保存模板ID到state
         var card = document.getElementById('modelCard');
         if(card){
             var textEl = card.querySelector('.gf-model-card-text');
@@ -647,6 +651,9 @@
             }
             
             var data = res.data;
+            
+            // 保存模板ID到state（关键修复）
+            state.selectedTemplateId = parseInt(templateId) || null;
             
             // 选中模板卡片
             var templateItem = document.querySelector('.gt-item[data-template-id="' + templateId + '"]');
