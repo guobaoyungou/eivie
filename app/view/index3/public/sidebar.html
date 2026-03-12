@@ -17,89 +17,143 @@
 
     <!-- 导航菜单 -->
     <nav class="sidebar-nav">
-        <div class="nav-item" data-tooltip="首页">
+        <!-- 核心导航 -->
+        <div class="nav-section-title">核心功能</div>
+        
+        <div class="nav-item" data-tooltip="工作台">
             <a class="nav-link active" href="/">
                 <span class="nav-icon">🏠</span>
-                <span class="nav-text">首页</span>
-            </a>
-        </div>
-
-        <!-- 创作工具（默认展开） -->
-        <div class="nav-item has-sub" data-tooltip="创作工具">
-            <a class="nav-link nav-toggle" href="javascript:;">
-                <span class="nav-icon">✨</span>
-                <span class="nav-text">创作工具</span>
-                <span class="nav-arrow open">▸</span>
-            </a>
-            <div class="nav-sub open">
-                <a class="nav-link" href="{:url('Index/photo_generation')}">
-                    <span class="nav-text">图片生成</span>
-                </a>
-                <a class="nav-link" href="{:url('Index/video_generation')}">
-                    <span class="nav-text">视频生成</span>
-                </a>
-                <a class="nav-link disabled" href="javascript:;">
-                    <span class="nav-text">短剧创作</span>
-                    <span class="dev-badge">开发中</span>
-                </a>
-                <a class="nav-link disabled" href="javascript:;">
-                    <span class="nav-text">3D模型</span>
-                    <span class="dev-badge">开发中</span>
-                </a>
-                <a class="nav-link disabled" href="javascript:;">
-                    <span class="nav-text">文案撰写</span>
-                    <span class="dev-badge">开发中</span>
-                </a>
-            </div>
-        </div>
-
-        <!-- 营销工具 -->
-        <div class="nav-item has-sub" data-tooltip="营销工具">
-            <a class="nav-link nav-toggle" href="javascript:;">
-                <span class="nav-icon">📢</span>
-                <span class="nav-text">营销工具</span>
-                <span class="nav-arrow">▸</span>
-            </a>
-            <div class="nav-sub">
-                <a class="nav-link" href="{:url('ShopProduct/index')}">
-                    <span class="nav-text">AI商城</span>
-                </a>
-                <a class="nav-link" href="{:url('KanjiaProduct/index')}">
-                    <span class="nav-text">砍价</span>
-                </a>
-                <a class="nav-link" href="{:url('SeckillProduct/index')}">
-                    <span class="nav-text">秒杀</span>
-                </a>
-                <a class="nav-link" href="{:url('TuangouProduct/index')}">
-                    <span class="nav-text">团购</span>
-                </a>
-                <a class="nav-link disabled" href="javascript:;">
-                    <span class="nav-text">大屏互动</span>
-                    <span class="dev-badge">开发中</span>
-                </a>
-            </div>
-        </div>
-
-        <div class="nav-item" data-tooltip="资产">
-            <a class="nav-link" href="/?s=/index/user_storage">
-                <span class="nav-icon">📦</span>
-                <span class="nav-text">资产</span>
+                <span class="nav-text">工作台</span>
             </a>
         </div>
 
         <div class="nav-divider"></div>
 
-        <div class="nav-item" data-tooltip="个人中心">
-            <a class="nav-link" href="/?s=/index/user_center">
-                <span class="nav-icon">👤</span>
-                <span class="nav-text">个人中心</span>
+        <!-- AI创作 -->
+        <div class="nav-section-title">AI创作</div>
+        
+        <div class="nav-item has-sub" data-tooltip="图像创作">
+            <a class="nav-link nav-toggle" href="javascript:;">
+                <span class="nav-icon">🎨</span>
+                <span class="nav-text">图像创作</span>
+                <span class="nav-arrow">▸</span>
+            </a>
+            <div class="nav-sub">
+                <a class="nav-link" href="{:url('Index/photo_generation')}">
+                    <span class="nav-text">AI绘画</span>
+                </a>
+                <a class="nav-link disabled" href="javascript:;">
+                    <span class="nav-text">图像编辑</span>
+                    <span class="dev-badge">即将上线</span>
+                </a>
+                <a class="nav-link disabled" href="javascript:;">
+                    <span class="nav-text">风格转换</span>
+                    <span class="dev-badge">即将上线</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="nav-item has-sub" data-tooltip="视频创作">
+            <a class="nav-link nav-toggle" href="javascript:;">
+                <span class="nav-icon">🎬</span>
+                <span class="nav-text">视频创作</span>
+                <span class="nav-arrow">▸</span>
+            </a>
+            <div class="nav-sub">
+                <a class="nav-link" href="{:url('Index/video_generation')}">
+                    <span class="nav-text">AI视频</span>
+                </a>
+                <a class="nav-link disabled" href="javascript:;">
+                    <span class="nav-text">视频剪辑</span>
+                    <span class="dev-badge">即将上线</span>
+                </a>
+                <a class="nav-link disabled" href="javascript:;">
+                    <span class="nav-text">数字人</span>
+                    <span class="dev-badge">即将上线</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="nav-item has-sub" data-tooltip="内容创作">
+            <a class="nav-link nav-toggle" href="javascript:;">
+                <span class="nav-icon">✍️</span>
+                <span class="nav-text">内容创作</span>
+                <span class="nav-arrow">▸</span>
+            </a>
+            <div class="nav-sub">
+                <a class="nav-link disabled" href="javascript:;">
+                    <span class="nav-text">智能写作</span>
+                    <span class="dev-badge">即将上线</span>
+                </a>
+                <a class="nav-link disabled" href="javascript:;">
+                    <span class="nav-text">文案优化</span>
+                    <span class="dev-badge">即将上线</span>
+                </a>
+                <a class="nav-link disabled" href="javascript:;">
+                    <span class="nav-text">多语翻译</span>
+                    <span class="dev-badge">即将上线</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="nav-divider"></div>
+
+        <!-- 营销与商城 -->
+        <div class="nav-section-title">营销推广</div>
+        
+        <div class="nav-item" data-tooltip="AI商城">
+            <a class="nav-link" href="{:url('ShopProduct/index')}">
+                <span class="nav-icon">🛍️</span>
+                <span class="nav-text">AI商城</span>
+            </a>
+        </div>
+
+        <div class="nav-item has-sub" data-tooltip="营销活动">
+            <a class="nav-link nav-toggle" href="javascript:;">
+                <span class="nav-icon">🎯</span>
+                <span class="nav-text">营销活动</span>
+                <span class="nav-arrow">▸</span>
+            </a>
+            <div class="nav-sub">
+                <a class="nav-link" href="{:url('KanjiaProduct/index')}">
+                    <span class="nav-text">砍价活动</span>
+                </a>
+                <a class="nav-link" href="{:url('SeckillProduct/index')}">
+                    <span class="nav-text">限时秒杀</span>
+                </a>
+                <a class="nav-link" href="{:url('TuangouProduct/index')}">
+                    <span class="nav-text">拼团优惠</span>
+                </a>
+                <a class="nav-link disabled" href="javascript:;">
+                    <span class="nav-text">优惠券</span>
+                    <span class="dev-badge">即将上线</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="nav-divider"></div>
+
+        <!-- 资产与管理 -->
+        <div class="nav-section-title">我的空间</div>
+        
+        <div class="nav-item" data-tooltip="我的资产">
+            <a class="nav-link" href="/?s=/index/user_storage">
+                <span class="nav-icon">💎</span>
+                <span class="nav-text">我的资产</span>
             </a>
         </div>
 
         <div class="nav-item" data-tooltip="创作中心">
             <a class="nav-link" href="javascript:;">
-                <span class="nav-icon">🖌</span>
+                <span class="nav-icon">📚</span>
                 <span class="nav-text">创作中心</span>
+            </a>
+        </div>
+
+        <div class="nav-item" data-tooltip="个人中心">
+            <a class="nav-link" href="/?s=/index/user_center">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-text">个人中心</span>
             </a>
         </div>
     </nav>
