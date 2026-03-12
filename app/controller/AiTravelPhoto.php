@@ -1419,6 +1419,219 @@ class AiTravelPhoto extends Common
     }
 
     /**
+     * 笑脸抓拍上传
+     * 接收前端摄像头抓拍的图片，提取人脸特征并存入Milvus
+     */
+    public function smile_capture_upload()
+    {
+        if (!request()->isPost()) {
+            return json(['status' => 0, 'msg' => '非法请求']);
+        }
+
+        try {
+            // 获取Base64图片数据
+            $imageData = input('post.image', '');
+            if (empty($imageData)) {
+                return json(['status' => 0, 'msg' => '请提供图片数据']);
+            }
+
+            // 解析Base64数据
+            if (preg_match('/^data:image\/(\w+);base64,(.+)$/', $imageData, $matches)) {
+                $extension = strtolower($matches[1]);
+                $imageContent = base64_decode($matches[2]);
+            } else {
+                return json(['status' => 0, 'msg' => '图片格式不正确']);
+            }
+
+            // 验证图片格式
+            $allowedExts = ['jpg', 'jpeg', 'png'];
+            if (!in_array($extension, $allowedExts)) {
+                return json(['status' => 0, 'msg' => '仅支持JPG、JPEG、PNG格式']);
+            }
+
+            // 获取门店ID
+            $mdid = input('post.mdid/d', 0);
+            $isManual = input('post.is_manual/d', 0);
+
+            // 创建临时文件
+            $tempFile = tempnam(sys_get_temp_dir(), 'smile_');
+            file_put_contents($tempFile, $imageContent);
+
+            // 获取图片尺寸
+            $imageInfo = getimagesize($tempFile);
+            if (!$imageInfo) {
+                @unlink($tempFile);
+                return json(['status' => 0, 'msg' => '图片文件损坏或格式不正确']);
+            }
+            $width = $imageInfo[0];
+            $height = $imageInfo[1];
+
+            // 尺寸校验
+            if ($width < 200 || $height < 200) {
+                @unlink($tempFile);
+                return json(['status' => 0, 'msg' => '图片尺寸过小']);
+            }
+
+            // 计算MD5
+            $fileMd5 = md5_file($tempFile);
+            $fileSize = filesize($tempFile);
+
+            // 超级管理员bid为0时，使用aid对应的第一个商家
+            $targetBid = $this->bid;
+            if ($targetBid == 0) {
+                $targetBid = Db::name('business')->where('aid', $this->aid)->value('id');
+            }
+
+            // 检查MD5是否重复
+            $existPortrait = Db::name('ai_travel_photo_portrait')
+                ->where('aid', $this->aid)
+                ->where('bid', $targetBid)
+                ->where('md5', $fileMd5)
+                ->find();
+
+            if ($existPortrait) {
+                @unlink($tempFile);
+                return json(['status' => 0, 'msg' => '该图片已存在']);
+            }
+
+            // 生成存储路径
+            $date = date('Ymd');
+            $uniqueName = md5(uniqid((string)mt_rand(), true)) . '.' . $extension;
+            $savePath = 'upload/' . $this->aid . '/' . $date . '/';
+
+            // 确保目录存在
+            if (!is_dir(ROOT_PATH . $savePath)) {
+                mk_dir(ROOT_PATH . $savePath);
+            }
+
+            // 保存原图
+            $originalPath = $savePath . 'original_' . $uniqueName;
+            file_put_contents(ROOT_PATH . $originalPath, $imageContent);
+
+            // 上传到OSS
+            $originalUrl = \app\common\Pic::uploadoss(PRE_URL . '/' . $originalPath, false, false);
+            if (!$originalUrl) {
+                @unlink(ROOT_PATH . $originalPath);
+                return json(['status' => 0, 'msg' => '上传失败，请检查OSS配置']);
+            }
+
+            // 生成缩略图
+            $thumbnailPath = $this->generateThumbnail(ROOT_PATH . $originalPath, $width, $height, $savePath, $uniqueName);
+            $thumbnailUrl = '';
+            if ($thumbnailPath) {
+                $thumbnailUrl = \app\common\Pic::uploadoss(PRE_URL . '/' . $thumbnailPath, false, false);
+            }
+
+            // 清理临时文件
+            @unlink(ROOT_PATH . $originalPath);
+            @unlink($tempFile);
+
+            // 获取人脸特征向量（从前端传入）
+            $faceEmbedding = input('post.face_embedding', '');
+
+            // 插入人像记录
+            $portraitData = [
+                'aid' => $this->aid,
+                'uid' => 0,
+                'bid' => $targetBid,
+                'mdid' => $mdid,
+                'device_id' => 0,
+                'type' => 1, // 商家上传
+                'original_url' => $originalUrl,
+                'cutout_url' => null,
+                'thumbnail_url' => $thumbnailUrl,
+                'file_name' => 'smile_capture_' . date('YmdHis') . '.' . $extension,
+                'file_size' => $fileSize,
+                'width' => $width,
+                'height' => $height,
+                'md5' => $fileMd5,
+                'desc' => $isManual ? '手动抓拍' : '笑脸自动抓拍',
+                'tags' => '笑脸抓拍',
+                'status' => 1,
+                'create_time' => time(),
+                'update_time' => time()
+            ];
+
+            $portraitId = Db::name('ai_travel_photo_portrait')->insertGetId($portraitData);
+
+            if (!$portraitId) {
+                return json(['status' => 0, 'msg' => '数据保存失败']);
+            }
+
+            // 如果有前端传入的人脸特征向量
+            if (!empty($faceEmbedding)) {
+                try {
+                    $embeddingData = json_decode($faceEmbedding, true);
+                    if (is_array($embeddingData) && !empty($embeddingData)) {
+                        // 优先尝试存入Milvus（如果REST API可用）
+                        $milvusAvailable = false;
+                        try {
+                            $milvusService = new \app\service\MilvusService();
+                            if ($milvusService->isHealthy()) {
+                                $vectorIds = $milvusService->insert($embeddingData, [
+                                    'portrait_id' => $portraitId
+                                ]);
+                                if (!empty($vectorIds)) {
+                                    Db::name('ai_travel_photo_portrait')
+                                        ->where('id', $portraitId)
+                                        ->update(['face_embedding_id' => $vectorIds[0] ?? 0]);
+                                    $milvusAvailable = true;
+                                }
+                            }
+                        } catch (\Exception $e) {
+                            \think\facade\Log::warning('Milvus存储失败，使用MySQL备用', [
+                                'portrait_id' => $portraitId,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+
+                        // 如果Milvus不可用，存入MySQL的JSON字段
+                        if (!$milvusAvailable) {
+                            Db::name('ai_travel_photo_portrait')
+                                ->where('id', $portraitId)
+                                ->update(['face_embedding' => json_encode($embeddingData)]);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // 存储失败不影响主流程
+                    \think\facade\Log::warning('人脸特征存储失败', [
+                        'portrait_id' => $portraitId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            // 触发异步任务
+            $this->triggerAsyncTasks($portraitId, $targetBid);
+
+            // 记录日志
+            \think\facade\Log::info('AI旅拍笑脸抓拍成功', [
+                'aid' => $this->aid,
+                'bid' => $targetBid,
+                'portrait_id' => $portraitId,
+                'is_manual' => $isManual,
+                'file_size' => $fileSize
+            ]);
+
+            return json([
+                'status' => 1,
+                'msg' => '抓拍成功',
+                'data' => [
+                    'portrait_id' => $portraitId,
+                    'original_url' => $originalUrl,
+                    'thumbnail_url' => $thumbnailUrl
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \think\facade\Log::error('AI旅拍笑脸抓拍失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return json(['status' => 0, 'msg' => '抓拍失败：' . $e->getMessage()]);
+        }
+    }
+
+    /**
      * 触发异步任务（抠图 + AI生成）
      * @param int $portraitId 人像ID
      * @param int $targetBid 商家ID
