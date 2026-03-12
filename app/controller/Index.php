@@ -1898,11 +1898,52 @@ class Index extends BaseController
 	/**
 	 * PC端专属支付逻辑
 	 * 微信：V3 Native下单（二维码）
-	 * 支付宝：电脑网站支付（表单跳转）
+	 * 支付宝：当面付预创建（二维码）/ 电脑网站支付（表单）
+	 * pay_type=all 时同时返回微信和支付宝二维码，供前端双码弹窗展示
 	 */
 	private function _pcPay($aid, $mid, $payorder, $pay_type, $title, $ordernum, $price, $tablename){
 		$appinfo = \app\common\System::appinfo($aid, 'pc');
 
+		// ===== 双码模式：同时返回微信和支付宝二维码 =====
+		if($pay_type === 'all'){
+			$result = ['wxpay_qrcode' => '', 'alipay_qrcode' => ''];
+
+			// 尝试生成微信二维码
+			if(!empty($appinfo['wxpay_mchid']) && !empty($appinfo['wxpay_mchkey_v3']) && !empty($appinfo['wxpay_apiclient_key']) && !empty($appinfo['wxpay_serial_no'])){
+				try {
+					$rs = \app\common\Wxpay::build_native_v3($aid, 0, $mid, $title, $ordernum, $price, $tablename);
+					if($rs['status'] == 1 && !empty($rs['data']['pay_wx_qrcode_url'])){
+						$result['wxpay_qrcode'] = $rs['data']['pay_wx_qrcode_url'];
+					}
+				} catch(\Exception $e){
+					\think\facade\Log::error('PC双码-微信异常: '.$e->getMessage());
+				}
+			}
+
+			// 尝试生成支付宝二维码（使用当面付预创建，返回可扫码的二维码）
+			if(!empty($appinfo['ali_appid']) && !empty($appinfo['ali_privatekey']) && !empty($appinfo['ali_publickey'])){
+				try {
+					$rs = \app\common\Alipay::build_precreate($aid, 0, $mid, $title, $ordernum, $price, $tablename);
+					if($rs['status'] == 1 && !empty($rs['data']['qrcode_url'])){
+						$result['alipay_qrcode'] = $rs['data']['qrcode_url'];
+					}
+				} catch(\Exception $e){
+					\think\facade\Log::error('PC双码-支付宝异常: '.$e->getMessage());
+				}
+			}
+
+			if(empty($result['wxpay_qrcode']) && empty($result['alipay_qrcode'])){
+				return json(['status'=>0,'msg'=>'没有可用的支付方式，请联系管理员配置']);
+			}
+
+			return json(['status'=>1,'msg'=>'success','data'=>[
+				'pay_method' => 'dual_qrcode',
+				'wxpay_qrcode' => $result['wxpay_qrcode'],
+				'alipay_qrcode' => $result['alipay_qrcode'],
+			]]);
+		}
+
+		// ===== 单一支付方式 =====
 		if($pay_type === 'wxpay'){
 			// 检查微信V3支付配置
 			if(empty($appinfo['wxpay_mchid']) || empty($appinfo['wxpay_mchkey_v3']) || empty($appinfo['wxpay_apiclient_key']) || empty($appinfo['wxpay_serial_no'])){
@@ -1925,18 +1966,12 @@ class Index extends BaseController
 				return json(['status'=>0,'msg'=>'支付宝支付未配置']);
 			}
 
-			// PC端：电脑网站支付（表单跳转模式）
-			$rs = \app\common\Alipay::build_page_pay($aid, 0, $mid, $title, $ordernum, $price, $tablename);
-			if($rs['status'] == 1){
-				$payMethod = $rs['data']['pay_method'] ?? 'form';
-				// 如果降级为当面付（有qrcode_url但无form_html），切换为qrcode模式
-				if(empty($rs['data']['form_html']) && !empty($rs['data']['qrcode_url'])){
-					$payMethod = 'qrcode';
-				}
+			// PC端：当面付预创建（二维码扫码支付）
+			$rs = \app\common\Alipay::build_precreate($aid, 0, $mid, $title, $ordernum, $price, $tablename);
+			if($rs['status'] == 1 && !empty($rs['data']['qrcode_url'])){
 				return json(['status'=>1,'msg'=>'success','data'=>[
-					'pay_method' => $payMethod,
-					'form_html' => $rs['data']['form_html'] ?? '',
-					'qrcode_url' => $rs['data']['qrcode_url'] ?? '',
+					'pay_method' => 'qrcode',
+					'qrcode_url' => $rs['data']['qrcode_url'],
 				]]);
 			}
 			return json(['status'=>0,'msg'=>$rs['msg'] ?? '支付宝支付创建失败']);

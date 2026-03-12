@@ -45,24 +45,8 @@ var Pay = (function(){
             return;
         }
 
-        // 普通浏览器：先获取可用支付方式，然后弹窗选择
-        Api.getPayConfig(function(err, res){
-            if(err || !res || res.status !== 1){
-                showToast('获取支付配置失败', 'error');
-                return;
-            }
-            var payTypes = res.data.pay_types || [];
-            if(payTypes.length === 0){
-                showToast('暂无可用支付方式', 'error');
-                return;
-            }
-            if(payTypes.length === 1){
-                // 只有一种支付方式，直接调用
-                callH5Pay(options.ordernum, payTypes[0].id, options.order_type);
-                return;
-            }
-            showPayModal(options, payTypes);
-        });
+        // PC普通浏览器：直接展示双码弹窗（微信+支付宝二维码并列）
+        showDualQrcodeModal(options);
     }
 
     // ========== 支付方式选择弹窗 ==========
@@ -175,6 +159,10 @@ var Pay = (function(){
                 }
                 startPolling(ordernum);
                 showPollingStatus();
+            } else if(data.pay_method === 'dual_qrcode'){
+                // 双码模式：同时展示微信和支付宝二维码
+                renderDualQrcodes(data.wxpay_qrcode, data.alipay_qrcode);
+                startPolling(ordernum);
             } else if(data.pay_method === 'jsapi'){
                 callJsapiPay(data.jsapi_params, ordernum);
             } else {
@@ -233,6 +221,9 @@ var Pay = (function(){
     // ========== 支付结果展示 ==========
     function showPayResult(success){
         stopPolling();
+        // 隐藏双码区域（如有）
+        var dualQrcode = document.getElementById('payDualQrcode');
+        if(dualQrcode) dualQrcode.style.display = 'none';
         var statusArea = document.getElementById('payStatusArea');
         if(!statusArea) return;
         if(success){
@@ -286,6 +277,109 @@ var Pay = (function(){
     function resetConfirmBtn(){
         var btn = document.getElementById('payConfirmBtn');
         if(btn){ btn.disabled = false; btn.textContent = '确认支付'; }
+    }
+
+    // ========== 双码弹窗：同时展示微信和支付宝二维码 ==========
+    function showDualQrcodeModal(options){
+        // 移除已有弹窗
+        var existing = document.getElementById('payModalOverlay');
+        if(existing) existing.parentNode.removeChild(existing);
+
+        var overlay = document.createElement('div');
+        overlay.id = 'payModalOverlay';
+        overlay.className = 'pay-modal-overlay show';
+
+        overlay.innerHTML =
+            '<div class="pay-modal pay-modal--dual">' +
+                '<div class="pay-modal-header">' +
+                    '<div class="pay-modal-title">扫码支付</div>' +
+                    '<button class="pay-modal-close" id="payModalClose">✕</button>' +
+                '</div>' +
+                '<div class="pay-order-info">' +
+                    '<div class="pay-order-type">' + escapeHtml(options.title || '订单支付') + '</div>' +
+                    '<div class="pay-order-amount"><small>¥</small>' + (options.amount || '0.00') + '</div>' +
+                '</div>' +
+                '<div class="pay-dual-qrcode" id="payDualQrcode">' +
+                    '<div class="pay-loading"><div class="spinner"></div><span>正在生成支付二维码...</span></div>' +
+                '</div>' +
+                '<div class="pay-status-area" id="payStatusArea"></div>' +
+            '</div>';
+
+        document.body.appendChild(overlay);
+        document.body.style.overflow = 'hidden';
+
+        // 绑定关闭事件
+        document.getElementById('payModalClose').addEventListener('click', closePayModal);
+        overlay.addEventListener('click', function(e){ if(e.target === overlay) closePayModal(); });
+
+        // 请求双码
+        Api.h5Pay({ordernum: options.ordernum, pay_type: 'all', order_type: options.order_type}, function(err, res){
+            var qrcodeArea = document.getElementById('payDualQrcode');
+            if(err || !res || res.status !== 1){
+                if(qrcodeArea){
+                    qrcodeArea.innerHTML = '<div class="pay-dual-error">' + escapeHtml(res ? res.msg : '支付请求失败') + '</div>';
+                }
+                return;
+            }
+
+            var data = res.data;
+            if(data.pay_method === 'dual_qrcode'){
+                renderDualQrcodes(data.wxpay_qrcode, data.alipay_qrcode);
+                startPolling(options.ordernum);
+            } else if(data.pay_method === 'qrcode'){
+                // 后备：只有单一支付方式
+                renderDualQrcodes(data.qrcode_url, '');
+                startPolling(options.ordernum);
+            } else {
+                if(qrcodeArea){
+                    qrcodeArea.innerHTML = '<div class="pay-dual-error">暂无可用的扫码支付方式</div>';
+                }
+            }
+        });
+    }
+
+    function renderDualQrcodes(wxpayQr, alipayQr){
+        var container = document.getElementById('payDualQrcode');
+        if(!container) return;
+
+        var hasWx = !!wxpayQr;
+        var hasAli = !!alipayQr;
+        var singleMode = (hasWx && !hasAli) || (!hasWx && hasAli);
+
+        var html = '<div class="dual-qrcode-grid' + (singleMode ? ' dual-qrcode-grid--single' : '') + '">';
+
+        if(hasWx){
+            html +=
+                '<div class="dual-qrcode-item dual-qrcode-item--wx">' +
+                    '<div class="dual-qrcode-header">' +
+                        '<span class="dual-qrcode-badge dual-qrcode-badge--wx"></span>' +
+                        '<span class="dual-qrcode-label dual-qrcode-label--wx">微信支付</span>' +
+                    '</div>' +
+                    '<div class="dual-qrcode-img">' +
+                        '<img src="' + escapeHtml(wxpayQr) + '" alt="微信支付二维码">' +
+                    '</div>' +
+                    '<div class="dual-qrcode-tip dual-qrcode-tip--wx">请使用微信扫一扫</div>' +
+                '</div>';
+        }
+
+        if(hasAli){
+            html +=
+                '<div class="dual-qrcode-item dual-qrcode-item--ali">' +
+                    '<div class="dual-qrcode-header">' +
+                        '<span class="dual-qrcode-badge dual-qrcode-badge--ali"></span>' +
+                        '<span class="dual-qrcode-label dual-qrcode-label--ali">支付宝</span>' +
+                    '</div>' +
+                    '<div class="dual-qrcode-img">' +
+                        '<img src="' + escapeHtml(alipayQr) + '" alt="支付宝二维码">' +
+                    '</div>' +
+                    '<div class="dual-qrcode-tip dual-qrcode-tip--ali">请使用支付宝扫一扫</div>' +
+                '</div>';
+        }
+
+        html += '</div>';
+        html += '<div class="pay-loading dual-qrcode-waiting"><div class="spinner"></div><span>等待扫码支付...</span></div>';
+
+        container.innerHTML = html;
     }
 
     // ========== 工具函数 ==========

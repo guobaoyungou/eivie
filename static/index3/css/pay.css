@@ -160,6 +160,109 @@
 .pay-result-text { font-size: 16px; font-weight: 500; color: var(--text-primary, #333); }
 .pay-result-desc { font-size: 13px; color: var(--text-tertiary, #999); margin-top: 6px; }
 
+/* ===== 双码支付弹窗（微信+支付宝并列） ===== */
+.pay-modal--dual {
+    width: 580px;
+    max-width: 95vw;
+}
+.pay-dual-qrcode {
+    padding: 20px 24px 0;
+}
+.dual-qrcode-grid {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+}
+.dual-qrcode-grid--single {
+    justify-content: center;
+}
+.dual-qrcode-item {
+    flex: 1;
+    max-width: 240px;
+    text-align: center;
+    border: 2px solid var(--border-color, #eee);
+    border-radius: 14px;
+    padding: 18px 16px;
+    transition: border-color .2s, box-shadow .2s;
+    background: var(--bg-primary, #fff);
+}
+.dual-qrcode-grid--single .dual-qrcode-item {
+    max-width: 280px;
+}
+.dual-qrcode-item--wx:hover {
+    border-color: #09bb07;
+    box-shadow: 0 4px 16px rgba(9,187,7,.12);
+}
+.dual-qrcode-item--ali:hover {
+    border-color: #1677ff;
+    box-shadow: 0 4px 16px rgba(22,119,255,.12);
+}
+.dual-qrcode-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.dual-qrcode-badge {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #fff;
+    font-weight: 700;
+}
+.dual-qrcode-badge--wx {
+    background: #09bb07;
+}
+.dual-qrcode-badge--wx::after { content: 'W'; }
+.dual-qrcode-badge--ali {
+    background: #1677ff;
+}
+.dual-qrcode-badge--ali::after { content: 'A'; }
+.dual-qrcode-label {
+    font-size: 16px;
+    font-weight: 600;
+}
+.dual-qrcode-label--wx { color: #09bb07; }
+.dual-qrcode-label--ali { color: #1677ff; }
+.dual-qrcode-img {
+    margin: 0 auto 12px;
+    padding: 8px;
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #f0f0f0);
+    display: inline-block;
+}
+.dual-qrcode-img img {
+    width: 180px;
+    height: 180px;
+    border-radius: 6px;
+    display: block;
+}
+.dual-qrcode-grid--single .dual-qrcode-img img {
+    width: 200px;
+    height: 200px;
+}
+.dual-qrcode-tip {
+    font-size: 12px;
+    color: var(--text-tertiary, #999);
+    margin-top: 4px;
+}
+.dual-qrcode-tip--wx { color: #09bb07; }
+.dual-qrcode-tip--ali { color: #1677ff; }
+.dual-qrcode-waiting {
+    padding: 12px 0 20px;
+}
+.pay-dual-error {
+    padding: 30px 0;
+    text-align: center;
+    font-size: 14px;
+    color: #ef4444;
+}
+
 /* ===== 通用页面容器 ===== */
 .page-card {
     background: var(--bg-primary, #fff);
