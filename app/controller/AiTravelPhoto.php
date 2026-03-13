@@ -1482,6 +1482,14 @@ class AiTravelPhoto extends Common
                 $targetBid = Db::name('business')->where('aid', $this->aid)->value('id');
             }
 
+            // 记录调试信息
+            \think\facade\Log::info('笑脸抓拍调试', [
+                'aid' => $this->aid,
+                'bid' => $this->bid,
+                'targetBid' => $targetBid,
+                'mdid' => $mdid
+            ]);
+
             // 检查MD5是否重复
             $existPortrait = Db::name('ai_travel_photo_portrait')
                 ->where('aid', $this->aid)
@@ -1508,11 +1516,25 @@ class AiTravelPhoto extends Common
             $originalPath = $savePath . 'original_' . $uniqueName;
             file_put_contents(ROOT_PATH . $originalPath, $imageContent);
 
-            // 上传到OSS
-            $originalUrl = \app\common\Pic::uploadoss(PRE_URL . '/' . $originalPath, false, false);
+            // 上传到OSS（如果配置了OSS）
+            $uploadPath = PRE_URL . '/' . $originalPath;
+            \think\facade\Log::info('笑脸抓拍OSS上传', [
+                'uploadPath' => $uploadPath,
+                'savePath' => $savePath,
+                'originalPath' => $originalPath
+            ]);
+
+            $originalUrl = \app\common\Pic::uploadoss($uploadPath, false, false);
+
+            // 如果OSS上传失败，使用本地存储作为备用
             if (!$originalUrl) {
-                @unlink(ROOT_PATH . $originalPath);
-                return json(['status' => 0, 'msg' => '上传失败，请检查OSS配置']);
+                \think\facade\Log::warning('OSS上传失败，使用本地存储备用', [
+                    'uploadPath' => $uploadPath,
+                    'aid' => $this->aid,
+                    'bid' => $this->bid
+                ]);
+                // 使用本地路径作为URL
+                $originalUrl = '/' . $originalPath;
             }
 
             // 生成缩略图
@@ -1520,10 +1542,18 @@ class AiTravelPhoto extends Common
             $thumbnailUrl = '';
             if ($thumbnailPath) {
                 $thumbnailUrl = \app\common\Pic::uploadoss(PRE_URL . '/' . $thumbnailPath, false, false);
+                // 如果OSS上传失败，使用本地存储
+                if (!$thumbnailUrl) {
+                    $thumbnailUrl = '/' . $thumbnailPath;
+                }
             }
 
-            // 清理临时文件
-            @unlink(ROOT_PATH . $originalPath);
+            // 清理临时文件（仅当OSS上传成功后才删除本地文件，本地存储时保留）
+            // 判断是否是本地存储：URL以/开头表示本地路径
+            if (strpos($originalUrl, 'http') === 0) {
+                // OSS上传成功，删除本地文件
+                @unlink(ROOT_PATH . $originalPath);
+            }
             @unlink($tempFile);
 
             // 获取人脸特征向量（从前端传入）
@@ -4516,10 +4546,395 @@ class AiTravelPhoto extends Common
             $newId = Db::name('ai_travel_photo_scene')->insertGetId($scene);
             
             return json(['code' => 0, 'msg' => '复制成功', 'data' => ['id' => $newId]]);
-            
+
         } catch (\Exception $e) {
             return json(['code' => 1, 'msg' => $e->getMessage()]);
         }
     }
-    
+
+    // ============================================================
+    // 合成模板管理
+    // ============================================================
+
+    /**
+     * 合成模板 - 列表
+     * GET /AiTravelPhoto/synthesis_template_list
+     */
+    public function synthesis_template_list()
+    {
+        // 如果是AJAX请求，返回JSON数据
+        if (request()->isAjax()) {
+            $where = [
+                ['aid', '=', $this->aid],
+                ['bid', '=', $this->bid]
+            ];
+
+            // 关键词搜索
+            $keyword = input('param.keyword');
+            if ($keyword) {
+                $where[] = ['name', 'like', '%' . $keyword . '%'];
+            }
+
+            // 状态筛选
+            $status = input('param.status', '');
+            if ($status !== '' && $status !== 'all') {
+                $where[] = ['status', '=', $status];
+            }
+
+            $page = input('page/d', 1);
+            $limit = input('limit/d', 20);
+
+            $list = Db::name('ai_travel_photo_synthesis_template')
+                ->where($where)
+                ->order('sort ASC, id DESC')
+                ->page($page, $limit)
+                ->select();
+
+            $count = Db::name('ai_travel_photo_synthesis_template')
+                ->where($where)
+                ->count();
+
+            return json([
+                'code' => 0,
+                'msg' => '',
+                'count' => $count,
+                'data' => $list
+            ]);
+        }
+
+        return View::fetch();
+    }
+
+    /**
+     * 合成模板 - 编辑页面
+     * GET /AiTravelPhoto/synthesis_template_edit?id=xxx
+     */
+    public function synthesis_template_edit()
+    {
+        $id = input('param.id/d', 0);
+
+        $info = [];
+        if ($id > 0) {
+            $info = Db::name('ai_travel_photo_synthesis_template')
+                ->where('id', $id)
+                ->where('aid', $this->aid)
+                ->where('bid', $this->bid)
+                ->find();
+        }
+
+        View::assign('info', $info);
+        return View::fetch();
+    }
+
+    /**
+     * 合成模板 - 保存
+     * POST /AiTravelPhoto/synthesis_template_save
+     */
+    public function synthesis_template_save()
+    {
+        if (!request()->isPost()) {
+            return json(['code' => 1, 'msg' => '非法请求']);
+        }
+
+        try {
+            $id = input('post.id/d', 0);
+            $name = input('post.name/s', '');
+            $modelId = input('post.model_id/d', 0);
+            $modelName = input('post.model_name/s', '');
+            $images = input('post.images/a', []);
+            $prompt = input('post.prompt/s', '');
+            $status = input('post.status/d', 1);
+            $sort = input('post.sort/d', 0);
+
+            if (empty($name)) {
+                return json(['code' => 1, 'msg' => '请输入模板名称']);
+            }
+
+            if ($modelId <= 0) {
+                return json(['code' => 1, 'msg' => '请选择AI模型']);
+            }
+
+            if (empty($images)) {
+                return json(['code' => 1, 'msg' => '请上传模板图片']);
+            }
+
+            $data = [
+                'aid' => $this->aid,
+                'bid' => $this->bid,
+                'name' => $name,
+                'model_id' => $modelId,
+                'model_name' => $modelName,
+                'images' => json_encode($images, JSON_UNESCAPED_UNICODE),
+                'prompt' => $prompt,
+                'status' => $status,
+                'sort' => $sort,
+                'update_time' => time()
+            ];
+
+            if ($id > 0) {
+                // 更新
+                Db::name('ai_travel_photo_synthesis_template')
+                    ->where('id', $id)
+                    ->where('aid', $this->aid)
+                    ->where('bid', $this->bid)
+                    ->update($data);
+
+                return json(['code' => 0, 'msg' => '保存成功']);
+            } else {
+                // 新增
+                $data['create_time'] = time();
+                Db::name('ai_travel_photo_synthesis_template')->insert($data);
+
+                return json(['code' => 0, 'msg' => '添加成功']);
+            }
+
+        } catch (\Exception $e) {
+            return json(['code' => 1, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 合成模板 - 删除
+     * POST /AiTravelPhoto/synthesis_template_delete
+     */
+    public function synthesis_template_delete()
+    {
+        if (!request()->isPost()) {
+            return json(['code' => 1, 'msg' => '非法请求']);
+        }
+
+        try {
+            $id = input('post.id/d', 0);
+
+            if ($id <= 0) {
+                return json(['code' => 1, 'msg' => '参数错误']);
+            }
+
+            Db::name('ai_travel_photo_synthesis_template')
+                ->where('id', $id)
+                ->where('aid', $this->aid)
+                ->where('bid', $this->bid)
+                ->delete();
+
+            return json(['code' => 0, 'msg' => '删除成功']);
+
+        } catch (\Exception $e) {
+            return json(['code' => 1, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 合成模板 - 获取列表（用于下拉选择）
+     * GET /AiTravelPhoto/get_synthesis_template_list
+     */
+    public function get_synthesis_template_list()
+    {
+        try {
+            $where = [
+                ['aid', '=', $this->aid],
+                ['bid', '=', $this->bid],
+                ['status', '=', 1]
+            ];
+
+            $list = Db::name('ai_travel_photo_synthesis_template')
+                ->where($where)
+                ->order('sort ASC, id DESC')
+                ->select();
+
+            return json([
+                'code' => 0,
+                'msg' => '获取成功',
+                'data' => $list
+            ]);
+        } catch (\Exception $e) {
+            return json([
+                'code' => 1,
+                'msg' => $e->getMessage(),
+                'data' => []
+            ]);
+        }
+    }
+
+    // ============================================================
+    // 合成设置与生成
+    // ============================================================
+
+    /**
+     * 合成设置 - 弹窗页面
+     * GET /AiTravelPhoto/synthesis_settings
+     */
+    public function synthesis_settings()
+    {
+        $portraitId = input('param.portrait_id/d', 0);
+
+        // 获取已保存的合成设置
+        $setting = Db::name('ai_travel_photo_synthesis_setting')
+            ->where('portrait_id', $portraitId)
+            ->where('aid', $this->aid)
+            ->where('bid', $this->bid)
+            ->find();
+
+        // 获取可用的合成模板列表
+        $templates = Db::name('ai_travel_photo_synthesis_template')
+            ->where('aid', $this->aid)
+            ->where('bid', $this->bid)
+            ->where('status', 1)
+            ->order('sort ASC, id DESC')
+            ->select();
+
+        View::assign('portrait_id', $portraitId);
+        View::assign('setting', $setting);
+        View::assign('templates', $templates);
+        return View::fetch();
+    }
+
+    /**
+     * 合成设置 - 保存设置
+     * POST /AiTravelPhoto/synthesis_settings_save
+     */
+    public function synthesis_settings_save()
+    {
+        if (!request()->isPost()) {
+            return json(['code' => 1, 'msg' => '非法请求']);
+        }
+
+        try {
+            $portraitId = input('post.portrait_id/d', 0);
+            $templateIds = input('post.template_ids/a', []);
+            $generateCount = input('post.generate_count/d', 4);
+            $generateMode = input('post.generate_mode/d', 1); // 1顺序 2随机
+
+            if ($portraitId <= 0) {
+                return json(['code' => 1, 'msg' => '参数错误']);
+            }
+
+            if (empty($templateIds)) {
+                return json(['code' => 1, 'msg' => '请选择至少一个合成模板']);
+            }
+
+            if ($generateCount < 1 || $generateCount > 10) {
+                return json(['code' => 1, 'msg' => '合成数量应在1-10之间']);
+            }
+
+            // 检查模板数量是否足够
+            if ($generateCount > count($templateIds)) {
+                return json(['code' => 1, 'msg' => '合成数量不能超过选中的模板数量']);
+            }
+
+            $data = [
+                'portrait_id' => $portraitId,
+                'aid' => $this->aid,
+                'bid' => $this->bid,
+                'template_ids' => implode(',', $templateIds),
+                'generate_count' => $generateCount,
+                'generate_mode' => $generateMode,
+                'status' => 1,
+                'update_time' => time()
+            ];
+
+            // 检查是否已存在设置
+            $exists = Db::name('ai_travel_photo_synthesis_setting')
+                ->where('portrait_id', $portraitId)
+                ->where('aid', $this->aid)
+                ->where('bid', $this->bid)
+                ->find();
+
+            if ($exists) {
+                Db::name('ai_travel_photo_synthesis_setting')
+                    ->where('id', $exists['id'])
+                    ->update($data);
+            } else {
+                $data['create_time'] = time();
+                Db::name('ai_travel_photo_synthesis_setting')->insert($data);
+            }
+
+            return json(['code' => 0, 'msg' => '保存成功']);
+
+        } catch (\Exception $e) {
+            return json(['code' => 1, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 合成生成 - 执行合成
+     * POST /AiTravelPhoto/synthesis_generate
+     */
+    public function synthesis_generate()
+    {
+        if (!request()->isPost()) {
+            return json(['code' => 1, 'msg' => '非法请求']);
+        }
+
+        try {
+            $portraitId = input('post.portrait_id/d', 0);
+
+            if ($portraitId <= 0) {
+                return json(['code' => 1, 'msg' => '参数错误']);
+            }
+
+            // 获取人像信息
+            $portrait = Db::name('ai_travel_photo_portrait')
+                ->where('id', $portraitId)
+                ->where('aid', $this->aid)
+                ->find();
+
+            if (!$portrait) {
+                return json(['code' => 1, 'msg' => '人像不存在']);
+            }
+
+            // 获取合成设置
+            $setting = Db::name('ai_travel_photo_synthesis_setting')
+                ->where('portrait_id', $portraitId)
+                ->where('aid', $this->aid)
+                ->where('bid', $this->bid)
+                ->find();
+
+            if (!$setting) {
+                return json(['code' => 1, 'msg' => '请先设置合成参数']);
+            }
+
+            $templateIds = explode(',', $setting['template_ids']);
+            $generateCount = $setting['generate_count'];
+            $generateMode = $setting['generate_mode']; // 1顺序 2随机
+
+            // 获取模板信息
+            $templates = Db::name('ai_travel_photo_synthesis_template')
+                ->whereIn('id', $templateIds)
+                ->where('status', 1)
+                ->order('field(id, ' . $setting['template_ids'] . ')')
+                ->select();
+
+            if (count($templates) < count($templateIds)) {
+                return json(['code' => 1, 'msg' => '部分模板已失效，请重新设置']);
+            }
+
+            // 根据模式选择模板
+            $selectedTemplates = [];
+            if ($generateMode == 1) {
+                // 顺序模式：按顺序取模板，循环使用
+                for ($i = 0; $i < $generateCount; $i++) {
+                    $selectedTemplates[] = $templates[$i % count($templates)];
+                }
+            } else {
+                // 随机模式：随机抽取模板
+                $shuffled = $templates->toArray();
+                shuffle($shuffled);
+                $selectedTemplates = array_slice($shuffled, 0, $generateCount);
+            }
+
+            // 调用合成服务执行生成
+            $synthesisService = new \app\service\AiTravelPhotoSynthesisService();
+            $result = $synthesisService->generate($portrait, $selectedTemplates);
+
+            if ($result['code'] === 0) {
+                return json(['code' => 0, 'msg' => '生成成功', 'data' => $result['data']]);
+            } else {
+                return json(['code' => 1, 'msg' => $result['msg']]);
+            }
+
+        } catch (\Exception $e) {
+            return json(['code' => 1, 'msg' => $e->getMessage()]);
+        }
+    }
+
 }
