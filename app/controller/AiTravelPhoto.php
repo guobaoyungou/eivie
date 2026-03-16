@@ -1696,21 +1696,38 @@ class AiTravelPhoto extends Common
 
             \think\facade\Log::info('抠图任务已推送', ['portrait_id' => $portraitId]);
 
-            // 推送AI自动生成任务（为所有启用的场景生成图片）
-            // 获取商家启用的场景列表
-            $scenes = Db::name('ai_travel_photo_scene')
+            // 推送AI自动生成任务
+            // 从合成设置获取已关联的照片场景模板
+            $setting = Db::name('ai_travel_photo_synthesis_setting')
+                ->where('portrait_id', 0)
                 ->where('aid', $this->aid)
                 ->where('bid', $targetBid)
+                ->find();
+
+            if (!$setting || empty($setting['template_ids'])) {
+                \think\facade\Log::info('未配置合成模板，跳过自动生成', ['portrait_id' => $portraitId]);
+                return;
+            }
+
+            // 获取模板列表
+            $templateIds = explode(',', $setting['template_ids']);
+            $generateCount = $setting['generate_count'] ?? 4;
+            
+            $templates = Db::name('generation_scene_template')
+                ->whereIn('id', $templateIds)
+                ->where('generation_type', 1) // 照片生成
                 ->where('status', 1)
-                ->limit(10) // 限制最多10个场景，避免任务过多
+                ->field('id, template_name, model_id')
+                ->limit($generateCount)
                 ->select();
 
-            foreach ($scenes as $scene) {
-                // 创建生成记录
+            foreach ($templates as $template) {
+                // 创建生成记录（使用template_id而非scene_id）
                 $generationId = Db::name('ai_travel_photo_generation')->insertGetId([
                     'aid' => $this->aid,
                     'portrait_id' => $portraitId,
-                    'scene_id' => $scene['id'],
+                    'scene_id' => 0, // 不再使用scene_id
+                    'template_id' => $template['id'], // 使用template_id
                     'uid' => 0,
                     'bid' => $targetBid,
                     'mdid' => 0,
@@ -1731,7 +1748,8 @@ class AiTravelPhoto extends Common
 
                 \think\facade\Log::info('图生图任务已推送', [
                     'portrait_id' => $portraitId,
-                    'scene_id' => $scene['id'],
+                    'template_id' => $template['id'],
+                    'template_name' => $template['template_name'],
                     'generation_id' => $generationId
                 ]);
             }
@@ -2183,7 +2201,7 @@ class AiTravelPhoto extends Common
             ->alias('o')
             ->leftJoin('member m', 'o.uid = m.id')
             ->where('o.id', $id)
-            ->field('o.*, m.nickname, m.mobile, m.headimg')
+            ->field('o.*, m.nickname, m.tel as mobile, m.headimg')
             ->find();
 
         if (!$order) {
@@ -2201,6 +2219,32 @@ class AiTravelPhoto extends Common
         View::assign('order', $order);
         View::assign('goods', $goods);
         return View::fetch();
+    }
+
+    /**
+     * 人像转订单详情 - 根据人像ID查询关联订单并跳转
+     */
+    public function portrait_to_order()
+    {
+        $portrait_id = input('param.id/d');
+
+        if (!$portrait_id) {
+            $this->error('参数错误');
+        }
+
+        // 根据人像ID查询关联的订单
+        $order = Db::name('ai_travel_photo_order')
+            ->where('portrait_id', $portrait_id)
+            ->where('status', '>=', 1) // 只查询已支付的订单
+            ->order('id DESC')
+            ->find();
+
+        if (!$order) {
+            $this->error('暂无订单信息，该人像尚未产生订单');
+        }
+
+        // 跳转到订单详情
+        return redirect((string)url('order_detail', ['id' => $order['id']]));
     }
 
     /**
@@ -4525,15 +4569,36 @@ class AiTravelPhoto extends Common
      */
     public function synthesis_template_edit()
     {
-        $id = input('param.id/d', 0);
-
+        // 尝试多种方式获取id参数
+        $id = 0;
+        
+        // 方法1: 从 $_REQUEST['s'] 中解析（pathinfo模式）
+        if (isset($_REQUEST['s']) && strpos($_REQUEST['s'], '?id=') !== false) {
+            $s = $_REQUEST['s'];
+            $parts = parse_url($s);
+            if (isset($parts['query'])) {
+                parse_str($parts['query'], $query);
+                $id = isset($query['id']) ? intval($query['id']) : 0;
+            }
+        }
+        
+        // 方法2: 常规方式
+        if ($id == 0) {
+            $id = input('id/d', 0);
+        }
+        if ($id == 0) {
+            $id = input('get.id/d', 0);
+        }
+        if ($id == 0 && isset($_GET['id'])) {
+            $id = intval($_GET['id']);
+        }
+        
         $info = [];
         if ($id > 0) {
             $info = Db::name('ai_travel_photo_synthesis_template')
                 ->where('id', $id)
-                ->where('aid', $this->aid)
-                ->where('bid', $this->bid)
                 ->find();
+            
             // 将images字段从JSON字符串转换为数组
             if (!empty($info['images'])) {
                 $info['images'] = json_decode($info['images'], true) ?: [];
@@ -4699,29 +4764,70 @@ class AiTravelPhoto extends Common
         $targetBid = $this->bid;
         if ($this->bid == 0) {
             $targetBid = Db::name('business')->where('aid', $this->aid)->value('id');
+            \think\facade\Log::info('Admin using default bid', ['original_bid' => $this->bid, 'target_bid' => $targetBid]);
         }
 
         // 获取已保存的全局合成设置（portrait_id=0 表示全局设置）
+        // 按更新时间倒序，获取最新的记录
         $setting = Db::name('ai_travel_photo_synthesis_setting')
             ->where('portrait_id', 0)
             ->where('aid', $this->aid)
             ->where('bid', $targetBid)
+            ->order('update_time DESC')  // 修复：按更新时间倒序，获取最新记录
             ->find();
+        
+        \think\facade\Log::info('Synthesis setting loaded', [
+            'current_bid' => $this->bid,
+            'target_bid' => $targetBid,
+            'aid' => $this->aid,
+            'portrait_id' => 0,
+            'setting_found' => !empty($setting),
+            'setting_id' => $setting['id'] ?? 'none',
+            'template_ids' => $setting['template_ids'] ?? 'none',
+            'sql' => Db::name('ai_travel_photo_synthesis_setting')->getLastSql()
+        ]);
 
-        // 获取可用的合成模板列表（同时查询 bid=0 的全局模板和当前商户的模板）
-        $templates = Db::name('ai_travel_photo_synthesis_template')
-            ->where('aid', $this->aid)
-            ->where(function ($query) use ($targetBid) {
-                $query->where('bid', 0)
-                      ->whereOr('bid', $targetBid);
-            })
-            ->where('status', 1)
-            ->order('sort ASC, id DESC')
-            ->select();
+        // 获取可用的照片场景模板列表（从generation_scene_template表查询，generation_type=1为照片生成）
+        try {
+            $templates = Db::name('generation_scene_template')
+                ->alias('t')
+                ->leftJoin('model_info m', 't.model_id = m.id')
+                ->leftJoin('model_provider p', 'm.provider_id = p.id')
+                ->where('t.aid', $this->aid)
+                ->where(function ($query) use ($targetBid) {
+                    $query->where('t.bid', 0)
+                          ->whereOr('t.bid', $targetBid);
+                })
+                ->where('t.generation_type', 1) // 照片生成
+                ->where('t.status', 1)
+                ->field('t.id, t.template_name as scene_name, t.category, t.cover_image, t.model_id, t.output_quantity, t.use_count, t.sort, m.model_name, p.provider_name')
+                ->order('t.sort ASC, t.id DESC')
+                ->select();
+
+            // 处理分类标签
+            foreach ($templates as &$tpl) {
+                $tpl['scene_type_label'] = !empty($tpl['category']) ? $tpl['category'] : '未分类';
+            }
+            unset($tpl);
+        } catch (\Exception $e) {
+            // 如果查询失败，返回空数组
+            $templates = [];
+            \think\facade\Log::error('获取照片场景模板失败: ' . $e->getMessage());
+        }
 
         View::assign('portrait_id', 0);
         View::assign('setting', $setting);
         View::assign('templates', $templates);
+        
+        \think\facade\Log::info('Synthesis settings view data', [
+            'portrait_id' => 0,
+            'setting_assigned' => !empty($setting),
+            'template_ids' => $setting['template_ids'] ?? 'none',
+            'templates_count' => count($templates),
+            'template_ids_in_view' => !empty($templates) ? array_column($templates->toArray(), 'id') : [],
+            'first_few_templates' => !empty($templates) ? array_slice($templates->toArray(), 0, 3) : []
+        ]);
+        
         return View::fetch();
     }
 
@@ -4742,7 +4848,7 @@ class AiTravelPhoto extends Common
             $generateMode = input('post.generate_mode/d', 1); // 1顺序 2随机
 
             if (empty($templateIds)) {
-                return json(['code' => 1, 'msg' => '请选择至少一个合成模板']);
+                return json(['code' => 1, 'msg' => '请关联至少一个照片场景模板']);
             }
 
             if ($generateCount < 1 || $generateCount > 10) {
@@ -4763,6 +4869,12 @@ class AiTravelPhoto extends Common
                 }
             }
 
+            // 确保 templateIds 是数组并过滤空值
+            $templateIds = is_array($templateIds) ? array_filter($templateIds) : [];
+            if (empty($templateIds)) {
+                return json(['code' => 1, 'msg' => '请关联至少一个照片场景模板']);
+            }
+            
             $data = [
                 'portrait_id' => $portraitId, // 0表示全局设置
                 'aid' => $this->aid,
@@ -4773,13 +4885,26 @@ class AiTravelPhoto extends Common
                 'status' => 1,
                 'update_time' => time()
             ];
+            
+            \think\facade\Log::info('Synthesis settings saving', [
+                'template_ids_array' => $templateIds,
+                'template_ids_imploded' => implode(',', $templateIds)
+            ]);
 
             // 检查是否已存在设置
             $exists = Db::name('ai_travel_photo_synthesis_setting')
                 ->where('portrait_id', $portraitId)
                 ->where('aid', $this->aid)
-                ->where('bid', $this->bid)
+                ->where('bid', $targetBid)  // 修复：使用targetBid而不是$this->bid
                 ->find();
+            
+            \think\facade\Log::info('Checking existing setting', [
+                'portrait_id' => $portraitId,
+                'aid' => $this->aid,
+                'target_bid' => $targetBid,
+                'exists' => !empty($exists),
+                'existing_id' => $exists['id'] ?? 'none'
+            ]);
 
             if ($exists) {
                 Db::name('ai_travel_photo_synthesis_setting')
@@ -4845,18 +4970,20 @@ class AiTravelPhoto extends Common
             $generateCount = $setting['generate_count'];
             $generateMode = $setting['generate_mode']; // 1顺序 2随机
 
-            // 获取模板信息
+            // 获取模板信息（从照片场景模板表查询）
             if (empty($templateIds)) {
-                return json(['code' => 1, 'msg' => '请先选择合成模板']);
+                return json(['code' => 1, 'msg' => '请先关联照片场景模板']);
             }
-            $templates = Db::name('ai_travel_photo_synthesis_template')
+            $templates = Db::name('generation_scene_template')
                 ->whereIn('id', $templateIds)
+                ->where('generation_type', 1) // 照片生成
                 ->where('status', 1)
+                ->field('id, aid, bid, template_name, model_id, cover_image, default_params, output_quantity')
                 ->orderRaw('field(id, ' . $setting['template_ids'] . ')')
                 ->select();
 
             if (count($templates) < count($templateIds)) {
-                return json(['code' => 1, 'msg' => '部分模板已失效，请重新设置']);
+                return json(['code' => 1, 'msg' => '部分场景模板已失效，请重新设置']);
             }
 
             // 根据模式选择模板
@@ -4882,6 +5009,54 @@ class AiTravelPhoto extends Common
             } else {
                 return json(['code' => 1, 'msg' => $result['msg']]);
             }
+
+        } catch (\Exception $e) {
+            return json(['code' => 1, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 获取待处理的未合成人像列表
+     * POST /AiTravelPhoto/synthesis_get_pending
+     */
+    public function synthesis_get_pending()
+    {
+        try {
+            // 处理 bid = 0 的情况
+            $targetBid = $this->bid;
+            if ($this->bid == 0) {
+                $targetBid = Db::name('business')->where('aid', $this->aid)->value('id');
+                if (!$targetBid) {
+                    return json(['code' => 1, 'msg' => '未找到默认商户']);
+                }
+            }
+
+            // 1. 先处理超时的"处理中"记录（超过10分钟的）
+            $timeoutThreshold = time() - 600; // 10分钟前
+            Db::name('ai_travel_photo_portrait')
+                ->where('aid', $this->aid)
+                ->where('bid', $targetBid)
+                ->where('synthesis_status', 2) // 处理中
+                ->where('update_time', '<', $timeoutThreshold)
+                ->update([
+                    'synthesis_status' => 4, // 标记为失败
+                    'synthesis_error' => '合成超时，请重试',
+                    'update_time' => time()
+                ]);
+
+            // 2. 获取未处理(0)或已提交(1)的人像
+            $portraits = Db::name('ai_travel_photo_portrait')
+                ->where('aid', $this->aid)
+                ->where('bid', $targetBid)
+                ->where('status', 1)
+                ->whereIn('synthesis_status', [0, 1])
+                ->field('id, aid, bid, original_url, cutout_url, thumbnail_url, synthesis_status, synthesis_count, synthesis_error, create_time')
+                ->select();
+
+            return json([
+                'code' => 0,
+                'data' => $portraits
+            ]);
 
         } catch (\Exception $e) {
             return json(['code' => 1, 'msg' => $e->getMessage()]);
@@ -4937,18 +5112,19 @@ class AiTravelPhoto extends Common
                 return json(['code' => 1, 'msg' => '没有需要处理的人像']);
             }
 
-            // 获取模板信息
+            // 获取模板信息（从generation_scene_template表查询）
             if (empty($templateIds)) {
-                return json(['code' => 1, 'msg' => '请先选择合成模板']);
+                return json(['code' => 1, 'msg' => '请先关联照片场景模板']);
             }
-            $templates = Db::name('ai_travel_photo_synthesis_template')
+            $templates = Db::name('generation_scene_template')
                 ->whereIn('id', $templateIds)
+                ->where('generation_type', 1) // 照片生成
                 ->where('status', 1)
                 ->orderRaw('field(id, ' . $setting['template_ids'] . ')')
                 ->select();
 
             if (count($templates) === 0) {
-                return json(['code' => 1, 'msg' => '没有可用的合成模板']);
+                return json(['code' => 1, 'msg' => '没有可用的照片场景模板']);
             }
 
             // 调用合成服务批量生成
@@ -5063,18 +5239,21 @@ class AiTravelPhoto extends Common
                 return json(['code' => 1, 'msg' => '参数错误']);
             }
 
-            // 获取人像信息
+            // 获取人像信息（确保包含所有字段）
             $portrait = Db::name('ai_travel_photo_portrait')
                 ->where('id', $portraitId)
                 ->find();
+
+            // 调试日志
+            \think\facade\Log::write('synthesis_retry: portrait=' . json_encode($portrait), 'info');
 
             if (!$portrait) {
                 return json(['code' => 1, 'msg' => '人像不存在']);
             }
 
-            // 只有失败状态才能重试
-            if ($portrait['synthesis_status'] != 4) {
-                return json(['code' => 1, 'msg' => '只有失败状态才能重试']);
+            // 支持多种状态重试：未处理(0)、已提交(1)、失败(4)
+            if (!in_array($portrait['synthesis_status'], [0, 1, 4])) {
+                return json(['code' => 1, 'msg' => '该状态不能重试，当前状态: ' . $portrait['synthesis_status']]);
             }
 
             // 获取合成设置
@@ -5093,18 +5272,20 @@ class AiTravelPhoto extends Common
             $generateMode = $setting['generate_mode'];
 
             if (empty($templateIds)) {
-                return json(['code' => 1, 'msg' => '请先选择合成模板']);
+                return json(['code' => 1, 'msg' => '请先关联照片场景模板']);
             }
 
-            // 获取模板信息
-            $templates = Db::name('ai_travel_photo_synthesis_template')
+            // 获取模板信息（从generation_scene_template表查询）
+            $templates = Db::name('generation_scene_template')
                 ->whereIn('id', $templateIds)
+                ->where('generation_type', 1) // 照片生成
                 ->where('status', 1)
+                ->field('id, aid, bid, template_name, model_id, cover_image, default_params, output_quantity')
                 ->orderRaw('field(id, ' . $setting['template_ids'] . ')')
                 ->select();
 
             if (count($templates) === 0) {
-                return json(['code' => 1, 'msg' => '没有可用的合成模板']);
+                return json(['code' => 1, 'msg' => '没有可用的照片场景模板']);
             }
 
             // 更新状态为处理中
@@ -5123,17 +5304,21 @@ class AiTravelPhoto extends Common
                 return json(['code' => 1, 'msg' => '服务初始化失败: ' . $e->getMessage()]);
             }
 
-            // 根据模式选择模板
+            // 根据模式选择模板（确保转换为数组）
+            $templatesArray = $templates->toArray();
             $selectedTemplates = [];
             if ($generateMode == 1) {
                 for ($i = 0; $i < $generateCount; $i++) {
-                    $selectedTemplates[] = $templates[$i % count($templates)];
+                    $selectedTemplates[] = $templatesArray[$i % count($templatesArray)];
                 }
             } else {
-                $shuffled = $templates->toArray();
+                $shuffled = $templatesArray;
                 shuffle($shuffled);
                 $selectedTemplates = array_slice($shuffled, 0, $generateCount);
             }
+
+            // 调试日志：记录选中的模板
+            \think\facade\Log::info('synthesis_retry 选中的模板: ' . json_encode($selectedTemplates, JSON_UNESCAPED_UNICODE));
 
             $result = $synthesisService->generate($portrait, $selectedTemplates);
 

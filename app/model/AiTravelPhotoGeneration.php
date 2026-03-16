@@ -33,6 +33,7 @@ class AiTravelPhotoGeneration extends Model
         'aid' => 'integer',
         'portrait_id' => 'integer',
         'scene_id' => 'integer',
+        'template_id' => 'integer',
         'uid' => 'integer',
         'bid' => 'integer',
         'mdid' => 'integer',
@@ -85,6 +86,14 @@ class AiTravelPhotoGeneration extends Model
     public function scene()
     {
         return $this->belongsTo(AiTravelPhotoScene::class, 'scene_id', 'id');
+    }
+    
+    /**
+     * 关联照片场景模板（generation_scene_template）
+     */
+    public function template()
+    {
+        return $this->belongsTo(GenerationSceneTemplate::class, 'template_id', 'id');
     }
     
     /**

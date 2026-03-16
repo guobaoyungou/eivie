@@ -725,13 +725,16 @@ class AiTravelPhotoAiService
 
     /**
      * 基于场景类型处理生成任务（增强版）
+     * 支持两种数据源：
+     * 1. ai_travel_photo_scene 表（旧方式，scene_id > 0）
+     * 2. generation_scene_template 表（新方式，template_id > 0）
      * 
      * @param int $generationId 生成记录ID
      * @return bool
      */
     public function processGenerationBySceneType(int $generationId): bool
     {
-        $generation = AiTravelPhotoGeneration::with(['portrait', 'scene'])->find($generationId);
+        $generation = AiTravelPhotoGeneration::with(['portrait', 'scene', 'template'])->find($generationId);
         
         if (!$generation) {
             return false;
@@ -746,10 +749,28 @@ class AiTravelPhotoAiService
             $startTime = microtime(true);
             
             $portrait = $generation->portrait;
-            $scene = $generation->scene;
             
-            if (!$portrait || !$scene) {
-                throw new \Exception('人像或场景不存在');
+            if (!$portrait) {
+                throw new \Exception('人像不存在');
+            }
+            
+            // 判断数据源：优先使用template（新方式），其次使用scene（旧方式）
+            $scene = null;
+            $template = null;
+            $sceneData = null;
+            
+            if ($generation->template_id > 0 && $generation->template) {
+                // 新方式：使用generation_scene_template
+                $template = $generation->template;
+                $sceneData = $this->convertTemplateToSceneData($template->toArray());
+                \think\facade\Log::info('使用照片场景模板生成', ['template_id' => $template->id, 'template_name' => $template->template_name]);
+            } elseif ($generation->scene_id > 0 && $generation->scene) {
+                // 旧方式：使用ai_travel_photo_scene
+                $scene = $generation->scene;
+                $sceneData = $scene->toArray();
+                \think\facade\Log::info('使用场景数据生成', ['scene_id' => $scene->id, 'scene_name' => $scene->name]);
+            } else {
+                throw new \Exception('未找到场景或模板数据');
             }
             
             // 使用参数组装服务
@@ -757,32 +778,32 @@ class AiTravelPhotoAiService
             $resultService = new GenerationResultService();
             
             // 根据scene_type选择不同的处理逻辑
-            if ($scene->scene_type >= 3 && $scene->scene_type <= 6) {
+            if (($sceneData['scene_type'] ?? 1) >= 3 && ($sceneData['scene_type'] ?? 1) <= 6) {
                 // 视频生成场景（3-6）
                 $params = $paramService->assembleVideoGenerationParams(
-                    $scene->toArray(),
+                    $sceneData,
                     $portrait->toArray()
                 );
                 
                 // 调用视频生成API（可灵AI等）
-                $apiResponse = $this->callVideoGenerationApi($params, $scene);
+                $apiResponse = $this->callVideoGenerationApi($params, $scene ?? $template);
                 
                 // 保存视频结果
                 $saveResult = $resultService->saveVideoResult(
                     $generationId,
                     $apiResponse,
-                    $scene->toArray()
+                    $sceneData
                 );
                 
             } else {
                 // 图生图场景（1-2）
                 $params = $paramService->assembleImageGenerationParams(
-                    $scene->toArray(),
+                    $sceneData,
                     $portrait->toArray()
                 );
                 
                 // 调用图生图API（通义千问等）
-                $apiResponse = $this->callImageGenerationApi($params, $scene);
+                $apiResponse = $this->callImageGenerationApi($params, $scene ?? $template);
                 
                 // 根据返回结果判断是单图还是多图
                 $saveResult = $resultService->saveResultAuto(
@@ -800,10 +821,19 @@ class AiTravelPhotoAiService
                     'finish_time' => time()
                 ]);
                 
-                // 更新场景统计
-                $scene->use_count = $scene->use_count + 1;
-                $scene->success_count = $scene->success_count + 1;
-                $scene->save();
+                // 更新使用统计
+                if ($template) {
+                    // 更新模板使用次数
+                    \think\facade\Db::name('generation_scene_template')
+                        ->where('id', $template->id)
+                        ->inc('use_count')
+                        ->update();
+                } elseif ($scene) {
+                    // 更新场景统计
+                    $scene->use_count = $scene->use_count + 1;
+                    $scene->success_count = $scene->success_count + 1;
+                    $scene->save();
+                }
                 
                 return true;
             } else {
@@ -817,7 +847,7 @@ class AiTravelPhotoAiService
             $generation->finish_time = time();
             $generation->save();
             
-            // 更新场景统计
+            // 更新失败统计
             if (isset($scene)) {
                 $scene->use_count = $scene->use_count + 1;
                 $scene->fail_count = $scene->fail_count + 1;
@@ -1178,6 +1208,40 @@ class AiTravelPhotoAiService
             'model_code' => $apiModelCode,
             'video_mode' => $videoMode,
             'raw_response' => $result['raw_response'] ?? []
+        ];
+    }
+    
+    /**
+     * 将generation_scene_template数据转换为ai_travel_photo_scene格式
+     * 以便SceneParameterService可以统一处理
+     * 
+     * @param array $template 模板数据
+     * @return array 场景格式数据
+     */
+    private function convertTemplateToSceneData(array $template): array
+    {
+        // 解析default_params中的prompt
+        $defaultParams = [];
+        if (!empty($template['default_params'])) {
+            $defaultParams = is_string($template['default_params']) 
+                ? json_decode($template['default_params'], true) 
+                : $template['default_params'];
+        }
+        
+        // 转换为ai_travel_photo_scene表的字段格式
+        return [
+            'id' => $template['id'],
+            'name' => $template['template_name'] ?? '',
+            'cover' => $template['cover_image'] ?? '',
+            'background_url' => $template['cover_image'] ?? '',
+            'prompt' => $defaultParams['prompt'] ?? '',
+            'negative_prompt' => $defaultParams['negative_prompt'] ?? '',
+            'model_id' => $template['model_id'] ?? 0,
+            'model_params' => json_encode($defaultParams, JSON_UNESCAPED_UNICODE),
+            'scene_type' => 1, // 默认图生图
+            'aspect_ratio' => $defaultParams['aspect_ratio'] ?? '1:1',
+            'aid' => $template['aid'] ?? 0,
+            'bid' => $template['bid'] ?? 0,
         ];
     }
 }

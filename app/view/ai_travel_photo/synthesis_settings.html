@@ -15,6 +15,12 @@
     .template-item .template-model { font-size: 12px; color: #666; }
     .template-item .template-images { display: flex; gap: 5px; margin-top: 5px; }
     .template-item .template-images img { width: 40px; height: 40px; object-fit: cover; border-radius: 3px; }
+    .template-search { margin-bottom: 15px; }
+    .template-search input { width: 100%; padding: 8px 12px; border: 1px solid #e2e2e2; border-radius: 4px; }
+    .selected-item { display: inline-flex; align-items: center; padding: 5px 10px; background: #f0f9ff; border: 1px solid #1e9fff; border-radius: 4px; margin: 5px; }
+    .selected-item .remove-btn { margin-left: 8px; cursor: pointer; color: #999; }
+    .selected-item .remove-btn:hover { color: #f00; }
+    .selected-items-container { min-height: 40px; padding: 10px; border: 1px dashed #e2e2e2; border-radius: 4px; }
   </style>
 </head>
 <body>
@@ -32,30 +38,38 @@
         </div>
       </div>
 
-      <!-- 模板选择 -->
+      <!-- 模板搜索 -->
       <div class="layui-form-item">
-        <label class="layui-form-label"><span class="layui-required">*</span>选择模板</label>
+        <label class="layui-form-label">查找模板</label>
+        <div class="layui-input-block">
+          <div class="template-search">
+            <input type="text" id="templateSearch" placeholder="输入模板名称或场景类型进行搜索..." oninput="filterTemplates()">
+          </div>
+        </div>
+      </div>
+
+      <!-- 关联照片场景模板 -->
+      <div class="layui-form-item">
+        <label class="layui-form-label"><span class="layui-required">*</span>关联照片场景模板</label>
         <div class="layui-input-block" id="templateList">
           {notempty name="templates"}
           {volist name="templates" id="tpl"}
-          <div class="template-item" data-id="{$tpl.id}" onclick="selectTemplate(this, {$tpl.id})">
-            <div class="template-name">{$tpl.name}</div>
-            <div class="template-model">模型：{$tpl.model_name}</div>
+          <div class="template-item" data-id="{$tpl.id}" data-name="{$tpl.scene_name}" data-type="{$tpl.scene_type_label}" onclick="selectTemplate(this, {$tpl.id})">
+            <div class="template-name">{$tpl.scene_name} <span class="layui-badge layui-bg-gray">{$tpl.scene_type_label}</span></div>
+            <div class="template-model">模型：{$tpl.model_name|default='未指定'} | 每单输出：{$tpl.output_quantity|default=1}张</div>
             <div class="template-images">
-              {php}$images = json_decode($tpl['images'], true);{/php}
-              {notempty name="images"}
-              {volist name="images" id="img" length="4"}
-              <img src="{$img}" alt="模板图">
-              {/volist}
+              {notempty name="tpl.cover_image"}
+              <img src="{$tpl.cover_image}" alt="场景图">
               {/notempty}
+
             </div>
           </div>
           {/volist}
           {else/}
-          <div style="color:#999;padding:20px;text-align:center;">暂无可用模板，请先在"合成模板"中添加</div>
+          <div style="color:#999;padding:20px;text-align:center;">暂无可用场景模板，请先在"照片场景"中添加</div>
           {/notempty}
         </div>
-        <div style="color:#999;font-size:12px;margin-top:5px;">请选择要使用的合成模板（可多选）</div>
+        <div style="color:#999;font-size:12px;margin-top:5px;">请关联要使用的照片场景模板（可多选）</div>
       </div>
 
       <!-- 合成数量 -->
@@ -80,11 +94,13 @@
         </div>
       </div>
 
-      <!-- 选中模板预览 -->
+      <!-- 已关联模板 -->
       <div class="layui-form-item">
-        <label class="layui-form-label">已选模板</label>
+        <label class="layui-form-label">已关联模板</label>
         <div class="layui-input-block" id="selectedTemplates">
-          <span style="color:#999">请在上方选择模板</span>
+          <div class="selected-items-container">
+            <span style="color:#999">请在上方关联模板</span>
+          </div>
         </div>
       </div>
     </form>
@@ -92,46 +108,129 @@
   {include file="public/js"/}
   <script>
   var selectedTemplateIds = [];
+  var selectedTemplateData = {};
   var portraitId = {$portrait_id};
+
+  // 保存所有模板数据用于搜索
+  var allTemplates = [];
 
   layui.use(['form', 'layer'], function(){
     var form = layui.form;
     var layer = layui.layer;
 
-    // 加载已保存的全局设置（portrait_id=0）
-    var setting = {:empty($setting) ? 'null' : json_encode($setting)};
-    if(setting){
-      // 设置合成数量
-      $('#generateCount').val(setting.generate_count || 4);
+    // 延迟执行，确保DOM完全加载
+    setTimeout(function() {
+      // 清空已选模板数组，确保不会残留旧数据
+      selectedTemplateIds = [];
+      console.log('Cleared selectedTemplateIds, current length:', selectedTemplateIds.length);
+      
+      // 初始化模板数据
+      initTemplatesData();
 
-      // 设置生成模式
-      $('input[name="generate_mode"][value="' + (setting.generate_mode || 1) + '"]').prop('checked', true);
-
-      // 选中已保存的模板
-      var savedTemplateIds = setting.template_ids ? setting.template_ids.split(',') : [];
-      savedTemplateIds.forEach(function(id){
-        selectTemplateById(parseInt(id));
+      // 加载已保存的全局设置（portrait_id=0）
+      var setting = {:empty($setting) ? 'null' : json_encode($setting)};
+      console.log('Setting data:', setting); // 调试日志
+      console.log('PHP setting var:', '{$setting|json_encode}');
+      console.log('Template IDs raw:', setting ? setting.template_ids : 'no setting');
+      
+      // 输出页面上实际渲染的模板
+      var renderedTemplates = [];
+      document.querySelectorAll('.template-item').forEach(function(item){
+        renderedTemplates.push({
+          id: item.getAttribute('data-id'),
+          name: item.getAttribute('data-name')
+        });
       });
+      console.log('Rendered templates on page:', renderedTemplates);
+      
+      if(setting && setting.template_ids){
+        // 设置合成数量
+        $('#generateCount').val(setting.generate_count || 4);
 
-      form.render('radio');
-      updateModeDesc();
-    }
+        // 设置生成模式
+        $('input[name="generate_mode"][value="' + (setting.generate_mode || 1) + '"]').prop('checked', true);
 
-    // 监听模式切换
-    form.on('radio(generateMode)', function(data){
-      updateModeDesc();
-    });
+        // 选中已保存的模板
+        var savedTemplateIds = setting.template_ids ? setting.template_ids.split(',') : [];
+        console.log('Saved template IDs:', savedTemplateIds); // 调试日志
+        console.log('Raw template_ids string:', setting.template_ids);
+        
+        // 再次检查模板是否加载完成
+        console.log('Templates in DOM:', document.querySelectorAll('.template-item').length);
+        
+        savedTemplateIds.forEach(function(id){
+          if(id && id.trim() !== '') { // 确保id不为空或空白
+            var templateId = parseInt(id.trim());
+            console.log('Selecting template ID:', templateId);
+            selectTemplateById(templateId);
+          }
+        });
 
-    // 初始化选中状态
-    initSelectedStatus();
+        form.render('radio');
+        updateModeDesc();
+        
+        // 检查最终选中的模板
+        console.log('Final selected templates:', selectedTemplateIds);
+      } else {
+        console.log('No setting found');
+      }
+
+      // 监听模式切换
+      form.on('radio(generateMode)', function(data){
+        updateModeDesc();
+      });
+    }, 100); // 延迟100ms执行
   });
+
+  // 初始化模板数据
+  function initTemplatesData(){
+    var items = document.querySelectorAll('.template-item');
+    console.log('Initializing templates, found items:', items.length);
+    allTemplates = []; // 清空数组，避免重复
+    items.forEach(function(item){
+      var idStr = item.getAttribute('data-id');
+      var id = parseInt(idStr);
+      var name = item.getAttribute('data-name');
+      var type = item.getAttribute('data-type');
+      allTemplates.push({id: id, name: name, type: type, element: item, idStr: idStr});
+      console.log('Template loaded:', {id: id, name: name, idStr: idStr});
+    });
+    console.log('All templates initialized:', allTemplates);
+  }
 
   // 根据ID选中模板
   function selectTemplateById(id){
+    // 检查是否已存在
+    if(selectedTemplateIds.indexOf(id) > -1){
+      console.log('Template already selected:', id);
+      return;
+    }
     selectedTemplateIds.push(id);
+    
+    // 查找模板元素（data-id 可能是字符串或整数）
     var item = document.querySelector('.template-item[data-id="' + id + '"]');
+    
+    // 如果找不到，尝试查找所有模板并比较ID
+    if(!item) {
+      var items = document.querySelectorAll('.template-item');
+      for(var i = 0; i < items.length; i++) {
+        var itemId = parseInt(items[i].getAttribute('data-id'));
+        if(itemId === id) {
+          item = items[i];
+          console.log('Found template by iteration, ID:', id);
+          break;
+        }
+      }
+    }
+    
     if(item){
       item.classList.add('selected');
+      console.log('Template selected successfully:', id);
+    } else {
+      console.warn('Template element not found for ID:', id);
+      console.warn('Available template IDs:', Array.from(document.querySelectorAll('.template-item')).map(function(el) {
+        return el.getAttribute('data-id');
+      }));
     }
     updateSelectedDisplay();
   }
@@ -163,23 +262,71 @@
     updateSelectedDisplay();
   }
 
+  // 过滤模板（搜索功能）
+  function filterTemplates(){
+    var keyword = document.getElementById('templateSearch').value.toLowerCase().trim();
+    var items = document.querySelectorAll('.template-item');
+    
+    items.forEach(function(item){
+      var name = item.getAttribute('data-name') || '';
+      var type = item.getAttribute('data-type') || '';
+      
+      if(keyword === '' || name.toLowerCase().indexOf(keyword) > -1 || type.toLowerCase().indexOf(keyword) > -1){
+        item.style.display = 'block';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  }
+
   // 更新已选模板显示
   function updateSelectedDisplay(){
     var container = document.getElementById('selectedTemplates');
     if(selectedTemplateIds.length === 0){
-      container.innerHTML = '<span style="color:#999">请在上方选择模板</span>';
+      container.innerHTML = '<div class="selected-items-container"><span style="color:#999">请在上方关联模板</span></div>';
       return;
     }
 
-    var html = '已选 <strong>' + selectedTemplateIds.length + '</strong> 个模板：';
+    var html = '<div class="selected-items-container">';
+    html += '已关联 <strong>' + selectedTemplateIds.length + '</strong> 个模板：';
     var count = Math.min(selectedTemplateIds.length, parseInt($('#generateCount').val() || 4));
     html += '<span style="color:#1e9fff">将生成 ' + count + ' 张图片</span>';
 
     if(selectedTemplateIds.length < parseInt($('#generateCount').val() || 4)){
       html += '<span style="color:#ff5722;margin-left:10px;">（模板数量不足，请减少合成数量）</span>';
     }
+    
+    html += '<div style="margin-top:10px;">';
+    selectedTemplateIds.forEach(function(id){
+      // 从 allTemplates 数组中查找模板信息
+      var template = allTemplates.find(function(t) { return t.id === id; });
+      var name = template ? template.name : '模板' + id;
+      
+      if(!template) {
+        console.warn('Template not found in allTemplates for ID:', id, 'Available IDs:', allTemplates.map(function(t) { return t.id; }));
+      }
+      
+      html += '<span class="selected-item">';
+      html += name;
+      html += '<span class="remove-btn" onclick="removeTemplate(' + id + ')">✕</span>';
+      html += '</span>';
+    });
+    html += '</div></div>';
 
     container.innerHTML = html;
+  }
+
+  // 移除已选模板
+  function removeTemplate(id){
+    var index = selectedTemplateIds.indexOf(id);
+    if(index > -1){
+      selectedTemplateIds.splice(index, 1);
+      var item = document.querySelector('.template-item[data-id="' + id + '"]');
+      if(item){
+        item.classList.remove('selected');
+      }
+      updateSelectedDisplay();
+    }
   }
 
   // 更新模式说明
@@ -202,8 +349,8 @@
   // 保存设置
   window.saveSettings = function(callback){
     if(selectedTemplateIds.length === 0){
-      layer.msg('请选择至少一个合成模板');
-      if(callback) callback({code: 1, msg: '请选择至少一个合成模板'});
+      layer.msg('请关联至少一个合成模板');
+      if(callback) callback({code: 1, msg: '请关联至少一个合成模板'});
       return;
     }
 
