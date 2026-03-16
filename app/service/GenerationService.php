@@ -416,9 +416,14 @@ class GenerationService
         $headers = [
             'Content-Type: application/json'
         ];
-        
+
         // 根据供应商类型构建认证
         switch ($providerCode) {
+            case 'kling':
+                // 可灵AI使用JWT Token认证
+                $token = $this->generateKlingJwtToken($apiKey, $apiSecret);
+                $headers[] = 'Authorization: Bearer ' . $token;
+                break;
             case 'volcengine':
             case 'doubao':
                 $headers[] = 'Authorization: Bearer ' . $apiKey;
@@ -436,8 +441,46 @@ class GenerationService
                 // 默认Bearer Token认证
                 $headers[] = 'Authorization: Bearer ' . $apiKey;
         }
-        
+
         return $headers;
+    }
+
+    /**
+     * 生成可灵AI的JWT Token
+     * @param string $accessKey AccessKey
+     * @param string $secretKey SecretKey
+     * @return string JWT Token
+     */
+    protected function generateKlingJwtToken($accessKey, $secretKey)
+    {
+        $header = [
+            'alg' => 'HS256',
+            'typ' => 'JWT'
+        ];
+
+        $payload = [
+            'iss' => $accessKey,
+            'exp' => time() + 3600,  // Token有效期1小时
+            'nbf' => time() - 5      // 提前5秒生效，避免时钟偏差
+        ];
+
+        $headerEncoded = $this->base64UrlEncode(json_encode($header));
+        $payloadEncoded = $this->base64UrlEncode(json_encode($payload));
+
+        $signature = hash_hmac('sha256', $headerEncoded . '.' . $payloadEncoded, $secretKey, true);
+        $signatureEncoded = $this->base64UrlEncode($signature);
+
+        return $headerEncoded . '.' . $payloadEncoded . '.' . $signatureEncoded;
+    }
+
+    /**
+     * Base64 URL安全编码
+     * @param string $data 数据
+     * @return string
+     */
+    protected function base64UrlEncode($data)
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
     
     /**
@@ -447,10 +490,16 @@ class GenerationService
     protected function buildRequestBody($model, $inputParams)
     {
         $modelCode = $model['model_code'];
+        $providerCode = $model['provider_code'] ?? '';
         
         // 检查是否是Seedance视频生成模型（需要特殊content数组格式）
         if ($this->isSeedanceVideoModel($modelCode)) {
             return $this->buildSeedanceRequestBody($modelCode, $inputParams);
+        }
+        
+        // 检查是否是阿里云百炼图像生成/编辑模型（需要将图片转为Base64）
+        if ($this->isAliyunWanImageModel($modelCode, $providerCode)) {
+            return $this->buildAliyunWanRequestBody($modelCode, $inputParams);
         }
         
         $body = [
@@ -530,6 +579,367 @@ class GenerationService
         ];
         
         return in_array($baseCode, $seedanceModels) || strpos($modelCode, 'doubao-seedance') === 0;
+    }
+    
+    /**
+     * 检查是否为阿里云百炼Wan图像生成/编辑模型
+     * 这些模型需要将图片URL转为Base64编码
+     * 
+     * @param string $modelCode 模型代码
+     * @param string $providerCode 供应商标识
+     * @return bool
+     */
+    protected function isAliyunWanImageModel($modelCode, $providerCode)
+    {
+        // 必须是阿里云/百炼供应商
+        if (!in_array($providerCode, ['aliyun', 'dashscope', 'alibaba', 'bailian'])) {
+            return false;
+        }
+        
+        // Wan图像相关模型
+        $wanImageModels = [
+            'wan2.6-image',
+            'wan2.5-i2i-preview',
+            'wanx2.1-imageedit',
+            'wanx2.1-t2i',
+            'wanx2.1-i2i',
+            'tongyi_wanxiang',
+        ];
+        
+        foreach ($wanImageModels as $prefix) {
+            if (strpos($modelCode, $prefix) === 0) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * 为阿里云百炼Wan图像模型构建请求体
+     * 阿里云百炼API要求图片通过Base64编码传递
+     * 
+     * API格式:
+     * {
+     *   "model": "wanx2.1-t2i-turbo",
+     *   "input": {
+     *     "prompt": "描述文字",
+     *     "negative_prompt": "负面描述"
+     *   },
+     *   "parameters": {
+     *     "size": "1024*1024"
+     *   }
+     * }
+     * 
+     * @param string $modelCode 模型代码
+     * @param array $inputParams 用户输入参数
+     * @return array 符合API格式的请求体
+     */
+    protected function buildAliyunWanRequestBody($modelCode, $inputParams)
+    {
+        // 将内部模型代码映射为阿里云百炼实际模型名称
+        $actualModelName = $this->getAliyunWanActualModelName($modelCode);
+        
+        // 构建 input 部分
+        $input = [];
+        $parameters = [];
+        
+        // 处理提示词
+        if (!empty($inputParams['prompt'])) {
+            $input['prompt'] = $inputParams['prompt'];
+        }
+        
+        // 处理负面提示词
+        if (!empty($inputParams['negative_prompt'])) {
+            $input['negative_prompt'] = $inputParams['negative_prompt'];
+        }
+        
+        // 处理参考图像 - 需要转为Base64
+        $imageUrl = $inputParams['image'] ?? '';
+        if (!empty($imageUrl)) {
+            $base64Image = $this->convertImageUrlToBase64($imageUrl);
+            if (!empty($base64Image)) {
+                // 根据模型类型决定参数名
+                if (strpos($modelCode, 'i2i') !== false || strpos($modelCode, 'imageedit') !== false || $modelCode === 'tongyi_wanxiang') {
+                    // 图生图/图像编辑模型 - 使用images数组格式
+                    $input['images'] = [$base64Image];
+                } else {
+                    // 文生图模型的参考图
+                    $input['ref_image'] = $base64Image;
+                }
+            } else {
+                \think\facade\Log::warning('buildAliyunWanRequestBody: 图片转为Base64失败', [
+                    'model' => $modelCode,
+                    'image_url' => $imageUrl
+                ]);
+            }
+        }
+        
+        // 处理参数
+        // 优先处理ratio（输出比例），根据比例计算尺寸
+        if (!empty($inputParams['ratio'])) {
+            $ratioSize = $this->convertRatioToSize($inputParams['ratio'], $actualModelName);
+            if (!empty($ratioSize)) {
+                $parameters['size'] = $ratioSize;
+            }
+        } elseif (!empty($inputParams['size'])) {
+            // 阿里云百炼API要求size格式为 width*height，需要转换简写格式
+            $parameters['size'] = $this->convertSizeFormat($inputParams['size'], $actualModelName);
+        }
+        if (!empty($inputParams['n'])) {
+            $parameters['n'] = intval($inputParams['n']);
+        }
+        if (!empty($inputParams['seed'])) {
+            $parameters['seed'] = intval($inputParams['seed']);
+        }
+        
+        $body = [
+            'model' => $actualModelName,
+            'input' => $input,
+        ];
+        
+        if (!empty($parameters)) {
+            $body['parameters'] = $parameters;
+        }
+        
+        \think\facade\Log::info('buildAliyunWanRequestBody: 构建请求体', [
+            'model_code' => $modelCode,
+            'actual_model' => $actualModelName,
+            'has_image' => !empty($imageUrl)
+        ]);
+        
+        return $body;
+    }
+    
+    /**
+     * 获取阿里云百炼Wan模型的实际API模型名称
+     * 将内部模型代码映射为阿里云百炼平台实际使用的模型名称
+     *
+     * @param string $modelCode 内部模型代码
+     * @return string 阿里云百炼实际模型名称
+     */
+    protected function getAliyunWanActualModelName($modelCode)
+    {
+        // 模型名称映射表 - 根据阿里云百炼官方文档
+        // 参考: https://help.aliyun.com/zh/model-studio/wan2-5-image-edit-api-reference
+        $modelMapping = [
+            // 文生图模型
+            'wan2.6-image' => 'wanx-v1',
+            // 图生图/图像编辑模型 - 官方名称为 wan2.5-i2i-preview
+            'wan2.5-i2i-preview' => 'wan2.5-i2i-preview',
+            // 图像编辑模型
+            'wanx2.1-imageedit' => 'wan2.5-i2i-preview',
+            // 通义万相图生图（历史模型）
+            'tongyi_wanxiang' => 'wan2.5-i2i-preview',
+        ];
+
+        return $modelMapping[$modelCode] ?? $modelCode;
+    }
+
+    /**
+     * 将比例（如 2:3）转换为尺寸（如 768*1152）
+     * 根据模型限制计算合适的尺寸
+     *
+     * @param string $ratio 比例字符串，如 "2:3"
+     * @param string $modelName 模型名称
+     * @return string 转换后的width*height格式
+     */
+    protected function convertRatioToSize($ratio, $modelName = '')
+    {
+        // 解析比例
+        if (!preg_match('/^(\d+):(\d+)$/', $ratio, $matches)) {
+            return '';
+        }
+        
+        $ratioWidth = intval($matches[1]);
+        $ratioHeight = intval($matches[2]);
+        
+        // wan2.5-i2i-preview 模型尺寸限制：768*768 到 1280*1280
+        if ($modelName === 'wan2.5-i2i-preview') {
+            $minSize = 768;
+            $maxSize = 1280;
+            $minPixels = $minSize * $minSize;      // 589824
+            $maxPixels = $maxSize * $maxSize;      // 1638400
+            
+            // 根据比例计算尺寸，优先使用最大像素
+            // 计算比例因子：width / height = ratioWidth / ratioHeight
+            // width * height <= maxPixels
+            // 解方程：height^2 = maxPixels * ratioHeight / ratioWidth
+            $height = intval(sqrt($maxPixels * $ratioHeight / $ratioWidth));
+            $width = intval($height * $ratioWidth / $ratioHeight);
+            
+            // 确保在限制范围内
+            $width = max($minSize, min($maxSize, $width));
+            $height = max($minSize, min($maxSize, $height));
+            
+            // 检查像素数是否在范围内
+            $pixels = $width * $height;
+            if ($pixels > $maxPixels) {
+                // 按比例缩小
+                $scale = sqrt($maxPixels / $pixels);
+                $width = intval($width * $scale);
+                $height = intval($height * $scale);
+            } elseif ($pixels < $minPixels) {
+                // 按比例放大
+                $scale = sqrt($minPixels / $pixels);
+                $width = intval($width * $scale);
+                $height = intval($height * $scale);
+            }
+            
+            // 最终确保在限制范围内
+            $width = max($minSize, min($maxSize, $width));
+            $height = max($minSize, min($maxSize, $height));
+            
+            return $width . '*' . $height;
+        }
+        
+        // 默认处理：使用1024作为基准
+        $baseSize = 1024;
+        if ($ratioWidth >= $ratioHeight) {
+            $width = $baseSize;
+            $height = intval($baseSize * $ratioHeight / $ratioWidth);
+        } else {
+            $height = $baseSize;
+            $width = intval($baseSize * $ratioWidth / $ratioHeight);
+        }
+        
+        return $width . '*' . $height;
+    }
+
+    /**
+     * 转换size参数格式
+     * 将简写格式（如2K、1K）转换为阿里云百炼API要求的width*height格式
+     *
+     * @param string $size 原始size参数
+     * @param string $modelName 模型名称
+     * @return string 转换后的width*height格式
+     */
+    protected function convertSizeFormat($size, $modelName = '')
+    {
+        // 如果已经是width*height格式，验证是否在允许范围内
+        if (preg_match('/^(\d+)\*(\d+)$/', $size, $matches)) {
+            $width = intval($matches[1]);
+            $height = intval($matches[2]);
+            return $this->adjustSizeToLimits($width, $height, $modelName);
+        }
+
+        // wan2.5-i2i-preview 模型尺寸限制：768*768 到 1280*1280
+        if ($modelName === 'wan2.5-i2i-preview') {
+            $sizeMapping = [
+                '1K' => '1024*1024',
+                '2K' => '1280*1280',  // 最大限制
+                '4K' => '1280*1280',  // 最大限制
+                '720p' => '1280*720',
+                '1080p' => '1280*1024', // 调整以适应限制
+                '1080P' => '1280*1024',
+                '480p' => '854*480',
+                '480P' => '854*480',
+            ];
+        } else {
+            // 默认尺寸映射
+            $sizeMapping = [
+                '1K' => '1024*1024',
+                '2K' => '1440*1440',
+                '4K' => '2048*2048',
+                '720p' => '1280*720',
+                '1080p' => '1920*1080',
+                '1080P' => '1920*1080',
+                '480p' => '854*480',
+                '480P' => '854*480',
+            ];
+        }
+
+        return $sizeMapping[$size] ?? '1024*1024';
+    }
+
+    /**
+     * 根据模型限制调整尺寸
+     * wan2.5-i2i-preview限制：最小768*768，最大1280*1280
+     *
+     * @param int $width 宽度
+     * @param int $height 高度
+     * @param string $modelName 模型名称
+     * @return string 调整后的width*height格式
+     */
+    protected function adjustSizeToLimits($width, $height, $modelName)
+    {
+        // wan2.5-i2i-preview 模型尺寸限制
+        if ($modelName === 'wan2.5-i2i-preview') {
+            $minPixels = 768 * 768;      // 589824
+            $maxPixels = 1280 * 1280;    // 1638400
+
+            $pixels = $width * $height;
+
+            // 如果超出限制，调整到最大允许值
+            if ($pixels > $maxPixels) {
+                // 保持宽高比，缩放到最大允许像素
+                $ratio = sqrt($maxPixels / $pixels);
+                $width = intval($width * $ratio);
+                $height = intval($height * $ratio);
+                // 确保不超过1280
+                $width = min($width, 1280);
+                $height = min($height, 1280);
+            } elseif ($pixels < $minPixels) {
+                // 保持宽高比，放大到最小允许像素
+                $ratio = sqrt($minPixels / $pixels);
+                $width = intval($width * $ratio);
+                $height = intval($height * $ratio);
+                // 确保不小于768
+                $width = max($width, 768);
+                $height = max($height, 768);
+            }
+        }
+
+        return $width . '*' . $height;
+    }
+
+    /**
+     * 将图片URL转为Base64编码（带data URI scheme）
+     *
+     * @param string $imageUrl 图片URL
+     * @return string Base64编码的图片（格式：data:image/jpeg;base64,xxx）
+     */
+    protected function convertImageUrlToBase64($imageUrl)
+    {
+        try {
+            // 下载图片
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $imageUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            
+            $imageData = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+            curl_close($ch);
+            
+            if ($httpCode !== 200 || empty($imageData)) {
+                \think\facade\Log::warning('convertImageUrlToBase64: 下载图片失败', [
+                    'url' => $imageUrl,
+                    'http_code' => $httpCode
+                ]);
+                return '';
+            }
+            
+            // 检测图片类型
+            if (empty($contentType)) {
+                $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                $contentType = $finfo->buffer($imageData);
+            }
+            
+            // 构建Base64 data URI
+            $base64 = base64_encode($imageData);
+            return 'data:' . $contentType . ';base64,' . $base64;
+            
+        } catch (\Exception $e) {
+            \think\facade\Log::error('convertImageUrlToBase64: 转换异常 ' . $e->getMessage(), [
+                'url' => $imageUrl
+            ]);
+            return '';
+        }
     }
     
     /**

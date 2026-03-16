@@ -45,15 +45,29 @@ class Common extends Base
         }
 //        $file = ROOT_PATH.'runtime/log/aaa.txt';
 //        file_put_contents($file,$_POST['apifrom']);
+        // 检查是否是会员端方法（生成记录、订单管理等）
+        $memberAllowActions = ['record_list', 'order_list', 'record_detail'];
+        $action = $request->action();
+        $isMemberAllowedMethod = in_array($action, $memberAllowActions);
+        
+        // 获取会员登录ID
+        $sessionId = \think\facade\Session::getId();
+        $memberMid = 0;
+        if ($sessionId) {
+            $memberMid = intval(cache($sessionId . '_mid'));
+        }
+        $isMemberLogin = ($memberMid > 0);
+        
         //如果是vueapi的请求，则不执行header跳转，直接返回状态给接口前端
 		if(input('param.apifrom')=='vue'){
             $url =  (string)url($controller.'Login/index');
             //测试 end
-            if(!session("?ADMIN_LOGIN")){
+            if(!session("?ADMIN_LOGIN") && $memberMid <= 0){
                 echojson(['status'=>-5,'msg'=>'请重新登录','url' => $url]);die();
             }
         }else{
-            if(!in_array($controller,array('login')) && !session("?ADMIN_LOGIN")){
+            // 会员端方法允许会员访问，其他方法需要商家登录
+            if (!$isMemberAllowedMethod && !session("?ADMIN_LOGIN") && $memberMid <= 0) {
 				$logincodeurl = '';
 				header('Location:'.(string)url('login/index'.$logincodeurl));die;
             }
@@ -73,25 +87,36 @@ class Common extends Base
 			define('bid',$this->bid);
 			define('uid',$this->uid);
 		}
-		$user = Db::name('admin_user')->where('id',$this->uid)->find();
-		if($user['groupid']){
-			$group = Db::name('admin_user_group')->where('id',$user['groupid'])->find();
-			$user['auth_data'] = $group['auth_data'];
-			$user['wxauth_data'] = $group['wxauth_data'];
-			$user['notice_auth_data'] = $group['notice_auth_data'];
-			$user['hexiao_auth_data'] = $group['hexiao_auth_data'];
-			$user['mdid'] = $group['mdid'];
-			$user['showtj'] = $group['showtj'];
+		// 会员登录时跳过商家权限检查
+		if ($isMemberLogin) {
+			// 会员登录时设置默认值，不查询商家用户表
+			$this->user = null;
+			$this->mdid = 0;
+		} else {
+			$user = Db::name('admin_user')->where('id',$this->uid)->find();
+			if($user['groupid']){
+				$group = Db::name('admin_user_group')->where('id',$user['groupid'])->find();
+				$user['auth_data'] = $group['auth_data'];
+				$user['wxauth_data'] = $group['wxauth_data'];
+				$user['notice_auth_data'] = $group['notice_auth_data'];
+				$user['hexiao_auth_data'] = $group['hexiao_auth_data'];
+				$user['mdid'] = $group['mdid'];
+				$user['showtj'] = $group['showtj'];
+			}
+			if($user['bid'] > 0 && $user['auth_type'] == 1){
+				$adminuser = Db::name('admin_user')->where('aid',$this->aid)->where('isadmin','>',0)->find();
+				$user['auth_type'] = $adminuser['auth_type'];
+				$user['auth_data'] = $adminuser['auth_data'];
+			}
+			$this->user = $user;
+			$this->mdid = $user['mdid'] ?? 0;
 		}
-		if($user['bid'] > 0 && $user['auth_type'] == 1){
-			$adminuser = Db::name('admin_user')->where('aid',$this->aid)->where('isadmin','>',0)->find();
-			$user['auth_type'] = $adminuser['auth_type'];
-			$user['auth_data'] = $adminuser['auth_data'];
-		}
-		$this->user = $user;
-		$this->mdid = $user['mdid'];
         $this->sysset_webinfo = \app\common\Common::getSysset();
-		if($user['auth_type']==0){
+        
+        // 会员登录或商家有全部权限(auth_type!=0)时跳过权限检查
+        $skipAuthCheck = $isMemberLogin || ($this->user && ($this->user['auth_type'] ?? 1) != 0);
+        
+		if (!$skipAuthCheck && $this->user) {
 			$auth_data = json_decode($user['auth_data'],true);
 			$auth_path = \app\common\Menu::blacklist();
 			foreach($auth_data as $v){

@@ -1162,6 +1162,16 @@ class Index extends BaseController
 	}
 
 	/**
+	 * 创作中心页面
+	 */
+	public function creative_center(){
+		if($this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index')); die;
+		}
+		return View::fetch('index3/creative_center');
+	}
+
+	/**
 	 * AJAX: 获取创作会员套餐列表（PC官网用）
 	 */
 	public function creative_member_plans(){
@@ -1211,6 +1221,86 @@ class Index extends BaseController
 		} catch(\Exception $e) {
 			return json(['status'=>0,'msg'=>'购买失败']);
 		}
+	}
+
+	/**
+	 * AJAX: 获取生成任务列表（创作中心用）
+	 */
+	public function generation_tasks(){
+		if(!request()->isAjax()){
+			return json(['code'=>-1,'msg'=>'非法请求']);
+		}
+		$sessionId = \think\facade\Session::getId();
+		$mid = 0;
+		if($sessionId){
+			$mid = cache($sessionId . '_mid');
+		}
+		if(!$mid){
+			return json(['code'=>-1,'msg'=>'请先登录']);
+		}
+		$status = input('param.status', 'all');
+		$page = input('param.page/d', 1);
+		$limit = input('param.limit/d', 10);
+		if($limit > 50) $limit = 50;
+		if($page < 1) $page = 1;
+
+		$where = [];
+		$where[] = ['mid', '=', $mid];
+		if($status != 'all'){
+			$statusMap = [
+				'pending' => 0,
+				'processing' => 1,
+				'completed' => 2,
+				'failed' => 3
+			];
+			if(isset($statusMap[$status])){
+				$where[] = ['status', '=', $statusMap[$status]];
+			}
+		}
+
+		$list = Db::name('generation_record')
+			->field('id, prompt, generation_type, status, createtime')
+			->where($where)
+			->order('id desc')
+			->page($page, $limit)
+			->select()
+			->toArray();
+
+		return json(['code'=>0, 'msg'=>'success', 'data'=>$list]);
+	}
+
+	/**
+	 * AJAX: 获取生成作品列表（创作中心用）
+	 */
+	public function generation_works(){
+		if(!request()->isAjax()){
+			return json(['code'=>-1,'msg'=>'非法请求']);
+		}
+		$sessionId = \think\facade\Session::getId();
+		$mid = 0;
+		if($sessionId){
+			$mid = cache($sessionId . '_mid');
+		}
+		if(!$mid){
+			return json(['code'=>-1,'msg'=>'请先登录']);
+		}
+		$page = input('param.page/d', 1);
+		$limit = input('param.limit/d', 12);
+		if($limit > 50) $limit = 50;
+		if($page < 1) $page = 1;
+
+		$list = Db::name('generation_output')
+			->alias('o')
+			->leftJoin('generation_record r', 'o.record_id = r.id')
+			->field('o.id, o.output_url, o.thumbnail_url, r.prompt, r.createtime')
+			->where('r.mid', $mid)
+			->where('r.status', 2)
+			->order('o.id desc')
+			->page($page, $limit)
+			->select()
+			->toArray();
+
+		return json(['code'=>0, 'msg'=>'success', 'data'=>$list]);
 	}
 
 	// =================================================================

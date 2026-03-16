@@ -862,38 +862,197 @@
     return false;
   });
   
+  // 全局轮询定时器，防止重复
+  var globalPollTimer = null;
+  var globalPollIndex = null;
+  
   // 轮询任务状态
   function pollTaskStatus(recordId) {
-    var pollIndex = layer.msg('<div style="padding:15px 0"><i class="layui-icon layui-icon-loading-1 layui-anim layui-anim-rotate layui-anim-loop" style="font-size:24px;color:#1E9FFF"></i><br><span id="pollStatusText">任务已提交，正在处理中...</span></div>', {time: 0, shade: [0.3, '#000'], offset: 'auto', area: ['300px', 'auto']});
+    // 如果已有轮询在运行，先清除
+    if (globalPollTimer) {
+      clearInterval(globalPollTimer);
+      globalPollTimer = null;
+    }
+    if (globalPollIndex) {
+      layer.close(globalPollIndex);
+    }
+    
+    globalPollIndex = layer.msg('<div style="padding:15px 0"><i class="layui-icon layui-icon-loading-1 layui-anim layui-anim-rotate layui-anim-loop" style="font-size:24px;color:#1E9FFF"></i><br><span id="pollStatusText">任务已提交，正在处理中...</span></div>', {time: 0, shade: [0.3, '#000'], offset: 'auto', area: ['300px', 'auto']});
     var pollCount = 0, maxPollCount = 30;
-    var pollTimer = setInterval(function() {
+    globalPollTimer = setInterval(function() {
       pollCount++;
       $.get("{:url('get_record_status')}", {record_id: recordId}, function(res) {
         if (res.status == 1) {
           var data = res.data;
           if (data.task_status == 2) {
-            clearInterval(pollTimer); layer.close(pollIndex);
-            var outputCount = data.outputs ? data.outputs.length : 0;
-            layer.confirm('✅ 生成成功！共生成 ' + outputCount + ' 个结果，耗时 ' + data.cost_time + ' 秒\n是否前往查看详情？', {
-              icon: 1, title: '生成完成', btn: ['查看详情', '继续生成']
-            }, function() { layer.open({type: 2, title: '记录详情', area: ['900px', '600px'], content: "{:url('record_detail')}/id/" + recordId}); });
+            clearInterval(globalPollTimer); globalPollTimer = null;
+            layer.close(globalPollIndex); globalPollIndex = null;
+            showGenerationResult(recordId, data);
           } else if (data.task_status == 3) {
-            clearInterval(pollTimer); layer.close(pollIndex);
+            clearInterval(globalPollTimer); globalPollTimer = null;
+            layer.close(globalPollIndex); globalPollIndex = null;
             layer.msg('❌ 生成失败: ' + (data.error_msg || '未知错误'), {icon: 2, time: 5000});
           } else if (data.task_status == 4) {
-            clearInterval(pollTimer); layer.close(pollIndex); layer.msg('任务已取消');
+            clearInterval(globalPollTimer); globalPollTimer = null;
+            layer.close(globalPollIndex); globalPollIndex = null;
+            layer.msg('任务已取消');
           } else {
-            $('#pollStatusText').text('任务处理中，请稍候... (' + pollCount + '/' + maxPollCount + ')');
+            // 显示更详细的进度信息
+            var progressText = '任务处理中';
+            if (data.progress) {
+              progressText += ' - ' + data.progress + '%';
+            } else if (data.processing_step) {
+              progressText += ' - ' + data.processing_step;
+            }
+            progressText += ' (' + pollCount + '/' + maxPollCount + ')';
+            $('#pollStatusText').text(progressText);
           }
         }
       });
       if (pollCount >= maxPollCount) {
-        clearInterval(pollTimer); layer.close(pollIndex);
+        clearInterval(globalPollTimer); globalPollTimer = null;
+        layer.close(globalPollIndex); globalPollIndex = null;
         layer.confirm('任务仍在处理中，可在生成记录中查看结果', {icon: 0, btn: ['查看记录', '关闭']}, function() {
           location.href = "{:url('record_list')}";
         });
       }
     }, 2000);
+  }
+  
+  // 显示生成结果
+  function showGenerationResult(recordId, data) {
+    var outputs = data.outputs || [];
+    var outputCount = outputs.length;
+    var costTime = data.cost_time || 0;
+    
+    // 构建结果展示HTML
+    var resultHtml = '<div style="padding:20px">';
+    resultHtml += '<h3 style="text-align:center; margin-bottom:20px; color:#5FB878">✅ 生成成功！</h3>';
+    resultHtml += '<p style="text-align:center; margin-bottom:20px; color:#666">共生成 ' + outputCount + ' 个结果，耗时 ' + costTime + ' 秒</p>';
+    
+    // 生成结果预览
+    if (outputCount > 0) {
+      resultHtml += '<div style="margin-bottom:20px">';
+      resultHtml += '<h4 style="margin-bottom:10px; color:#333">生成结果预览：</h4>';
+      resultHtml += '<div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center">';
+      
+      outputs.forEach(function(output, index) {
+        if (index < 6) { // 最多显示6个预览
+          resultHtml += '<div style="width:120px; border:1px solid #e6e6e6; border-radius:6px; overflow:hidden">';
+          resultHtml += '<img src="' + output.output_url + '" style="width:120px; height:120px; object-fit:cover; cursor:pointer" onclick="previewImage(\'' + output.output_url + '\')" title="点击查看大图">';
+          resultHtml += '</div>';
+        }
+      });
+      
+      if (outputCount > 6) {
+        resultHtml += '<div style="width:120px; height:120px; border:1px dashed #e6e6e6; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#999">';
+        resultHtml += '+ ' + (outputCount - 6) + ' 更多';
+        resultHtml += '</div>';
+      }
+      
+      resultHtml += '</div>';
+      resultHtml += '</div>';
+    }
+    
+    // 操作按钮
+    resultHtml += '<div style="display:flex; gap:10px; justify-content:center">';
+    resultHtml += '<button type="button" class="layui-btn layui-btn-normal" onclick="saveToCloudStorage(' + recordId + ')"><i class="layui-icon layui-icon-cloud-upload"></i> 转存到云空间</button>';
+    resultHtml += '<button type="button" class="layui-btn layui-btn-primary" onclick="downloadResults(' + recordId + ')"><i class="layui-icon layui-icon-download"></i> 下载到本地</button>';
+    resultHtml += '<button type="button" class="layui-btn layui-btn-warm" onclick="shareAsTemplate(' + recordId + ')"><i class="layui-icon layui-icon-template"></i> 分享为模板</button>';
+    resultHtml += '<button type="button" class="layui-btn layui-btn-default" onclick="viewRecordDetail(' + recordId + ')"><i class="layui-icon layui-icon-list"></i> 查看详情</button>';
+    resultHtml += '</div>';
+    resultHtml += '</div>';
+    
+    // 显示结果对话框
+    layer.open({
+      type: 1,
+      title: '生成完成',
+      area: ['600px', 'auto'],
+      content: resultHtml,
+      btn: ['继续生成', '关闭'],
+      btn1: function(index) {
+        layer.close(index);
+      },
+      btn2: function(index) {
+        layer.close(index);
+      }
+    });
+  }
+  
+  // 预览图片
+  function previewImage(url) {
+    layer.photos({
+      photos: {
+        data: [{src: url}]
+      },
+      anim: 5
+    });
+  }
+  
+  // 转存到云空间
+  function saveToCloudStorage(recordId) {
+    var loading = layer.load();
+    $.post("{:url('save_to_cloud')}", {record_id: recordId}, function(res) {
+      layer.close(loading);
+      if (res.status == 1) {
+        layer.msg('✅ 转存成功！', {icon: 1});
+      } else {
+        layer.msg('转存失败: ' + (res.msg || '未知错误'), {icon: 2});
+      }
+    }).fail(function() {
+      layer.close(loading);
+      layer.msg('请求异常，请稍后重试', {icon: 2});
+    });
+  }
+  
+  // 下载到本地
+  function downloadResults(recordId) {
+    var loading = layer.load();
+    $.get("{:url('get_download_url')}", {record_id: recordId}, function(res) {
+      layer.close(loading);
+      if (res.status == 1) {
+        window.location.href = res.data.download_url;
+      } else {
+        layer.msg('获取下载链接失败: ' + (res.msg || '未知错误'), {icon: 2});
+      }
+    }).fail(function() {
+      layer.close(loading);
+      layer.msg('请求异常，请稍后重试', {icon: 2});
+    });
+  }
+  
+  // 分享为模板
+  function shareAsTemplate(recordId) {
+    layer.prompt({
+      title: '请输入模板名称',
+      formType: 0,
+      value: '我的模板',
+      placeholder: '输入模板名称'
+    }, function(templateName, index) {
+      layer.close(index);
+      var loading = layer.load();
+      $.post("{:url('share_as_template')}", {record_id: recordId, template_name: templateName}, function(res) {
+        layer.close(loading);
+        if (res.status == 1) {
+          layer.msg('✅ 分享成功！模板已保存到模板库', {icon: 1});
+        } else {
+          layer.msg('分享失败: ' + (res.msg || '未知错误'), {icon: 2});
+        }
+      }).fail(function() {
+        layer.close(loading);
+        layer.msg('请求异常，请稍后重试', {icon: 2});
+      });
+    });
+  }
+  
+  // 查看记录详情
+  function viewRecordDetail(recordId) {
+    layer.open({
+      type: 2,
+      title: '记录详情',
+      area: ['900px', '600px'],
+      content: "{:url('record_detail')}/id/" + recordId
+    });
   }
   
   $(function() {

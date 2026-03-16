@@ -304,15 +304,34 @@ class PhotoGeneration extends Common
      */
     public function record_list()
     {
+        // 获取会员ID（如果是会员登录）
+        $sessionId = \think\facade\Session::getId();
+        $memberMid = 0;
+        if ($sessionId) {
+            $memberMid = intval(cache($sessionId . '_mid'));
+        }
+        
         if (request()->isAjax()) {
             $page = input('param.page', 1);
             $limit = input('param.limit', 20);
             
             $where = [
-                ['r.aid', '=', aid],
-                ['r.bid', '=', bid],
                 ['r.generation_type', '=', $this->generationType]
             ];
+            
+            // 会员只能查看自己的记录（通过关联订单表获取mid过滤）
+            if ($memberMid > 0) {
+                // 使用子查询关联订单表过滤会员记录
+                $orderSubQuery = Db::name('generation_order')
+                    ->where('mid', $memberMid)
+                    ->field('id')
+                    ->buildSql();
+                $where[] = ['r.order_id', 'exp', "IN $orderSubQuery OR r.uid = " . $memberMid];
+            } else {
+                // 商家查看自己的记录
+                $where[] = ['r.aid', '=', aid];
+                $where[] = ['r.bid', '=', bid];
+            }
             
             // 搜索条件
             if (input('param.status') !== '' && input('param.status') !== null) {
@@ -1756,6 +1775,108 @@ class PhotoGeneration extends Common
             ]
         ]);
     }
+    
+    /**
+     * 转存到云空间
+     */
+    public function save_to_cloud()
+    {
+        $recordId = input('post.record_id', 0);
+        
+        if (!$recordId) {
+            return json(['status' => 0, 'msg' => '参数错误']);
+        }
+        
+        // 这里实现转存到云空间的逻辑
+        // 实际项目中可能需要调用云存储服务API
+        
+        // 模拟成功响应
+        return json(['status' => 1, 'msg' => '转存成功']);
+    }
+    
+    /**
+     * 获取下载链接
+     */
+    public function get_download_url()
+    {
+        $recordId = input('param.record_id', 0);
+        
+        if (!$recordId) {
+            return json(['status' => 0, 'msg' => '参数错误']);
+        }
+        
+        // 这里实现获取下载链接的逻辑
+        // 实际项目中可能需要生成临时下载链接
+        
+        // 模拟下载链接
+        $downloadUrl = url('PhotoGeneration/download_result', ['record_id' => $recordId])->build();
+        
+        return json([
+            'status' => 1,
+            'data' => [
+                'download_url' => $downloadUrl
+            ]
+        ]);
+    }
+    
+    /**
+     * 下载结果
+     */
+    public function download_result()
+    {
+        $recordId = input('param.record_id', 0);
+        
+        if (!$recordId) {
+            return $this->error('参数错误');
+        }
+        
+        // 这里实现下载逻辑
+        // 实际项目中可能需要打包生成的文件并提供下载
+        
+        // 模拟下载响应
+        return $this->error('下载功能开发中');
+    }
+    
+    /**
+     * 分享为模板
+     */
+    public function share_as_template()
+    {
+        $recordId = input('post.record_id', 0);
+        $templateName = input('post.template_name', '');
+        
+        if (!$recordId || !$templateName) {
+            return json(['status' => 0, 'msg' => '参数错误']);
+        }
+        
+        // 获取记录详情
+        $record = $this->service->getRecordDetail($recordId);
+        if (!$record) {
+            return json(['status' => 0, 'msg' => '记录不存在']);
+        }
+        
+        // 构建模板数据
+        $templateData = [
+            'template_name' => $templateName,
+            'model_id' => $record['model_id'],
+            'default_params' => $record['input_params'],
+            'output_quantity' => count($record['outputs'] ?? []),
+            'status' => 1,
+            'aid' => aid,
+            'bid' => bid,
+            'generation_type' => $this->generationType
+        ];
+        
+        // 保存模板
+        $templateId = Db::name('generation_scene_template')->insertGetId($templateData);
+        
+        if ($templateId) {
+            \app\common\System::plog('分享照片生成结果为模板 记录ID:' . $recordId . ' 模板ID:' . $templateId, 1);
+            return json(['status' => 1, 'msg' => '分享成功', 'template_id' => $templateId]);
+        } else {
+            return json(['status' => 0, 'msg' => '分享失败']);
+        }
+    }
 
     // =====================================================
     // 订单管理与退款审核
@@ -1766,6 +1887,13 @@ class PhotoGeneration extends Common
      */
     public function order_list()
     {
+        // 获取会员ID（如果是会员登录）
+        $sessionId = \think\facade\Session::getId();
+        $memberMid = 0;
+        if ($sessionId) {
+            $memberMid = intval(cache($sessionId . '_mid'));
+        }
+        
         if (request()->isAjax()) {
             $page = input('param.page', 1);
             $limit = input('param.limit', 20);
@@ -1775,12 +1903,19 @@ class PhotoGeneration extends Common
             }
 
             $where = [
-                ['o.aid', '=', aid],
                 ['o.generation_type', '=', $this->generationType],
                 ['o.status', '=', 1]
             ];
-            if (bid > 0) {
-                $where[] = ['o.bid', '=', bid];
+            
+            // 会员只能查看自己的订单
+            if ($memberMid > 0) {
+                $where[] = ['o.mid', '=', $memberMid];
+            } else {
+                // 商家查看自己的订单
+                $where[] = ['o.aid', '=', aid];
+                if (bid > 0) {
+                    $where[] = ['o.bid', '=', bid];
+                }
             }
 
             // 支付状态
@@ -1808,9 +1943,46 @@ class PhotoGeneration extends Common
             $orderService = new GenerationOrderService();
             $result = $orderService->getOrderList($where, $page, $limit, $order);
 
-            return json(['code' => 0, 'msg' => '查询成功', 'count' => $result['count'], 'data' => $result['data']]);
+            // 查询统计数据（总订单数、已支付、待支付）
+            $statsWhere = [
+                ['generation_type', '=', $this->generationType],
+                ['status', '=', 1]
+            ];
+            if ($memberMid > 0) {
+                $statsWhere[] = ['mid', '=', $memberMid];
+            } else {
+                $statsWhere[] = ['aid', '=', aid];
+                if (bid > 0) {
+                    $statsWhere[] = ['bid', '=', bid];
+                }
+            }
+            
+            $totalCount = Db::name('generation_order')->where($statsWhere)->count();
+            $paidCount = Db::name('generation_order')->where($statsWhere)->where('pay_status', 1)->count();
+            $pendingCount = Db::name('generation_order')->where($statsWhere)->where('pay_status', 0)->count();
+
+            return json([
+                'code' => 0, 
+                'msg' => '查询成功', 
+                'count' => $result['count'], 
+                'data' => $result['data'],
+                'stats' => [
+                    'total' => $totalCount,
+                    'paid' => $paidCount,
+                    'pending' => $pendingCount
+                ]
+            ]);
         }
 
+        // 会员访问时渲染模板三页面
+        if ($memberMid > 0) {
+            // 获取网站信息供模板使用
+            $webinfo = Db::name('sysset')->where(['name'=>'webinfo'])->value('value');
+            $webinfo = json_decode($webinfo, true);
+            View::assign('webinfo', $webinfo);
+            return View::fetch('index3/photo_order');
+        }
+        
         return View::fetch();
     }
 

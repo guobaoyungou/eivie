@@ -246,10 +246,10 @@ class AiTravelPhotoDevice extends BaseController
             }
             
             // 7. 上传文件到OSS
-            $ossConfig = config('ai_travel_photo.oss');
             $filename = date('Ymd') . '/' . uniqid() . '.' . $file->extension();
-            $ossPath = $ossConfig['ai_travel_photo_path'] . 'originals/' . $filename;
-            
+            $ossPathPrefix = config('ai_travel_photo.oss.ai_travel_photo_path', 'ai_travel_photo/');
+            $ossPath = $ossPathPrefix . 'originals/' . $filename;
+
             // 这里先保存到本地，实际需要上传到OSS
             $savePath = app()->getRuntimePath() . 'uploads/' . date('Ymd');
             if (!is_dir($savePath)) {
@@ -257,7 +257,7 @@ class AiTravelPhotoDevice extends BaseController
             }
             $file->move($savePath, $filename);
             $localPath = $savePath . '/' . $filename;
-            
+
             // TODO: 上传到OSS
             $ossUrl = '/uploads/' . date('Ymd') . '/' . $filename; // 暂时使用本地路径
             

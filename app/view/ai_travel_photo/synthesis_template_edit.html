@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>合成模板编辑</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-card">
+      <div class="layui-card-header">{$info.id ? '编辑' : '新增'}合成模板</div>
+      <div class="layui-card-body">
+        <form class="layui-form" lay-filter="formData">
+          <input type="hidden" name="id" value="{$info.id|default='0'}">
+
+          <div class="layui-form-item">
+            <label class="layui-form-label"><span class="layui-required">*</span>模板名称</label>
+            <div class="layui-input-block">
+              <input type="text" name="name" required lay-verify="required" placeholder="请输入模板名称" autocomplete="off" class="layui-input" value="{$info.name|default=''}">
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label"><span class="layui-required">*</span>绑定模型</label>
+            <div class="layui-input-block">
+              <select name="model_id" id="modelSelect" lay-verify="required" lay-filter="modelSelect">
+                <option value="">请选择AI模型...</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label"><span class="layui-required">*</span>模板图片</label>
+            <div class="layui-input-block">
+              <button type="button" class="layui-btn layui-btn-primary" upload-input="images" upload-preview="imagesPreview" onclick="uploader(this, true)">上传图片</button>
+              <div class="layui-form-mid layui-word-aux" style="margin-left:10px;">支持多图上传，建议尺寸800x800</div>
+              <div class="picsList-class-padding" id="imagesPreview" style="margin-top:10px;">
+                {notempty name="info.images"}
+                {volist name="info.images" id="img"}
+                <div class="layui-imgbox" style="float:left;margin-right:10px;margin-bottom:10px;">
+                  <a class="layui-imgbox-close" href="javascript:void(0)" onclick="$(this).parent().remove();getpicsval('images','imagesPreview')" title="删除"><i class="layui-icon layui-icon-close-fill-opaque"></i></a>
+                  <span class="layui-imgbox-img">
+                    <img src="{$img}" style="max-height:100%;" onclick="preview(this)">
+                  </span>
+                </div>
+                {/volist}
+                {/notempty}
+              </div>
+              <input type="hidden" name="images" id="images" value="{$info.images|implode=',',###}">
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">提示词</label>
+            <div class="layui-input-block">
+              <textarea name="prompt" placeholder="请输入AI合成提示词（Prompt）" class="layui-textarea" style="min-height:120px;">{$info.prompt|default=''}</textarea>
+              <div style="color:#999;font-size:12px;margin-top:5px;">提示词将用于AI图像合成，可使用占位符：{person}表示人像</div>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">排序</label>
+            <div class="layui-input-inline">
+              <input type="number" name="sort" placeholder="0" autocomplete="off" class="layui-input" value="{$info.sort|default='0'}">
+            </div>
+            <div class="layui-form-mid layui-word-aux">数值越小越靠前</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">状态</label>
+            <div class="layui-input-block">
+              <input type="radio" name="status" value="1" title="启用" {eq name="info.status" value="1"}checked{/eq}>
+              <input type="radio" name="status" value="0" title="禁用" {eq name="info.status" value="0"}checked{/eq}>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <div class="layui-input-block">
+              <button class="layui-btn" lay-submit lay-filter="submitBtn" style="display:none;">保存</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  var currentModelId = '{$info.model_id|default=0}';
+  var currentModelName = '{$info.model_name|default=\'\'}';
+
+  layui.use(['form', 'layer'], function(){
+    var form = layui.form;
+    var layer = layui.layer;
+
+    // 加载模型列表
+    loadModelList();
+
+    // 监听模型选择
+    form.on('select(modelSelect)', function(data){
+      var modelId = data.value;
+      if(modelId){
+        var option = $(data.elem).find('option:selected');
+        currentModelId = modelId;
+        currentModelName = option.text();
+      }
+    });
+
+    // 表单提交
+    form.on('submit(submitBtn)', function(data){
+      data.field.model_id = currentModelId;
+      data.field.model_name = currentModelName;
+      // 获取图片列表（从隐藏input获取）
+      data.field.images = $('#images').val();
+
+      if(!data.field.name){
+        layer.msg('请输入模板名称');
+        return false;
+      }
+      if(!data.field.model_id){
+        layer.msg('请选择AI模型');
+        return false;
+      }
+      if(!data.field.images){
+        layer.msg('请上传模板图片');
+        return false;
+      }
+
+      $.post('{:url("synthesis_template_save")}', data.field, function(res){
+        if(res.code === 0){
+          var index = parent.layer.getFrameIndex(window.name);
+          parent.layer.close(index);
+          parent.layer.msg('保存成功');
+        } else {
+          layer.msg(res.msg);
+        }
+      });
+
+      return false;
+    });
+  });
+
+  // 加载模型列表
+  function loadModelList(){
+    $.ajax({
+      url: '{:url("AiTravelPhoto/get_model_list")}',
+      type: 'GET',
+      dataType: 'json',
+      success: function(res){
+        if(res.code === 0 && res.data && res.data.length > 0){
+          var html = '<option value="">请选择AI模型...</option>';
+          res.data.forEach(function(model){
+            var selected = (model.id == currentModelId) ? 'selected' : '';
+            // 显示配置类型标签：商户自配置 / 平台预充值
+            var configLabel = model.config_type_label || (model.is_merchant_config ? '商户自配置' : '平台预充值');
+            html += '<option value="' + model.id + '" ' + selected + '>' + model.model_name + ' (' + model.provider + ') - ' + configLabel + '</option>';
+          });
+          $('#modelSelect').html(html);
+          layui.form.render('select');
+        } else {
+          layer.msg('暂无可用模型，请先配置AI模型');
+        }
+      },
+      error: function(){
+        layer.msg('加载模型列表失败');
+      }
+    });
+  }
+
+  // 提交表单（供父窗口调用）
+  window.submitForm = function(){
+    $('button[lay-filter="submitBtn"]').click();
+  };
+  </script>
+</body>
+</html>

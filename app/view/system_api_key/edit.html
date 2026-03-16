@@ -256,16 +256,41 @@
       return false;
     }
     
-    // 验证API Key
-    var apiKey = field['info[api_key]'];
-    if (!apiKey || apiKey.trim() === '') {
-      layer.msg('请填写API Key');
-      return false;
-    }
+    // 获取当前选中的供应商配置
+    var providerId = field['info[provider_id]'];
+    var selectedProvider = providersData.find(function(p) { return p.id == providerId; });
+    var authConfig = selectedProvider && selectedProvider.auth_config ? selectedProvider.auth_config : null;
+    var authFields = authConfig && authConfig.fields ? authConfig.fields : [];
     
-    if (apiKey.length < 20) {
-      layer.msg('API Key长度应不少于20个字符');
-      return false;
+    // 动态验证认证字段
+    if (authFields.length === 0) {
+      // 默认验证 api_key
+      var apiKey = field['info[api_key]'];
+      if (!apiKey || apiKey.trim() === '') {
+        layer.msg('请填写API Key');
+        return false;
+      }
+      if (apiKey.length < 20) {
+        layer.msg('API Key长度应不少于20个字符');
+        return false;
+      }
+    } else {
+      // 根据供应商定义的字段进行验证
+      for (var i = 0; i < authFields.length; i++) {
+        var authField = authFields[i];
+        if (authField.required) {
+          var fieldValue = field['info[' + authField.name + ']'];
+          if (!fieldValue || fieldValue.trim() === '') {
+            layer.msg('请填写' + authField.label);
+            return false;
+          }
+          // api_key 长度验证
+          if (authField.name === 'api_key' && fieldValue.length < 20) {
+            layer.msg('API Key长度应不少于20个字符');
+            return false;
+          }
+        }
+      }
     }
     
     var index = layer.load();

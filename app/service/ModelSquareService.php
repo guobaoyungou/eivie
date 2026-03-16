@@ -53,8 +53,21 @@ class ModelSquareService
      */
     public function saveProvider($data)
     {
+        // 检查数据是否为空
+        if (empty($data) || !is_array($data)) {
+            return ['status' => 0, 'msg' => '提交数据为空'];
+        }
+
         $id = isset($data['id']) ? intval($data['id']) : 0;
-        
+
+        // 验证必填字段
+        if (empty($data['provider_code'])) {
+            return ['status' => 0, 'msg' => '供应商标识不能为空'];
+        }
+        if (empty($data['provider_name'])) {
+            return ['status' => 0, 'msg' => '供应商名称不能为空'];
+        }
+
         // 验证provider_code唯一性
         $exists = Db::name('model_provider')
             ->where('provider_code', $data['provider_code'])
@@ -64,6 +77,17 @@ class ModelSquareService
             return ['status' => 0, 'msg' => '供应商标识已存在'];
         }
         
+        // 处理 auth_config，确保是有效的 JSON
+        $authConfig = '{}';
+        if (isset($data['auth_config']) && trim($data['auth_config']) !== '') {
+            $authConfig = trim($data['auth_config']);
+            // 验证 JSON 是否有效
+            json_decode($authConfig);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return ['status' => 0, 'msg' => '认证配置格式错误：' . json_last_error_msg()];
+            }
+        }
+
         $saveData = [
             'provider_code' => $data['provider_code'],
             'provider_name' => $data['provider_name'],
@@ -71,7 +95,7 @@ class ModelSquareService
             'website' => $data['website'] ?? '',
             'api_doc_url' => $data['api_doc_url'] ?? '',
             'description' => $data['description'] ?? '',
-            'auth_config' => isset($data['auth_config']) ? (is_string($data['auth_config']) ? $data['auth_config'] : json_encode($data['auth_config'], JSON_UNESCAPED_UNICODE)) : '{}',
+            'auth_config' => $authConfig,
             'status' => intval($data['status'] ?? 1),
             'sort' => intval($data['sort'] ?? 0),
             'update_time' => time(),
@@ -190,8 +214,21 @@ class ModelSquareService
      */
     public function saveType($data)
     {
+        // 检查数据是否为空
+        if (empty($data) || !is_array($data)) {
+            return ['status' => 0, 'msg' => '提交数据为空'];
+        }
+
         $id = isset($data['id']) ? intval($data['id']) : 0;
-        
+
+        // 验证必填字段
+        if (empty($data['type_code'])) {
+            return ['status' => 0, 'msg' => '类型标识不能为空'];
+        }
+        if (empty($data['type_name'])) {
+            return ['status' => 0, 'msg' => '类型名称不能为空'];
+        }
+
         // 验证type_code唯一性
         $exists = Db::name('model_type')
             ->where('type_code', $data['type_code'])
@@ -333,8 +370,27 @@ class ModelSquareService
      */
     public function saveModel($data)
     {
+        // 检查数据是否为空
+        if (empty($data) || !is_array($data)) {
+            return ['status' => 0, 'msg' => '提交数据为空'];
+        }
+
         $id = isset($data['id']) ? intval($data['id']) : 0;
-        
+
+        // 验证必填字段
+        if (empty($data['model_code'])) {
+            return ['status' => 0, 'msg' => '模型标识不能为空'];
+        }
+        if (empty($data['model_name'])) {
+            return ['status' => 0, 'msg' => '模型名称不能为空'];
+        }
+        if (empty($data['provider_id'])) {
+            return ['status' => 0, 'msg' => '请选择供应商'];
+        }
+        if (empty($data['type_id'])) {
+            return ['status' => 0, 'msg' => '请选择模型类型'];
+        }
+
         // 验证model_code唯一性
         $exists = Db::name('model_info')
             ->where('model_code', $data['model_code'])
@@ -343,13 +399,13 @@ class ModelSquareService
         if ($exists) {
             return ['status' => 0, 'msg' => '模型标识已存在'];
         }
-        
+
         // 验证供应商存在
         $provider = Db::name('model_provider')->where('id', $data['provider_id'])->find();
         if (!$provider) {
             return ['status' => 0, 'msg' => '所选供应商不存在'];
         }
-        
+
         // 验证类型存在
         $type = Db::name('model_type')->where('id', $data['type_id'])->find();
         if (!$type) {

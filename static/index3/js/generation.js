@@ -10,7 +10,6 @@
         pageType: 'photo',          // 'photo' | 'video'
         selectedModelId: null,
         selectedModelName: '',
-        selectedTemplateId: null,   // 新增：选中的模板ID
         modelListCache: null,       // 模型列表缓存
         templateBarCollapsed: false,
         uploadedFile: null
@@ -33,9 +32,6 @@
         initTemplateBarCollapse();
         initTemplateBarScroll();
         initClickOutside();
-        
-        // 处理URL参数（从首页跳转携带的model_id或template_id）
-        handleUrlParams();
     });
 
     // ====================================================
@@ -375,13 +371,11 @@
             return;
         }
 
-        // 优先使用state中的selectedTemplateId，如果没有则从 DOM 获取
-        var selectedTemplateId = state.selectedTemplateId || 0;
-        if(!selectedTemplateId){
-            var activeTemplate = document.querySelector('.gt-item.active');
-            if(activeTemplate){
-                selectedTemplateId = parseInt(activeTemplate.getAttribute('data-template-id')) || 0;
-            }
+        // 检查是否已选择模型或模板
+        var selectedTemplateId = 0;
+        var activeTemplate = document.querySelector('.gt-item.active');
+        if(activeTemplate){
+            selectedTemplateId = parseInt(activeTemplate.getAttribute('data-template-id')) || 0;
         }
 
         if(!state.selectedModelId && !selectedTemplateId){
@@ -509,7 +503,6 @@
         // 选中模板时清空模型直选
         state.selectedModelId = null;
         state.selectedModelName = '';
-        state.selectedTemplateId = parseInt(templateId) || null;  // 保存模板ID到state
         var card = document.getElementById('modelCard');
         if(card){
             var textEl = card.querySelector('.gf-model-card-text');
@@ -598,105 +591,6 @@
     function initClickOutside(){
         document.addEventListener('click', function(){
             closeAllPopovers(null);
-        });
-    }
-
-    // ====================================================
-    // 处理URL参数（从首页跳转携带）
-    // ====================================================
-    function handleUrlParams(){
-        var urlParams = new URLSearchParams(window.location.search);
-        var modelId = urlParams.get('model_id');
-        var templateId = urlParams.get('template_id');
-        
-        // 如果携带了model_id，自动选中对应模型
-        if(modelId){
-            showToast('正在加载模型...', 'info');
-            loadAndSelectModel(modelId);
-        }
-        
-        // 如果携带了template_id，自动选中对应模板
-        if(templateId){
-            showToast('正在加载模板...', 'info');
-            loadAndSelectTemplate(templateId);
-        }
-    }
-    
-    // 加载并选中指定模型
-    function loadAndSelectModel(modelId){
-        Api.getModelDetail({id: modelId}, function(err, res){
-            if(err || !res || res.code !== 0){
-                showToast('加载模型失败', 'error');
-                return;
-            }
-            
-            var data = res.data;
-            updateModelCard(data.id, data.model_name);
-            showToast('已选中模型：' + data.model_name, 'success');
-            
-            // 清除URL参数，避免刷新页面重复加载
-            if(window.history && window.history.replaceState){
-                var cleanUrl = window.location.pathname;
-                window.history.replaceState({}, document.title, cleanUrl);
-            }
-        });
-    }
-    
-    // 加载并选中指定模板
-    function loadAndSelectTemplate(templateId){
-        Api.getSceneDetail({template_id: templateId}, function(err, res){
-            if(err || !res || res.status !== 1){
-                showToast('加载模板失败', 'error');
-                return;
-            }
-            
-            var data = res.data;
-            
-            // 保存模板ID到state（关键修复）
-            state.selectedTemplateId = parseInt(templateId) || null;
-            
-            // 选中模板卡片
-            var templateItem = document.querySelector('.gt-item[data-template-id="' + templateId + '"]');
-            if(templateItem){
-                document.querySelectorAll('.gt-item').forEach(function(el){
-                    el.classList.remove('active');
-                });
-                templateItem.classList.add('active');
-            }
-            
-            // 预填充模板参数
-            var promptInput = document.getElementById('promptInput');
-            if(promptInput && data.prompt){
-                promptInput.value = data.prompt;
-            }
-            
-            // 设置默认比例
-            if(data.default_params && data.default_params.ratio){
-                var ratioCard = document.querySelector('.gf-popover-card[data-param="ratio"]');
-                if(ratioCard){
-                    ratioCard.setAttribute('data-value', data.default_params.ratio);
-                    var textEl = ratioCard.querySelector('.gf-popover-card-text');
-                    if(textEl) textEl.textContent = data.default_params.ratio;
-                }
-            }
-            
-            // 清空模型选择（优先使用模板）
-            state.selectedModelId = null;
-            state.selectedModelName = '';
-            var modelCard = document.getElementById('modelCard');
-            if(modelCard){
-                var textEl = modelCard.querySelector('.gf-model-card-text');
-                if(textEl) textEl.textContent = '选择模型';
-                modelCard.classList.remove('selected');
-            }
-            
-            showToast('已加载模板：' + data.template_name, 'success');
-            
-            // 清除URL参数
-            if(window.history && window.history.replaceState){
-                var cleanUrl = window.location.pathname;
-                window.history.replaceState({}, document.title, cleanUrl);
-            }
         });
     }
 

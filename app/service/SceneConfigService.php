@@ -19,7 +19,9 @@ use think\exception\ValidateException;
 class SceneConfigService
 {
     /**
-     * 获取启用的AI模型列表
+     * 获取启用的AI模型列表（模型广场标准）
+     * 从 ddwx_model_info 查询模型，从 ddwx_merchant_model_config 查询商户API Key配置
+     * 优先级：商户自己的API Key > 平台级配置（需预充值）
      * 
      * @param int $aid 平台ID
      * @param int $bid 商家ID
@@ -27,27 +29,87 @@ class SceneConfigService
      */
     public function getEnabledModelList($aid, $bid = 0)
     {
-        $where = [
-            ['aid', '=', $aid],
-            ['is_active', '=', 1]
-        ];
-        
-        // 如果是商家用户，需要检查商家是否有权限使用该模型
-        // 这里简化处理，后续可以增加权限表
-        
-        $models = Db::name('ai_model_instance')
-            ->where($where)
-            ->field('id, model_code, model_name, provider, category_code, capability_tags, description')
-            ->order('sort', 'asc')
+        // 从模型广场获取所有激活的模型
+        $models = Db::name('model_info')
+            ->alias('mi')
+            ->leftJoin('model_provider mp', 'mi.provider_id = mp.id')
+            ->where('mi.is_active', '=', 1)
+            ->where('mi.aid', 'in', [0, $aid])
+            ->field('mi.id, mi.model_code, mi.model_name, mi.provider_id, mp.provider_name as provider, mp.provider_code, mi.endpoint_url, mi.pricing_config, mi.limits_config, mi.capability_tags, mi.sort')
+            ->order('mi.sort', 'asc')
             ->select()
-            ->each(function($item) {
-                if (!empty($item['capability_tags'])) {
-                    $item['capability_tags'] = json_decode($item['capability_tags'], true);
-                }
-                return $item;
-            });
-        
-        return $models ? $models->toArray() : [];
+            ->toArray();
+
+        // 获取商户的API Key配置（如果有）
+        $merchantConfigs = [];
+        if ($bid > 0) {
+            $configs = Db::name('merchant_model_config')
+                ->where('bid', '=', $bid)
+                ->where('is_active', '=', 1)
+                ->column('api_key,api_secret', 'model_id');
+            $merchantConfigs = $configs;
+        }
+
+        // 格式化模型数据，添加图生图能力过滤
+        $result = [];
+        foreach ($models as $model) {
+            // 解析 pricing_config
+            $pricing = !empty($model['pricing_config']) ? json_decode($model['pricing_config'], true) : [];
+            $limits = !empty($model['limits_config']) ? json_decode($model['limits_config'], true) : [];
+
+            // 判断是否有商户自己的API Key
+            $hasMerchantKey = isset($merchantConfigs[$model['id']]) && !empty($merchantConfigs[$model['id']]['api_key']);
+
+            // 判断是否具有图生图/图像生成能力
+            // 支持的模型类型：
+            // 1. 阿里云Wan系列：model_code包含i2i或imageedit，或等于tongyi_wanxiang
+            // 2. 火山引擎Doubao系列：doubao-seedream(图像生成)、doubao-seedance-*-i2v(图生视频)
+            $modelCode = $model['model_code'] ?? '';
+            $providerCode = strtolower($model['provider_code'] ?? '');
+            $isImageToImage = (
+                // 阿里云Wan系列
+                stripos($modelCode, 'i2i') !== false ||
+                stripos($modelCode, 'imageedit') !== false ||
+                $modelCode === 'tongyi_wanxiang' ||
+                // 火山引擎Doubao图像/视频生成模型（支持图生）
+                stripos($modelCode, 'doubao-seedream') !== false ||
+                stripos($modelCode, 'doubao-seedance') !== false
+            );
+
+            // 只返回具有图生图能力的模型
+            if (!$isImageToImage) {
+                continue;
+            }
+
+            $result[] = [
+                'id' => $model['id'],
+                'aid' => $aid,
+                'bid' => $bid,
+                'model_name' => $model['model_name'],
+                'model_type' => $model['model_code'],
+                'provider' => $model['provider'],
+                'api_base_url' => $model['endpoint_url'],
+                'timeout' => $limits['timeout'] ?? 180,
+                'max_retry' => 3,
+                'cost_per_image' => $pricing['cost_price'] ?? 0,
+                'cost_per_video' => $pricing['cost_price'] ?? 0,
+                // 配置类型标识
+                'is_merchant_config' => $hasMerchantKey,      // true=商户自有API Key
+                'is_platform_config' => !$hasMerchantKey,     // true=平台配置（需预充值）
+                'is_platform_model' => !$hasMerchantKey,       // true=平台级模型（需预充值）
+                'config_type_label' => $hasMerchantKey ? '商户自配置' : '平台预充值',
+                // 商户API Key信息（仅用于后端调用，前端不显示）
+                'api_key' => $hasMerchantKey ? $merchantConfigs[$model['id']]['api_key'] : '',
+                'api_secret' => $hasMerchantKey ? ($merchantConfigs[$model['id']]['api_secret'] ?? '') : '',
+            ];
+        }
+
+        // 按优先级排序：商户自配置模型在前，平台级在后
+        usort($result, function($a, $b) {
+            return $b['is_merchant_config'] - $a['is_merchant_config'];
+        });
+
+        return $result;
     }
     
     /**

@@ -211,6 +211,12 @@ var Auth = (function(){
                 '<a class="ud-menu-item" href="/?s=/index/user_center" data-action="profile">' +
                     '<span class="ud-menu-icon">👤</span><span>个人中心</span>' +
                 '</a>' +
+                '<a class="ud-menu-item" href="/?s=/PhotoGeneration/order_list" data-action="photo_order">' +
+                    '<span class="ud-menu-icon">📄</span><span>图片订单管理</span>' +
+                '</a>' +
+                '<a class="ud-menu-item" href="/?s=/VideoGeneration/order_list" data-action="video_order">' +
+                    '<span class="ud-menu-icon">📋</span><span>视频订单管理</span>' +
+                '</a>' +
                 '<a class="ud-menu-item" href="/?s=/index/member_level" data-action="level">' +
                     '<span class="ud-menu-icon">👑</span><span>我的等级</span>' +
                 '</a>' +

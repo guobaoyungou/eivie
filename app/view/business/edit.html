@@ -75,6 +75,20 @@
 							</div>
 							<div class="layui-form-mid" style="margin-left:10px;">%，平台收取的佣金比例，如设置10%，平台抽成10%，商户得90%</div>
 						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">云空间大小：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="number" name="info[cloud_space]" class="layui-input" value="{$info.cloud_space|default=5120}">
+							</div>
+							<div class="layui-form-mid" style="margin-left:10px;">MB，默认5GB = 5120MB</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">账户余额：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[account_balance]" class="layui-input" value="{$info.account_balance|default=0.00}">
+							</div>
+							<div class="layui-form-mid" style="margin-left:10px;">元，商户账户余额</div>
+						</div>
 						{if getcustom('maidan_new') && ($admin_auth_data =='all' || in_array('MaidanNew/*',$admin_auth_data))}
 							<div class="layui-form-item">
 								<label class="layui-form-label">新买单抽成费率：</label>
@@ -82,6 +96,20 @@
 									<input type="text" name="info[maidan_new_feepercent]" class="layui-input" value="{$info.maidan_new_feepercent}">
 								</div>
 								<div class="layui-form-mid" style="margin-left:10px;">%，新买单，平台收取的佣金比例，如设置10%，平台抽成10%，商户得90%</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">云空间大小：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="number" name="info[cloud_space]" class="layui-input" value="{$info.cloud_space|default=5120}">
+							</div>
+							<div class="layui-form-mid" style="margin-left:10px;">MB，默认5GB = 5120MB</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">账户余额：</label>
+							<div class="layui-input-inline" style="width:200px">
+								<input type="text" name="info[account_balance]" class="layui-input" value="{$info.account_balance|default=0.00}">
+							</div>
+							<div class="layui-form-mid" style="margin-left:10px;">元，商户账户余额</div>
+						</div>
 							</div>		
 						{/if}
 						{if getcustom('business_shopbuycashback')}

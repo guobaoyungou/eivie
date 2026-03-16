@@ -202,30 +202,66 @@ class MerchantApiKeyService
             return ['status' => 0, 'msg' => '所选供应商不存在'];
         }
         
-        // 验证API Key
-        $apiKey = trim($data['api_key'] ?? '');
-        if (empty($apiKey)) {
-            return ['status' => 0, 'msg' => '请填写API Key'];
+        // 解析供应商的认证配置
+        $authConfig = json_decode($provider['auth_config'] ?? '{}', true);
+        $authFields = $authConfig['fields'] ?? [];
+        
+        // 根据认证字段类型进行验证
+        $apiKey = '';
+        $apiSecret = '';
+        $extraConfigData = [];
+        
+        if (empty($authFields)) {
+            // 默认使用 api_key 验证
+            $apiKey = trim($data['api_key'] ?? '');
+            if (empty($apiKey)) {
+                return ['status' => 0, 'msg' => '请填写API Key'];
+            }
+            if (strlen($apiKey) < 20) {
+                return ['status' => 0, 'msg' => 'API Key格式不正确，长度应不少于20个字符'];
+            }
+        } else {
+            // 根据定义的字段进行验证
+            foreach ($authFields as $field) {
+                $fieldName = $field['name'] ?? '';
+                $fieldLabel = $field['label'] ?? $fieldName;
+                $isRequired = $field['required'] ?? false;
+                $fieldValue = trim($data[$fieldName] ?? '');
+                
+                if ($isRequired && empty($fieldValue)) {
+                    return ['status' => 0, 'msg' => '请填写' . $fieldLabel];
+                }
+                
+                // 映射到标准字段或额外配置
+                if ($fieldName === 'api_key') {
+                    $apiKey = $fieldValue;
+                } elseif ($fieldName === 'api_secret') {
+                    $apiSecret = $fieldValue;
+                } else {
+                    $extraConfigData[$fieldName] = $fieldValue;
+                }
+            }
+            
+            // 如果有 api_key，验证长度
+            if (!empty($apiKey) && strlen($apiKey) < 20) {
+                return ['status' => 0, 'msg' => 'API Key格式不正确，长度应不少于20个字符'];
+            }
         }
         
-        // API Key格式验证（非空且长度≥20）
-        if (strlen($apiKey) < 20) {
-            return ['status' => 0, 'msg' => 'API Key格式不正确，长度应不少于20个字符'];
+        // 检查Key唯一性（仅当api_key不为空时）
+        if (!empty($apiKey)) {
+            $encryptedKey = $this->encryptApiKey($apiKey);
+            $exists = Db::name('merchant_api_key')
+                ->where('bid', $bid)
+                ->where('api_key', $encryptedKey)
+                ->where('id', '<>', $id)
+                ->find();
+            if ($exists) {
+                return ['status' => 0, 'msg' => '该API Key已存在，请勿重复添加'];
+            }
+        } else {
+            $encryptedKey = '';
         }
-        
-        // 检查Key唯一性（同一商家不能有重复的Key）
-        $encryptedKey = $this->encryptApiKey($apiKey);
-        $exists = Db::name('merchant_api_key')
-            ->where('bid', $bid)
-            ->where('api_key', $encryptedKey)
-            ->where('id', '<>', $id)
-            ->find();
-        if ($exists) {
-            return ['status' => 0, 'msg' => '该API Key已存在，请勿重复添加'];
-        }
-        
-        // 处理API Secret
-        $apiSecret = trim($data['api_secret'] ?? '');
         
         // 准备保存数据
         $saveData = [
@@ -245,16 +281,35 @@ class MerchantApiKeyService
             'update_time' => time(),
         ];
         
-        // 处理扩展配置
+        // 处理扩展配置 - 合并自定义认证字段
+        $extraConfig = [];
         if (isset($data['extra_config'])) {
-            $extraConfig = $data['extra_config'];
-            if (is_string($extraConfig)) {
-                $decoded = json_decode($extraConfig, true);
-                $saveData['extra_config'] = $decoded !== null ? $extraConfig : json_encode([], JSON_UNESCAPED_UNICODE);
-            } else {
-                $saveData['extra_config'] = json_encode($extraConfig, JSON_UNESCAPED_UNICODE);
+            $existingConfig = $data['extra_config'];
+            if (is_string($existingConfig)) {
+                $decoded = json_decode($existingConfig, true);
+                if ($decoded !== null) {
+                    $extraConfig = $decoded;
+                }
+            } elseif (is_array($existingConfig)) {
+                $extraConfig = $existingConfig;
             }
         }
+        
+        // 将自定义认证字段（非 api_key/api_secret）合并到 extra_config
+        if (!empty($extraConfigData)) {
+            $extraConfig = array_merge($extraConfig, $extraConfigData);
+        }
+        
+        // 加密敏感字段
+        foreach ($extraConfig as $key => $value) {
+            if (stripos($key, 'key') !== false || stripos($key, 'secret') !== false || stripos($key, 'token') !== false) {
+                if (!empty($value) && strlen($value) > 0) {
+                    $extraConfig[$key] = $this->encryptApiKey($value);
+                }
+            }
+        }
+        
+        $saveData['extra_config'] = json_encode($extraConfig, JSON_UNESCAPED_UNICODE);
         
         Db::startTrans();
         try {

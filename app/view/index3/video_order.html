@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>视频订单管理 - {$webinfo.webname}</title>
+    {if $webinfo.ico}<link rel="shortcut icon" type="image/x-icon" href="{$webinfo.ico}">{/if}
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=6">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=10">
+    <link rel="stylesheet" href="/static/index3/css/pay.css?v=9">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=1">
+    <link rel="stylesheet" href="/static/admin/layui/css/layui.css">
+    <script src="/static/index3/js/theme.js?v=1"></script>
+    <style>
+        .order-page { padding: 0; }
+        .order-header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 32px 24px; border-radius: 16px; margin-bottom: 24px; color: #fff; }
+        .order-header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+        .order-header p { font-size: 14px; opacity: 0.9; }
+        .order-stats { display: flex; gap: 24px; margin-top: 20px; flex-wrap: wrap; }
+        .order-stat-item { text-align: center; }
+        .order-stat-value { font-size: 28px; font-weight: 700; }
+        .order-stat-label { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+        .order-card { background: var(--bg-card); border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .order-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+        .order-list { list-style: none; padding: 0; margin: 0; }
+        .order-item { display: flex; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border-light); }
+        .order-item:last-child { border-bottom: none; }
+        .order-thumb { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+        .order-info { flex: 1; margin-left: 16px; }
+        .order-title { font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 6px; }
+        .order-meta { font-size: 12px; color: var(--text-secondary); }
+        .order-meta span { margin-right: 16px; }
+        .order-status { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+        .status-paid { background: #e8f5e9; color: #2e7d32; }
+        .status-pending { background: #fff3e0; color: #ef6c00; }
+        .status-refunded { background: #ffebee; color: #c62828; }
+        .status-completed { background: #e3f2fd; color: #1565c0; }
+        .order-price { font-size: 16px; font-weight: 600; color: #f44336; margin-left: 16px; }
+        .filter-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-btn { padding: 8px 16px; border: 1px solid var(--border-color); border-radius: 20px; background: var(--bg-card); color: var(--text-secondary); font-size: 13px; cursor: pointer; transition: all .2s; }
+        .filter-btn:hover, .filter-btn.active { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: #fff; border-color: transparent; }
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+        .empty-state .icon { font-size: 64px; margin-bottom: 16px; opacity: 0.5; }
+        .empty-state p { font-size: 14px; }
+        .layui-table { background: transparent; }
+        .layui-table th { background: var(--bg-secondary); }
+    </style>
+</head>
+<body>
+<div class="layout-wrapper">
+    {include file="index3/public/sidebar"/}
+    <div class="main-content">
+        {include file="index3/public/header"/}
+        <div class="page-content">
+            <!-- 页面头部 -->
+            <div class="order-header">
+                <h1>📋 视频订单管理</h1>
+                <p>查看和管理您的视频生成订单</p>
+                <div class="order-stats">
+                    <div class="order-stat-item">
+                        <div class="order-stat-value" id="totalCount">-</div>
+                        <div class="order-stat-label">总订单</div>
+                    </div>
+                    <div class="order-stat-item">
+                        <div class="order-stat-value" id="paidCount">-</div>
+                        <div class="order-stat-label">已支付</div>
+                    </div>
+                    <div class="order-stat-item">
+                        <div class="order-stat-value" id="pendingCount">-</div>
+                        <div class="order-stat-label">待支付</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 筛选栏 -->
+            <div class="filter-bar">
+                <button class="filter-btn active" data-status="">全部</button>
+                <button class="filter-btn" data-status="1">已支付</button>
+                <button class="filter-btn" data-status="0">待支付</button>
+                <button class="filter-btn" data-status="2">已退款</button>
+            </div>
+
+            <!-- 订单列表 -->
+            <div class="order-card">
+                <table class="layui-table" lay-skin="line">
+                    <colgroup>
+                        <col width="100">
+                        <col width="180">
+                        <col>
+                        <col width="100">
+                        <col width="120">
+                        <col width="100">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>订单号</th>
+                            <th>时间</th>
+                            <th>商品信息</th>
+                            <th>数量</th>
+                            <th>金额</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align:center;padding:30px;">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div id="orderPagination"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="/static/admin/layui/layui.js"></script>
+<script src="/static/index3/js/api.js"></script>
+<script src="/static/index3/js/auth.js?v=3"></script>
+<script>
+var currentPage = 1;
+var currentStatus = '';
+var laypage = null;
+var layer = null;
+
+// Auth 检查完成后加载订单
+function initAndLoad(){
+    if(!Auth.isChecked()){ 
+        setTimeout(initAndLoad, 200); 
+        return;
+    }
+    if(!Auth.isLoggedIn()){ 
+        location.href = '/?s=/index/index'; 
+        return;
+    }
+    layui.use(['layer', 'table', 'laypage'], function(){
+        layer = layui.layer;
+        laypage = layui.laypage;
+        loadOrders();
+    });
+}
+
+initAndLoad();
+
+// 筛选按钮事件
+document.querySelectorAll('.filter-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+        document.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
+        this.classList.add('active');
+        currentStatus = this.dataset.status;
+        currentPage = 1;
+        loadOrders();
+    });
+});
+
+function loadOrders(){
+    var loadIndex = layer.load(2);
+    
+    var params = {
+        page: currentPage,
+        limit: 10
+    };
+    if(currentStatus !== '') {
+        params.pay_status = currentStatus;
+    }
+    
+    $.get('/?s=/VideoGeneration/order_list', params, function(res){
+        layer.close(loadIndex);
+        if(res.code === 0){
+            renderOrders(res.data);
+            renderPagination(res.count);
+            updateStats(res.stats);
+        } else {
+            layer.msg(res.msg || '加载失败');
+        }
+    });
+}
+
+function renderOrders(data){
+    var tbody = document.getElementById('orderTableBody');
+    if(!data || data.length === 0){
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#999;">暂无订单记录</td></tr>';
+        return;
+    }
+    
+    var html = '';
+    data.forEach(function(item){
+        var statusClass = '';
+        var statusText = '';
+        switch(item.pay_status){
+            case 1: statusClass = 'status-paid'; statusText = '已支付'; break;
+            case 0: statusClass = 'status-pending'; statusText = '待支付'; break;
+            case 2: statusClass = 'status-refunded'; statusText = '已退款'; break;
+            default: statusClass = 'status-pending'; statusText = '未知';
+        }
+        
+        html += '<tr>';
+        html += '<td><a href="javascript:viewOrder(' + item.id + ')" style="color:#f5576c;">' + item.ordernum + '</a></td>';
+        html += '<td>' + (item.createtime ? formatTime(item.createtime) : '-') + '</td>';
+        html += '<td>' + (item.product_name || '视频生成服务') + '</td>';
+        html += '<td>' + (item.num || 1) + '</td>';
+        html += '<td style="color:#f44336;font-weight:500;">¥' + (item.total_price || '0.00') + '</td>';
+        html += '<td><span class="order-status ' + statusClass + '">' + statusText + '</span></td>';
+        html += '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+function renderPagination(total){
+    var pagination = document.getElementById('orderPagination');
+    if(!pagination) return;
+    
+    laypage.render({
+        elem: 'orderPagination',
+        count: total,
+        curr: currentPage,
+        limit: 10,
+        first: '首页',
+        last: '末页',
+        prev: '上一页',
+        next: '下一页',
+        jump: function(obj, first){
+            if(!first){
+                currentPage = obj.curr;
+                loadOrders();
+            }
+        }
+    });
+}
+
+function updateStats(stats){
+    document.getElementById('totalCount').textContent = stats && stats.total !== undefined ? stats.total : '0';
+    document.getElementById('paidCount').textContent = stats && stats.paid !== undefined ? stats.paid : '0';
+    document.getElementById('pendingCount').textContent = stats && stats.pending !== undefined ? stats.pending : '0';
+}
+
+function viewOrder(orderId){
+    var loadIndex = layer.load(2);
+    $.get('/?s=/VideoGeneration/order_detail', {orderid: orderId}, function(res){
+        layer.close(loadIndex);
+        if(res.status !== 1){
+            layer.msg(res.msg || '加载失败');
+            return;
+        }
+        var d = res.data;
+        var html = '<div style="max-height:500px;overflow-y:auto;">';
+        
+        html += '<div style="background:#f8f9fa;border-radius:8px;padding:15px;margin-bottom:15px;">';
+        html += '<div style="font-weight:bold;margin-bottom:10px;color:#333;">订单信息</div>';
+        html += '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;"><span style="color:#666;">订单号</span><span>' + d.ordernum + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;"><span style="color:#666;">创建时间</span><span>' + (d.createtime_text || '-') + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;"><span style="color:#666;">支付方式</span><span>' + (d.paytype || '-') + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#666;">订单金额</span><span style="color:#f44336;font-weight:bold;">¥' + (d.total_price || '0.00') + '</span></div>';
+        html += '</div>';
+        
+        html += '<div style="background:#f8f9fa;border-radius:8px;padding:15px;margin-bottom:15px;">';
+        html += '<div style="font-weight:bold;margin-bottom:10px;color:#333;">状态信息</div>';
+        html += '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;"><span style="color:#666;">支付状态</span><span>' + (d.pay_status_text || '-') + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#666;">生成状态</span><span>' + (d.task_status_text || '-') + '</span></div>';
+        html += '</div>';
+        
+        if(d.scene_name || d.template_name){
+            html += '<div style="background:#f8f9fa;border-radius:8px;padding:15px;margin-bottom:15px;">';
+            html += '<div style="font-weight:bold;margin-bottom:10px;color:#333;">场景模板</div>';
+            if(d.cover_image){
+                html += '<img src="' + d.cover_image + '" style="width:100px;height:100px;object-fit:cover;border-radius:6px;margin-bottom:10px;">';
+            }
+            html += '<div style="color:#666;">' + (d.scene_name || d.template_name || '-') + '</div>';
+            html += '</div>';
+        }
+        
+        html += '</div>';
+        
+        layer.open({
+            type: 1,
+            title: '订单详情',
+            shade: 0.3,
+            area: ['450px', 'auto'],
+            maxHeight: 600,
+            content: html
+        });
+    });
+}
+
+function formatTime(timestamp){
+    if(!timestamp) return '-';
+    var date = new Date(timestamp * 1000);
+    var year = date.getFullYear();
+    var month = ('0' + (date.getMonth() + 1)).slice(-2);
+    var day = ('0' + date.getDate()).slice(-2);
+    var hour = ('0' + date.getHours()).slice(-2);
+    var minute = ('0' + date.getMinutes()).slice(-2);
+    return year + '-' + month + '-' + day + ' ' + hour + ':' + minute;
+}
+</script>
+</body>
+</html>

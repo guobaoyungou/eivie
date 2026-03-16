@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>合成设置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .template-item { padding: 10px; border: 1px solid #e2e2e2; border-radius: 4px; margin-bottom: 10px; cursor: pointer; transition: all 0.3s; }
+    .template-item:hover { border-color: #1e9fff; }
+    .template-item.selected { border-color: #1e9fff; background: #f0f9ff; }
+    .template-item .template-name { font-weight: bold; margin-bottom: 5px; }
+    .template-item .template-model { font-size: 12px; color: #666; }
+    .template-item .template-images { display: flex; gap: 5px; margin-top: 5px; }
+    .template-item .template-images img { width: 40px; height: 40px; object-fit: cover; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid" style="padding: 15px;">
+    <form class="layui-form" lay-filter="formData">
+      <input type="hidden" name="portrait_id" value="{$portrait_id|default=0}">
+      
+      <!-- 提示信息 -->
+      <div class="layui-form-item">
+        <div class="layui-input-block" style="margin-left: 0;">
+          <div style="background: #f0f9ff; border: 1px solid #1e9fff; padding: 10px 15px; border-radius: 4px; color: #666;">
+            <i class="layui-icon layui-icon-tips" style="color: #1e9fff;"></i>
+            设置合成规则后，点击"开始生成"将自动处理列表中所有未生成的人像
+          </div>
+        </div>
+      </div>
+
+      <!-- 模板选择 -->
+      <div class="layui-form-item">
+        <label class="layui-form-label"><span class="layui-required">*</span>选择模板</label>
+        <div class="layui-input-block" id="templateList">
+          {notempty name="templates"}
+          {volist name="templates" id="tpl"}
+          <div class="template-item" data-id="{$tpl.id}" onclick="selectTemplate(this, {$tpl.id})">
+            <div class="template-name">{$tpl.name}</div>
+            <div class="template-model">模型：{$tpl.model_name}</div>
+            <div class="template-images">
+              {php}$images = json_decode($tpl['images'], true);{/php}
+              {notempty name="images"}
+              {volist name="images" id="img" length="4"}
+              <img src="{$img}" alt="模板图">
+              {/volist}
+              {/notempty}
+            </div>
+          </div>
+          {/volist}
+          {else/}
+          <div style="color:#999;padding:20px;text-align:center;">暂无可用模板，请先在"合成模板"中添加</div>
+          {/notempty}
+        </div>
+        <div style="color:#999;font-size:12px;margin-top:5px;">请选择要使用的合成模板（可多选）</div>
+      </div>
+
+      <!-- 合成数量 -->
+      <div class="layui-form-item">
+        <label class="layui-form-label"><span class="layui-required">*</span>合成数量</label>
+        <div class="layui-input-inline">
+          <input type="number" name="generate_count" id="generateCount" min="1" max="10" value="4" class="layui-input" style="width:100px;">
+        </div>
+        <div class="layui-form-mid layui-word-aux">张（1-10）</div>
+      </div>
+
+      <!-- 生成模式 -->
+      <div class="layui-form-item">
+        <label class="layui-form-label"><span class="layui-required">*</span>生成模式</label>
+        <div class="layui-input-block">
+          <input type="radio" name="generate_mode" value="1" title="顺序模式" checked lay-filter="generateMode">
+          <input type="radio" name="generate_mode" value="2" title="随机模式" lay-filter="generateMode">
+        </div>
+        <div style="color:#999;font-size:12px;margin-top:5px;">
+          <div id="modeDesc1">顺序模式：按选中模板的顺序依次生成，如设置4张，则按模板顺序循环生成</div>
+          <div id="modeDesc2" style="display:none;">随机模式：随机从选中模板中抽取生成，如设置4张，则随机挑选4个模板生成</div>
+        </div>
+      </div>
+
+      <!-- 选中模板预览 -->
+      <div class="layui-form-item">
+        <label class="layui-form-label">已选模板</label>
+        <div class="layui-input-block" id="selectedTemplates">
+          <span style="color:#999">请在上方选择模板</span>
+        </div>
+      </div>
+    </form>
+  </div>
+  {include file="public/js"/}
+  <script>
+  var selectedTemplateIds = [];
+  var portraitId = {$portrait_id};
+
+  layui.use(['form', 'layer'], function(){
+    var form = layui.form;
+    var layer = layui.layer;
+
+    // 加载已保存的全局设置（portrait_id=0）
+    var setting = {:empty($setting) ? 'null' : json_encode($setting)};
+    if(setting){
+      // 设置合成数量
+      $('#generateCount').val(setting.generate_count || 4);
+
+      // 设置生成模式
+      $('input[name="generate_mode"][value="' + (setting.generate_mode || 1) + '"]').prop('checked', true);
+
+      // 选中已保存的模板
+      var savedTemplateIds = setting.template_ids ? setting.template_ids.split(',') : [];
+      savedTemplateIds.forEach(function(id){
+        selectTemplateById(parseInt(id));
+      });
+
+      form.render('radio');
+      updateModeDesc();
+    }
+
+    // 监听模式切换
+    form.on('radio(generateMode)', function(data){
+      updateModeDesc();
+    });
+
+    // 初始化选中状态
+    initSelectedStatus();
+  });
+
+  // 根据ID选中模板
+  function selectTemplateById(id){
+    selectedTemplateIds.push(id);
+    var item = document.querySelector('.template-item[data-id="' + id + '"]');
+    if(item){
+      item.classList.add('selected');
+    }
+    updateSelectedDisplay();
+  }
+
+  // 选择/取消选择模板
+  function selectTemplate(obj, id){
+    var index = selectedTemplateIds.indexOf(id);
+    if(index > -1){
+      // 取消选择
+      selectedTemplateIds.splice(index, 1);
+      obj.classList.remove('selected');
+    } else {
+      // 选择
+      selectedTemplateIds.push(id);
+      obj.classList.add('selected');
+    }
+    updateSelectedDisplay();
+  }
+
+  // 初始化选中状态
+  function initSelectedStatus(){
+    var items = document.querySelectorAll('.template-item');
+    items.forEach(function(item){
+      var id = parseInt(item.getAttribute('data-id'));
+      if(selectedTemplateIds.indexOf(id) > -1){
+        item.classList.add('selected');
+      }
+    });
+    updateSelectedDisplay();
+  }
+
+  // 更新已选模板显示
+  function updateSelectedDisplay(){
+    var container = document.getElementById('selectedTemplates');
+    if(selectedTemplateIds.length === 0){
+      container.innerHTML = '<span style="color:#999">请在上方选择模板</span>';
+      return;
+    }
+
+    var html = '已选 <strong>' + selectedTemplateIds.length + '</strong> 个模板：';
+    var count = Math.min(selectedTemplateIds.length, parseInt($('#generateCount').val() || 4));
+    html += '<span style="color:#1e9fff">将生成 ' + count + ' 张图片</span>';
+
+    if(selectedTemplateIds.length < parseInt($('#generateCount').val() || 4)){
+      html += '<span style="color:#ff5722;margin-left:10px;">（模板数量不足，请减少合成数量）</span>';
+    }
+
+    container.innerHTML = html;
+  }
+
+  // 更新模式说明
+  function updateModeDesc(){
+    var mode = $('input[name="generate_mode"]:checked').val();
+    if(mode == 1){
+      $('#modeDesc1').show();
+      $('#modeDesc2').hide();
+    } else {
+      $('#modeDesc1').hide();
+      $('#modeDesc2').show();
+    }
+  }
+
+  // 监听数量变化
+  $('#generateCount').on('change', function(){
+    updateSelectedDisplay();
+  });
+
+  // 保存设置
+  window.saveSettings = function(callback){
+    if(selectedTemplateIds.length === 0){
+      layer.msg('请选择至少一个合成模板');
+      if(callback) callback({code: 1, msg: '请选择至少一个合成模板'});
+      return;
+    }
+
+    var generateCount = parseInt($('#generateCount').val()) || 4;
+    if(generateCount < 1 || generateCount > 10){
+      layer.msg('合成数量应在1-10之间');
+      if(callback) callback({code: 1, msg: '合成数量应在1-10之间'});
+      return;
+    }
+
+    if(generateCount > selectedTemplateIds.length){
+      layer.msg('合成数量不能超过选中的模板数量');
+      if(callback) callback({code: 1, msg: '合成数量不能超过选中的模板数量'});
+      return;
+    }
+
+    $.post('{:url("synthesis_settings_save")}', {
+      portrait_id: portraitId,
+      template_ids: selectedTemplateIds,
+      generate_count: generateCount,
+      generate_mode: $('input[name="generate_mode"]:checked').val()
+    }, function(res){
+      if(callback) callback(res);
+    });
+  };
+
+  // 开始生成（单个人像）
+  window.startGenerate = function(callback){
+    // 先保存设置
+    saveSettings(function(saveRes){
+      if(saveRes.code !== 0){
+        return;
+      }
+
+      // 执行生成
+      layer.confirm('确认开始合成生成吗？', function(index){
+        layer.close(index);
+        var loadIndex = layer.load();
+
+        $.post('{:url("synthesis_generate")}', {
+          portrait_id: portraitId
+        }, function(res){
+          layer.close(loadIndex);
+          if(callback) callback(res);
+        });
+      });
+    });
+  };
+
+  // 批量生成（所有人像）
+  window.startBatchGenerate = function(callback){
+    // 先保存设置
+    saveSettings(function(saveRes){
+      if(saveRes.code !== 0){
+        if(callback) callback(saveRes);
+        return;
+      }
+
+      // 执行批量生成
+      var loadIndex = layer.load();
+
+      $.post('{:url("synthesis_batch_generate")}', {}, function(res){
+        layer.close(loadIndex);
+        if(callback) callback(res);
+      });
+    });
+  };
+  </script>
+</body>
+</html>

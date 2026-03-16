@@ -153,44 +153,50 @@ class Menu
 			
 			// 人像管理
 			$ai_travel_photo_child[] = ['name'=>'人像管理','path'=>'AiTravelPhoto/portrait_list','authdata'=>'AiTravelPhoto/portrait_list,AiTravelPhoto/portrait_delete,AiTravelPhoto/portrait_batch'];
-			
+
+			// 合成模板
+			$ai_travel_photo_child[] = ['name'=>'合成模板','path'=>'AiTravelPhoto/synthesis_template_list','authdata'=>'AiTravelPhoto/synthesis_template_list,AiTravelPhoto/synthesis_template_edit,AiTravelPhoto/synthesis_template_save,AiTravelPhoto/synthesis_template_delete'];
+
 			// 生成结果（隐藏菜单，通过人像列表进入）
 			$ai_travel_photo_child[] = ['name'=>'生成结果','path'=>'AiTravelPhoto/portrait_detail','authdata'=>'AiTravelPhoto/portrait_detail','hide'=>true];
-			
+
 			// 订单管理
 			$ai_travel_photo_child[] = ['name'=>'订单管理','path'=>'AiTravelPhoto/order_list','authdata'=>'AiTravelPhoto/order_list,AiTravelPhoto/order_detail,AiTravelPhoto/order_refund'];
-			
+
 			// 设备管理
 			$ai_travel_photo_child[] = ['name'=>'设备管理','path'=>'AiTravelPhoto/device_list','authdata'=>'AiTravelPhoto/device_list,AiTravelPhoto/device_generate_token,AiTravelPhoto/device_delete'];
-			
+
 			// 选片列表
 			$ai_travel_photo_child[] = ['name'=>'选片列表','path'=>'AiTravelPhoto/qrcode_list','authdata'=>'AiTravelPhoto/qrcode_list'];
-			
+
 			// 成品列表
 			$ai_travel_photo_child[] = ['name'=>'成品列表','path'=>'AiTravelPhoto/result_list','authdata'=>'AiTravelPhoto/result_list'];
-			
+
 			// 数据统计
 			$ai_travel_photo_child[] = ['name'=>'数据统计','path'=>'AiTravelPhoto/statistics','authdata'=>'AiTravelPhoto/statistics'];
-			
+
 			// 系统设置
 			$ai_travel_photo_child[] = ['name'=>'系统设置','path'=>'AiTravelPhoto/settings','authdata'=>'AiTravelPhoto/settings'];
-			
+
 			$menudata['ai_travel_photo'] = ['name'=>'旅拍','fullname'=>'AI旅拍','icon'=>'my-icon my-icon-aitravelphoto','child'=>$ai_travel_photo_child];
 		}elseif($bid > 0){
 			// 商户用户登录时，检查商户是否开通AI旅拍功能
 			$business = Db::name('business')->where('id', $bid)->find();
 			if($business && isset($business['ai_travel_photo_enabled']) && $business['ai_travel_photo_enabled'] == 1){
 				$ai_travel_photo_child = [];
-				
+
 				// 套餐管理
 				$ai_travel_photo_child[] = ['name'=>'套餐管理','path'=>'AiTravelPhoto/package_list','authdata'=>'AiTravelPhoto/package_list,AiTravelPhoto/package_edit,AiTravelPhoto/package_delete,AiTravelPhoto/package_batch'];
-				
+
 				// 人像管理
 				$ai_travel_photo_child[] = ['name'=>'人像管理','path'=>'AiTravelPhoto/portrait_list','authdata'=>'AiTravelPhoto/portrait_list,AiTravelPhoto/portrait_delete,AiTravelPhoto/portrait_batch'];
-				
+
+				// 合成模板
+				$ai_travel_photo_child[] = ['name'=>'合成模板','path'=>'AiTravelPhoto/synthesis_template_list','authdata'=>'AiTravelPhoto/synthesis_template_list,AiTravelPhoto/synthesis_template_edit,AiTravelPhoto/synthesis_template_save,AiTravelPhoto/synthesis_template_delete'];
+
 				// 生成结果（隐藏菜单，通过人像列表进入）
 				$ai_travel_photo_child[] = ['name'=>'生成结果','path'=>'AiTravelPhoto/portrait_detail','authdata'=>'AiTravelPhoto/portrait_detail','hide'=>true];
-				
+
 				// 订单管理
 				$ai_travel_photo_child[] = ['name'=>'订单管理','path'=>'AiTravelPhoto/order_list','authdata'=>'AiTravelPhoto/order_list,AiTravelPhoto/order_detail,AiTravelPhoto/order_refund'];
 				

@@ -187,6 +187,13 @@ var Api = (function(){
         },
         checkQrLoginStatus: function(params, cb){
             request('GET', '/?s=/index/check_qr_login_status', params, cb);
+        },
+        // ===== 创作中心相关 =====
+        getGenerationTasks: function(params, cb){
+            request('GET', '/?s=/index/generation_tasks', params, cb);
+        },
+        getGenerationWorks: function(params, cb){
+            request('GET', '/?s=/index/generation_works', params, cb);
         }
     };
 })();

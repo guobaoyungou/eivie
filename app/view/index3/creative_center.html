@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>创作中心 - {$webinfo.webname}</title>
+    {if $webinfo.ico}<link rel="shortcut icon" type="image/x-icon" href="{$webinfo.ico}">{/if}
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=2">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=2">
+    <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=6">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=10">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=6">
+    <script src="/static/index3/js/theme.js?v=1"></script>
+</head>
+<body>
+<div class="layout-wrapper">
+    {include file="index3/public/sidebar"/}
+    <div class="main-content">
+        {include file="index3/public/header"/}
+        <div class="page-content">
+
+            <!-- 创作中心标题 -->
+            <h1 class="creative-center-title">创作中心</h1>
+            <p class="creative-center-subtitle">管理您的创作任务和作品</p>
+
+            <!-- 主内容区 -->
+            <div class="creative-center">
+                <!-- 任务管理 -->
+                <div class="task-management">
+                    <h2>任务管理</h2>
+                    <div class="task-tabs">
+                        <button class="task-tab active" data-status="all">全部</button>
+                        <button class="task-tab" data-status="pending">待处理</button>
+                        <button class="task-tab" data-status="processing">处理中</button>
+                        <button class="task-tab" data-status="completed">已完成</button>
+                        <button class="task-tab" data-status="failed">失败</button>
+                    </div>
+                    <div class="task-list" id="taskList">
+                        <div class="creative-loading">
+                            <div class="spinner"></div>
+                            <span>加载任务列表...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 作品管理 -->
+                <div class="works-management">
+                    <h2>我的作品</h2>
+                    <div class="works-grid" id="workGrid">
+                        <div class="creative-loading">
+                            <div class="spinner"></div>
+                            <span>加载作品列表...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{include file="index3/public/tabbar"/}
+
+<script src="/static/index3/js/api.js?v=4"></script>
+<script src="/static/index3/js/auth.js?v=3"></script>
+<script src="/static/index3/js/sidebar.js?v=6"></script>
+<script>
+(function(){
+    var state = {
+        currentStatus: 'all',
+        taskPage: 1,
+        workPage: 1,
+        taskLoading: false,
+        workLoading: false,
+        taskNoMore: false,
+        workNoMore: false
+    };
+
+    function init(){
+        if(!Auth.isChecked()){ setTimeout(init, 200); return; }
+        initTaskTabs();
+        loadTasks(true);
+        loadWorks(true);
+    }
+
+    function initTaskTabs(){
+        document.querySelectorAll('.task-tab').forEach(function(tab){
+            tab.addEventListener('click', function(){
+                var status = this.getAttribute('data-status');
+                state.currentStatus = status;
+                state.taskPage = 1;
+                state.taskNoMore = false;
+                document.querySelectorAll('.task-tab').forEach(function(t){
+                    t.classList.remove('active');
+                });
+                this.classList.add('active');
+                loadTasks(true);
+            });
+        });
+    }
+
+    function loadTasks(replace){
+        if(state.taskLoading) return;
+        state.taskLoading = true;
+
+        var params = {
+            status: state.currentStatus,
+            page: state.taskPage,
+            limit: 10
+        };
+
+        var container = document.getElementById('taskList');
+        if(!replace) container.querySelector('.creative-loading').style.display = 'flex';
+
+        Api.getGenerationTasks(params, function(err, res){
+            state.taskLoading = false;
+            if(container.querySelector('.creative-loading')) container.querySelector('.creative-loading').style.display = 'none';
+
+            if(err || !res || res.code !== 0){
+                if(replace) container.innerHTML = '<div class="creative-empty"><div class="empty-icon">⚠️</div><p>加载失败，请重试</p></div>';
+                return;
+            }
+
+            var list = res.data || [];
+            if(list.length < 10) state.taskNoMore = true;
+
+            if(replace) container.innerHTML = '';
+
+            if(list.length === 0 && replace){
+                container.innerHTML = '<div class="creative-empty"><div class="empty-icon">📋</div><p>暂无任务</p><div class="empty-hint">开始创作您的第一个作品吧</div></div>';
+                return;
+            }
+
+            list.forEach(function(task){
+                var taskItem = document.createElement('div');
+                taskItem.className = 'task-item';
+                taskItem.innerHTML = `
+                    <div class="task-icon">${task.generation_type === 1 ? '🖼️' : '🎬'}</div>
+                    <div class="task-info">
+                        <div class="task-title">${esc(task.prompt || '无标题')}</div>
+                        <div class="task-meta">
+                            <span>${task.generation_type === 1 ? '图像' : '视频'}</span>
+                            <span>${task.createtime ? new Date(task.createtime * 1000).toLocaleString() : '未知'}</span>
+                        </div>
+                    </div>
+                    <div class="task-status ${getTaskStatusClass(task.status)}">${getTaskStatusText(task.status)}</div>
+                `;
+                taskItem.addEventListener('click', function(){
+                    viewTaskDetail(task.id);
+                });
+                container.appendChild(taskItem);
+            });
+
+            state.taskPage++;
+        });
+    }
+
+    function loadWorks(replace){
+        if(state.workLoading) return;
+        state.workLoading = true;
+
+        var params = {
+            page: state.workPage,
+            limit: 12
+        };
+
+        var container = document.getElementById('workGrid');
+        if(!replace) container.querySelector('.creative-loading').style.display = 'flex';
+
+        Api.getGenerationWorks(params, function(err, res){
+            state.workLoading = false;
+            if(container.querySelector('.creative-loading')) container.querySelector('.creative-loading').style.display = 'none';
+
+            if(err || !res || res.code !== 0){
+                if(replace) container.innerHTML = '<div class="creative-empty"><div class="empty-icon">⚠️</div><p>加载失败，请重试</p></div>';
+                return;
+            }
+
+            var list = res.data || [];
+            if(list.length < 12) state.workNoMore = true;
+
+            if(replace) container.innerHTML = '';
+
+            if(list.length === 0 && replace){
+                container.innerHTML = '<div class="creative-empty"><div class="empty-icon">🖼️</div><p>暂无作品</p><div class="empty-hint">完成任务后，作品将显示在这里</div></div>';
+                return;
+            }
+
+            list.forEach(function(work){
+                var workItem = document.createElement('div');
+                workItem.className = 'works-item';
+                workItem.innerHTML = `
+                    <div class="works-image">
+                        <img src="${esc(work.image_url || '/static/index3/img/placeholder.png')}" alt="作品">
+                    </div>
+                    <div class="works-info">
+                        <div class="works-title">${esc(work.prompt || '无标题')}</div>
+                        <div class="works-meta">
+                            <span>${work.createtime ? new Date(work.createtime * 1000).toLocaleString() : '未知'}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(workItem);
+            });
+
+            state.workPage++;
+        });
+    }
+
+    function getTaskStatusClass(status){
+        var map = {
+            0: 'pending',
+            1: 'processing',
+            2: 'completed',
+            3: 'failed'
+        };
+        return map[status] || '';
+    }
+
+    function getTaskStatusText(status){
+        var map = {
+            0: '待处理',
+            1: '处理中',
+            2: '已完成',
+            3: '失败'
+        };
+        return map[status] || '未知';
+    }
+
+    function viewTaskDetail(taskId){
+        // 这里可以实现查看任务详情的逻辑
+        alert('查看任务详情: ' + taskId);
+    }
+
+    function esc(str){
+        if(!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    init();
+})();
+</script>
+</body>
+</html>

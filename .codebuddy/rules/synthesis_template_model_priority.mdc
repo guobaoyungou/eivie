@@ -1,0 +1,36 @@
+---
+description: 修复合成模板编辑页模型选择优先级问题
+alwaysApply: false
+enabled: true
+updatedAt: 2026-03-13T02:58:42.230Z
+provider: 
+---
+
+# 合成模板编辑页 - 模型选择优先级修复
+
+## 需求背景
+- 绑定模型下拉列表需要优先显示商户自己配置的API Key
+- 如果商户未配置自己的API Key，则显示系统级/平台级配置
+- 使用平台级API Key需要商户预充值，按订单扣费
+
+## 数据结构分析
+- `ddwx_ai_travel_photo_model` 表中：
+  - `bid = 0` 表示平台级/系统级配置
+  - `bid > 0` 表示商家级配置
+  - `api_key` 字段有值表示商家自己配置了API Key
+
+## 修改方案
+修改 `/home/www/ai.eivie.cn/app/service/SceneConfigService.php` 中的 `getEnabledModelList` 方法：
+
+### 优先级逻辑：
+1. **优先返回商家自己配置的模型**（bid = $bid 且 api_key 不为空）
+2. **其次返回平台级模型**（bid = 0）- 这些需要商户预充值
+
+### 返回字段调整：
+- 添加 `is_platform_model` 字段标记是否是平台级模型
+- 前端根据此标记显示不同提示（商户自有API Key vs 平台预充值）
+
+## 实现步骤
+1. 修改查询逻辑：先查商家配置，再查平台配置
+2. 添加 `is_platform_model` 标记字段
+3. 清除缓存测试

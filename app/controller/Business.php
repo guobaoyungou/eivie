@@ -187,6 +187,16 @@ class Business extends Common
         $uinfo['hexiao_auth_data'] = jsonEncode(input('post.hexiao_auth_data/a'));
         $uinfo['wxauth_data'] = jsonEncode(input('post.wxauth_data/a'));
         $info['endtime'] = strtotime($info['endtime']);
+		
+		// 处理云空间大小和账户余额字段
+		if(isset($info['cloud_space'])){
+			$info['cloud_space'] = intval($info['cloud_space']);
+			if($info['cloud_space'] < 0) $info['cloud_space'] = 5120; // 默认5GB
+		}
+		if(isset($info['account_balance'])){
+			$info['account_balance'] = floatval($info['account_balance']);
+			if($info['account_balance'] < 0) $info['account_balance'] = 0;
+		}
 
         //买单分销
         $hasun = Db::name('admin_user')->where('id','<>',$uinfo['id'])->where('un',$uinfo['un'])->find();

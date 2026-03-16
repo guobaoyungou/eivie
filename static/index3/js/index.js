@@ -819,35 +819,95 @@
         });
     }
 
-    // === 打开生成任务 - 直接跳转到创作页面（优化用户体验） ===
+    // === 打开生成任务弹窗（16:9 四排布局） ===
     function openTaskModal(modelId){
-        // 检查登录状态
-        requireLogin(function(){
-            // 显示加载提示
-            showToast('正在加载模型信息...', 'info');
-            
-            // 获取模型详情判断类型
-            Api.getModelDetail({id: modelId}, function(err, res){
-                if(err || !res || res.code !== 0){
-                    showToast('加载模型信息失败', 'error');
-                    return;
-                }
+        var modal = document.getElementById('taskModal');
+        var row1 = document.getElementById('tmModelType');
+        var row2 = document.getElementById('tmCapabilities');
+        var row3 = document.getElementById('tmParams');
+        var row4 = document.getElementById('tmScenes');
+        var loginTip = document.getElementById('taskLoginTip');
+        var submitBtn = document.getElementById('taskSubmitBtn');
 
-                var data = res.data;
-                var typeCode = data.type_code || '';
-                
-                // 根据模型类型跳转到对应页面,并携带模型ID
-                if(typeCode === 'image_generation'){
-                    // 跳转到图片生成页
-                    window.location.href = '/Index/photo_generation?model_id=' + modelId;
-                } else if(typeCode === 'video_generation'){
-                    // 跳转到视频生成页
-                    window.location.href = '/Index/video_generation?model_id=' + modelId;
-                } else {
-                    // 其他类型暂时提示
-                    showToast('该模型类型暂未支持，敬请期待', 'info');
-                }
-            });
+        if(!modal) return;
+
+        // 显示加载状态
+        row1.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-tertiary)"><div style="display:inline-block;width:24px;height:24px;border:3px solid var(--border-color);border-top-color:var(--accent-color);border-radius:50%;animation:spin 1s linear infinite"></div></div>';
+        row2.innerHTML = '';
+        row3.innerHTML = '';
+        row4.innerHTML = '';
+        loginTip.style.display = 'none';
+        submitBtn.style.display = 'inline-block';
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+
+        Api.getModelDetail({id: modelId}, function(err, res){
+            if(err || !res || res.code !== 0){
+                row1.innerHTML = '<div class="empty-state" style="padding:24px"><div class="empty-icon">😔</div><p>加载失败</p></div>';
+                showToast('加载模型详情失败', 'error');
+                return;
+            }
+
+            var data = res.data;
+            var tags = data.capability_tags || [];
+            var scenes = data.scene_templates || [];
+
+            // === Row 1: 模型类型信息 ===
+            var typeIconMap = {
+                'image_generation': '🖼️',
+                'video_generation': '🎬',
+                'text_generation': '✍️',
+                'deep_thinking': '🧠',
+                'speech_model': '🎙️',
+                'embedding': '🧩'
+            };
+            var typeEmoji = typeIconMap[data.type_code] || '🤖';
+
+            var ioHtml = '';
+            var inputTypes = data.type_input_types || [];
+            var outputTypes = data.type_output_types || [];
+            if(inputTypes.length || outputTypes.length){
+                ioHtml = '<div class="tmt-io">';
+                inputTypes.forEach(function(t){ ioHtml += '<span class="tmt-io-tag">⬆ ' + escapeHtml(t) + '</span>'; });
+                outputTypes.forEach(function(t){ ioHtml += '<span class="tmt-io-tag">⬇ ' + escapeHtml(t) + '</span>'; });
+                ioHtml += '</div>';
+            }
+
+            row1.innerHTML =
+                (data.provider_logo ? '<img class="tmt-logo" src="' + escapeHtml(data.provider_logo) + '" alt="" loading="lazy">' : '') +
+                '<div class="tmt-info">' +
+                    '<div class="tmt-name">' + escapeHtml(data.model_name) + '</div>' +
+                    '<div class="tmt-meta">' +
+                        '<span>' + escapeHtml(data.provider_name || '') + '</span>' +
+                        (data.description ? '<span>·</span><span>' + escapeHtml(data.description.length > 40 ? data.description.substring(0, 40) + '...' : data.description) + '</span>' : '') +
+                    '</div>' +
+                '</div>' +
+                '<span class="tmt-type-badge"><span class="tmt-type-icon">' + typeEmoji + '</span>' + escapeHtml(data.type_name || '') + '</span>' +
+                ioHtml;
+
+            // === Row 2: 能力Tab ===
+            if(tags.length > 0){
+                var capsHtml = '';
+                tags.forEach(function(tag, i){
+                    capsHtml += '<span class="tmc-tag' + (i === 0 ? ' active' : '') + '">' + escapeHtml(tag) + '</span>';
+                });
+                row2.innerHTML = capsHtml;
+                // 能力Tab点击交互
+                row2.querySelectorAll('.tmc-tag').forEach(function(tagEl){
+                    tagEl.addEventListener('click', function(){
+                        row2.querySelectorAll('.tmc-tag').forEach(function(t){ t.classList.remove('active'); });
+                        this.classList.add('active');
+                    });
+                });
+            } else {
+                row2.innerHTML = '<span class="tmc-tag active">通用能力</span>';
+            }
+
+            // === Row 3: 参数配置 ===
+            renderTaskForm(row3, data.input_schema);
+
+            // === Row 4: 推荐场景模板 ===
+            renderSceneTemplates(row4, scenes);
         });
     }
 
@@ -1293,7 +1353,7 @@
         return '<img class="sc-cover" src="' + coverUrl + '" alt="' + altText + '" loading="lazy">';
     }
 
-    // === 场景卡片点击交互（直接跳转到创作页面） ===
+    // === 场景卡片点击交互（底部“做同款”按钮） ===
     function initSceneCards(){
         // 绑定服务端渲染的卡片
         document.querySelectorAll('.scene-card[data-id]').forEach(function(card){
@@ -1308,30 +1368,19 @@
                 e.stopPropagation();
                 var id = card.getAttribute('data-id');
                 var type = card.getAttribute('data-type');
-                handleSceneCardClick(id, type);
+                var genType = (type === 'video') ? 2 : 1;
+                openScenePopup(id, genType);
             });
         }
-        // 卡片自身点击也跳转
+        // 卡片自身点击也打开弹窗
         card.addEventListener('click', function(){
             var id = this.getAttribute('data-id');
             var type = this.getAttribute('data-type');
-            handleSceneCardClick(id, type);
+            var genType = (type === 'video') ? 2 : 1;
+            openScenePopup(id, genType);
         });
         // 视频卡片hover交互：鼠标移入播放视频，移出暂停
         bindVideoCardHover(card);
-    }
-
-    // === 处理场景卡片点击 - 直接跳转到创作页面 ===
-    function handleSceneCardClick(templateId, type){
-        // 检查登录状态
-        requireLogin(function(){
-            // 根据类型跳转到对应页面,并携带模板ID
-            if(type === 'video'){
-                window.location.href = '/Index/video_generation?template_id=' + templateId;
-            } else {
-                window.location.href = '/Index/photo_generation?template_id=' + templateId;
-            }
-        });
     }
 
     // === 视频卡片hover播放/暂停 ===

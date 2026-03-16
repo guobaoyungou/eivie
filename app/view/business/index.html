@@ -288,6 +288,17 @@
 			{field: 'money', title: "余额",templet:function(d){
 				return '<a href="javascript:void(0)" onclick="openmax(\'{:url('BusinessMoney/moneylog')}&isopen=1&bid='+d.id+'\')">'+d.money+'</a>';
 			},sort:true},
+		{field: 'cloud_space', title: "云空间大小",templet:function(d){
+			var space = d.cloud_space || 5120;
+			if(space >= 1024){
+				return (space/1024).toFixed(2) + ' GB';
+			}else{
+				return space + ' MB';
+			}
+		},sort:true},
+		{field: 'account_balance', title: "账户余额",templet:function(d){
+			return '￥' + (d.account_balance || '0.00');
+		},sort:true},
 		  {if getcustom('business_deposit')}
 		  {field: 'money', title: "{:t('入驻保证金')}",templet:function(d){
 		  	  	 var html = '<div><a href="javascript:void(0)" onclick="openmax(\'{:url('BusinessMoney/depositlog')}&isopen=1&bid='+d.id+'\')">'+d.deposit+'</a></div>';

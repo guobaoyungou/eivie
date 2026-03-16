@@ -239,15 +239,24 @@ class AiTravelPhotoService
         ]);
 
         try {
-            // 获取可灵AI配置
-            $model = Db::name('ai_travel_photo_model')
-                ->where('model_type', 'kling_ai')
-                ->where('status', 1)
+            // 从模型广场获取可灵AI配置
+            $modelInfo = Db::name('model_info')
+                ->where('model_code', 'kling_ai')
+                ->where('is_active', 1)
                 ->find();
 
-            if (!$model) {
+            if (!$modelInfo) {
                 throw new \Exception('视频生成模型未配置');
             }
+
+            // 获取商户API Key配置（如果有）
+            $merchantConfig = Db::name('merchant_model_config')
+                ->where('model_id', $modelInfo['id'])
+                ->where('bid', $portrait['bid'])
+                ->where('is_active', 1)
+                ->find();
+
+            $apiKey = $merchantConfig ? $merchantConfig['api_key'] : '';
 
             // 调用可灵AI视频生成
             $ai_service = new AiKlingService();
@@ -255,7 +264,7 @@ class AiTravelPhotoService
                 'image_url' => $first_result['url'],
                 'prompt' => '镜头缓慢推进，背景虚化，人物清晰，光影自然变化',
                 'duration' => $duration,
-                'api_key' => $model['api_key']
+                'api_key' => $apiKey
             ]);
 
             if ($result['status'] != 1) {
@@ -394,22 +403,43 @@ class AiTravelPhotoService
     }
 
     /**
-     * 获取AI模型配置
+     * 获取AI模型配置（从模型广场）
      */
-    private function getModel($model_id)
+    private function getModel($model_id, $bid = 0)
     {
+        // 从模型广场获取模型信息
         if ($model_id > 0) {
-            return Db::name('ai_travel_photo_model')
+            $model = Db::name('model_info')
                 ->where('id', $model_id)
-                ->where('status', 1)
+                ->where('is_active', 1)
+                ->find();
+        } else {
+            // 返回默认模型（取第一个激活的）
+            $model = Db::name('model_info')
+                ->where('is_active', 1)
+                ->order('sort', 'asc')
                 ->find();
         }
 
-        // 返回默认模型
-        return Db::name('ai_travel_photo_model')
-            ->where('status', 1)
-            ->where('is_default', 1)
-            ->find();
+        if (!$model) {
+            return null;
+        }
+
+        // 获取商户API Key配置（如果有）
+        if ($bid > 0) {
+            $merchantConfig = Db::name('merchant_model_config')
+                ->where('model_id', $model['id'])
+                ->where('bid', $bid)
+                ->where('is_active', 1)
+                ->find();
+
+            if ($merchantConfig) {
+                $model['api_key'] = $merchantConfig['api_key'];
+                $model['api_secret'] = $merchantConfig['api_secret'];
+            }
+        }
+
+        return $model;
     }
 
     /**

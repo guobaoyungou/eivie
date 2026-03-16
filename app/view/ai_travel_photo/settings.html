@@ -40,10 +40,9 @@
           <div class="layui-tab layui-tab-brief" lay-filter="settingTabs">
             <ul class="layui-tab-title">
               <li class="layui-this" lay-id="tab1">基础设置</li>
-              <li lay-id="tab2">OSS配置</li>
-              <li lay-id="tab3">API密钥管理</li>
-              <li lay-id="tab4">队列配置</li>
-              <li lay-id="tab5">监控告警</li>
+              {if $is_admin}
+              <li lay-id="tab2">套餐定价</li>
+              {/if}
             </ul>
             <div class="layui-tab-content">
               
@@ -163,244 +162,153 @@
                 </form>
               </div>
               
-              <!-- Tab2: OSS配置 -->
+              {if $is_admin}
+              <!-- Tab2: 套餐定价 (仅管理员可见) -->
               <div class="layui-tab-item">
-                <form class="layui-form" lay-filter="ossForm">
-                  <input type="hidden" name="tab" value="oss">
+                <form class="layui-form" lay-filter="packageForm">
+                  <input type="hidden" name="tab" value="package">
                   
                   <div class="form-section">
-                    <div class="form-section-title">阿里云OSS存储配置</div>
-                    <blockquote class="layui-elem-quote layui-quote-nm">为空时使用平台统一OSS配置，填写后使用商家独立配置</blockquote>
-                    
+                    <div class="form-section-title">云空间扩容套餐设置</div>
+                    <div id="spacePackageList">
+                      {foreach $package_settings.space as $key=>$item}
+                      <div class="package-item layui-form-item" data-index="{$key}">
+                        <div class="layui-inline">
+                          <label class="layui-form-label">套餐名称：</label>
+                          <div class="layui-input-inline" style="width:150px">
+                            <input type="text" name="space[{$key}][name]" value="{$item.name}" class="layui-input" placeholder="如：10GB 云空间">
+                          </div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">空间大小：</label>
+                          <div class="layui-input-inline" style="width:100px">
+                            <input type="number" name="space[{$key}][size]" value="{$item.size}" class="layui-input" placeholder="MB">
+                          </div>
+                          <div class="layui-form-mid">MB</div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">价格：</label>
+                          <div class="layui-input-inline" style="width:100px">
+                            <input type="number" name="space[{$key}][price]" value="{$item.price}" class="layui-input" placeholder="元">
+                          </div>
+                          <div class="layui-form-mid">元</div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">描述：</label>
+                          <div class="layui-input-inline" style="width:200px">
+                            <input type="text" name="space[{$key}][desc]" value="{$item.desc}" class="layui-input" placeholder="套餐描述">
+                          </div>
+                        </div>
+                        <div class="layui-inline">
+                          <button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removePackageItem(this)"><i class="layui-icon layui-icon-delete"></i></button>
+                        </div>
+                      </div>
+                      {/foreach}
+                    </div>
                     <div class="layui-form-item">
-                      <label class="layui-form-label">AccessKey ID：</label>
-                      <div class="layui-input-block" style="width:500px;">
-                        <input type="text" name="ai_oss_access_key_id" value="{$business.ai_oss_access_key_id|default=''}" placeholder="请输入AccessKey ID" autocomplete="off" class="layui-input">
+                      <div class="layui-input-block" style="margin-left:150px;">
+                        <button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="addSpacePackage()"><i class="layui-icon layui-icon-add-1"></i> 添加云空间套餐</button>
                       </div>
                     </div>
-                    
+                  </div>
+                  
+                  <div class="form-section">
+                    <div class="form-section-title">账户余额充值套餐设置</div>
+                    <div id="balancePackageList">
+                      {foreach $package_settings.balance as $key=>$item}
+                      <div class="package-item layui-form-item" data-index="{$key}">
+                        <div class="layui-inline">
+                          <label class="layui-form-label">套餐名称：</label>
+                          <div class="layui-input-inline" style="width:150px">
+                            <input type="text" name="balance[{$key}][name]" value="{$item.name}" class="layui-input" placeholder="如：充值100元">
+                          </div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">充值金额：</label>
+                          <div class="layui-input-inline" style="width:100px">
+                            <input type="number" name="balance[{$key}][amount]" value="{$item.amount}" class="layui-input" placeholder="元">
+                          </div>
+                          <div class="layui-form-mid">元</div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">赠送金额：</label>
+                          <div class="layui-input-inline" style="width:100px">
+                            <input type="number" name="balance[{$key}][gift]" value="{$item.gift}" class="layui-input" placeholder="元">
+                          </div>
+                          <div class="layui-form-mid">元</div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">描述：</label>
+                          <div class="layui-input-inline" style="width:200px">
+                            <input type="text" name="balance[{$key}][desc]" value="{$item.desc}" class="layui-input" placeholder="套餐描述">
+                          </div>
+                        </div>
+                        <div class="layui-inline">
+                          <button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removePackageItem(this)"><i class="layui-icon layui-icon-delete"></i></button>
+                        </div>
+                      </div>
+                      {/foreach}
+                    </div>
                     <div class="layui-form-item">
-                      <label class="layui-form-label">AccessKey Secret：</label>
-                      <div class="layui-input-block" style="width:500px;">
-                        <input type="password" name="ai_oss_access_key_secret" value="{$business.ai_oss_access_key_secret|default=''}" placeholder="请输入AccessKey Secret" autocomplete="off" class="layui-input">
+                      <div class="layui-input-block" style="margin-left:150px;">
+                        <button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="addBalancePackage()"><i class="layui-icon layui-icon-add-1"></i> 添加余额套餐</button>
                       </div>
                     </div>
-                    
-                    <div class="layui-form-item">
-                      <label class="layui-form-label">Bucket名称：</label>
-                      <div class="layui-input-block" style="width:500px;">
-                        <input type="text" name="ai_oss_bucket" value="{$business.ai_oss_bucket|default=''}" placeholder="例如：my-bucket" autocomplete="off" class="layui-input">
+                  </div>
+                  
+                  <div class="form-section">
+                    <div class="form-section-title">旅拍续费套餐设置</div>
+                    <div id="renewPackageList">
+                      {foreach $package_settings.renew as $key=>$item}
+                      <div class="package-item layui-form-item" data-index="{$key}">
+                        <div class="layui-inline">
+                          <label class="layui-form-label">套餐名称：</label>
+                          <div class="layui-input-inline" style="width:150px">
+                            <input type="text" name="renew[{$key}][name]" value="{$item.name}" class="layui-input" placeholder="如：月卡">
+                          </div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">有效期：</label>
+                          <div class="layui-input-inline" style="width:100px">
+                            <input type="number" name="renew[{$key}][days]" value="{$item.days}" class="layui-input" placeholder="天">
+                          </div>
+                          <div class="layui-form-mid">天</div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">价格：</label>
+                          <div class="layui-input-inline" style="width:100px">
+                            <input type="number" name="renew[{$key}][price]" value="{$item.price}" class="layui-input" placeholder="元">
+                          </div>
+                          <div class="layui-form-mid">元</div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">描述：</label>
+                          <div class="layui-input-inline" style="width:200px">
+                            <input type="text" name="renew[{$key}][desc]" value="{$item.desc}" class="layui-input" placeholder="套餐描述">
+                          </div>
+                        </div>
+                        <div class="layui-inline">
+                          <button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removePackageItem(this)"><i class="layui-icon layui-icon-delete"></i></button>
+                        </div>
                       </div>
+                      {/foreach}
                     </div>
-                    
                     <div class="layui-form-item">
-                      <label class="layui-form-label">Endpoint：</label>
-                      <div class="layui-input-block" style="width:500px;">
-                        <input type="text" name="ai_oss_endpoint" value="{$business.ai_oss_endpoint|default=''}" placeholder="例如：oss-cn-hangzhou.aliyuncs.com" autocomplete="off" class="layui-input">
-                      </div>
-                    </div>
-                    
-                    <div class="layui-form-item">
-                      <label class="layui-form-label">CDN域名（选填）：</label>
-                      <div class="layui-input-block" style="width:500px;">
-                        <input type="text" name="ai_oss_domain" value="{$business.ai_oss_domain|default=''}" placeholder="例如：https://cdn.example.com" autocomplete="off" class="layui-input">
+                      <div class="layui-input-block" style="margin-left:150px;">
+                        <button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="addRenewPackage()"><i class="layui-icon layui-icon-add-1"></i> 添加续费套餐</button>
                       </div>
                     </div>
                   </div>
                   
                   <div class="layui-form-item">
                     <div class="layui-input-block" style="margin-left:150px;">
-                      <button class="layui-btn" lay-submit lay-filter="ossSubmit">保 存</button>
+                      <button class="layui-btn" lay-submit lay-filter="packageSubmit">保 存</button>
                     </div>
                   </div>
                 </form>
               </div>
-              
-              <!-- Tab3: API密钥管理 -->
-              <div class="layui-tab-item">
-                <div class="form-section">
-                  <div class="form-section-title">通义万相API密钥（图生图）</div>
-                  <blockquote class="layui-elem-quote layui-quote-nm">
-                    支持配置多个API Key轮询使用，突破单Key并发限制<br>
-                    官方限制：5个并发/秒，建议配置3-5个Key
-                  </blockquote>
-                  
-                  <div class="layui-btn-container" style="margin-bottom:10px;">
-                    <button class="layui-btn layui-btn-sm" onclick="addApiKey('tongyi_wanxiang')"><i class="layui-icon layui-icon-add-1"></i> 添加通义万相Key</button>
-                  </div>
-                  
-                  <table class="layui-hide" id="tongyiTable" lay-filter="tongyiTable"></table>
-                </div>
-                
-                <div class="form-section" style="margin-top:40px;">
-                  <div class="form-section-title">可灵AI API密钥（图生视频）</div>
-                  <blockquote class="layui-elem-quote layui-quote-nm">
-                    支持配置多个API Key轮询使用，突破单Key并发限制<br>
-                    官方限制：3个并发/秒，建议配置2-4个Key
-                  </blockquote>
-                  
-                  <div class="layui-btn-container" style="margin-bottom:10px;">
-                    <button class="layui-btn layui-btn-sm" onclick="addApiKey('kling_ai')"><i class="layui-icon layui-icon-add-1"></i> 添加可灵AI Key</button>
-                  </div>
-                  
-                  <table class="layui-hide" id="klingTable" lay-filter="klingTable"></table>
-                </div>
-                
-                <div class="form-section" style="margin-top:30px;">
-                  <fieldset class="layui-elem-field">
-                    <legend>使用说明</legend>
-                    <div class="layui-field-box">
-                      <ul style="padding-left:20px; line-height:2;">
-                        <li>系统自动按当前并发数选择最空闲的Key</li>
-                        <li>Key达到并发上限时自动切换到下一个可用Key</li>
-                        <li>建议每个模型至少配置2个以上Key保证高可用</li>
-                        <li>可在统计页面查看各Key的详细使用情况</li>
-                      </ul>
-                    </div>
-                  </fieldset>
-                </div>
-              </div>
-              
-              <!-- Tab4: 队列配置 -->
-              <div class="layui-tab-item">
-                <form class="layui-form" lay-filter="queueForm">
-                  <input type="hidden" name="tab" value="queue">
-                  
-                  <div class="form-section">
-                    <div class="form-section-title">抠图队列配置</div>
-                    
-                    <div class="layui-form-item">
-                      <label class="layui-form-label">并发数：</label>
-                      <div class="layui-input-inline">
-                        <input type="number" name="ai_queue_cutout_concurrent" value="{$business.ai_queue_cutout_concurrent|default='10'}" lay-verify="required" min="1" max="100" autocomplete="off" class="layui-input">
-                      </div>
-                      <div class="layui-form-mid layui-word-aux">个（范围：1-100）</div>
-                    </div>
-                    
-                    <div class="layui-form-item">
-                      <label class="layui-form-label">超时时间：</label>
-                      <div class="layui-input-inline">
-                        <input type="number" name="ai_queue_cutout_timeout" value="{$business.ai_queue_cutout_timeout|default='120'}" lay-verify="required" min="10" max="3600" autocomplete="off" class="layui-input">
-                      </div>
-                      <div class="layui-form-mid layui-word-aux">秒（范围：10-3600）</div>
-                    </div>
-                  </div>
-                  
-                  <div class="form-section">
-                    <div class="form-section-title">图生图队列配置</div>
-                    
-                    <div class="layui-form-item">
-                      <label class="layui-form-label">并发数：</label>
-                      <div class="layui-input-inline">
-                        <input type="number" name="ai_queue_image_concurrent" value="{$business.ai_queue_image_concurrent|default='5'}" lay-verify="required" min="1" max="100" autocomplete="off" class="layui-input">
-                      </div>
-                      <div class="layui-form-mid layui-word-aux">个（范围：1-100）</div>
-                    </div>
-                    
-                    <div class="layui-form-item">
-                      <label class="layui-form-label">超时时间：</label>
-                      <div class="layui-input-inline">
-                        <input type="number" name="ai_queue_image_timeout" value="{$business.ai_queue_image_timeout|default='180'}" lay-verify="required" min="10" max="3600" autocomplete="off" class="layui-input">
-                      </div>
-                      <div class="layui-form-mid layui-word-aux">秒（范围：10-3600）</div>
-                    </div>
-                  </div>
-                  
-                  <div class="form-section">
-                    <div class="form-section-title">图生视频队列配置</div>
-                    
-                    <div class="layui-form-item">
-                      <label class="layui-form-label">并发数：</label>
-                      <div class="layui-input-inline">
-                        <input type="number" name="ai_queue_video_concurrent" value="{$business.ai_queue_video_concurrent|default='3'}" lay-verify="required" min="1" max="100" autocomplete="off" class="layui-input">
-                      </div>
-                      <div class="layui-form-mid layui-word-aux">个（范围：1-100）</div>
-                    </div>
-                    
-                    <div class="layui-form-item">
-                      <label class="layui-form-label">超时时间：</label>
-                      <div class="layui-input-inline">
-                        <input type="number" name="ai_queue_video_timeout" value="{$business.ai_queue_video_timeout|default='600'}" lay-verify="required" min="10" max="3600" autocomplete="off" class="layui-input">
-                      </div>
-                      <div class="layui-form-mid layui-word-aux">秒（范围：10-3600）</div>
-                    </div>
-                  </div>
-                  
-                  <blockquote class="layui-elem-quote layui-quote-nm">
-                    <strong>说明：</strong><br>
-                    • 并发数不宜设置过大，建议根据API Key数量调整<br>
-                    • 超时时间应大于AI接口的平均响应时间<br>
-                    • 修改后需重启队列Worker才能生效
-                  </blockquote>
-                  
-                  <div class="layui-form-item">
-                    <div class="layui-input-block" style="margin-left:150px;">
-                      <button class="layui-btn" lay-submit lay-filter="queueSubmit">保 存</button>
-                    </div>
-                  </div>
-                </form>
-              </div>
-              
-              <!-- Tab5: 监控告警 -->
-              <div class="layui-tab-item">
-                <form class="layui-form" lay-filter="monitorForm">
-                  <input type="hidden" name="tab" value="monitor">
-                  
-                  <div class="form-section">
-                    <div class="form-section-title">告警阈值配置</div>
-                    
-                    <div class="layui-form-item">
-                      <label class="layui-form-label">队列积压阈值：</label>
-                      <div class="layui-input-inline">
-                        <input type="number" name="ai_monitor_queue_threshold" value="{$business.ai_monitor_queue_threshold|default='1000'}" lay-verify="required" min="1" autocomplete="off" class="layui-input">
-                      </div>
-                      <div class="layui-form-mid layui-word-aux">个（当前排队任务数超过此值时告警）</div>
-                    </div>
-                    
-                    <div class="layui-form-item">
-                      <label class="layui-form-label">失败率阈值：</label>
-                      <div class="layui-input-inline">
-                        <input type="number" name="ai_monitor_fail_rate" value="{$business.ai_monitor_fail_rate|default='5'}" lay-verify="required" min="1" max="100" autocomplete="off" class="layui-input">
-                      </div>
-                      <div class="layui-form-mid layui-word-aux">%（近1小时失败率超过此值时告警）</div>
-                    </div>
-                    
-                    <div class="layui-form-item">
-                      <label class="layui-form-label">响应时间阈值：</label>
-                      <div class="layui-input-inline">
-                        <input type="number" name="ai_monitor_response_time" value="{$business.ai_monitor_response_time|default='90'}" lay-verify="required" min="1" autocomplete="off" class="layui-input">
-                      </div>
-                      <div class="layui-form-mid layui-word-aux">秒（AI接口平均响应时间超过此值时告警）</div>
-                    </div>
-                  </div>
-                  
-                  <div class="form-section">
-                    <div class="form-section-title">告警接收方式</div>
-                    
-                    <div class="layui-form-item layui-form-text">
-                      <label class="layui-form-label">邮箱列表：</label>
-                      <div class="layui-input-block" style="width:500px;">
-                        <textarea name="ai_monitor_alert_emails" placeholder="请输入邮箱地址，一行一个" class="layui-textarea" style="height:120px;">{php}echo isset($business['ai_monitor_alert_emails']) && $business['ai_monitor_alert_emails'] ? implode("\n", json_decode($business['ai_monitor_alert_emails'], true)) : '';{/php}</textarea>
-                        <div class="layui-word-aux">一行一个邮箱地址</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <blockquote class="layui-elem-quote layui-quote-nm">
-                    <strong>说明：</strong><br>
-                    • 队列积压：当前排队任务数超过阈值时告警<br>
-                    • 失败率：近1小时失败率超过阈值时告警<br>
-                    • 响应时间：AI接口平均响应时间超过阈值时告警
-                  </blockquote>
-                  
-                  <div class="layui-form-item">
-                    <div class="layui-input-block" style="margin-left:150px;">
-                      <button class="layui-btn" lay-submit lay-filter="monitorSubmit">保 存</button>
-                    </div>
-                  </div>
-                </form>
-              </div>
-              
+              {/if}
+
             </div>
           </div>
         </div>
@@ -409,313 +317,87 @@
   </div>
   
   {include file="public/js"/}
-  
-  <!-- API Key编辑弹窗模板 -->
-  <script type="text/html" id="apiKeyFormTpl">
-    <form class="layui-form" lay-filter="apiKeyForm" style="padding:20px;">
-      <input type="hidden" name="id" value="{{d.id || 0}}">
-      <input type="hidden" name="model_type" value="{{d.model_type}}">
-      
-      <div class="layui-form-item">
-        <label class="layui-form-label">API Key：</label>
-        <div class="layui-input-block">
-          <input type="text" name="api_key" value="{{d.api_key || ''}}" lay-verify="required" placeholder="请输入API Key" autocomplete="off" class="layui-input">
-        </div>
-      </div>
-      
-      <div class="layui-form-item">
-        <label class="layui-form-label">API Secret：</label>
-        <div class="layui-input-block">
-          <input type="text" name="api_secret" value="{{d.api_secret || ''}}" placeholder="可选，部分API需要" autocomplete="off" class="layui-input">
-        </div>
-      </div>
-      
-      <div class="layui-form-item">
-        <label class="layui-form-label">最大并发数：</label>
-        <div class="layui-input-block">
-          <input type="number" name="max_concurrent" value="{{d.max_concurrent || 5}}" lay-verify="required" min="1" max="100" autocomplete="off" class="layui-input">
-          <div class="layui-word-aux">{{d.model_type == 'tongyi_wanxiang' ? '通义万相建议5个' : '可灵AI建议3个'}}</div>
-        </div>
-      </div>
-      
-      <div class="layui-form-item">
-        <label class="layui-form-label">单张图片成本：</label>
-        <div class="layui-input-block">
-          <input type="number" name="cost_per_image" value="{{d.cost_per_image || 0.05}}" lay-verify="required" step="0.01" autocomplete="off" class="layui-input">
-          <div class="layui-word-aux">元</div>
-        </div>
-      </div>
-      
-      <div class="layui-form-item">
-        <label class="layui-form-label">单个视频成本：</label>
-        <div class="layui-input-block">
-          <input type="number" name="cost_per_video" value="{{d.cost_per_video || 0.5}}" lay-verify="required" step="0.01" autocomplete="off" class="layui-input">
-          <div class="layui-word-aux">元（5秒：0.50元，10秒：1.00元）</div>
-        </div>
-      </div>
-      
-      <div class="layui-form-item">
-        <label class="layui-form-label">状态：</label>
-        <div class="layui-input-block">
-          <input type="checkbox" name="status" value="1" lay-skin="switch" lay-text="启用|禁用" {{d.status == 1 ? 'checked' : ''}}>
-        </div>
-      </div>
-      
-      <div class="layui-form-item">
-        <label class="layui-form-label">设为默认：</label>
-        <div class="layui-input-block">
-          <input type="checkbox" name="is_default" value="1" lay-skin="primary" title="默认Key" {{d.is_default == 1 ? 'checked' : ''}}>
-        </div>
-      </div>
-      
-      <div class="layui-form-item">
-        <div class="layui-input-block">
-          <button class="layui-btn layui-btn-sm" lay-submit lay-filter="apiKeySubmit">保 存</button>
-          <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="testApiKey()">测试连接</button>
-        </div>
-      </div>
-    </form>
-  </script>
-  
-  <!-- 表格工具栏模板 -->
-  <script type="text/html" id="apiKeyToolbar">
-    <a class="layui-btn layui-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i> 编辑</a>
-    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del"><i class="layui-icon layui-icon-delete"></i> 删除</a>
-  </script>
-  
+
   <script>
-  var table, form, layer, laytpl;
-  var currentModelType = '';
-  
-  layui.use(['form', 'table', 'layer', 'element', 'laytpl'], function(){
-    table = layui.table;
-    form = layui.form;
-    layer = layui.layer;
-    var element = layui.element;
-    laytpl = layui.laytpl;
+  layui.use(['form'], function(){
+    var form = layui.form;
     
-    // 初始化API Key表格
-    initApiKeyTables();
-    
-    // Tab切换事件
-    element.on('tab(settingTabs)', function(data){
-      var tabId = this.getAttribute('lay-id');
-      if(tabId == 'tab3') {
-        // 刷新API Key表格
-        table.reload('tongyiTable');
-        table.reload('klingTable');
-      }
-    });
-    
-    // 基础设置提交
+      // 基础设置提交
     form.on('submit(basicSubmit)', function(data){
-      submitForm(data.field);
-      return false;
-    });
-    
-    // OSS配置提交
-    form.on('submit(ossSubmit)', function(data){
-      submitForm(data.field);
-      return false;
-    });
-    
-    // 队列配置提交
-    form.on('submit(queueSubmit)', function(data){
-      submitForm(data.field);
-      return false;
-    });
-    
-    // 监控配置提交
-    form.on('submit(monitorSubmit)', function(data){
-      submitForm(data.field);
-      return false;
-    });
-    
-    // API Key保存
-    form.on('submit(apiKeySubmit)', function(data){
       var index = layer.load();
-      $.post("{:url('api_key_save')}", data.field, function(res){
+      $.post("{:url('settings')}", data.field, function(data){
         layer.close(index);
-        if(res.status == 1){
-          layer.msg(res.msg, {icon: 1, time: 1500}, function(){
-            layer.closeAll('page');
-            // 刷新对应的表格
-            if(currentModelType == 'tongyi_wanxiang') {
-              table.reload('tongyiTable');
-            } else {
-              table.reload('klingTable');
-            }
+        if(data.status == 1){
+          layer.msg(data.msg, {icon: 1, time: 1500}, function(){
+            location.reload();
           });
         } else {
-          layer.msg(res.msg, {icon: 2});
+          layer.msg(data.msg, {icon: 2});
         }
       });
       return false;
     });
     
-    // 表格工具栏事件
-    table.on('tool(tongyiTable)', function(obj){
-      handleTableTool(obj, 'tongyi_wanxiang');
-    });
-    
-    table.on('tool(klingTable)', function(obj){
-      handleTableTool(obj, 'kling_ai');
+    // 套餐定价提交
+    form.on('submit(packageSubmit)', function(data){
+      var index = layer.load();
+      $.post("{:url('settings')}", data.field, function(data){
+        layer.close(index);
+        if(data.status == 1){
+          layer.msg(data.msg, {icon: 1, time: 1500});
+        } else {
+          layer.msg(data.msg, {icon: 2});
+        }
+      });
+      return false;
     });
   });
   
-  // 初始化API Key表格
-  function initApiKeyTables() {
-    // 通义万相表格
-    table.render({
-      elem: '#tongyiTable',
-      url: "{:url('api_key_list')}",
-      where: {model_type: 'tongyi_wanxiang'},
-      cols: [[
-        {field: 'id', title: 'ID', width: 60, align: 'center'},
-        {field: 'api_key_masked', title: 'API Key', width: 200},
-        {field: 'status_text', title: '状态', width: 80, align: 'center'},
-        {field: 'concurrent_text', title: '并发', width: 100, align: 'center'},
-        {field: 'stats_text', title: '调用统计', width: 100, align: 'center'},
-        {field: 'success_rate', title: '成功率', width: 100, align: 'center'},
-        {field: 'total_cost', title: '总成本(元)', width: 120, align: 'center'},
-        {field: 'last_call_time_text', title: '最后调用', width: 160, align: 'center'},
-        {fixed: 'right', title: '操作', toolbar: '#apiKeyToolbar', width: 150, align: 'center'}
-      ]],
-      page: false,
-      limit: 100
-    });
-    
-    // 可灵AI表格
-    table.render({
-      elem: '#klingTable',
-      url: "{:url('api_key_list')}",
-      where: {model_type: 'kling_ai'},
-      cols: [[
-        {field: 'id', title: 'ID', width: 60, align: 'center'},
-        {field: 'api_key_masked', title: 'API Key', width: 200},
-        {field: 'status_text', title: '状态', width: 80, align: 'center'},
-        {field: 'concurrent_text', title: '并发', width: 100, align: 'center'},
-        {field: 'stats_text', title: '调用统计', width: 100, align: 'center'},
-        {field: 'success_rate', title: '成功率', width: 100, align: 'center'},
-        {field: 'total_cost', title: '总成本(元)', width: 120, align: 'center'},
-        {field: 'last_call_time_text', title: '最后调用', width: 160, align: 'center'},
-        {fixed: 'right', title: '操作', toolbar: '#apiKeyToolbar', width: 150, align: 'center'}
-      ]],
-      page: false,
-      limit: 100
-    });
+  // 动态添加云空间套餐
+  function addSpacePackage() {
+    var index = $('#spacePackageList .package-item').length;
+    var html = '<div class="package-item layui-form-item" data-index="' + index + '">';
+    html += '<div class="layui-inline"><label class="layui-form-label">套餐名称：</label><div class="layui-input-inline" style="width:150px"><input type="text" name="space[' + index + '][name]" class="layui-input" placeholder="如：10GB 云空间"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">空间大小：</label><div class="layui-input-inline" style="width:100px"><input type="number" name="space[' + index + '][size]" class="layui-input" placeholder="MB"></div><div class="layui-form-mid">MB</div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">价格：</label><div class="layui-input-inline" style="width:100px"><input type="number" name="space[' + index + '][price]" class="layui-input" placeholder="元"></div><div class="layui-form-mid">元</div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">描述：</label><div class="layui-input-inline" style="width:200px"><input type="text" name="space[' + index + '][desc]" class="layui-input" placeholder="套餐描述"></div></div>';
+    html += '<div class="layui-inline"><button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removePackageItem(this)"><i class="layui-icon layui-icon-delete"></i></button></div>';
+    html += '</div>';
+    $('#spacePackageList').append(html);
+    layui.form.render();
   }
   
-  // 处理表格工具栏事件
-  function handleTableTool(obj, modelType) {
-    var data = obj.data;
-    if(obj.event === 'edit'){
-      editApiKey(data, modelType);
-    } else if(obj.event === 'del'){
-      layer.confirm('确定要删除这个API Key吗？', function(index){
-        var loadIndex = layer.load();
-        $.post("{:url('api_key_delete')}", {id: data.id}, function(res){
-          layer.close(loadIndex);
-          if(res.status == 1){
-            layer.msg(res.msg, {icon: 1});
-            obj.del();
-          } else {
-            layer.msg(res.msg, {icon: 2});
-          }
-        });
-        layer.close(index);
-      });
-    }
+  // 动态添加余额套餐
+  function addBalancePackage() {
+    var index = $('#balancePackageList .package-item').length;
+    var html = '<div class="package-item layui-form-item" data-index="' + index + '">';
+    html += '<div class="layui-inline"><label class="layui-form-label">套餐名称：</label><div class="layui-input-inline" style="width:150px"><input type="text" name="balance[' + index + '][name]" class="layui-input" placeholder="如：充值100元"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">充值金额：</label><div class="layui-input-inline" style="width:100px"><input type="number" name="balance[' + index + '][amount]" class="layui-input" placeholder="元"></div><div class="layui-form-mid">元</div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">赠送金额：</label><div class="layui-input-inline" style="width:100px"><input type="number" name="balance[' + index + '][gift]" class="layui-input" placeholder="元"></div><div class="layui-form-mid">元</div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">描述：</label><div class="layui-input-inline" style="width:200px"><input type="text" name="balance[' + index + '][desc]" class="layui-input" placeholder="套餐描述"></div></div>';
+    html += '<div class="layui-inline"><button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removePackageItem(this)"><i class="layui-icon layui-icon-delete"></i></button></div>';
+    html += '</div>';
+    $('#balancePackageList').append(html);
+    layui.form.render();
   }
   
-  // 添加API Key
-  function addApiKey(modelType) {
-    currentModelType = modelType;
-    var title = modelType == 'tongyi_wanxiang' ? '添加通义万相Key' : '添加可灵AI Key';
-    openApiKeyForm({model_type: modelType}, title);
+  // 动态添加续费套餐
+  function addRenewPackage() {
+    var index = $('#renewPackageList .package-item').length;
+    var html = '<div class="package-item layui-form-item" data-index="' + index + '">';
+    html += '<div class="layui-inline"><label class="layui-form-label">套餐名称：</label><div class="layui-input-inline" style="width:150px"><input type="text" name="renew[' + index + '][name]" class="layui-input" placeholder="如：月卡"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">有效期：</label><div class="layui-input-inline" style="width:100px"><input type="number" name="renew[' + index + '][days]" class="layui-input" placeholder="天"></div><div class="layui-form-mid">天</div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">价格：</label><div class="layui-input-inline" style="width:100px"><input type="number" name="renew[' + index + '][price]" class="layui-input" placeholder="元"></div><div class="layui-form-mid">元</div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">描述：</label><div class="layui-input-inline" style="width:200px"><input type="text" name="renew[' + index + '][desc]" class="layui-input" placeholder="套餐描述"></div></div>';
+    html += '<div class="layui-inline"><button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removePackageItem(this)"><i class="layui-icon layui-icon-delete"></i></button></div>';
+    html += '</div>';
+    $('#renewPackageList').append(html);
+    layui.form.render();
   }
   
-  // 编辑API Key
-  function editApiKey(data, modelType) {
-    currentModelType = modelType;
-    // 获取完整的API Key
-    var index = layer.load();
-    $.get("{:url('api_key_list')}", {model_type: modelType, limit: 1000}, function(res){
-      layer.close(index);
-      if(res.code == 0) {
-        var fullData = null;
-        for(var i = 0; i < res.data.length; i++) {
-          if(res.data[i].id == data.id) {
-            fullData = res.data[i];
-            break;
-          }
-        }
-        if(fullData) {
-          var title = modelType == 'tongyi_wanxiang' ? '编辑通义万相Key' : '编辑可灵AI Key';
-          openApiKeyForm(fullData, title);
-        }
-      }
-    });
-  }
-  
-  // 打开API Key表单弹窗
-  function openApiKeyForm(data, title) {
-    var getTpl = $('#apiKeyFormTpl').html();
-    laytpl(getTpl).render(data, function(html){
-      layer.open({
-        type: 1,
-        title: title,
-        content: html,
-        area: ['600px', '650px'],
-        success: function(layero, index){
-          form.render();
-        }
-      });
-    });
-  }
-  
-  // 测试API Key连接
-  function testApiKey() {
-    var apiKey = $('input[name="api_key"]').val();
-    if(!apiKey) {
-      layer.msg('请先填写API Key', {icon: 0});
-      return;
-    }
-    
-    var index = layer.load();
-    $.post("{:url('api_key_test')}", {
-      model_type: currentModelType,
-      api_key: apiKey
-    }, function(res){
-      layer.close(index);
-      if(res.status == 1){
-        var msg = 'API Key格式验证通过';
-        if(res.data && res.data.response_time) {
-          msg += '，响应时间：' + res.data.response_time + '秒';
-        }
-        layer.msg(msg, {icon: 1, time: 2000});
-      } else {
-        layer.msg('验证失败：' + res.msg, {icon: 2, time: 3000});
-      }
-    }).fail(function(){
-      layer.close(index);
-      layer.msg('测试请求失败，请检查网络连接', {icon: 2});
-    });
-  }
-  
-  // 提交表单
-  function submitForm(field) {
-    var index = layer.load();
-    $.post("{:url('settings')}", field, function(data){
-      layer.close(index);
-      if(data.status == 1){
-        layer.msg(data.msg, {icon: 1, time: 1500}, function(){
-          location.reload();
-        });
-      } else {
-        layer.msg(data.msg, {icon: 2});
-      }
-    });
+  // 删除套餐项
+  function removePackageItem(btn) {
+    $(btn).closest('.package-item').remove();
   }
   </script>
   

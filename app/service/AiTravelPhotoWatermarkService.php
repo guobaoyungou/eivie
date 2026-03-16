@@ -374,7 +374,7 @@ class AiTravelPhotoWatermarkService
      */
     private function uploadWatermarkedImage(string $localFile, $result): string
     {
-        $ossPath = config('ai_travel_photo.oss.ai_travel_photo_path') . 
+        $ossPath = config('ai_travel_photo.oss.ai_travel_photo_path', 'ai_travel_photo/') .
             "watermark/{$result->portrait->md5}_{$result->scene_id}_" . time() . "_wm.jpg";
         
         return $this->ossHelper->uploadFile($localFile, $ossPath);
