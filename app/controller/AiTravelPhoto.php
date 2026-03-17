@@ -5062,7 +5062,8 @@ class AiTravelPhoto extends Common
 
             // 调用合成服务执行生成
             $synthesisService = new \app\service\AiTravelPhotoSynthesisService();
-            $result = $synthesisService->generate($portrait, $selectedTemplates);
+            $operatorName = $this->user['un'] ?? '';
+            $result = $synthesisService->generate($portrait, $selectedTemplates, $operatorName);
 
             if ($result['code'] === 0) {
                 return json(['code' => 0, 'msg' => '生成成功', 'data' => $result['data']]);
@@ -5201,6 +5202,9 @@ class AiTravelPhoto extends Common
             $successCount = 0;
             $failCount = 0;
 
+            // 获取当前操作者账号名
+            $operatorName = $this->user['un'] ?? '';
+
             // 先将所有人像状态更新为"处理中"
             $portraitIds = array_column($portraits->toArray(), 'id');
             if (!empty($portraitIds)) {
@@ -5236,7 +5240,7 @@ class AiTravelPhoto extends Common
                 }
 
                 try {
-                    $result = $synthesisService->generate($portrait, $selectedTemplates);
+                    $result = $synthesisService->generate($portrait, $selectedTemplates, $operatorName);
                     $resultCount = $result['data']['count'] ?? 0;
                     if ($result['code'] === 0 && $resultCount > 0) {
                         // 更新人像合成状态为成功(3)
@@ -5401,7 +5405,8 @@ class AiTravelPhoto extends Common
             // 调试日志：记录选中的模板
             \think\facade\Log::info('synthesis_retry 选中的模板: ' . json_encode($selectedTemplates, JSON_UNESCAPED_UNICODE));
 
-            $result = $synthesisService->generate($portrait, $selectedTemplates);
+            $operatorName = $this->user['un'] ?? '';
+            $result = $synthesisService->generate($portrait, $selectedTemplates, $operatorName);
 
             $resultCount = $result['data']['count'] ?? 0;
             if ($result['code'] === 0 && $resultCount > 0) {

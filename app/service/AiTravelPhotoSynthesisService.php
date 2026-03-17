@@ -42,7 +42,7 @@ class AiTravelPhotoSynthesisService
      * @param array $templates 模板列表
      * @return array
      */
-    public function generate(array $portrait, array $templates): array
+    public function generate(array $portrait, array $templates, string $operatorName = ''): array
     {
         try {
             $portraitId = $portrait['id'];
@@ -132,7 +132,7 @@ class AiTravelPhotoSynthesisService
 
                     // 写入照片生成订单管理（generation_order表）
                     try {
-                        $this->createGenerationOrder($portrait, $template, $generationId, 2); // 2=成功
+                        $this->createGenerationOrder($portrait, $template, $generationId, 2, $operatorName); // 2=成功
                     } catch (\Exception $orderEx) {
                         Log::error('创建生成订单失败[' . $templateName . ']: ' . $orderEx->getMessage());
                     }
@@ -144,7 +144,7 @@ class AiTravelPhotoSynthesisService
 
                     // 失败的也写入订单管理
                     try {
-                        $this->createGenerationOrder($portrait, $template, $generationId, 3); // 3=失败
+                        $this->createGenerationOrder($portrait, $template, $generationId, 3, $operatorName); // 3=失败
                     } catch (\Exception $orderEx) {
                         Log::error('创建失败订单记录失败[' . $templateName . ']: ' . $orderEx->getMessage());
                     }
@@ -1132,7 +1132,7 @@ class AiTravelPhotoSynthesisService
      * @param int $taskStatus 任务状态 2=成功 3=失败
      * @return int 订单ID
      */
-    protected function createGenerationOrder(array $portrait, array $template, int $generationId, int $taskStatus): int
+    protected function createGenerationOrder(array $portrait, array $template, int $generationId, int $taskStatus, string $operatorName = ''): int
     {
         $aid = $portrait['aid'] ?? 0;
         $bid = $portrait['bid'] ?? 0;
@@ -1157,13 +1157,14 @@ class AiTravelPhotoSynthesisService
         // 生成订单号：PG + 日期时间 + 随机数
         $ordernum = 'PG' . date('YmdHis') . rand(1000, 9999);
 
-        // 构建模板快照
+        // 构建模板快照（包含操作者信息）
         $templateSnapshot = json_encode([
             'id' => $templateId,
             'template_name' => $templateName,
             'model_id' => $template['model_id'] ?? 0,
             'source' => 'ai_travel_photo_synthesis', // 标识来源为人像合成
             'portrait_id' => $portrait['id'] ?? 0,
+            'operator_name' => $operatorName, // 提交人账号名
         ], JSON_UNESCAPED_UNICODE);
 
         $orderData = [
@@ -1183,7 +1184,7 @@ class AiTravelPhotoSynthesisService
             'task_status' => $taskStatus,
             'record_id' => $generationId, // 关联ai_travel_photo_generation记录ID
             'template_snapshot' => $templateSnapshot,
-            'remark' => '人像合成自动生成（人像ID:' . ($portrait['id'] ?? 0) . '）',
+            'remark' => $operatorName ? ('提交人:' . $operatorName . ' 人像ID:' . ($portrait['id'] ?? 0)) : ('人像合成自动生成 人像ID:' . ($portrait['id'] ?? 0)),
             'status' => 1,
             'createtime' => time(),
             'updatetime' => time()

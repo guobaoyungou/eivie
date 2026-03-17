@@ -555,6 +555,14 @@ class GenerationOrderService
             $item['refund_status_text'] = $this->getRefundStatusText($item['refund_status']);
             $item['task_status_text'] = $this->getTaskStatusText($item['task_status']);
             $item['generation_type_text'] = $item['generation_type'] == self::TYPE_PHOTO ? '照片生成' : '视频生成';
+            
+            // 当nickname为空时，尝试从template_snapshot中提取操作者名称（人像合成订单）
+            if (empty($item['nickname']) && !empty($item['template_snapshot'])) {
+                $snapshot = json_decode($item['template_snapshot'], true);
+                if (is_array($snapshot) && !empty($snapshot['operator_name'])) {
+                    $item['nickname'] = $snapshot['operator_name'];
+                }
+            }
         }
         
         return ['count' => $count, 'data' => $list];
@@ -599,6 +607,14 @@ class GenerationOrderService
         $order['refund_status_text'] = $this->getRefundStatusText($order['refund_status']);
         $order['task_status_text'] = $this->getTaskStatusText($order['task_status']);
         $order['generation_type_text'] = $order['generation_type'] == self::TYPE_PHOTO ? '照片生成' : '视频生成';
+        
+        // 当nickname为空时，尝试从template_snapshot中提取操作者名称（人像合成订单）
+        if (empty($order['nickname']) && !empty($order['template_snapshot'])) {
+            $snapshot = json_decode($order['template_snapshot'], true);
+            if (is_array($snapshot) && !empty($snapshot['operator_name'])) {
+                $order['nickname'] = $snapshot['operator_name'];
+            }
+        }
         
         // 获取关联的生成记录
         if ($order['record_id'] > 0) {
