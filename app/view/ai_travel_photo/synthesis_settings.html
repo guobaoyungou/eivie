@@ -289,11 +289,11 @@
 
     var html = '<div class="selected-items-container">';
     html += '已关联 <strong>' + selectedTemplateIds.length + '</strong> 个模板：';
-    var count = Math.min(selectedTemplateIds.length, parseInt($('#generateCount').val() || 4));
+    var count = parseInt($('#generateCount').val() || 4);
     html += '<span style="color:#1e9fff">将生成 ' + count + ' 张图片</span>';
 
-    if(selectedTemplateIds.length < parseInt($('#generateCount').val() || 4)){
-      html += '<span style="color:#ff5722;margin-left:10px;">（模板数量不足，请减少合成数量）</span>';
+    if(selectedTemplateIds.length < count){
+      html += '<span style="color:#1e9fff;margin-left:10px;">（模板将循环使用）</span>';
     }
     
     html += '<div style="margin-top:10px;">';
@@ -362,9 +362,7 @@
     }
 
     if(generateCount > selectedTemplateIds.length){
-      layer.msg('合成数量不能超过选中的模板数量');
-      if(callback) callback({code: 1, msg: '合成数量不能超过选中的模板数量'});
-      return;
+      // 允许合成数量 > 模板数，系统将循环使用模板
     }
 
     $.post('{:url("synthesis_settings_save")}', {

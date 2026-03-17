@@ -4842,6 +4842,7 @@ class AiTravelPhoto extends Common
         ]);
 
         // 获取可用的照片场景模板列表（从generation_scene_template表查询，generation_type=1为照片生成）
+        // 仅加载模型能力包含「多张参考图生成」(multi_input)的场景模板
         try {
             $templates = Db::name('generation_scene_template')
                 ->alias('t')
@@ -4854,6 +4855,7 @@ class AiTravelPhoto extends Common
                 })
                 ->where('t.generation_type', 1) // 照片生成
                 ->where('t.status', 1)
+                ->whereRaw("JSON_CONTAINS(m.capability_tags, '\"multi_input\"')")
                 ->field('t.id, t.template_name as scene_name, t.category, t.cover_image, t.model_id, t.output_quantity, t.use_count, t.sort, m.model_name, p.provider_name')
                 ->order('t.sort ASC, t.id DESC')
                 ->select();
@@ -4909,10 +4911,8 @@ class AiTravelPhoto extends Common
                 return json(['code' => 1, 'msg' => '合成数量应在1-10之间']);
             }
 
-            // 检查模板数量是否足够
-            if ($generateCount > count($templateIds)) {
-                return json(['code' => 1, 'msg' => '合成数量不能超过选中的模板数量']);
-            }
+            // 允许合成数量 > 模板数量，系统将循环使用模板
+            // 例如：2个模板 + 合成数量3 → 模板1、模板2、模板1
 
             // 处理 bid = 0 的情况（后台管理员），查询默认商户
             $targetBid = $this->bid;
@@ -5040,18 +5040,24 @@ class AiTravelPhoto extends Common
                 return json(['code' => 1, 'msg' => '部分场景模板已失效，请重新设置']);
             }
 
-            // 根据模式选择模板
+            // 根据模式选择模板（支持循环：当N>模板数时重复使用模板，1个模板生成1张）
+            $templatesArray = $templates->toArray();
             $selectedTemplates = [];
             if ($generateMode == 1) {
-                // 顺序模式：按顺序取模板，循环使用
+                // 顺序模式：按顺序循环取模板
                 for ($i = 0; $i < $generateCount; $i++) {
-                    $selectedTemplates[] = $templates[$i % count($templates)];
+                    $selectedTemplates[] = $templatesArray[$i % count($templatesArray)];
                 }
             } else {
-                // 随机模式：随机抽取模板
-                $shuffled = $templates->toArray();
-                shuffle($shuffled);
-                $selectedTemplates = array_slice($shuffled, 0, $generateCount);
+                // 随机模式：每轮打乱后依次取，用完再重新打乱，直到凑够N个
+                $pool = [];
+                for ($i = 0; $i < $generateCount; $i++) {
+                    if (empty($pool)) {
+                        $pool = $templatesArray;
+                        shuffle($pool);
+                    }
+                    $selectedTemplates[] = array_shift($pool);
+                }
             }
 
             // 调用合成服务执行生成
@@ -5206,19 +5212,27 @@ class AiTravelPhoto extends Common
                     ]);
             }
 
+            // 统一转为数组，避免Collection索引访问问题
+            $templatesArray = $templates->toArray();
+
             foreach ($portraits as $portrait) {
-                // 根据模式选择模板
+                // 根据模式选择模板（支持循环：当N>模板数时重复使用模板）
                 $selectedTemplates = [];
                 if ($generateMode == 1) {
-                    // 顺序模式
+                    // 顺序模式：按顺序循环取模板，1个模板生成1张
                     for ($i = 0; $i < $generateCount; $i++) {
-                        $selectedTemplates[] = $templates[$i % count($templates)];
+                        $selectedTemplates[] = $templatesArray[$i % count($templatesArray)];
                     }
                 } else {
-                    // 随机模式
-                    $shuffled = $templates->toArray();
-                    shuffle($shuffled);
-                    $selectedTemplates = array_slice($shuffled, 0, $generateCount);
+                    // 随机模式：每轮打乱后依次取，用完再重新打乱，直到凑够N个
+                    $pool = [];
+                    for ($i = 0; $i < $generateCount; $i++) {
+                        if (empty($pool)) {
+                            $pool = $templatesArray;
+                            shuffle($pool);
+                        }
+                        $selectedTemplates[] = array_shift($pool);
+                    }
                 }
 
                 try {
@@ -5364,17 +5378,24 @@ class AiTravelPhoto extends Common
                 return json(['code' => 1, 'msg' => '服务初始化失败: ' . $e->getMessage()]);
             }
 
-            // 根据模式选择模板（确保转换为数组）
+            // 根据模式选择模板（支持循环：当N>模板数时重复使用模板，1个模板生成1张）
             $templatesArray = $templates->toArray();
             $selectedTemplates = [];
             if ($generateMode == 1) {
+                // 顺序模式：按顺序循环取模板
                 for ($i = 0; $i < $generateCount; $i++) {
                     $selectedTemplates[] = $templatesArray[$i % count($templatesArray)];
                 }
             } else {
-                $shuffled = $templatesArray;
-                shuffle($shuffled);
-                $selectedTemplates = array_slice($shuffled, 0, $generateCount);
+                // 随机模式：每轮打乱后依次取，用完再重新打乱，直到凑够N个
+                $pool = [];
+                for ($i = 0; $i < $generateCount; $i++) {
+                    if (empty($pool)) {
+                        $pool = $templatesArray;
+                        shuffle($pool);
+                    }
+                    $selectedTemplates[] = array_shift($pool);
+                }
             }
 
             // 调试日志：记录选中的模板
