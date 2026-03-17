@@ -129,11 +129,26 @@ class AiTravelPhotoSynthesisService
                         'result_url' => $generatedUrl,
                         'watermarked_url' => $watermarkedUrl
                     ];
+
+                    // 写入照片生成订单管理（generation_order表）
+                    try {
+                        $this->createGenerationOrder($portrait, $template, $generationId, 2); // 2=成功
+                    } catch (\Exception $orderEx) {
+                        Log::error('创建生成订单失败[' . $templateName . ']: ' . $orderEx->getMessage());
+                    }
                 } catch (\Exception $e) {
                     // 更新generation状态为失败，记录error_msg
                     if ($generationId > 0) {
                         $this->updateGenerationStatus($generationId, 3, $e->getMessage());
                     }
+
+                    // 失败的也写入订单管理
+                    try {
+                        $this->createGenerationOrder($portrait, $template, $generationId, 3); // 3=失败
+                    } catch (\Exception $orderEx) {
+                        Log::error('创建失败订单记录失败[' . $templateName . ']: ' . $orderEx->getMessage());
+                    }
+
                     $lastError = $e->getMessage();
                     Log::error('合成模板[' . $templateName . ']失败: ' . $e->getMessage());
                 }
@@ -1108,6 +1123,85 @@ class AiTravelPhotoSynthesisService
      * @param int $generationId 关联的generation记录ID
      * @return int
      */
+    /**
+     * 创建生成订单记录（写入generation_order表，使其出现在照片生成的订单管理中）
+     *
+     * @param array $portrait 人像信息
+     * @param array $template 模板信息
+     * @param int $generationId 合成generation记录ID
+     * @param int $taskStatus 任务状态 2=成功 3=失败
+     * @return int 订单ID
+     */
+    protected function createGenerationOrder(array $portrait, array $template, int $generationId, int $taskStatus): int
+    {
+        $aid = $portrait['aid'] ?? 0;
+        $bid = $portrait['bid'] ?? 0;
+        $uid = $portrait['uid'] ?? 0;
+
+        // 尝试通过uid查找对应的会员mid
+        $mid = 0;
+        if ($uid > 0) {
+            $member = Db::name('member')->where('id', $uid)->field('id')->find();
+            if ($member) {
+                $mid = $member['id'];
+            }
+        }
+
+        $templateId = $template['id'] ?? 0;
+        $templateName = $template['template_name'] ?? $template['name'] ?? '';
+
+        // 获取模板价格（免费合成场景下为0）
+        $basePrice = floatval($template['base_price'] ?? 0);
+        $payPrice = $basePrice; // 合成场景直接使用模板原价
+
+        // 生成订单号：PG + 日期时间 + 随机数
+        $ordernum = 'PG' . date('YmdHis') . rand(1000, 9999);
+
+        // 构建模板快照
+        $templateSnapshot = json_encode([
+            'id' => $templateId,
+            'template_name' => $templateName,
+            'model_id' => $template['model_id'] ?? 0,
+            'source' => 'ai_travel_photo_synthesis', // 标识来源为人像合成
+            'portrait_id' => $portrait['id'] ?? 0,
+        ], JSON_UNESCAPED_UNICODE);
+
+        $orderData = [
+            'aid' => $aid,
+            'bid' => $bid,
+            'mid' => $mid,
+            'ordernum' => $ordernum,
+            'generation_type' => 1, // 照片生成
+            'scene_id' => $templateId,
+            'scene_name' => $templateName,
+            'total_price' => $basePrice,
+            'pay_price' => $payPrice,
+            'pay_status' => $payPrice > 0 ? 1 : 1, // 合成场景直接标记已支付（商家后台操作）
+            'pay_time' => time(),
+            'paytype' => $payPrice > 0 ? '商家合成扣费' : '免费',
+            'refund_status' => 0,
+            'task_status' => $taskStatus,
+            'record_id' => $generationId, // 关联ai_travel_photo_generation记录ID
+            'template_snapshot' => $templateSnapshot,
+            'remark' => '人像合成自动生成（人像ID:' . ($portrait['id'] ?? 0) . '）',
+            'status' => 1,
+            'createtime' => time(),
+            'updatetime' => time()
+        ];
+
+        $orderId = (int)Db::name('generation_order')->insertGetId($orderData);
+
+        Log::info('合成订单已写入generation_order', [
+            'order_id' => $orderId,
+            'ordernum' => $ordernum,
+            'portrait_id' => $portrait['id'] ?? 0,
+            'template_id' => $templateId,
+            'task_status' => $taskStatus
+        ]);
+
+        return $orderId;
+    }
+
     protected function saveResult(int $portraitId, int $bid, array $template, string $resultUrl, int $generationId = 0)
     {
         // 获取人像信息中的aid
