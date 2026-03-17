@@ -234,7 +234,7 @@ class AiTravelPhotoSynthesisService
      * 调用AI模型生成图片
      *
      * @param string $portraitUrl 人像图片URL（抠图后的人像）
-     * @param array $template 模板信息（包含model_id, prompt, images等）
+     * @param array $template 模板信息（包含model_id, prompt, default_params等）
      * @return string|null
      */
     protected function callAiModel(string $portraitUrl, array $template): ?string
@@ -263,54 +263,51 @@ class AiTravelPhotoSynthesisService
             throw new \Exception('未找到可用的API配置');
         }
 
-        // 2. 获取模板图片作为参考图
-        // 支持三种格式：
-        // - 合成模板(ai_travel_photo_synthesis_template)：images字段（JSON数组）
-        // - 照片场景模板(ai_travel_photo_scene)：reference_image字段（逗号分隔的字符串）
-        // - 生成场景模板(generation_scene_template)：cover_image字段（封面图）
+        // 2. 解析模板的 default_params（完整的API请求预设参数）
+        $defaultParams = [];
+        if (!empty($template['default_params'])) {
+            $defaultParams = is_string($template['default_params'])
+                ? json_decode($template['default_params'], true)
+                : $template['default_params'];
+            if (!is_array($defaultParams)) {
+                $defaultParams = [];
+            }
+        }
+
+        // 3. 获取参考图：优先从 default_params.image 获取，其次从模板字段获取
         $referenceImage = '';
-        
-        if (!empty($template['cover_image'])) {
-            // 生成场景模板：cover_image字段作为参考图
+        if (!empty($defaultParams['image'])) {
+            // default_params 已包含完整的参考图数组，后续直接使用
+            // referenceImage 留空，由 callVolcengineImageApi 从 defaultParams 中读取
+        } elseif (!empty($template['cover_image'])) {
             $referenceImage = $template['cover_image'];
         } elseif (!empty($template['reference_image'])) {
-            // 照片场景模板：reference_image字段，逗号分隔
             $refImages = explode(',', $template['reference_image']);
             $referenceImage = trim($refImages[0]);
         } elseif (!empty($template['images'])) {
-            // 合成模板：images字段，JSON数组
-            $templateImages = !empty($template['images']) ? json_decode($template['images'], true) : [];
+            $templateImages = json_decode($template['images'], true);
             if (!is_array($templateImages)) {
                 $templateImages = is_array($template['images']) ? $template['images'] : [];
             }
             $referenceImage = !empty($templateImages) ? $templateImages[0] : '';
         }
 
-        // 3. 获取提示词
-        // 支持从 prompt 字段或 default_params JSON 中获取
-        $prompt = '';
-        if (!empty($template['prompt'])) {
+        // 4. 获取提示词：优先 default_params.prompt，其次模板字段
+        $prompt = $defaultParams['prompt'] ?? '';
+        if (empty($prompt) && !empty($template['prompt'])) {
             $prompt = $template['prompt'];
-        } elseif (!empty($template['default_params'])) {
-            // default_params 是JSON字段
-            $defaultParams = is_string($template['default_params']) 
-                ? json_decode($template['default_params'], true) 
-                : $template['default_params'];
-            $prompt = $defaultParams['prompt'] ?? '';
         }
-        // 回退使用模板描述
         if (empty($prompt) && !empty($template['description'])) {
             $prompt = $template['description'];
         }
-        // 默认提示词
         if (empty($prompt)) {
             $prompt = '生成一张高质量旅拍照片';
         }
 
-        Log::info('callAiModel 参数: modelId=' . $modelId . ', prompt=' . substr($prompt, 0, 50) . '..., referenceImage=' . $referenceImage);
+        Log::info('callAiModel 参数: modelId=' . $modelId . ', prompt=' . substr($prompt, 0, 50) . '..., referenceImage=' . $referenceImage . ', hasDefaultParams=' . (!empty($defaultParams) ? 'yes' : 'no'));
 
-        // 4. 调用AI图生图API
-        $resultUrl = $this->callImageGenerationApi($portraitUrl, $referenceImage, $prompt, $apiConfig);
+        // 5. 调用AI图生图API，传入模板预设参数
+        $resultUrl = $this->callImageGenerationApi($portraitUrl, $referenceImage, $prompt, $apiConfig, $defaultParams);
 
         return $resultUrl;
     }
@@ -442,9 +439,10 @@ class AiTravelPhotoSynthesisService
      * @param string $referenceImage 参考图URL
      * @param string $prompt 提示词
      * @param array $apiConfig API配置
+     * @param array $defaultParams 模板预设的API请求参数（来自default_params字段）
      * @return string
      */
-    protected function callImageGenerationApi(string $portraitUrl, string $referenceImage, string $prompt, array $apiConfig): string
+    protected function callImageGenerationApi(string $portraitUrl, string $referenceImage, string $prompt, array $apiConfig, array $defaultParams = []): string
     {
         $provider = $apiConfig['provider'] ?? '';
 
@@ -460,7 +458,7 @@ class AiTravelPhotoSynthesisService
 
             case 'volcengine':
             case 'doubao':
-                return $this->callVolcengineImageApi($portraitUrl, $referenceImage, $prompt, $apiConfig);
+                return $this->callVolcengineImageApi($portraitUrl, $referenceImage, $prompt, $apiConfig, $defaultParams);
 
             default:
                 throw new \Exception('不支持的服务提供商: ' . $provider);
@@ -721,8 +719,15 @@ class AiTravelPhotoSynthesisService
      * 调用火山方舟SeeDream图生图API
      * 支持豆包SeeDream系列模型
      * API格式：prompt为纯文本字符串，image为参考图URL
+     *
+     * @param string $portraitUrl 人像图片URL
+     * @param string $referenceImage 参考图URL（单张，当default_params无image时使用）
+     * @param string $prompt 提示词
+     * @param array $apiConfig API配置
+     * @param array $defaultParams 模板预设的API请求参数（来自default_params字段，包含size/image/model等完整配置）
+     * @return string
      */
-    protected function callVolcengineImageApi(string $portraitUrl, string $referenceImage, string $prompt, array $apiConfig): string
+    protected function callVolcengineImageApi(string $portraitUrl, string $referenceImage, string $prompt, array $apiConfig, array $defaultParams = []): string
     {
         $endpointUrl = $apiConfig['endpoint_url'] ?? '';
         $apiKey = $apiConfig['api_key'] ?? '';
@@ -740,37 +745,57 @@ class AiTravelPhotoSynthesisService
         // 火山方舟 SeeDream 图像生成API (/api/v3/images/generations) 请求格式：
         // - prompt: 纯文本字符串（必填，不能为空）
         // - image: 参考图URL字符串或数组（图生图时传递）
-        // - size: 图片尺寸
+        // - size: 图片尺寸（如 "2K", "1920x1080" 等）
         // - n: 生成数量
-        // - sequential_image_generation_options: 有image时自动添加
-        // 注意：Seedance视频API使用content数组格式，但SeeDream图像API使用扁平参数
+        // 注意：模板的 default_params 可能已包含完整的API参数配置
 
         // 1. 提示词必须是纯文本字符串
         $textPrompt = !empty($prompt) ? $prompt : '生成一张高质量旅拍照片';
 
-        // 2. 确定参考图（优先人像，其次风格参考图）
+        // 2. 确定参考图：优先使用 default_params 中的 image 数组（模板预设），将人像URL插入第一位
         $imageUrls = [];
-        if (!empty($portraitUrl)) {
-            $imageUrls[] = $portraitUrl;
-        }
-        if (!empty($referenceImage)) {
-            $imageUrls[] = $referenceImage;
+        if (!empty($defaultParams['image']) && is_array($defaultParams['image'])) {
+            // 模板预设了完整的参考图数组，将人像URL插入第一个位置
+            $imageUrls = $defaultParams['image'];
+            if (!empty($portraitUrl)) {
+                array_unshift($imageUrls, $portraitUrl);
+            }
+        } else {
+            // 无预设参考图，使用传入的人像和参考图
+            if (!empty($portraitUrl)) {
+                $imageUrls[] = $portraitUrl;
+            }
+            if (!empty($referenceImage)) {
+                $imageUrls[] = $referenceImage;
+            }
         }
 
-        // 3. 构建请求参数
+        // 3. 确定尺寸：优先使用 default_params 中的 size，否则使用安全默认值
+        $size = $defaultParams['size'] ?? '2K';
+
+        // 4. 确定模型：优先 default_params > apiConfig
+        $model = $defaultParams['model'] ?? $apiConfig['model_code'] ?? 'doubao-seedream-4-5-251128';
+
+        // 5. 构建请求参数
         $requestParams = [
-            'model' => $apiConfig['model_code'] ?? 'doubao-seedream-4-5-251128',
+            'model' => $model,
             'prompt' => $textPrompt,
-            'size' => '1024x1024',
+            'size' => $size,
             'n' => 1,
-            'response_format' => 'url',
+            'response_format' => $defaultParams['response_format'] ?? 'url',
         ];
 
-        // 4. 如果有参考图，通过 image 字段传递
+        // 6. 如果有参考图，通过 image 字段传递
         if (!empty($imageUrls)) {
             // 单张图传字符串，多张图传数组
             $requestParams['image'] = count($imageUrls) === 1 ? $imageUrls[0] : $imageUrls;
-            // 有image参数时自动设置多图生成选项
+        }
+
+        // 7. 处理 sequential_image_generation 参数
+        if (isset($defaultParams['sequential_image_generation'])) {
+            $requestParams['sequential_image_generation'] = $defaultParams['sequential_image_generation'];
+        } elseif (!empty($imageUrls)) {
+            // 默认：有image参数时设置多图生成选项
             $requestParams['sequential_image_generation_options'] = ['max_images' => 1];
         }
 
