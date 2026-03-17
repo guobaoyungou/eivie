@@ -85,9 +85,9 @@ class VideoGeneration extends Common
             $sceneId = input('post.scene_id', 0);
             
             $result = $this->service->createTask([
-                'aid' => aid,
-                'bid' => bid,
-                'uid' => uid,
+                'aid' => $this->aid,
+                'bid' => $this->bid,
+                'uid' => $this->uid,
                 'generation_type' => $this->generationType,
                 'model_id' => $modelId,
                 'scene_id' => $sceneId,
@@ -106,8 +106,8 @@ class VideoGeneration extends Common
         
         // 获取场景模板列表
         $templates = Db::name('generation_scene_template')
-            ->where('aid', aid)
-            ->where('bid', bid)
+            ->where('aid', $this->aid)
+            ->where('bid', $this->bid)
             ->where('generation_type', $this->generationType)
             ->where('status', 1)
             ->order('sort asc, id desc')
@@ -397,8 +397,8 @@ class VideoGeneration extends Common
         
         // 新增：查询场景分类列表
         $categories = Db::name('generation_scene_category')
-            ->where('aid', aid)
-            ->where('bid', bid)
+            ->where('aid', $this->aid)
+            ->where('bid', $this->bid)
             ->where('generation_type', $this->generationType)
             ->field('id, name')
             ->order('sort asc, id asc')
@@ -1107,9 +1107,9 @@ class VideoGeneration extends Common
         
         // 创建生成任务
         $result = $this->service->createTask([
-            'aid' => aid,
-            'bid' => bid,
-            'uid' => uid,
+            'aid' => $this->aid,
+            'bid' => $this->bid,
+            'uid' => $this->uid,
             'generation_type' => $this->generationType,
             'model_id' => $template['model_id'],
             'scene_id' => $templateId,

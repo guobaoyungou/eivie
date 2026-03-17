@@ -22,8 +22,6 @@ class AiTravelPhoto extends Common
      */
     public function index()
     {
-        // 强制输出日志，确认类可以被加载
-        file_put_contents('/tmp/ai_travel_debug.log', date('Y-m-d H:i:s') . " AiTravelPhoto class loaded\n", FILE_APPEND);
         return $this->statistics();
     }
 
@@ -2218,6 +2216,62 @@ class AiTravelPhoto extends Common
 
         View::assign('order', $order);
         View::assign('goods', $goods);
+        return View::fetch();
+    }
+
+    /**
+     * 人像详情 - 查看人像信息及关联的生成结果
+     */
+    public function portrait_detail()
+    {
+        $portrait_id = input('param.id/d', 0);
+
+        if ($portrait_id <= 0) {
+            $this->error('参数错误');
+        }
+
+        // 查询人像记录
+        $portrait = Db::name('ai_travel_photo_portrait')
+            ->where('id', $portrait_id)
+            ->where('aid', $this->aid)
+            ->find();
+
+        if (!$portrait) {
+            $this->error('人像不存在');
+        }
+
+        // 查询关联的生成结果
+        // LEFT JOIN generation 表获取模板/场景名称
+        $results = Db::name('ai_travel_photo_result')
+            ->alias('r')
+            ->leftJoin('ai_travel_photo_generation g', 'r.generation_id = g.id')
+            ->where('r.portrait_id', $portrait_id)
+            ->where('r.status', 1)
+            ->field('r.*, g.template_id, g.prompt as generation_prompt, g.scene_id as gen_scene_id')
+            ->order('r.id DESC')
+            ->select()
+            ->each(function ($item) {
+                // 尝试获取场景/模板名称
+                $sceneName = '';
+                if (!empty($item['generation_id']) && $item['generation_id'] > 0 && !empty($item['template_id'])) {
+                    $tpl = Db::name('generation_scene_template')
+                        ->where('id', $item['template_id'])
+                        ->value('template_name');
+                    if ($tpl) {
+                        $sceneName = $tpl;
+                    }
+                }
+                // 回退使用 result.desc 字段
+                if (empty($sceneName) && !empty($item['desc'])) {
+                    $sceneName = $item['desc'];
+                }
+                $item['scene_name'] = $sceneName;
+                return $item;
+            })
+            ->toArray(); // 关键修复：转换为数组，否则模板中array_filter()在PHP 7.4下接收Collection会返回NULL
+
+        View::assign('portrait', $portrait);
+        View::assign('results', $results);
         return View::fetch();
     }
 
@@ -4978,7 +5032,7 @@ class AiTravelPhoto extends Common
                 ->whereIn('id', $templateIds)
                 ->where('generation_type', 1) // 照片生成
                 ->where('status', 1)
-                ->field('id, aid, bid, template_name, model_id, cover_image, default_params, output_quantity')
+                ->field('id, aid, bid, template_name, model_id, cover_image, default_params, output_quantity, description, category')
                 ->orderRaw('field(id, ' . $setting['template_ids'] . ')')
                 ->select();
 
@@ -5120,6 +5174,7 @@ class AiTravelPhoto extends Common
                 ->whereIn('id', $templateIds)
                 ->where('generation_type', 1) // 照片生成
                 ->where('status', 1)
+                ->field('id, aid, bid, template_name, model_id, cover_image, default_params, output_quantity, description, category')
                 ->orderRaw('field(id, ' . $setting['template_ids'] . ')')
                 ->select();
 
@@ -5168,24 +5223,29 @@ class AiTravelPhoto extends Common
 
                 try {
                     $result = $synthesisService->generate($portrait, $selectedTemplates);
-                    if ($result['code'] === 0) {
+                    $resultCount = $result['data']['count'] ?? 0;
+                    if ($result['code'] === 0 && $resultCount > 0) {
                         // 更新人像合成状态为成功(3)
                         Db::name('ai_travel_photo_portrait')
                             ->where('id', $portrait['id'])
                             ->update([
                                 'synthesis_status' => 3,  // 成功
-                                'synthesis_count' => $result['data']['count'] ?? 0,
+                                'synthesis_count' => $resultCount,
                                 'synthesis_time' => time(),
                                 'update_time' => time()
                             ]);
                         $successCount++;
                     } else {
                         // 更新人像合成状态为失败(4)
+                        $errorMsg = $result['msg'] ?? '生成失败';
+                        if ($result['code'] === 0 && $resultCount === 0) {
+                            $errorMsg = '生成完成但无结果输出';
+                        }
                         Db::name('ai_travel_photo_portrait')
                             ->where('id', $portrait['id'])
                             ->update([
                                 'synthesis_status' => 4,  // 失败
-                                'synthesis_error' => $result['msg'],
+                                'synthesis_error' => $errorMsg,
                                 'update_time' => time()
                             ]);
                         $failCount++;
@@ -5280,7 +5340,7 @@ class AiTravelPhoto extends Common
                 ->whereIn('id', $templateIds)
                 ->where('generation_type', 1) // 照片生成
                 ->where('status', 1)
-                ->field('id, aid, bid, template_name, model_id, cover_image, default_params, output_quantity')
+                ->field('id, aid, bid, template_name, model_id, cover_image, default_params, output_quantity, description, category')
                 ->orderRaw('field(id, ' . $setting['template_ids'] . ')')
                 ->select();
 
@@ -5322,25 +5382,30 @@ class AiTravelPhoto extends Common
 
             $result = $synthesisService->generate($portrait, $selectedTemplates);
 
-            if ($result['code'] === 0) {
+            $resultCount = $result['data']['count'] ?? 0;
+            if ($result['code'] === 0 && $resultCount > 0) {
                 Db::name('ai_travel_photo_portrait')
                     ->where('id', $portraitId)
                     ->update([
                         'synthesis_status' => 3,
-                        'synthesis_count' => $result['data']['count'] ?? 0,
+                        'synthesis_count' => $resultCount,
                         'synthesis_time' => time(),
                         'update_time' => time()
                     ]);
-                return json(['code' => 0, 'msg' => '重试成功']);
+                return json(['code' => 0, 'msg' => '重试成功，生成' . $resultCount . '张图片']);
             } else {
+                $errorMsg = $result['msg'] ?? '生成失败';
+                if ($result['code'] === 0 && $resultCount === 0) {
+                    $errorMsg = '生成完成但无结果输出';
+                }
                 Db::name('ai_travel_photo_portrait')
                     ->where('id', $portraitId)
                     ->update([
                         'synthesis_status' => 4,
-                        'synthesis_error' => $result['msg'],
+                        'synthesis_error' => $errorMsg,
                         'update_time' => time()
                     ]);
-                return json(['code' => 1, 'msg' => $result['msg']]);
+                return json(['code' => 1, 'msg' => $errorMsg]);
             }
 
         } catch (\Exception $e) {

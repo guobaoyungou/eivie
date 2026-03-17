@@ -760,10 +760,15 @@ class AiTravelPhotoAiService
             $sceneData = null;
             
             if ($generation->template_id > 0 && $generation->template) {
-                // 新方式：使用generation_scene_template
+                // 新方式：使用generation_scene模板，将人像作为输入
                 $template = $generation->template;
-                $sceneData = $this->convertTemplateToSceneData($template->toArray());
-                \think\facade\Log::info('使用照片场景模板生成', ['template_id' => $template->id, 'template_name' => $template->template_name]);
+                // 将人像URL传入，用于替换模板的第一张原图像
+                $sceneData = $this->convertTemplateToSceneData($template->toArray(), $portrait['original_url'] ?? '');
+                \think\facade\Log::info('使用照片场景模板生成', [
+                    'template_id' => $template->id, 
+                    'template_name' => $template->template_name,
+                    'portrait_url' => $portrait['original_url'] ?? ''
+                ]);
             } elseif ($generation->scene_id > 0 && $generation->scene) {
                 // 旧方式：使用ai_travel_photo_scene
                 $scene = $generation->scene;
@@ -1216,9 +1221,10 @@ class AiTravelPhotoAiService
      * 以便SceneParameterService可以统一处理
      * 
      * @param array $template 模板数据
+     * @param string $portraitUrl 人像图片URL（将替换模板的第一张原图像）
      * @return array 场景格式数据
      */
-    private function convertTemplateToSceneData(array $template): array
+    private function convertTemplateToSceneData(array $template, string $portraitUrl = ''): array
     {
         // 解析default_params中的prompt
         $defaultParams = [];
@@ -1226,6 +1232,12 @@ class AiTravelPhotoAiService
             $defaultParams = is_string($template['default_params']) 
                 ? json_decode($template['default_params'], true) 
                 : $template['default_params'];
+        }
+        
+        // 将人像URL作为参考图传入，用于图生图时替换模板的第一张原图像
+        $modelParams = $defaultParams;
+        if (!empty($portraitUrl)) {
+            $modelParams['ref_img'] = $portraitUrl; // 将人像作为参考图
         }
         
         // 转换为ai_travel_photo_scene表的字段格式
@@ -1237,7 +1249,7 @@ class AiTravelPhotoAiService
             'prompt' => $defaultParams['prompt'] ?? '',
             'negative_prompt' => $defaultParams['negative_prompt'] ?? '',
             'model_id' => $template['model_id'] ?? 0,
-            'model_params' => json_encode($defaultParams, JSON_UNESCAPED_UNICODE),
+            'model_params' => json_encode($modelParams, JSON_UNESCAPED_UNICODE),
             'scene_type' => 1, // 默认图生图
             'aspect_ratio' => $defaultParams['aspect_ratio'] ?? '1:1',
             'aid' => $template['aid'] ?? 0,

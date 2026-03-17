@@ -8,6 +8,7 @@ use think\facade\Log;
 use app\model\AiTravelPhotoResult;
 use app\model\AiTravelPhotoQrcode;
 use app\model\ApiConfig;
+use app\common\Pic;
 
 /**
  * AI旅拍合成服务
@@ -49,6 +50,7 @@ class AiTravelPhotoSynthesisService
 
             // 获取人像的bid
             $bid = $portrait['bid'] ?? 0;
+            $aid = $portrait['aid'] ?? 0;
 
             // 获取商家设置的水印配置
             $business = Db::name('business')
@@ -56,65 +58,98 @@ class AiTravelPhotoSynthesisService
                 ->find();
 
             $generatedResults = [];
+            $lastError = '';
 
             // 遍历模板生成图片
             foreach ($templates as $template) {
-                // 调用AI模型生成图片
-                $generatedUrl = $this->callAiModel($portraitUrl, $template);
+                $templateId = $template['id'] ?? 0;
+                $templateName = $template['template_name'] ?? $template['name'] ?? '';
 
-                if (empty($generatedUrl)) {
-                    continue;
+                // P5: 创建generation记录（状态=处理中）
+                $generationId = 0;
+                try {
+                    $generationId = $this->createGenerationRecord($portrait, $template);
+                } catch (\Exception $e) {
+                    Log::error('创建generation记录失败[' . $templateName . ']: ' . $e->getMessage());
+                    $lastError = '创建generation记录失败: ' . $e->getMessage();
                 }
 
-                // 添加水印
-                $watermarkedUrl = $generatedUrl;
-                // 只有水印服务初始化成功且商家开启了水印时才添加水印
-                if ($this->watermarkEnabled && !empty($business['ai_logo_watermark'])) {
-                    try {
-                        // 先将生成的结果存入result表获取ID
-                        $resultId = $this->saveResult($portraitId, $bid, $template, $generatedUrl);
+                try {
+                    // 调用AI模型生成图片
+                    $generatedUrl = $this->callAiModel($portraitUrl, $template);
 
-                        // 添加水印
-                        $watermarkResult = $this->watermarkService->addWatermark($resultId);
-                        $watermarkedUrl = $watermarkResult['watermark_url'] ?? $generatedUrl;
-
-                        // 更新水印URL
-                        Db::name('ai_travel_photo_result')
-                            ->where('id', $resultId)
-                            ->update(['result_url_watermark' => $watermarkedUrl]);
-                    } catch (\Exception $e) {
-                        // 水印添加失败，使用原图
-                        \think\facade\Log::error('合成图片水印添加失败: ' . $e->getMessage());
+                    if (empty($generatedUrl)) {
+                        // 更新generation状态为失败
+                        $this->updateGenerationStatus($generationId, 3, '生成结果为空');
+                        continue;
                     }
-                } else {
-                    // 没有设置水印，直接保存结果
-                    $this->saveResult($portraitId, $bid, $template, $generatedUrl);
-                }
 
-                // 如果水印添加成功，更新水印URL字段（注意result表可能没有watermark_url字段，这里捕获异常）
-                if (!empty($watermarkedUrl) && $watermarkedUrl !== $generatedUrl) {
-                    try {
-                        Db::name('ai_travel_photo_result')
-                            ->where('id', $resultId)
-                            ->update(['watermark_url' => $watermarkedUrl]);
-                    } catch (\Exception $e) {
-                        // 忽略字段不存在的错误
+                    // 更新generation状态为成功
+                    $this->updateGenerationStatus($generationId, 2);
+
+                    // 添加水印
+                    $watermarkedUrl = $generatedUrl;
+                    // 只有水印服务初始化成功且商家开启了水印时才添加水印
+                    if ($this->watermarkEnabled && !empty($business['ai_logo_watermark'])) {
+                        try {
+                            // 先将生成的结果存入result表获取ID
+                            $resultId = $this->saveResult($portraitId, $bid, $template, $generatedUrl, $generationId);
+
+                            // 添加水印
+                            $watermarkResult = $this->watermarkService->addWatermark($resultId);
+                            $watermarkedUrl = $watermarkResult['watermark_url'] ?? $generatedUrl;
+
+                            // 更新水印URL
+                            Db::name('ai_travel_photo_result')
+                                ->where('id', $resultId)
+                                ->update(['result_url_watermark' => $watermarkedUrl]);
+                        } catch (\Exception $e) {
+                            // 水印添加失败，使用原图
+                            \think\facade\Log::error('合成图片水印添加失败: ' . $e->getMessage());
+                        }
+                    } else {
+                        // 没有设置水印，直接保存结果
+                        $resultId = $this->saveResult($portraitId, $bid, $template, $generatedUrl, $generationId);
                     }
-                }
 
-                $generatedResults[] = [
-                    'template_id' => $template['id'],
-                    'template_name' => $template['template_name'] ?? $template['name'] ?? '',
-                    'result_url' => $generatedUrl,
-                    'watermarked_url' => $watermarkedUrl
-                ];
+                    // 如果水印添加成功，更新水印URL字段
+                    if (!empty($watermarkedUrl) && $watermarkedUrl !== $generatedUrl && !empty($resultId)) {
+                        try {
+                            Db::name('ai_travel_photo_result')
+                                ->where('id', $resultId)
+                                ->update(['watermark_url' => $watermarkedUrl]);
+                        } catch (\Exception $e) {
+                            // 忽略字段不存在的错误
+                        }
+                    }
+
+                    $generatedResults[] = [
+                        'template_id' => $templateId,
+                        'template_name' => $templateName,
+                        'result_url' => $generatedUrl,
+                        'watermarked_url' => $watermarkedUrl
+                    ];
+                } catch (\Exception $e) {
+                    // 更新generation状态为失败，记录error_msg
+                    if ($generationId > 0) {
+                        $this->updateGenerationStatus($generationId, 3, $e->getMessage());
+                    }
+                    $lastError = $e->getMessage();
+                    Log::error('合成模板[' . $templateName . ']失败: ' . $e->getMessage());
+                }
             }
 
             // 存入选片表（qrcode表）
             if (!empty($generatedResults)) {
-                // 获取人像信息中的aid
-                $portraitInfo = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
-                $this->saveToQrcode($portraitId, $bid, $generatedResults, $portraitInfo['aid'] ?? 0);
+                $this->saveToQrcode($portraitId, $bid, $generatedResults, $aid);
+            }
+
+            // 关键修复：当count=0时返回失败，避免控制器误判为成功
+            if (empty($generatedResults)) {
+                return [
+                    'code' => 1,
+                    'msg' => '所有模板生成均失败' . ($lastError ? ': ' . $lastError : '')
+                ];
             }
 
             return [
@@ -132,6 +167,67 @@ class AiTravelPhotoSynthesisService
                 'msg' => $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * 创建generation记录
+     *
+     * @param array $portrait 人像信息
+     * @param array $template 模板信息
+     * @return int generation记录ID
+     */
+    protected function createGenerationRecord(array $portrait, array $template): int
+    {
+        // 提取提示词
+        $prompt = '';
+        if (!empty($template['prompt'])) {
+            $prompt = $template['prompt'];
+        } elseif (!empty($template['default_params'])) {
+            $defaultParams = is_string($template['default_params'])
+                ? json_decode($template['default_params'], true)
+                : $template['default_params'];
+            $prompt = $defaultParams['prompt'] ?? '';
+        }
+        if (empty($prompt) && !empty($template['description'])) {
+            $prompt = $template['description'];
+        }
+
+        $data = [
+            'aid' => $portrait['aid'] ?? 0,
+            'portrait_id' => $portrait['id'],
+            'scene_id' => 0,
+            'template_id' => $template['id'] ?? 0,
+            'bid' => $portrait['bid'] ?? 0,
+            'type' => 1,  // 商家自动生成
+            'generation_type' => 1,  // 图生图
+            'prompt' => $prompt,
+            'status' => 1,  // 处理中
+            'create_time' => time(),
+            'update_time' => time()
+        ];
+
+        return (int)Db::name('ai_travel_photo_generation')->insertGetId($data);
+    }
+
+    /**
+     * 更新generation记录状态
+     *
+     * @param int $generationId
+     * @param int $status 2=成功, 3=失败
+     * @param string $errorMsg 错误信息
+     */
+    protected function updateGenerationStatus(int $generationId, int $status, string $errorMsg = ''): void
+    {
+        $update = [
+            'status' => $status,
+            'update_time' => time()
+        ];
+        if (!empty($errorMsg)) {
+            $update['error_msg'] = $errorMsg;
+        }
+        Db::name('ai_travel_photo_generation')
+            ->where('id', $generationId)
+            ->update($update);
     }
 
     /**
@@ -201,6 +297,14 @@ class AiTravelPhotoSynthesisService
                 ? json_decode($template['default_params'], true) 
                 : $template['default_params'];
             $prompt = $defaultParams['prompt'] ?? '';
+        }
+        // 回退使用模板描述
+        if (empty($prompt) && !empty($template['description'])) {
+            $prompt = $template['description'];
+        }
+        // 默认提示词
+        if (empty($prompt)) {
+            $prompt = '生成一张高质量旅拍照片';
         }
 
         Log::info('callAiModel 参数: modelId=' . $modelId . ', prompt=' . substr($prompt, 0, 50) . '..., referenceImage=' . $referenceImage);
@@ -614,9 +718,9 @@ class AiTravelPhotoSynthesisService
     }
 
     /**
-     * 调用火山方舟图生图API
+     * 调用火山方舟SeeDream图生图API
      * 支持豆包SeeDream系列模型
-     * API格式：使用content数组格式
+     * API格式：prompt为纯文本字符串，image为参考图URL
      */
     protected function callVolcengineImageApi(string $portraitUrl, string $referenceImage, string $prompt, array $apiConfig): string
     {
@@ -633,56 +737,53 @@ class AiTravelPhotoSynthesisService
             $endpointUrl = 'https://ark.cn-beijing.volces.com/api/v3/images/generations';
         }
 
-        // 构建 content 数组格式（火山方舟API要求）
-        $content = [];
+        // 火山方舟 SeeDream 图像生成API (/api/v3/images/generations) 请求格式：
+        // - prompt: 纯文本字符串（必填，不能为空）
+        // - image: 参考图URL字符串或数组（图生图时传递）
+        // - size: 图片尺寸
+        // - n: 生成数量
+        // - sequential_image_generation_options: 有image时自动添加
+        // 注意：Seedance视频API使用content数组格式，但SeeDream图像API使用扁平参数
 
-        // 1. 添加文本提示
-        $textPrompt = !empty($prompt) ? $prompt : 'Generate a beautiful travel photo';
-        $content[] = [
-            'type' => 'text',
-            'text' => $textPrompt
-        ];
+        // 1. 提示词必须是纯文本字符串
+        $textPrompt = !empty($prompt) ? $prompt : '生成一张高质量旅拍照片';
 
-        // 2. 添加人像图片（图生图模式）
+        // 2. 确定参考图（优先人像，其次风格参考图）
+        $imageUrls = [];
         if (!empty($portraitUrl)) {
-            $content[] = [
-                'type' => 'image_url',
-                'image_url' => [
-                    'url' => $portraitUrl
-                ]
-            ];
+            $imageUrls[] = $portraitUrl;
         }
-
-        // 3. 添加风格参考图
         if (!empty($referenceImage)) {
-            $content[] = [
-                'type' => 'image_url',
-                'image_url' => [
-                    'url' => $referenceImage
-                ]
-            ];
+            $imageUrls[] = $referenceImage;
         }
 
-        // 构建请求参数
+        // 3. 构建请求参数
         $requestParams = [
             'model' => $apiConfig['model_code'] ?? 'doubao-seedream-4-5-251128',
-            'content' => $content,
+            'prompt' => $textPrompt,
             'size' => '1024x1024',
             'n' => 1,
             'response_format' => 'url',
         ];
 
-        // 如果有图片，添加多图生成选项
-        if (!empty($portraitUrl) || !empty($referenceImage)) {
+        // 4. 如果有参考图，通过 image 字段传递
+        if (!empty($imageUrls)) {
+            // 单张图传字符串，多张图传数组
+            $requestParams['image'] = count($imageUrls) === 1 ? $imageUrls[0] : $imageUrls;
+            // 有image参数时自动设置多图生成选项
             $requestParams['sequential_image_generation_options'] = ['max_images' => 1];
         }
 
-        Log::info('火山方舟图生图请求', [
+        // 调试：记录完整的请求参数
+        Log::info('火山方舟SeeDream图生图请求', [
             'endpoint' => $endpointUrl,
             'model' => $requestParams['model'],
-            'content_count' => count($content),
+            'prompt' => $textPrompt,
+            'has_image' => !empty($imageUrls),
+            'image_count' => count($imageUrls),
             'has_portrait' => !empty($portraitUrl),
-            'has_reference' => !empty($referenceImage)
+            'has_reference' => !empty($referenceImage),
+            'request_params' => $requestParams
         ]);
 
         try {
@@ -698,36 +799,47 @@ class AiTravelPhotoSynthesisService
                 'json' => $requestParams,
             ]);
 
-            $result = json_decode($response->getBody()->getContents(), true);
+            $responseBody = $response->getBody()->getContents();
+            $result = json_decode($responseBody, true);
+
+            // SSE格式兜底：如果json_decode失败，尝试解析SSE流式响应
+            if ($result === null && json_last_error() !== JSON_ERROR_NONE && !empty($responseBody)) {
+                Log::info('火山方舟响应非JSON，尝试SSE解析', ['body_preview' => substr($responseBody, 0, 500)]);
+                $result = $this->parseSSEResponse($responseBody);
+            }
 
             Log::info('火山方舟图生图响应', ['result' => $result]);
 
-            // 解析响应
+            // 解析响应 - 提取图片URL
+            $imageUrl = null;
+
             if (isset($result['data'][0]['url'])) {
+                $imageUrl = $result['data'][0]['url'];
+            } elseif (isset($result['data'][0]['b64_json'])) {
+                // 如果返回base64，先保存到本地
+                $imageUrl = $this->saveBase64Image($result['data'][0]['b64_json']);
                 $this->releaseKey($keyId);
-                return $result['data'][0]['url'];
-            }
-
-            if (isset($result['data'][0]['b64_json'])) {
-                // 如果返回base64，需要保存到OSS
-                $this->releaseKey($keyId);
-                return $this->saveBase64Image($result['data'][0]['b64_json']);
-            }
-
-            if (isset($result['error'])) {
+                return $imageUrl; // base64已保存为本地文件，无需再持久化
+            } elseif (isset($result['error'])) {
                 $this->releaseKey($keyId);
                 throw new \Exception('火山方舟生成失败: ' . ($result['error']['message'] ?? json_encode($result['error'])));
+            } elseif (isset($result['task_id'])) {
+                // 异步任务模式
+                $imageUrl = $this->pollVolcengineTask($result['task_id'], $apiKey, $endpointUrl);
             }
 
-            // 异步任务模式
-            if (isset($result['task_id'])) {
-                $resultUrl = $this->pollVolcengineTask($result['task_id'], $apiKey, $endpointUrl);
+            if (empty($imageUrl)) {
                 $this->releaseKey($keyId);
-                return $resultUrl;
+                throw new \Exception('火山方舟API返回格式异常: ' . json_encode($result));
             }
+
+            // 关键修复：将API返回的临时签名URL持久化到本地/OSS
+            // 火山方舟TOS返回的URL是临时签名的，会很快过期
+            $persistedUrl = $this->persistImageUrl($imageUrl);
+            Log::info('火山方舟图片持久化完成', ['temp_url' => substr($imageUrl, 0, 120), 'persisted_url' => $persistedUrl]);
 
             $this->releaseKey($keyId);
-            throw new \Exception('火山方舟API返回格式异常: ' . json_encode($result));
+            return $persistedUrl;
 
         } catch (\GuzzleHttp\Exception\ClientException $e) {
             $this->releaseKey($keyId);
@@ -809,6 +921,144 @@ class AiTravelPhotoSynthesisService
     }
 
     /**
+     * 解析SSE（Server-Sent Events）流式响应
+     * 火山方舟SeeDream API可能返回SSE格式而非标准JSON
+     *
+     * SSE格式示例:
+     * event: image_generation.partial_succeeded
+     * data: {"type":"image_generation.partial_succeeded","url":"...","size":"1664x2496"}
+     * event: image_generation.completed
+     * data: {"type":"image_generation.completed"}
+     */
+    protected function parseSSEResponse(string $response): ?array
+    {
+        $trimmed = trim($response);
+
+        // 检查是否是SSE格式
+        if (strpos($trimmed, 'data:') !== 0 && strpos($trimmed, 'event:') !== 0) {
+            return null;
+        }
+
+        $allData = [];
+        $lines = explode("\n", $response);
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line) || strpos($line, 'event:') === 0) {
+                continue;
+            }
+            if ($line === 'data: [DONE]' || $line === 'data:[DONE]') {
+                continue;
+            }
+            if (strpos($line, 'data:') === 0) {
+                $jsonStr = trim(substr($line, 5));
+                if (!empty($jsonStr) && $jsonStr !== '[DONE]') {
+                    $json = json_decode($jsonStr, true);
+                    if ($json !== null) {
+                        $allData[] = $json;
+                    }
+                }
+            }
+        }
+
+        if (empty($allData)) {
+            return null;
+        }
+
+        // 合并所有SSE数据块中的图像数据
+        $mergedImages = [];
+        $created = 0;
+
+        foreach ($allData as $chunk) {
+            if (isset($chunk['created'])) {
+                $created = $chunk['created'];
+            }
+
+            // 火山引擎 image_generation.partial_succeeded 事件
+            if (isset($chunk['type']) && $chunk['type'] === 'image_generation.partial_succeeded') {
+                $imageItem = [];
+                if (!empty($chunk['url'])) {
+                    $imageItem['url'] = $chunk['url'];
+                }
+                if (!empty($chunk['b64_json'])) {
+                    $imageItem['b64_json'] = $chunk['b64_json'];
+                }
+                if (!empty($chunk['size']) && strpos($chunk['size'], 'x') !== false) {
+                    list($w, $h) = explode('x', $chunk['size']);
+                    $imageItem['width'] = intval($w);
+                    $imageItem['height'] = intval($h);
+                }
+                if (!empty($imageItem['url']) || !empty($imageItem['b64_json'])) {
+                    $mergedImages[] = $imageItem;
+                }
+                continue;
+            }
+
+            // completed 事件 - 跳过
+            if (isset($chunk['type']) && $chunk['type'] === 'image_generation.completed') {
+                continue;
+            }
+
+            // 标准格式 {"data":[{"url":"..."}]}
+            if (isset($chunk['data']) && is_array($chunk['data'])) {
+                foreach ($chunk['data'] as $item) {
+                    if (isset($item['url']) || isset($item['b64_json'])) {
+                        $mergedImages[] = $item;
+                    }
+                }
+                continue;
+            }
+
+            // 顶层直接包含 url
+            if (isset($chunk['url'])) {
+                $mergedImages[] = $chunk;
+            }
+        }
+
+        if (empty($mergedImages)) {
+            return null;
+        }
+
+        return [
+            'created' => $created,
+            'data' => $mergedImages
+        ];
+    }
+
+    /**
+     * 将API返回的临时签名URL持久化到本地/OSS
+     * 火山方舟TOS返回的URL是临时签名的，会很快过期
+     * 必须下载后保存到本地或上传到OSS才能长期访问
+     *
+     * @param string $tempUrl 临时签名URL
+     * @return string 持久化后的永久URL
+     */
+    protected function persistImageUrl(string $tempUrl): string
+    {
+        try {
+            // 使用Pic::uploadoss 下载远程图片并上传到OSS（或保存到本地）
+            $persistedUrl = Pic::uploadoss($tempUrl);
+            if (!empty($persistedUrl)) {
+                return $persistedUrl;
+            }
+
+            // OSS上传失败时，退回到仅保存本地
+            Log::warning('OSS上传失败，尝试保存到本地', ['url' => substr($tempUrl, 0, 120)]);
+            $localUrl = Pic::tolocal($tempUrl);
+            if (!empty($localUrl)) {
+                return $localUrl;
+            }
+
+            // 如果都失败了，返回原始临时URL（虽然会过期）
+            Log::error('图片持久化完全失败，返回临时URL', ['url' => substr($tempUrl, 0, 120)]);
+            return $tempUrl;
+        } catch (\Exception $e) {
+            Log::error('图片持久化异常: ' . $e->getMessage(), ['url' => substr($tempUrl, 0, 120)]);
+            return $tempUrl;
+        }
+    }
+
+    /**
      * 保存Base64图片到OSS
      */
     protected function saveBase64Image(string $base64Data): string
@@ -830,21 +1080,25 @@ class AiTravelPhotoSynthesisService
      * @param int $bid 门店ID
      * @param array $template 模板信息
      * @param string $resultUrl 生成结果URL
+     * @param int $generationId 关联的generation记录ID
      * @return int
      */
-    protected function saveResult(int $portraitId, int $bid, array $template, string $resultUrl)
+    protected function saveResult(int $portraitId, int $bid, array $template, string $resultUrl, int $generationId = 0)
     {
         // 获取人像信息中的aid
         $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
 
-        // ai_travel_photo_result表字段有限，只保存存在的字段
+        // ai_travel_photo_result表字段保存
         $data = [
             'aid' => $portrait['aid'] ?? 0,
+            'bid' => $bid,
             'portrait_id' => $portraitId,
-            'generation_id' => 0, // 合成任务ID
-            'url' => $resultUrl,  // 字段名是url不是result_url
+            'generation_id' => $generationId,
+            'scene_id' => $template['id'] ?? 0,
+            'url' => $resultUrl,
             'type' => 1, // 图片类型
             'status' => 1,
+            'desc' => $template['template_name'] ?? $template['name'] ?? '',
             'create_time' => time(),
             'update_time' => time()
         ];

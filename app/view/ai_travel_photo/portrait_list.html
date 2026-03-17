@@ -179,6 +179,12 @@
             <button type="button" class="layui-btn layui-btn-primary" id="synthesisSettingsBtn">
               <i class="layui-icon layui-icon-set"></i> 合成设置
             </button>
+            <button type="button" class="layui-btn layui-btn-normal" id="startMonitorBtn">
+              <i class="layui-icon layui-icon-play"></i> 开启监控
+            </button>
+            <button type="button" class="layui-btn layui-btn-danger" id="stopMonitorBtn" style="display:none;">
+              <i class="layui-icon layui-icon-pause"></i> 停止监控
+            </button>
             <button type="button" class="layui-btn layui-btn-danger" id="batchDeleteBtn" style="display:none;">
               <i class="layui-icon layui-icon-delete"></i> 批量删除
             </button>
@@ -535,6 +541,113 @@
       });
     });
   }
+
+  // ========== 自动监控功能 ==========
+  var monitorTimer = null;
+  var isMonitoring = false;
+  var monitorConfig = {
+    interval: 3000, // 轮询间隔3秒
+    maxRetries: 3,  // 最大重试次数
+    retryDelay: 2000 // 重试延迟2秒
+  };
+
+  // 开启监控
+  function startMonitor() {
+    if (isMonitoring) return;
+    isMonitoring = true;
+
+    $('#startMonitorBtn').hide();
+    $('#stopMonitorBtn').show();
+
+    layer.msg('监控已开启', {icon: 1});
+
+    // 立即执行一次
+    checkAndProcessPortraits();
+
+    // 设置定时器
+    monitorTimer = setInterval(checkAndProcessPortraits, monitorConfig.interval);
+  }
+
+  // 停止监控
+  function stopMonitor() {
+    if (!isMonitoring) return;
+    isMonitoring = false;
+
+    if (monitorTimer) {
+      clearInterval(monitorTimer);
+      monitorTimer = null;
+    }
+
+    $('#startMonitorBtn').show();
+    $('#stopMonitorBtn').hide();
+
+    layer.msg('监控已停止', {icon: 2});
+  }
+
+  // 记录已正在处理的人像ID，避免重复提交
+  var processingPortraits = {};
+
+  // 检查并处理人像
+  function checkAndProcessPortraits() {
+    if (!isMonitoring) return;
+
+    $.post("{:url('synthesis_get_pending')}", function(res) {
+      if (res.code === 0 && res.data && res.data.length > 0) {
+        // 处理每一个人像
+        res.data.forEach(function(portrait) {
+          // 只处理未处理(0)或已提交(1)状态的，且不在处理中的
+          if ((portrait.synthesis_status == 0 || portrait.synthesis_status == 1) && !processingPortraits[portrait.id]) {
+            processingPortraits[portrait.id] = true;
+            processPortrait(portrait.id, 0);
+          }
+        });
+        // 刷新表格
+        tableIns.reload();
+      }
+    });
+  }
+
+  // 处理单个人像（带重试机制）
+  function processPortrait(portraitId, retryCount) {
+    if (!isMonitoring) {
+      delete processingPortraits[portraitId];
+      return;
+    }
+
+    $.post("{:url('synthesis_retry')}", {portrait_id: portraitId}, function(res) {
+      if (res.code === 0) {
+        // 成功
+        console.log('人像 ' + portraitId + ' 合成成功');
+        delete processingPortraits[portraitId];
+      } else {
+        // 失败，重试
+        if (retryCount < monitorConfig.maxRetries) {
+          console.log('人像 ' + portraitId + ' 合成失败，第' + (retryCount + 1) + '次重试...');
+          setTimeout(function() {
+            processPortrait(portraitId, retryCount + 1);
+          }, monitorConfig.retryDelay);
+        } else {
+          console.log('人像 ' + portraitId + ' 已重试' + monitorConfig.maxRetries + '次，仍然失败');
+          delete processingPortraits[portraitId];
+        }
+      }
+      // 刷新表格
+      tableIns.reload();
+    }).fail(function() {
+      // 请求失败
+      delete processingPortraits[portraitId];
+      tableIns.reload();
+    });
+  }
+
+  // 绑定监控按钮事件
+  $('#startMonitorBtn').on('click', function() {
+    startMonitor();
+  });
+
+  $('#stopMonitorBtn').on('click', function() {
+    stopMonitor();
+  });
 
   // ========== 笑脸抓拍功能 ==========
   var smileCaptureIndex = null;

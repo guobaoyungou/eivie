@@ -91,9 +91,9 @@ class PhotoGeneration extends Common
             }
             
             $result = $this->service->createTask([
-                'aid' => aid,
-                'bid' => bid,
-                'uid' => uid,
+                'aid' => $this->aid,
+                'bid' => $this->bid,
+                'uid' => $this->uid,
                 'generation_type' => $this->generationType,
                 'model_id' => $modelId,
                 'scene_id' => $sceneId,
@@ -113,8 +113,8 @@ class PhotoGeneration extends Common
         
         // 获取场景模板列表
         $templates = Db::name('generation_scene_template')
-            ->where('aid', aid)
-            ->where('bid', bid)
+            ->where('aid', $this->aid)
+            ->where('bid', $this->bid)
             ->where('generation_type', $this->generationType)
             ->where('status', 1)
             ->order('sort asc, id desc')
@@ -508,8 +508,8 @@ class PhotoGeneration extends Common
         
         // 新增：查询场景分类列表
         $categories = Db::name('generation_scene_category')
-            ->where('aid', aid)
-            ->where('bid', bid)
+            ->where('aid', $this->aid)
+            ->where('bid', $this->bid)
             ->where('generation_type', $this->generationType)
             ->field('id, name')
             ->order('sort asc, id asc')
@@ -1862,8 +1862,8 @@ class PhotoGeneration extends Common
             'default_params' => $record['input_params'],
             'output_quantity' => count($record['outputs'] ?? []),
             'status' => 1,
-            'aid' => aid,
-            'bid' => bid,
+            'aid' => $this->aid,
+            'bid' => $this->bid,
             'generation_type' => $this->generationType
         ];
         
@@ -2263,9 +2263,9 @@ class PhotoGeneration extends Common
         
         // 创建生成任务
         $result = $this->service->createTask([
-            'aid' => aid,
-            'bid' => bid,
-            'uid' => uid,
+            'aid' => $this->aid,
+            'bid' => $this->bid,
+            'uid' => $this->uid,
             'generation_type' => $this->generationType,
             'model_id' => $template['model_id'],
             'scene_id' => $templateId,

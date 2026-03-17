@@ -10,71 +10,7 @@ use think\facade\Config;
 
 class MerchantApiKeyService
 {
-    /**
-     * 加密密钥（使用系统配置的authkey）
-     */
-    private function getEncryptKey()
-    {
-        $config = include(ROOT_PATH . 'config.php');
-        return $config['authkey'] ?? 'default_secret_key_32bytes!!';
-    }
-
-    /**
-     * 获取加密IV
-     */
-    private function getEncryptIv()
-    {
-        return substr(md5($this->getEncryptKey()), 0, 16);
-    }
-
-    /**
-     * 加密API Key
-     * @param string $plainText 明文
-     * @return string 加密后的密文（base64编码）
-     */
-    public function encryptApiKey($plainText)
-    {
-        if (empty($plainText)) {
-            return '';
-        }
-        $key = $this->getEncryptKey();
-        $iv = $this->getEncryptIv();
-        $encrypted = openssl_encrypt($plainText, 'AES-256-CBC', $key, 0, $iv);
-        return base64_encode($encrypted);
-    }
-
-    /**
-     * 解密API Key
-     * @param string $cipherText 密文（base64编码）
-     * @return string 解密后的明文
-     */
-    public function decryptApiKey($cipherText)
-    {
-        if (empty($cipherText)) {
-            return '';
-        }
-        $key = $this->getEncryptKey();
-        $iv = $this->getEncryptIv();
-        $decoded = base64_decode($cipherText);
-        return openssl_decrypt($decoded, 'AES-256-CBC', $key, 0, $iv);
-    }
-
-    /**
-     * 脱敏API Key展示
-     * @param string $apiKey 原始API Key
-     * @return string 脱敏后的API Key
-     */
-    public function maskApiKey($apiKey)
-    {
-        if (empty($apiKey)) {
-            return '';
-        }
-        $length = strlen($apiKey);
-        if ($length <= 8) {
-            return '****';
-        }
-        return substr($apiKey, 0, 4) . '****' . substr($apiKey, -4);
-    }
+    use \app\common\ApiKeyEncryptTrait;
 
     /**
      * 获取配置列表

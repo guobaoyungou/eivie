@@ -32,6 +32,18 @@
             </div>
           </div>
 
+          <!-- 模型参数信息展示 -->
+          <div class="layui-form-item" id="modelInfoPanel" style="display:none;">
+            <label class="layui-form-label">模型参数</label>
+            <div class="layui-input-block">
+              <div class="layui-card">
+                <div class="layui-card-body" style="background:#f8f9fa;padding:15px;">
+                  <div id="modelInfoContent"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="layui-form-item">
             <label class="layui-form-label"><span class="layui-required">*</span>模板图片</label>
             <div class="layui-input-block">
@@ -88,8 +100,8 @@
   </div>
   {include file="public/js"/}
   <script>
-  var currentModelId = '{$info.model_id|default=0}';
-  var currentModelName = '{$info.model_name|default=\'\'}';
+  var currentModelId = parseInt('{$info.model_id|default=0}') || 0;
+  var currentModelName = '{$info.model_name|default=""}';
 
   layui.use(['form', 'layer'], function(){
     var form = layui.form;
@@ -102,9 +114,15 @@
     form.on('select(modelSelect)', function(data){
       var modelId = data.value;
       if(modelId){
-        var option = $(data.elem).find('option:selected');
+        var model = modelDataCache[modelId];
         currentModelId = modelId;
-        currentModelName = option.text();
+        currentModelName = model ? model.model_name : '';
+        // 显示模型参数信息
+        showModelInfo(modelId);
+      } else {
+        currentModelId = 0;
+        currentModelName = '';
+        $('#modelInfoPanel').hide();
       }
     });
 
@@ -142,6 +160,9 @@
     });
   });
 
+  // 模型数据缓存
+  var modelDataCache = {};
+
   // 加载模型列表
   function loadModelList(){
     $.ajax({
@@ -151,14 +172,26 @@
       success: function(res){
         if(res.code === 0 && res.data && res.data.length > 0){
           var html = '<option value="">请选择AI模型...</option>';
+          var currentModelIdNum = parseInt(currentModelId) || 0;
           res.data.forEach(function(model){
-            var selected = (model.id == currentModelId) ? 'selected' : '';
+            // 缓存模型数据用于后续展示
+            modelDataCache[model.id] = model;
+            
+            // 转换为数字比较，确保选中状态正确
+            var selected = (model.id == currentModelIdNum) ? 'selected' : '';
             // 显示配置类型标签：商户自配置 / 平台预充值
             var configLabel = model.config_type_label || (model.is_merchant_config ? '商户自配置' : '平台预充值');
-            html += '<option value="' + model.id + '" ' + selected + '>' + model.model_name + ' (' + model.provider + ') - ' + configLabel + '</option>';
+            // 显示价格信息
+            var priceInfo = model.cost_per_image > 0 ? '¥' + model.cost_per_image + '/张' : '';
+            html += '<option value="' + model.id + '" ' + selected + ' data-price="' + priceInfo + '">' + model.model_name + ' (' + model.provider + ') - ' + configLabel + ' ' + priceInfo + '</option>';
           });
           $('#modelSelect').html(html);
           layui.form.render('select');
+          
+          // 如果已有选中模型，显示参数信息
+          if(currentModelIdNum > 0 && modelDataCache[currentModelIdNum]){
+            showModelInfo(currentModelIdNum);
+          }
         } else {
           layer.msg('暂无可用模型，请先配置AI模型');
         }
@@ -167,6 +200,39 @@
         layer.msg('加载模型列表失败');
       }
     });
+  }
+
+  // 显示模型参数信息
+  function showModelInfo(modelId){
+    var model = modelDataCache[modelId];
+    if(!model) return;
+    
+    var html = '<div style="display:flex;flex-wrap:wrap;gap:15px;">';
+    
+    // 基础信息
+    html += '<div style="flex:1;min-width:200px;"><strong>基本信息</strong><hr style="margin:5px 0;">';
+    html += '<p><b>模型名称：</b>' + (model.model_name || '-') + '</p>';
+    html += '<p><b>模型类型：</b>' + (model.model_type || '-') + '</p>';
+    html += '<p><b>服务提供商：</b>' + (model.provider || '-') + '</p>';
+    html += '<p><b>API地址：</b><span style="font-size:11px;color:#666;">' + (model.api_base_url || '-') + '</span></p>';
+    html += '</div>';
+    
+    // 价格信息
+    html += '<div style="flex:1;min-width:200px;"><strong>价格与计费</strong><hr style="margin:5px 0;">';
+    html += '<p><b>成本价格：</b><span style="color:#e6a23c;">¥' + (model.cost_per_image || 0) + '/张</span></p>';
+    html += '<p><b>配置类型：</b>' + (model.config_type_label || '-') + '</p>';
+    html += '</div>';
+    
+    // 限制信息
+    html += '<div style="flex:1;min-width:200px;"><strong>参数限制</strong><hr style="margin:5px 0;">';
+    html += '<p><b>超时时间：</b>' + (model.timeout || 180) + '秒</p>';
+    html += '<p><b>最大重试：</b>' + (model.max_retry || 3) + '次</p>';
+    html += '</div>';
+    
+    html += '</div>';
+    
+    $('#modelInfoContent').html(html);
+    $('#modelInfoPanel').show();
   }
 
   // 提交表单（供父窗口调用）
