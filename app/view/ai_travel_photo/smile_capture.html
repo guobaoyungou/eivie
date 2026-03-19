@@ -855,7 +855,7 @@
     }
 
     $.ajax({
-      url: '/index.php?s=/AiTravelPhoto/smile_capture_upload',
+      url: '/index.php?s=/SmileCapture/smile_capture_upload',
       type: 'POST',
       data: uploadData,
       success: function(res) {
@@ -923,7 +923,7 @@
   function pollSynthesisStatus(portraitId) {
     if (SC.feedbackPollTimer) clearInterval(SC.feedbackPollTimer);
     SC.feedbackPollTimer = setInterval(function() {
-      $.get('/index.php?s=/AiTravelPhoto/smile_capture_status', { portrait_id: portraitId }, function(res) {
+      $.get('/index.php?s=/SmileCapture/smile_capture_status', { portrait_id: portraitId }, function(res) {
         if (res.status == 1 && res.data) {
           var d = res.data;
           document.getElementById('feedbackProgressBar').style.width = d.progress + '%';

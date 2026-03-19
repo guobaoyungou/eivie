@@ -365,6 +365,452 @@ class SmileCapture extends Base
         return $targetBid;
     }
 
+    // ========== 抓拍上传/状态代理方法（绕过Common权限校验） ==========
+
+    /**
+     * 笑脸抓拍上传（代理AiTravelPhoto/smile_capture_upload）
+     * POST /SmileCapture/smile_capture_upload
+     */
+    public function smile_capture_upload()
+    {
+        $this->requireLogin();
+
+        if (!request()->isPost()) {
+            return json(['status' => 0, 'msg' => '非法请求']);
+        }
+
+        try {
+            $imageData = input('post.image', '');
+            if (empty($imageData)) {
+                return json(['status' => 0, 'msg' => '请提供图片数据']);
+            }
+
+            if (preg_match('/^data:image\/(\w+);base64,(.+)$/', $imageData, $matches)) {
+                $extension = strtolower($matches[1]);
+                $imageContent = base64_decode($matches[2]);
+            } else {
+                return json(['status' => 0, 'msg' => '图片格式不正确']);
+            }
+
+            $allowedExts = ['jpg', 'jpeg', 'png'];
+            if (!in_array($extension, $allowedExts)) {
+                return json(['status' => 0, 'msg' => '仅支持JPG、JPEG、PNG格式']);
+            }
+
+            $mdid = input('post.mdid/d', 0);
+            $isManual = input('post.is_manual/d', 0);
+            $captureSize = input('post.capture_size', '1K');
+            $aspectRatio = input('post.aspect_ratio', '3:4');
+
+            $validSizes = ['1K', '2K'];
+            $validRatios = ['1:1', '2:3', '3:4', '4:3', '9:16', '16:9'];
+            if (!in_array($captureSize, $validSizes)) $captureSize = '1K';
+            if (!in_array($aspectRatio, $validRatios)) $aspectRatio = '3:4';
+
+            $tempFile = tempnam(sys_get_temp_dir(), 'smile_');
+            file_put_contents($tempFile, $imageContent);
+
+            $imageInfo = getimagesize($tempFile);
+            if (!$imageInfo) {
+                @unlink($tempFile);
+                return json(['status' => 0, 'msg' => '图片文件损坏或格式不正确']);
+            }
+            $width = $imageInfo[0];
+            $height = $imageInfo[1];
+
+            if ($width < 200 || $height < 200) {
+                @unlink($tempFile);
+                return json(['status' => 0, 'msg' => '图片尺寸过小']);
+            }
+
+            $basePx = ($captureSize === '2K') ? 2048 : 1024;
+            $ratioParts = explode(':', $aspectRatio);
+            $rw = intval($ratioParts[0]);
+            $rh = intval($ratioParts[1]);
+            if ($rw >= $rh) {
+                $targetWidth = $basePx;
+                $targetHeight = intval($basePx * $rh / $rw);
+            } else {
+                $targetHeight = $basePx;
+                $targetWidth = intval($basePx * $rw / $rh);
+            }
+
+            $resized = $this->resizeCapture($tempFile, $width, $height, $targetWidth, $targetHeight, $extension);
+            if ($resized) {
+                $imageContent = file_get_contents($tempFile);
+                $width = $targetWidth;
+                $height = $targetHeight;
+                $fileSize = strlen($imageContent);
+                $fileMd5 = md5($imageContent);
+            }
+
+            if (!isset($fileMd5)) {
+                $fileMd5 = md5_file($tempFile);
+                $fileSize = filesize($tempFile);
+            }
+
+            $targetBid = $this->getTargetBid();
+
+            Log::info('笑脸抓拍调试(SmileCapture)', [
+                'aid' => $this->aid, 'bid' => $this->bid, 'targetBid' => $targetBid, 'mdid' => $mdid
+            ]);
+
+            $existPortrait = Db::name('ai_travel_photo_portrait')
+                ->where('aid', $this->aid)
+                ->where('bid', $targetBid)
+                ->where('md5', $fileMd5)
+                ->find();
+
+            if ($existPortrait) {
+                @unlink($tempFile);
+                return json(['status' => 0, 'msg' => '该图片已存在']);
+            }
+
+            $date = date('Ymd');
+            $uniqueName = md5(uniqid((string)mt_rand(), true)) . '.' . $extension;
+            $savePath = 'upload/' . $this->aid . '/' . $date . '/';
+
+            if (!is_dir(ROOT_PATH . $savePath)) {
+                mk_dir(ROOT_PATH . $savePath);
+            }
+
+            $originalPath = $savePath . 'original_' . $uniqueName;
+            file_put_contents(ROOT_PATH . $originalPath, $imageContent);
+
+            $uploadPath = PRE_URL . '/' . $originalPath;
+            $originalUrl = \app\common\Pic::uploadoss($uploadPath, false, false);
+
+            if (!$originalUrl) {
+                Log::warning('OSS上传失败，使用本地存储备用(SmileCapture)', [
+                    'uploadPath' => $uploadPath, 'aid' => $this->aid
+                ]);
+                $originalUrl = '/' . $originalPath;
+            }
+
+            $thumbnailPath = $this->generateThumbnail(ROOT_PATH . $originalPath, $width, $height, $savePath, $uniqueName);
+            $thumbnailUrl = '';
+            if ($thumbnailPath) {
+                $thumbnailUrl = \app\common\Pic::uploadoss(PRE_URL . '/' . $thumbnailPath, false, false);
+                if (!$thumbnailUrl) {
+                    $thumbnailUrl = '/' . $thumbnailPath;
+                }
+            }
+
+            if (strpos($originalUrl, 'http') === 0) {
+                @unlink(ROOT_PATH . $originalPath);
+            }
+            @unlink($tempFile);
+
+            $faceEmbedding = input('post.face_embedding', '');
+
+            $portraitData = [
+                'aid' => $this->aid,
+                'uid' => 0,
+                'bid' => $targetBid,
+                'mdid' => $mdid,
+                'device_id' => 0,
+                'type' => 1,
+                'original_url' => $originalUrl,
+                'cutout_url' => null,
+                'thumbnail_url' => $thumbnailUrl,
+                'file_name' => 'smile_capture_' . date('YmdHis') . '.' . $extension,
+                'file_size' => $fileSize,
+                'width' => $width,
+                'height' => $height,
+                'md5' => $fileMd5,
+                'desc' => $isManual ? '手动抓拍' : '笑脸自动抓拍',
+                'tags' => '笑脸抓拍',
+                'status' => 1,
+                'create_time' => time(),
+                'update_time' => time()
+            ];
+
+            $portraitId = Db::name('ai_travel_photo_portrait')->insertGetId($portraitData);
+
+            if (!$portraitId) {
+                return json(['status' => 0, 'msg' => '数据保存失败']);
+            }
+
+            // 存储人脸特征
+            if (!empty($faceEmbedding)) {
+                try {
+                    $embeddingData = json_decode($faceEmbedding, true);
+                    if (is_array($embeddingData) && !empty($embeddingData)) {
+                        $milvusAvailable = false;
+                        try {
+                            $milvusService = new \app\service\MilvusService();
+                            if ($milvusService->isHealthy()) {
+                                $vectorIds = $milvusService->insert($embeddingData, ['portrait_id' => $portraitId]);
+                                if (!empty($vectorIds)) {
+                                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)
+                                        ->update(['face_embedding_id' => $vectorIds[0] ?? 0]);
+                                    $milvusAvailable = true;
+                                }
+                            }
+                        } catch (\Exception $e) {
+                            Log::warning('Milvus存储失败，使用MySQL备用', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+                        }
+                        if (!$milvusAvailable) {
+                            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)
+                                ->update(['face_embedding' => json_encode($embeddingData)]);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('人脸特征存储失败', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+                }
+            }
+
+            // 触发异步任务
+            $this->triggerAsyncTasks($portraitId, $targetBid);
+
+            Log::info('笑脸抓拍成功(SmileCapture)', [
+                'aid' => $this->aid, 'bid' => $targetBid, 'portrait_id' => $portraitId, 'is_manual' => $isManual
+            ]);
+
+            return json([
+                'status' => 1,
+                'msg' => '抓拍成功',
+                'data' => [
+                    'portrait_id' => $portraitId,
+                    'original_url' => $originalUrl,
+                    'thumbnail_url' => $thumbnailUrl
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('笑脸抓拍失败(SmileCapture)', ['error' => $e->getMessage()]);
+            return json(['status' => 0, 'msg' => '抓拍失败：' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 查询抓拍处理状态（代理AiTravelPhoto/smile_capture_status）
+     * GET /SmileCapture/smile_capture_status
+     */
+    public function smile_capture_status()
+    {
+        $this->requireLogin();
+
+        $portraitId = input('param.portrait_id/d', 0);
+        if (!$portraitId) {
+            return json(['status' => 0, 'msg' => '缺少portrait_id参数']);
+        }
+
+        try {
+            $portrait = Db::name('ai_travel_photo_portrait')
+                ->where('id', $portraitId)
+                ->where('aid', $this->aid)
+                ->field('id, synthesis_status, synthesis_count')
+                ->find();
+
+            if (!$portrait) {
+                return json(['status' => 0, 'msg' => '人像记录不存在']);
+            }
+
+            $synthesisStatus = intval($portrait['synthesis_status'] ?? 0);
+            $progress = 0;
+            $resultImages = [];
+
+            switch ($synthesisStatus) {
+                case 0: $progress = 0; break;
+                case 1: $progress = 20; break;
+                case 2: $progress = 60; break;
+                case 3:
+                    $progress = 100;
+                    $results = Db::name('ai_travel_photo_result')
+                        ->where('portrait_id', $portraitId)
+                        ->where('status', 1)
+                        ->field('url, thumbnail_url')
+                        ->select();
+                    foreach ($results as $r) {
+                        $resultImages[] = $r['url'] ?: $r['thumbnail_url'];
+                    }
+                    break;
+                case 4: $progress = 100; break;
+            }
+
+            return json([
+                'status' => 1,
+                'data' => [
+                    'synthesis_status' => $synthesisStatus,
+                    'progress' => $progress,
+                    'result_images' => $resultImages
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('查询抓拍状态失败(SmileCapture)', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+            return json(['status' => 0, 'msg' => '查询失败：' . $e->getMessage()]);
+        }
+    }
+
+    // ========== 图片处理辅助方法 ==========
+
+    /**
+     * 裁剪缩放抓拍图片到目标尺寸
+     */
+    private function resizeCapture($tempFile, $srcW, $srcH, $dstW, $dstH, $ext)
+    {
+        try {
+            if ($ext == 'jpg' || $ext == 'jpeg') {
+                $srcImg = imagecreatefromjpeg($tempFile);
+            } elseif ($ext == 'png') {
+                $srcImg = imagecreatefrompng($tempFile);
+            } else {
+                return false;
+            }
+            if (!$srcImg) return false;
+
+            $targetAR = $dstW / $dstH;
+            $srcAR = $srcW / $srcH;
+            if ($srcAR > $targetAR) {
+                $cropH = $srcH;
+                $cropW = intval($srcH * $targetAR);
+            } else {
+                $cropW = $srcW;
+                $cropH = intval($srcW / $targetAR);
+            }
+            $cropX = intval(($srcW - $cropW) / 2);
+            $cropY = intval(($srcH - $cropH) / 2);
+
+            $dstImg = imagecreatetruecolor($dstW, $dstH);
+            if ($ext == 'png') {
+                imagealphablending($dstImg, false);
+                imagesavealpha($dstImg, true);
+            }
+
+            imagecopyresampled($dstImg, $srcImg, 0, 0, $cropX, $cropY, $dstW, $dstH, $cropW, $cropH);
+
+            if ($ext == 'png') {
+                imagepng($dstImg, $tempFile, 8);
+            } else {
+                imagejpeg($dstImg, $tempFile, 92);
+            }
+
+            imagedestroy($srcImg);
+            imagedestroy($dstImg);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('抓拍图片裁剪缩放失败', ['error' => $e->getMessage()]);
+            return false;
+        }
+    }
+
+    /**
+     * 生成缩略图
+     */
+    private function generateThumbnail($sourcePath, $sourceWidth, $sourceHeight, $savePath, $uniqueName)
+    {
+        try {
+            $targetWidth = 800;
+            $targetHeight = intval($sourceHeight * ($targetWidth / $sourceWidth));
+
+            if ($sourceWidth <= 800) {
+                $thumbnailPath = $savePath . 'thumbnail_' . $uniqueName;
+                copy($sourcePath, ROOT_PATH . $thumbnailPath);
+                return $thumbnailPath;
+            }
+
+            $ext = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION));
+            if ($ext == 'jpg' || $ext == 'jpeg') {
+                $sourceImage = imagecreatefromjpeg($sourcePath);
+            } elseif ($ext == 'png') {
+                $sourceImage = imagecreatefrompng($sourcePath);
+            } else {
+                return false;
+            }
+
+            if (!$sourceImage) return false;
+
+            $thumbnailImage = imagecreatetruecolor($targetWidth, $targetHeight);
+            if ($ext == 'png') {
+                imagealphablending($thumbnailImage, false);
+                imagesavealpha($thumbnailImage, true);
+            }
+
+            imagecopyresampled($thumbnailImage, $sourceImage, 0, 0, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+
+            $thumbnailPath = $savePath . 'thumbnail_' . $uniqueName;
+            $result = imagejpeg($thumbnailImage, ROOT_PATH . $thumbnailPath, 85);
+
+            imagedestroy($sourceImage);
+            imagedestroy($thumbnailImage);
+
+            return $result ? $thumbnailPath : false;
+        } catch (\Exception $e) {
+            Log::error('缩略图生成失败', ['source' => $sourcePath, 'error' => $e->getMessage()]);
+            return false;
+        }
+    }
+
+    /**
+     * 触发异步任务（抠图 + AI生成）
+     */
+    private function triggerAsyncTasks($portraitId, $targetBid)
+    {
+        try {
+            \think\facade\Queue::push(
+                'app\\job\\CutoutJob',
+                ['portrait_id' => $portraitId],
+                'ai_cutout'
+            );
+
+            Log::info('抠图任务已推送(SmileCapture)', ['portrait_id' => $portraitId]);
+
+            $setting = Db::name('ai_travel_photo_synthesis_setting')
+                ->where('portrait_id', 0)
+                ->where('aid', $this->aid)
+                ->where('bid', $targetBid)
+                ->find();
+
+            if (!$setting || empty($setting['template_ids'])) {
+                Log::info('未配置合成模板，跳过自动生成', ['portrait_id' => $portraitId]);
+                return;
+            }
+
+            $templateIds = explode(',', $setting['template_ids']);
+            $generateCount = $setting['generate_count'] ?? 4;
+
+            $templates = Db::name('generation_scene_template')
+                ->whereIn('id', $templateIds)
+                ->where('generation_type', 1)
+                ->where('status', 1)
+                ->field('id, template_name, model_id')
+                ->limit($generateCount)
+                ->select();
+
+            foreach ($templates as $template) {
+                $generationId = Db::name('ai_travel_photo_generation')->insertGetId([
+                    'aid' => $this->aid,
+                    'portrait_id' => $portraitId,
+                    'scene_id' => 0,
+                    'template_id' => $template['id'],
+                    'uid' => 0,
+                    'bid' => $targetBid,
+                    'mdid' => 0,
+                    'type' => 1,
+                    'generation_type' => 1,
+                    'status' => 0,
+                    'create_time' => time(),
+                    'update_time' => time(),
+                    'queue_time' => time()
+                ]);
+
+                \think\facade\Queue::push(
+                    'app\\job\\ImageGenerationJob',
+                    ['generation_id' => $generationId],
+                    'ai_image_generation'
+                );
+
+                Log::info('图生图任务已推送(SmileCapture)', [
+                    'portrait_id' => $portraitId,
+                    'template_id' => $template['id'],
+                    'generation_id' => $generationId
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('异步任务推送失败(SmileCapture)', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+        }
+    }
+
     // ========== 合成相关代理方法（绕过Common权限校验） ==========
 
     /**
