@@ -97,12 +97,7 @@ class SmileCapture extends Base
 
             $mendian_list = Db::name('mendian')
                 ->where('aid', $aid)
-                ->where(function($query) use ($targetBid) {
-                    $query->whereOr([
-                        ['bid', '=', $targetBid],
-                        ['bid', '=', 0]
-                    ]);
-                })
+                ->where('bid', $targetBid)
                 ->select()
                 ->toArray();
 
@@ -638,6 +633,62 @@ class SmileCapture extends Base
             ]);
         } catch (\Exception $e) {
             Log::error('查询抓拍状态失败(SmileCapture)', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+            return json(['status' => 0, 'msg' => '查询失败：' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 查询人像的所有已完成成片（用于成片查询功能）
+     * GET /SmileCapture/query_portrait_results?portrait_id=xxx
+     */
+    public function query_portrait_results()
+    {
+        $this->requireLogin();
+
+        $portraitId = input('param.portrait_id/d', 0);
+        if (!$portraitId) {
+            return json(['status' => 0, 'msg' => '缺少portrait_id参数']);
+        }
+
+        try {
+            $portrait = Db::name('ai_travel_photo_portrait')
+                ->where('id', $portraitId)
+                ->where('aid', $this->aid)
+                ->field('id, thumbnail_url, original_url')
+                ->find();
+
+            if (!$portrait) {
+                return json(['status' => 0, 'msg' => '人像记录不存在']);
+            }
+
+            $results = Db::name('ai_travel_photo_result')
+                ->where('portrait_id', $portraitId)
+                ->where('status', 1)
+                ->field('id, url, thumbnail_url, create_time')
+                ->order('create_time ASC')
+                ->select()
+                ->toArray();
+
+            $resultImages = [];
+            foreach ($results as $r) {
+                $resultImages[] = [
+                    'id' => $r['id'],
+                    'url' => $r['url'] ?: $r['thumbnail_url'],
+                    'thumbnail_url' => $r['thumbnail_url'] ?: $r['url']
+                ];
+            }
+
+            return json([
+                'status' => 1,
+                'data' => [
+                    'portrait_id' => $portraitId,
+                    'portrait_thumbnail' => $portrait['thumbnail_url'] ?: $portrait['original_url'],
+                    'result_images' => $resultImages,
+                    'count' => count($resultImages)
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('查询人像成片失败(SmileCapture)', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
             return json(['status' => 0, 'msg' => '查询失败：' . $e->getMessage()]);
         }
     }

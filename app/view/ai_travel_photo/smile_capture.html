@@ -310,6 +310,11 @@
             <span class="sc-switch-label">人像实时反馈</span>
             <label class="sc-switch"><input type="checkbox" id="swFeedback" checked><span class="slider"></span></label>
           </div>
+          <div class="sc-switch-row">
+            <span class="sc-switch-label">成片查询</span>
+            <label class="sc-switch"><input type="checkbox" id="swResultQuery"><span class="slider"></span></label>
+          </div>
+          <p style="font-size:11px;color:#aaa;margin-top:2px;">开启后，重复检测到的人像将展示其已生成的成片</p>
           <div style="margin-top:8px;">
             <label style="font-size:12px;color:#888;">反馈超时时间</label>
             <select class="sc-select" id="scFeedbackTimeout">
@@ -409,6 +414,8 @@
     autoCaptureEnabled: false,
     adPlaybackEnabled: false,
     portraitFeedbackEnabled: true,
+    resultQueryEnabled: false,
+    resultQueryPortraitId: null,
     feedbackTimeout: 60,
     captureInterval: 1,
     dedupMinutes: 1,
@@ -691,9 +698,9 @@
     for (var i = SC.capturedFaces.length - 1; i >= 0; i--) {
       var r = SC.capturedFaces[i];
       if (now - r.timestamp > dedupMs) { SC.capturedFaces.splice(i, 1); continue; }
-      if (euclideanDistance(descriptor, r.descriptor) < 0.6) return true;
+      if (euclideanDistance(descriptor, r.descriptor) < 0.6) return r; // 返回匹配记录（含portraitId）
     }
-    return false;
+    return null;
   }
 
   function startSmileDetection() {
@@ -733,13 +740,15 @@
         var isSmiling = false;
         var currentDescriptor = null;
         var isDuplicate = false;
+        var duplicateRecord = null;
 
         detections.forEach(function(det) {
           var box = det.detection.box;
           if (det.descriptor && !currentDescriptor) {
             currentDescriptor = Array.from(det.descriptor);
             SC.lastFaceDescriptor = currentDescriptor;
-            isDuplicate = isFaceRecentlyCaptured(currentDescriptor);
+            duplicateRecord = isFaceRecentlyCaptured(currentDescriptor);
+            isDuplicate = !!duplicateRecord;
             ctx.strokeStyle = isDuplicate ? '#ff9800' : '#00ff00';
           } else {
             ctx.strokeStyle = '#00ff00';
@@ -764,7 +773,16 @@
         }
 
         if (isDuplicate) {
-          indicator.textContent = '该人脸已在' + SC.dedupMinutes + '分钟内抓拍过';
+          // 成片查询功能：重复人脸时展示已生成的成片
+          if (SC.resultQueryEnabled && duplicateRecord && duplicateRecord.portraitId) {
+            if (SC.resultQueryPortraitId !== duplicateRecord.portraitId) {
+              SC.resultQueryPortraitId = duplicateRecord.portraitId;
+              queryPortraitResults(duplicateRecord.portraitId);
+            }
+            indicator.textContent = '正在查询成片...';
+          } else {
+            indicator.textContent = '该人脸已在' + SC.dedupMinutes + '分钟内抓拍过';
+          }
           indicator.classList.add('show');
           SC.smileStartTime = null;
           return;
@@ -861,7 +879,7 @@
       success: function(res) {
         if (res.status == 1) {
           if (SC.lastFaceDescriptor) {
-            SC.capturedFaces.push({ descriptor: SC.lastFaceDescriptor, timestamp: Date.now() });
+            SC.capturedFaces.push({ descriptor: SC.lastFaceDescriptor, timestamp: Date.now(), portraitId: res.data.portrait_id || 0 });
           }
           SC.captureTotal++;
           document.getElementById('captureCount').textContent = SC.captureTotal;
@@ -981,6 +999,54 @@
     if (SC.faceGoneTimer) { clearTimeout(SC.faceGoneTimer); SC.faceGoneTimer = null; }
     SC.feedbackPortraitId = null;
     SC.currentFeedbackDescriptor = null;
+    SC.resultQueryPortraitId = null;
+  }
+
+  // ========== 成片查询（重复人脸展示成片） ==========
+  function queryPortraitResults(portraitId) {
+    $.get('/index.php?s=/SmileCapture/query_portrait_results', { portrait_id: portraitId }, function(res) {
+      if (res.status == 1 && res.data) {
+        var images = res.data.result_images;
+        if (images && images.length > 0) {
+          var urls = images.map(function(item) { return item.url; });
+          showResultSlideshow(urls);
+          document.getElementById('smileIndicator').textContent = '找到 ' + urls.length + ' 张成片，正在轮播展示';
+        } else {
+          document.getElementById('smileIndicator').textContent = '该人像暂无成片';
+          SC.resultQueryPortraitId = null; // 重置，允许下次重新查询
+        }
+      }
+    }).fail(function() {
+      SC.resultQueryPortraitId = null;
+    });
+  }
+
+  function showResultSlideshow(images) {
+    var overlay = document.getElementById('feedbackOverlay');
+    var img = document.getElementById('feedbackImage');
+    var progress = document.getElementById('feedbackProgress');
+
+    // 清除之前的轮播定时器
+    if (SC.slideshowTimer) { clearInterval(SC.slideshowTimer); SC.slideshowTimer = null; }
+    if (SC.feedbackPollTimer) { clearInterval(SC.feedbackPollTimer); SC.feedbackPollTimer = null; }
+
+    progress.style.display = 'none';
+    img.src = images[0];
+    img.style.display = 'block';
+    overlay.classList.add('show');
+
+    SC.currentFeedbackDescriptor = SC.lastFaceDescriptor ? SC.lastFaceDescriptor.slice() : null;
+    SC.faceGoneFrames = 0;
+
+    if (images.length > 1) {
+      var idx = 0;
+      SC.slideshowTimer = setInterval(function() {
+        idx = (idx + 1) % images.length;
+        img.src = images[idx];
+      }, 3000);
+    }
+
+    startFaceGoneTimeout();
   }
 
   // ========== 登录相关 ==========
@@ -1186,6 +1252,17 @@
 
   document.getElementById('swFeedback').addEventListener('change', function() {
     SC.portraitFeedbackEnabled = this.checked;
+  });
+
+  document.getElementById('swResultQuery').addEventListener('change', function() {
+    SC.resultQueryEnabled = this.checked;
+    if (!this.checked) {
+      // 关闭时清除当前成片查询状态
+      SC.resultQueryPortraitId = null;
+      if (SC.feedbackPortraitId === null && SC.slideshowTimer) {
+        closeFeedback();
+      }
+    }
   });
 
   document.getElementById('scInterval').addEventListener('change', function() {
