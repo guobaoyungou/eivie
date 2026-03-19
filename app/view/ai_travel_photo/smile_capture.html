@@ -283,6 +283,23 @@
               </div>
             </div>
           </div>
+          <div style="margin-top:10px;">
+            <div style="font-size:12px;color:#888;margin-bottom:6px;">摄像头旋转</div>
+            <div class="sc-ratio-grid" style="grid-template-columns: repeat(4, 1fr);">
+              <div class="sc-ratio-item active" data-rotation="0" onclick="selectRotation(this)">
+                <div class="ratio-label">0°</div><div class="ratio-desc">正常</div>
+              </div>
+              <div class="sc-ratio-item" data-rotation="90" onclick="selectRotation(this)">
+                <div class="ratio-label">90°</div><div class="ratio-desc">顺时针</div>
+              </div>
+              <div class="sc-ratio-item" data-rotation="180" onclick="selectRotation(this)">
+                <div class="ratio-label">180°</div><div class="ratio-desc">倒置</div>
+              </div>
+              <div class="sc-ratio-item" data-rotation="270" onclick="selectRotation(this)">
+                <div class="ratio-label">270°</div><div class="ratio-desc">逆时针</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 抓拍控制 -->
@@ -424,6 +441,7 @@
     isLoggedIn: {$is_logged_in ? 'true' : 'false'},
     captureSize: '1K',
     aspectRatio: 'screen',
+    cameraRotation: 0,
     autoCaptureEnabled: false,
     adPlaybackEnabled: false,
     portraitFeedbackEnabled: true,
@@ -507,9 +525,18 @@
 
   function selectRatio(el) {
     if (SC.autoCaptureEnabled) return;
-    document.querySelectorAll('.sc-ratio-item').forEach(function(b){ b.classList.remove('active'); });
+    document.querySelectorAll('.sc-ratio-item[data-ratio]').forEach(function(b){ b.classList.remove('active'); });
     el.classList.add('active');
     SC.aspectRatio = el.getAttribute('data-ratio');
+    updateCropOverlay();
+  }
+
+  function selectRotation(el) {
+    if (SC.autoCaptureEnabled) return;
+    document.querySelectorAll('.sc-ratio-item[data-rotation]').forEach(function(b){ b.classList.remove('active'); });
+    el.classList.add('active');
+    SC.cameraRotation = parseInt(el.getAttribute('data-rotation')) || 0;
+    applyVideoRotation();
     updateCropOverlay();
   }
 
@@ -524,11 +551,20 @@
     var areaH = area.clientHeight;
     var vw = video.videoWidth;
     var vh = video.videoHeight;
+    var isSwap = (SC.cameraRotation === 90 || SC.cameraRotation === 270);
 
-    // 计算视频在区域内的显示尺寸
-    var scale = Math.min(areaW / vw, areaH / vh);
-    var displayW = vw * scale;
-    var displayH = vh * scale;
+    // 计算视频在区域内的显示尺寸（考虑旋转）
+    var displayW, displayH;
+    if (isSwap) {
+      var cs = Math.min(areaW / vw, areaH / vh);
+      var fs = Math.min(areaW / (vh * cs), areaH / (vw * cs));
+      displayW = vh * cs * fs;
+      displayH = vw * cs * fs;
+    } else {
+      var scale = Math.min(areaW / vw, areaH / vh);
+      displayW = vw * scale;
+      displayH = vh * scale;
+    }
 
     canvas.width = areaW;
     canvas.height = areaH;
@@ -603,7 +639,7 @@
       el.requestFullscreen().then(function(){
         document.body.classList.add('fullscreen-mode');
         SC.isFullscreen = true;
-        setTimeout(function() { updateOverlayScale(); updateCropOverlay(); }, 100);
+        setTimeout(function() { applyVideoRotation(); updateCropOverlay(); }, 100);
       }).catch(function(){});
     } else {
       document.exitFullscreen();
@@ -614,31 +650,63 @@
     if (!document.fullscreenElement) {
       document.body.classList.remove('fullscreen-mode');
       SC.isFullscreen = false;
-      setTimeout(function() { updateOverlayScale(); updateCropOverlay(); }, 100);
+      setTimeout(function() { applyVideoRotation(); updateCropOverlay(); }, 100);
     }
   });
 
-  // 全屏模式下调整人脸检测overlay与video cover显示对齐
-  function updateOverlayScale() {
-    var overlay = document.getElementById('overlay');
+  // 摄像头旋转显示 + overlay对齐
+  function applyVideoRotation() {
     var video = document.getElementById('video');
+    var overlay = document.getElementById('overlay');
     var area = document.getElementById('cameraArea');
     if (!video.videoWidth) return;
 
+    var rot = SC.cameraRotation;
+    var isSwap = (rot === 90 || rot === 270);
+    var vW = video.videoWidth;
+    var vH = video.videoHeight;
+    var aW = area.clientWidth;
+    var aH = area.clientHeight;
+
+    // overlay尺寸跟随旋转后的坐标系
+    var oW = isSwap ? vH : vW;
+    var oH = isSwap ? vW : vH;
+    overlay.width = oW;
+    overlay.height = oH;
+
+    var rotStr = rot ? ' rotate(' + rot + 'deg)' : '';
+
     if (SC.isFullscreen) {
-      var aW = area.clientWidth;
-      var aH = area.clientHeight;
-      var vW = video.videoWidth;
-      var vH = video.videoHeight;
-      // video使用object-fit:cover时的缩放比例
-      var coverScale = Math.max(aW / vW, aH / vH);
-      overlay.style.width = (vW * coverScale) + 'px';
-      overlay.style.height = (vH * coverScale) + 'px';
-      overlay.style.transform = 'translate(-50%, -50%) scaleX(-1)';
+      // 全屏模式：video使用object-fit:cover
+      if (isSwap) {
+        var coverOrig = Math.max(aW / vW, aH / vH);
+        var coverRot = Math.max(aW / vH, aH / vW);
+        var correction = coverRot / coverOrig;
+        video.style.transform = 'scaleX(-1)' + rotStr + ' scale(' + correction + ')';
+        overlay.style.width = (oW * coverRot) + 'px';
+        overlay.style.height = (oH * coverRot) + 'px';
+      } else {
+        video.style.transform = 'scaleX(-1)' + rotStr;
+        var coverScale = Math.max(aW / vW, aH / vH);
+        overlay.style.width = (oW * coverScale) + 'px';
+        overlay.style.height = (oH * coverScale) + 'px';
+      }
+      overlay.style.transform = 'translate(-50%, -50%) scaleX(-1)' + rotStr;
     } else {
+      // 普通模式：video使用object-fit:contain
+      if (isSwap) {
+        var containScale = Math.min(aW / vW, aH / vH);
+        var dispW = vW * containScale;
+        var dispH = vH * containScale;
+        var fitScale = Math.min(aW / dispH, aH / dispW);
+        video.style.transform = 'scaleX(-1)' + rotStr + ' scale(' + fitScale + ')';
+        overlay.style.transform = 'translate(-50%, -50%) scaleX(-1)' + rotStr + ' scale(' + fitScale + ')';
+      } else {
+        video.style.transform = 'scaleX(-1)' + rotStr;
+        overlay.style.transform = 'translate(-50%, -50%) scaleX(-1)' + rotStr;
+      }
       overlay.style.width = '';
       overlay.style.height = '';
-      overlay.style.transform = 'translate(-50%, -50%) scaleX(-1)';
     }
   }
 
@@ -692,11 +760,8 @@
         status.style.display = 'none';
         document.getElementById('btnManualCapture').disabled = false;
 
-        // 设置overlay尺寸
-        var overlay = document.getElementById('overlay');
-        overlay.width = video.videoWidth;
-        overlay.height = video.videoHeight;
-
+        // 设置overlay尺寸并应用旋转
+        applyVideoRotation();
         updateCropOverlay();
       });
     } catch (err) {
@@ -754,6 +819,27 @@
     return null;
   }
 
+  // ========== 摄像头旋转：预旋转检测输入 ==========
+  var _rotCanvas = document.createElement('canvas');
+  var _rotCtx = _rotCanvas.getContext('2d');
+
+  function getDetectionInput() {
+    var video = document.getElementById('video');
+    if (SC.cameraRotation === 0) return video;
+    var vW = video.videoWidth;
+    var vH = video.videoHeight;
+    var rot = SC.cameraRotation;
+    var isSwap = (rot === 90 || rot === 270);
+    _rotCanvas.width = isSwap ? vH : vW;
+    _rotCanvas.height = isSwap ? vW : vH;
+    _rotCtx.save();
+    _rotCtx.translate(_rotCanvas.width / 2, _rotCanvas.height / 2);
+    _rotCtx.rotate(rot * Math.PI / 180);
+    _rotCtx.drawImage(video, -vW / 2, -vH / 2);
+    _rotCtx.restore();
+    return _rotCanvas;
+  }
+
   function startSmileDetection() {
     var video = document.getElementById('video');
     var overlay = document.getElementById('overlay');
@@ -764,7 +850,8 @@
     SC.detectionInterval = setInterval(async function() {
       if (SC.isCapturing) return;
       try {
-        var detections = await faceapi.detectAllFaces(video, options).withFaceLandmarks().withFaceDescriptors();
+        var detInput = getDetectionInput();
+        var detections = await faceapi.detectAllFaces(detInput, options).withFaceLandmarks().withFaceDescriptors();
         ctx.clearRect(0, 0, overlay.width, overlay.height);
 
         if (detections.length === 0) {
@@ -881,19 +968,22 @@
     var targetAR = ratio.w / ratio.h;
     var dim = getTargetDimensions();
 
-    // 从视频中按比例裁剪
-    var vw = video.videoWidth;
-    var vh = video.videoHeight;
+    // 获取旋转校正后的源（旋转时使用预旋转canvas，否则直接用video）
+    var source = getDetectionInput();
+    var srcW = source.width || source.videoWidth;
+    var srcH = source.height || source.videoHeight;
+
+    // 从源图中按比例裁剪
     var cropW, cropH, cropX, cropY;
-    if (vw / vh > targetAR) {
-      cropH = vh;
-      cropW = vh * targetAR;
+    if (srcW / srcH > targetAR) {
+      cropH = srcH;
+      cropW = srcH * targetAR;
     } else {
-      cropW = vw;
-      cropH = vw / targetAR;
+      cropW = srcW;
+      cropH = srcW / targetAR;
     }
-    cropX = (vw - cropW) / 2;
-    cropY = (vh - cropH) / 2;
+    cropX = (srcW - cropW) / 2;
+    cropY = (srcH - cropH) / 2;
 
     var canvas = document.createElement('canvas');
     canvas.width = dim.width;
@@ -903,7 +993,7 @@
     // 镜像翻转
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, dim.width, dim.height);
+    ctx.drawImage(source, cropX, cropY, cropW, cropH, 0, 0, dim.width, dim.height);
 
     var imageData = canvas.toDataURL('image/jpeg', 0.92);
 
@@ -1335,7 +1425,7 @@
 
   // ========== 窗口大小变化 ==========
   window.addEventListener('resize', function() {
-    setTimeout(function() { updateOverlayScale(); updateCropOverlay(); }, 100);
+    setTimeout(function() { applyVideoRotation(); updateCropOverlay(); }, 100);
   });
 
   // ========== 页面初始化 ==========
