@@ -638,33 +638,88 @@ class SmileCapture extends Base
     }
 
     /**
-     * 查询人像的所有已完成成片（用于成片查询功能）
-     * GET /SmileCapture/query_portrait_results?portrait_id=xxx
+     * 查询与检测人脸相似度>=98%的所有人像的已完成成片
+     * POST /SmileCapture/query_portrait_results
+     * 参数: face_embedding (JSON格式的128维人脸特征向量)
+     * 
+     * 相似度计算：对L2归一化的128维向量，98%余弦相似度对应欧氏距离<=0.2
+     * cosine_similarity = 1 - distance²/2, 当cos_sim>=0.98时 distance<=0.2
      */
     public function query_portrait_results()
     {
         $this->requireLogin();
 
-        $portraitId = input('param.portrait_id/d', 0);
-        if (!$portraitId) {
-            return json(['status' => 0, 'msg' => '缺少portrait_id参数']);
+        $faceEmbeddingJson = input('post.face_embedding', '');
+        if (empty($faceEmbeddingJson)) {
+            return json(['status' => 0, 'msg' => '缺少face_embedding参数']);
         }
 
-        try {
-            $portrait = Db::name('ai_travel_photo_portrait')
-                ->where('id', $portraitId)
-                ->where('aid', $this->aid)
-                ->field('id, thumbnail_url, original_url')
-                ->find();
+        $inputEmbedding = json_decode($faceEmbeddingJson, true);
+        if (!is_array($inputEmbedding) || count($inputEmbedding) < 64) {
+            return json(['status' => 0, 'msg' => '人脸特征数据无效']);
+        }
 
-            if (!$portrait) {
-                return json(['status' => 0, 'msg' => '人像记录不存在']);
+        // 98%余弦相似度对应的欧氏距离阈值（L2归一化向量）
+        $distanceThreshold = 0.2;
+        $targetBid = $this->getTargetBid();
+
+        try {
+            $matchedPortraitIds = [];
+            $milvusUsed = false;
+
+            // 优先尝试Milvus向量搜索
+            try {
+                $milvusService = new \app\service\MilvusService();
+                if ($milvusService->isHealthy()) {
+                    $searchResults = $milvusService->search($inputEmbedding, 50);
+                    if (!empty($searchResults)) {
+                        foreach ($searchResults as $result) {
+                            $dist = floatval($result['distance'] ?? 999);
+                            if ($dist <= $distanceThreshold && !empty($result['portrait_id'])) {
+                                $matchedPortraitIds[] = intval($result['portrait_id']);
+                            }
+                        }
+                        $milvusUsed = true;
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('Milvus搜索失败，使用MySQL备用', ['error' => $e->getMessage()]);
             }
 
+            // MySQL备用：遍历所有有face_embedding的人像进行距离计算
+            if (!$milvusUsed) {
+                $portraits = Db::name('ai_travel_photo_portrait')
+                    ->where('aid', $this->aid)
+                    ->where('bid', $targetBid)
+                    ->where('face_embedding', '<>', '')
+                    ->whereNotNull('face_embedding')
+                    ->field('id, face_embedding')
+                    ->select()
+                    ->toArray();
+
+                foreach ($portraits as $p) {
+                    $storedEmbedding = json_decode($p['face_embedding'], true);
+                    if (!is_array($storedEmbedding) || count($storedEmbedding) < 64) continue;
+
+                    $distance = $this->vectorEuclideanDistance($inputEmbedding, $storedEmbedding);
+                    if ($distance <= $distanceThreshold) {
+                        $matchedPortraitIds[] = intval($p['id']);
+                    }
+                }
+            }
+
+            if (empty($matchedPortraitIds)) {
+                return json([
+                    'status' => 1,
+                    'data' => ['result_images' => [], 'count' => 0, 'matched_portraits' => 0]
+                ]);
+            }
+
+            // 查询所有匹配人像的已完成成片
             $results = Db::name('ai_travel_photo_result')
-                ->where('portrait_id', $portraitId)
+                ->whereIn('portrait_id', $matchedPortraitIds)
                 ->where('status', 1)
-                ->field('id, url, thumbnail_url, create_time')
+                ->field('id, url, thumbnail_url, portrait_id, create_time')
                 ->order('create_time ASC')
                 ->select()
                 ->toArray();
@@ -674,23 +729,37 @@ class SmileCapture extends Base
                 $resultImages[] = [
                     'id' => $r['id'],
                     'url' => $r['url'] ?: $r['thumbnail_url'],
-                    'thumbnail_url' => $r['thumbnail_url'] ?: $r['url']
+                    'thumbnail_url' => $r['thumbnail_url'] ?: $r['url'],
+                    'portrait_id' => $r['portrait_id']
                 ];
             }
 
             return json([
                 'status' => 1,
                 'data' => [
-                    'portrait_id' => $portraitId,
-                    'portrait_thumbnail' => $portrait['thumbnail_url'] ?: $portrait['original_url'],
                     'result_images' => $resultImages,
-                    'count' => count($resultImages)
+                    'count' => count($resultImages),
+                    'matched_portraits' => count($matchedPortraitIds)
                 ]
             ]);
         } catch (\Exception $e) {
-            Log::error('查询人像成片失败(SmileCapture)', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+            Log::error('查询人像成片失败(SmileCapture)', ['error' => $e->getMessage()]);
             return json(['status' => 0, 'msg' => '查询失败：' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * 计算两个向量的欧氏距离
+     */
+    private function vectorEuclideanDistance(array $v1, array $v2): float
+    {
+        $len = min(count($v1), count($v2));
+        $sum = 0.0;
+        for ($i = 0; $i < $len; $i++) {
+            $diff = floatval($v1[$i]) - floatval($v2[$i]);
+            $sum += $diff * $diff;
+        }
+        return sqrt($sum);
     }
 
     // ========== 图片处理辅助方法 ==========
