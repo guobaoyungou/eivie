@@ -190,7 +190,20 @@
             </button>
             <span style="margin-left: 10px; color: #999;">支持JPG、JPEG、PNG格式，单个文件不超过10MB，建议宽高大于200px</span>
           </div>
-          
+
+          <!-- 笑脸抓拍独立链接 -->
+          <div style="margin-bottom: 15px; padding: 12px 16px; background: #f0f9ff; border: 1px solid #d0e8ff; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+            <i class="layui-icon layui-icon-link" style="font-size: 20px; color: #1e9fff;"></i>
+            <span style="font-size: 13px; color: #555; white-space: nowrap;">笑脸抓拍独立页面：</span>
+            <input type="text" id="smileCaptureUrl" readonly style="flex: 1; border: 1px solid #ddd; border-radius: 4px; padding: 6px 10px; font-size: 13px; color: #333; background: #fff; cursor: text;" value="">
+            <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="copySmileCaptureUrl()" title="复制链接">
+              <i class="layui-icon layui-icon-file"></i> 复制
+            </button>
+            <button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="openSmileCaptureNewTab()" title="在新标签页打开">
+              <i class="layui-icon layui-icon-release"></i> 打开
+            </button>
+          </div>
+
           <!-- 数据表格 -->
           <table class="layui-table" id="tabledata" lay-filter="tabledata"></table>
           
@@ -211,6 +224,31 @@
   var datawhere = {};
   var tableIns;
   var uploadInst;
+
+  // 生成笑脸抓拍独立页面URL
+  var smileCaptureBaseUrl = window.location.origin + '/index.php?s=/SmileCapture/index&aid={$aid}&bid={$bid}';
+  document.getElementById('smileCaptureUrl').value = smileCaptureBaseUrl;
+
+  function copySmileCaptureUrl() {
+    var input = document.getElementById('smileCaptureUrl');
+    input.select();
+    input.setSelectionRange(0, 99999);
+    try {
+      document.execCommand('copy');
+      layer.msg('链接已复制', {icon: 1, time: 1000});
+    } catch (e) {
+      // 备用：使用Clipboard API
+      navigator.clipboard.writeText(input.value).then(function() {
+        layer.msg('链接已复制', {icon: 1, time: 1000});
+      }).catch(function() {
+        layer.msg('复制失败，请手动复制', {icon: 2});
+      });
+    }
+  }
+
+  function openSmileCaptureNewTab() {
+    window.open(smileCaptureBaseUrl, '_blank');
+  }
   
   var table;
   layui.use(['table', 'form', 'laydate', 'upload'], function(){
@@ -649,515 +687,60 @@
     stopMonitor();
   });
 
-  // ========== 笑脸抓拍功能 ==========
-  var smileCaptureIndex = null;
-  var videoStream = null;
-  var detectionInterval = null;
-  var smileStartTime = null;
-  var isCapturing = false;
-  var lastFaceDescriptor = null; // 存储最后提取的人脸特征向量
+  // 定义openmax函数用于打开弹窗
+  function openmax(url){
+    var index = layer.open({
+      type: 2,
+      title: false,
+      area: ['100%', '100%'],
+      maxmin: true,
+      content: url,
+      success: function(layero, index){
+        layer.full(index);
+      },
+      end: function(){
+        if(typeof tableIns !== 'undefined'){
+          tableIns.reload();
+        }
+      }
+    });
+  }
 
-  // 连续抓拍配置
-  var captureConfig = {
-    interval: 1,           // 抓拍间隔（秒），默认1秒
-    dedupMinutes: 1,       // 去重时间（分钟），默认1分钟
-    capturedFaces: []      // 已抓拍的人脸记录 {descriptor: [], timestamp: number}
-  };
-
-  // 笑脸抓拍按钮点击事件
-  $('#smileCaptureBtn').on('click', function() {
-    openSmileCaptureDialog();
+  // 监听子iframe消息（笑脸抓拍页面通知启停监控）
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'smileCapture') {
+      if (e.data.action === 'startMonitor') {
+        startMonitor();
+      } else if (e.data.action === 'stopMonitor') {
+        stopMonitor();
+      }
+    }
   });
 
-  // 打开笑脸抓拍弹窗
-  function openSmileCaptureDialog() {
-    var html = '';
-    html += '<div style="padding: 20px;">';
-    html += '<div style="margin-bottom: 15px; text-align: center;">';
-    html += '<div id="cameraContainer" style="position: relative; width: 480px; height: 360px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden;">';
-    html += '<video id="video" width="480" height="360" autoplay playsinline style="display: block;"></video>';
-    html += '<canvas id="overlay" width="480" height="360" style="position: absolute; top: 0; left: 0; width: 480px; height: 360px;"></canvas>';
-    html += '<div id="cameraStatus" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 14px;">正在连接摄像头...</div>';
-    html += '</div>';
-    html += '</div>';
-
-    // 门店选择
-    html += '<div style="margin-bottom: 10px; text-align: center;">';
-    html += '<label style="margin-right: 10px;">选择门店：</label>';
-    html += '<select id="smile_mdid" style="width: 150px; padding: 5px; border: 1px solid #ddd; border-radius: 3px;">';
-    html += '<option value="0">无门店</option>';
-    {foreach $mendian_list as $md}
-    html += '<option value="{$md.id}">{$md.name}</option>';
-    {/foreach}
-    html += '</select>';
-    html += '</div>';
-
-    // 抓拍配置
-    html += '<div style="margin-bottom: 10px; text-align: center; font-size: 12px;">';
-    html += '<label style="margin-right: 5px;">抓拍间隔：</label>';
-    html += '<select id="captureInterval" style="width: 70px; padding: 3px; border: 1px solid #ddd; border-radius: 3px; margin-right: 15px;">';
-    html += '<option value="1" selected>1秒</option>';
-    html += '<option value="2">2秒</option>';
-    html += '<option value="3">3秒</option>';
-    html += '<option value="4">4秒</option>';
-    html += '<option value="5">5秒</option>';
-    html += '</select>';
-    html += '<label style="margin-right: 5px;">去重时间：</label>';
-    html += '<select id="dedupMinutes" style="width: 80px; padding: 3px; border: 1px solid #ddd; border-radius: 3px;">';
-    html += '<option value="1" selected>1分钟</option>';
-    html += '<option value="2">2分钟</option>';
-    html += '<option value="5">5分钟</option>';
-    html += '<option value="30">30分钟</option>';
-    html += '</select>';
-    html += '</div>';
-
-    // 状态提示
-    html += '<div id="smileStatus" style="text-align: center; margin-bottom: 10px; padding: 10px; background: #f0f0f0; border-radius: 4px;">';
-    html += '<span style="color: #666;">请面对摄像头，保持微笑...</span>';
-    html += '</div>';
-
-    // 抓拍统计
-    html += '<div style="text-align: center; margin-bottom: 10px; font-size: 12px; color: #666;">';
-    html += '已抓拍: <span id="captureCount" style="color: #ff5722; font-weight: bold; font-size: 16px;">0</span> 张';
-    html += '<span id="lastCaptureTime" style="margin-left: 15px; color: #999;"></span>';
-    html += '</div>';
-
-    // 进度条
-    html += '<div id="smileProgress" style="display: none; margin-bottom: 15px;">';
-    html += '<div style="width: 300px; height: 8px; background: #e0e0e0; border-radius: 4px; margin: 0 auto; overflow: hidden;">';
-    html += '<div id="progressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #ff9800, #ff5722); transition: width 0.1s;"></div>';
-    html += '</div>';
-    html += '<div style="text-align: center; margin-top: 5px; color: #ff5722; font-size: 12px;">笑脸识别中...</div>';
-    html += '</div>';
-
-    // 操作按钮
-    html += '<div style="text-align: center;">';
-    html += '<button type="button" class="layui-btn layui-btn-warm" id="captureBtn" disabled>手动抓拍</button>';
-    html += '<button type="button" class="layui-btn layui-btn-danger" id="stopCaptureBtn" style="display: none;">停止抓拍</button>';
-    html += '<button type="button" class="layui-btn layui-btn-primary" id="closeSmileBtn">关闭</button>';
-    html += '</div>';
-    html += '</div>';
-
-    smileCaptureIndex = layer.open({
-      type: 1,
-      title: '笑脸抓拍',
-      area: ['540px', '550px'],
-      content: html,
-      success: function(layero, index) {
-        // 读取配置
-        captureConfig.interval = parseInt($('#captureInterval').val()) || 1;
-        captureConfig.dedupMinutes = parseInt($('#dedupMinutes').val()) || 1;
-        captureConfig.capturedFaces = [];
-
-        // 监听配置变化
-        $('#captureInterval').on('change', function() {
-          captureConfig.interval = parseInt($(this).val()) || 1;
-        });
-        $('#dedupMinutes').on('change', function() {
-          captureConfig.dedupMinutes = parseInt($(this).val()) || 1;
-        });
-
-        // 绑定关闭按钮事件
-        $('#closeSmileBtn').on('click', function() {
-          closeSmileCapture();
-        });
-
-        // 绑定手动抓拍按钮事件
-        $('#captureBtn').on('click', function() {
-          $('#captureBtn').prop('disabled', true);
-          $('#stopCaptureBtn').show();
-          captureImage(true);
-        });
-
-        // 绑定停止抓拍按钮事件
-        $('#stopCaptureBtn').on('click', function() {
-          isCapturing = false;
-          smileStartTime = null;
-          $('#stopCaptureBtn').hide();
-          $('#captureBtn').prop('disabled', false);
-          $('#smileStatus').html('<span style="color: #666;">已停止，等待下次抓拍...</span>');
-        });
-
-        // 初始化摄像头和笑脸检测
-        initSmileDetection();
-      },
-      end: function() {
-        closeSmileCapture();
-      }
-    });
-  }
-
-  // 初始化笑脸检测
-  async function initSmileDetection() {
-    var video = document.getElementById('video');
-    var cameraStatus = document.getElementById('cameraStatus');
-
-    try {
-      // 先检查face-api.js是否加载成功
-      if (typeof faceapi === 'undefined') {
-        throw new Error('人脸识别库加载失败，请检查网络连接后刷新页面重试');
-      }
-
-      // 请求摄像头权限
-      videoStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: 'user' }
-      });
-      video.srcObject = videoStream;
-      cameraStatus.style.display = 'none';
-
-      cameraStatus.innerHTML = '正在加载AI模型...';
-      cameraStatus.style.display = 'block';
-
-      // 加载face-api.js模型
-      await loadFaceApiModels();
-
-      cameraStatus.style.display = 'none';
-
-      // 启用手动抓拍按钮
-      $('#captureBtn').prop('disabled', false);
-
-      // 开始检测
-      startSmileDetection();
-    } catch (err) {
-      var errorMsg = err.message || '未知错误';
-      if (errorMsg.includes('Permission denied')) {
-        errorMsg = '摄像头权限被拒绝，请允许访问摄像头后重试';
-      } else if (errorMsg.includes('NotFoundError')) {
-        errorMsg = '未找到摄像头设备，请检查摄像头连接';
-      }
-      cameraStatus.innerHTML = '<span style="color: #f44336;">' + errorMsg + '</span>';
-      cameraStatus.style.display = 'block';
-      console.error('笑脸检测初始化错误:', err);
-    }
-  }
-
-  // 加载face-api.js模型
-  async function loadFaceApiModels() {
-    var baseUrl = '/static/face-api/models';
-
-    // 检查faceapi是否已定义
-    if (typeof faceapi === 'undefined') {
-      throw new Error('face-api.js 库未加载成功，请检查网络连接后刷新页面');
-    }
-
-    // 如果本地模型不存在，使用CDN
-    try {
-      console.log('尝试加载本地模型...');
-      // TinyFaceDetector用于人脸检测
-      await faceapi.nets.tinyFaceDetector.loadFromUri(baseUrl);
-      // faceLandmark68Net用于获取68个关键点
-      await faceapi.nets.faceLandmark68Net.loadFromUri(baseUrl);
-      // faceRecognitionNet用于提取人脸特征向量（128维）
-      await faceapi.nets.faceRecognitionNet.loadFromUri(baseUrl);
-      console.log('本地模型加载成功');
-    } catch (e) {
-      console.log('本地模型加载失败，尝试CDN:', e);
-      // 使用CDN加载 (jsdelivr)
-      baseUrl = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
-      try {
-        await faceapi.nets.tinyFaceDetector.loadFromUri(baseUrl);
-        await faceapi.nets.faceLandmark68Net.loadFromUri(baseUrl);
-        await faceapi.nets.faceRecognitionNet.loadFromUri(baseUrl);
-        console.log('CDN模型加载成功');
-      } catch (cdnErr) {
-        console.error('CDN模型加载失败:', cdnErr);
-        // 最后尝试 raw.githubusercontent.com
-        try {
-          console.log('尝试GitHub raw...');
-          baseUrl = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
-          await faceapi.nets.tinyFaceDetector.loadFromUri(baseUrl);
-          await faceapi.nets.faceLandmark68Net.loadFromUri(baseUrl);
-          await faceapi.nets.faceRecognitionNet.loadFromUri(baseUrl);
-          console.log('GitHub模型加载成功');
-        } catch (ghErr) {
-          throw new Error('所有模型源加载失败，请检查网络连接');
-        }
-      }
-    }
-  }
-
-  // 计算欧几里得距离（用于比较人脸相似度）
-  function euclideanDistance(descriptor1, descriptor2) {
-    if (!descriptor1 || !descriptor2 || descriptor1.length !== descriptor2.length) {
-      return Infinity;
-    }
-    var sum = 0;
-    for (var i = 0; i < descriptor1.length; i++) {
-      var diff = descriptor1[i] - descriptor2[i];
-      sum += diff * diff;
-    }
-    return Math.sqrt(sum);
-  }
-
-  // 检查是否已在去重时间内抓拍过该人脸
-  function isFaceRecentlyCaptured(descriptor) {
-    var now = Date.now();
-    var dedupMs = captureConfig.dedupMinutes * 60 * 1000;
-    var threshold = 0.6; // 人脸相似度阈值（距离小于此值认为是同一人）
-
-    for (var i = captureConfig.capturedFaces.length - 1; i >= 0; i--) {
-      var record = captureConfig.capturedFaces[i];
-      // 清理过期记录
-      if (now - record.timestamp > dedupMs) {
-        captureConfig.capturedFaces.splice(i, 1);
-        continue;
-      }
-      // 检查是否是同一人
-      var distance = euclideanDistance(descriptor, record.descriptor);
-      if (distance < threshold) {
-        return true; // 已在去重时间内抓拍过
-      }
-    }
-    return false;
-  }
-
-  // 开始笑脸检测
-  function startSmileDetection() {
-    var video = document.getElementById('video');
-    var overlay = document.getElementById('overlay');
-    var ctx = overlay.getContext('2d');
-    var smileStatus = document.getElementById('smileStatus');
-    var smileProgress = document.getElementById('smileProgress');
-    var progressBar = document.getElementById('progressBar');
-
-    // 设置检测参数
-    var options = new faceapi.TinyFaceDetectorOptions({
-      inputSize: 320,
-      scoreThreshold: 0.5
-    });
-
-    detectionInterval = setInterval(async function() {
-      if (isCapturing) return;
-
-      try {
-        // 检测人脸并提取特征向量
-        var detections = await faceapi.detectAllFaces(video, options)
-          .withFaceLandmarks()
-          .withFaceDescriptors();
-
-        // 清空画布
-        ctx.clearRect(0, 0, overlay.width, overlay.height);
-
-        if (detections.length === 0) {
-          smileStartTime = null;
-          lastFaceDescriptor = null;
-          progressBar.style.width = '0%';
-          smileProgress.style.display = 'none';
-          smileStatus.innerHTML = '<span style="color: #666;">未检测到人脸，请面向摄像头</span>';
-          return;
-        }
-
-        // 绘制人脸框并保存特征向量
-        var isSmiling = false;
-        var currentDescriptor = null;
-        var isDuplicate = false;
-
-        detections.forEach(function(detection) {
-          var box = detection.detection.box;
-
-          // 保存人脸特征向量（取第一个检测到的人脸）
-          if (detection.descriptor && !currentDescriptor) {
-            currentDescriptor = Array.from(detection.descriptor);
-            lastFaceDescriptor = currentDescriptor;
-
-            // 检查是否已在去重时间内抓拍过
-            if (isFaceRecentlyCaptured(currentDescriptor)) {
-              isDuplicate = true;
-              ctx.strokeStyle = '#ff9800'; // 橙色框表示已抓拍过
-            } else {
-              ctx.strokeStyle = '#00ff00'; // 绿色框表示新面孔
-            }
-          } else {
-            ctx.strokeStyle = '#00ff00';
-          }
-
-          ctx.lineWidth = 2;
-          ctx.strokeRect(box.x, box.y, box.width, box.height);
-
-          // 检测笑脸
-          var landmarks = detection.landmarks;
-          // 使用嘴巴的纵横比来判断是否微笑
-          // getMouth() 返回12个点（外嘴唇48-59）
-          // 索引0=点48(左嘴角), 6=点54(右嘴角), 3=点51(上唇), 9=点57(下唇)
-          var mouth = landmarks.getMouth();
-          if (mouth && mouth.length >= 12) {
-            var mouthWidth = Math.abs(mouth[6].x - mouth[0].x);
-            var mouthHeight = Math.abs(mouth[9].y - mouth[3].y);
-            var ratio = mouthHeight / (mouthWidth + 0.1);
-
-            // 如果嘴巴纵向比例较大，认为在微笑
-            if (ratio > 0.3) {
-              isSmiling = true;
-            }
-          }
-        });
-
-        // 如果是重复人脸，显示提示并重置
-        if (isDuplicate) {
-          smileStatus.innerHTML = '<span style="color: #ff9800;">该人脸已在' + captureConfig.dedupMinutes + '分钟内抓拍过</span>';
-          smileStartTime = null;
-          progressBar.style.width = '0%';
-          smileProgress.style.display = 'none';
-          return;
-        }
-
-        if (isSmiling) {
-          if (!smileStartTime) {
-            smileStartTime = new Date();
-          }
-
-          // 计算进度
-          var elapsed = new Date() - smileStartTime;
-          var progress = Math.min((elapsed / 500) * 100, 100);
-          progressBar.style.width = progress + '%';
-          smileProgress.style.display = 'block';
-
-          smileStatus.innerHTML = '<span style="color: #ff9800;">检测到笑脸，保持住！</span>';
-
-          // 笑脸持续0.5秒后自动抓拍
-          if (elapsed >= 500) {
-            $('#captureBtn').prop('disabled', true);
-            $('#stopCaptureBtn').show();
-            captureImage(false);
-          }
-        } else {
-          smileStartTime = null;
-          progressBar.style.width = '0%';
-          smileProgress.style.display = 'none';
-          smileStatus.innerHTML = '<span style="color: #666;">请保持微笑...</span>';
-        }
-
-      } catch (err) {
-        console.error('笑脸检测错误:', err);
-      }
-    }, 100);
-  }
-
-  // 抓拍图片
-  function captureImage(isManual) {
-    if (isCapturing) return;
-    isCapturing = true;
-
-    var video = document.getElementById('video');
-    var smileStatus = document.getElementById('smileStatus');
-
-    // 创建canvas进行截图
-    var canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    var ctx = canvas.getContext('2d');
-
-    // 镜像翻转（自拍模式）
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0);
-
-    // 获取图片数据
-    var imageData = canvas.toDataURL('image/jpeg', 0.9);
-
-    smileStatus.innerHTML = '<span style="color: #ff5722;">正在上传...</span>';
-
-    // 上传到服务器
-    var mdid = $('#smile_mdid').val() || 0;
-
-    // 准备上传数据，包括人脸特征向量
-    var uploadData = {
-      image: imageData,
-      mdid: mdid,
-      is_manual: isManual ? 1 : 0
-    };
-
-    // 如果有提取到人脸特征向量，一起上传
-    if (lastFaceDescriptor && lastFaceDescriptor.length > 0) {
-      uploadData.face_embedding = JSON.stringify(lastFaceDescriptor);
-      console.log('上传人脸特征向量，维度:', lastFaceDescriptor.length);
-    } else {
-      console.log('未提取到人脸特征向量');
-    }
-
-    $.ajax({
-      url: '{:url("smile_capture_upload")}',
-      type: 'POST',
-      data: uploadData,
-      success: function(res) {
-        if (res.status == 1) {
-          // 记录抓拍成功的人脸
-          if (lastFaceDescriptor) {
-            captureConfig.capturedFaces.push({
-              descriptor: lastFaceDescriptor,
-              timestamp: Date.now()
-            });
-          }
-
-          // 更新抓拍计数
-          var count = captureConfig.capturedFaces.length;
-          $('#captureCount').text(count);
-          $('#lastCaptureTime').text('上次: ' + new Date().toLocaleTimeString());
-
-          // 刷新列表
-          tableIns.reload();
-
-          smileStatus.innerHTML = '<span style="color: #5FB878;">抓拍成功！' + (isManual ? '手动' : '自动') + '抓拍第' + count + '张</span>';
-          layer.msg('抓拍成功！第' + count + '张', {icon: 1, time: 800});
-
-          // 按照配置的间隔时间延迟后，继续检测
-          var delayMs = captureConfig.interval * 1000;
-          setTimeout(function() {
-            isCapturing = false;
-            smileStartTime = null;
-            lastFaceDescriptor = null;
-            $('#stopCaptureBtn').hide();
-            $('#captureBtn').prop('disabled', false);
-            smileStatus.innerHTML = '<span style="color: #666;">继续检测中...</span>';
-          }, delayMs);
-        } else {
-          smileStatus.innerHTML = '<span style="color: #FF5722;">上传失败: ' + (res.msg || '') + '</span>';
-          isCapturing = false;
-          $('#stopCaptureBtn').hide();
-          $('#captureBtn').prop('disabled', false);
-        }
-      },
-      error: function() {
-        smileStatus.innerHTML = '<span style="color: #FF5722;">上传失败，请重试</span>';
-        isCapturing = false;
-        $('#stopCaptureBtn').hide();
-        $('#captureBtn').prop('disabled', false);
-      }
-    });
-  }
-
-  // 关闭笑脸抓拍
-  function closeSmileCapture() {
-    // 停止检测
-    if (detectionInterval) {
-      clearInterval(detectionInterval);
-      detectionInterval = null;
-    }
-
-    // 停止摄像头
-    if (videoStream) {
-      videoStream.getTracks().forEach(function(track) {
-        track.stop();
-      });
-      videoStream = null;
-    }
-
-    // 重置状态
-    smileStartTime = null;
-    isCapturing = false;
-    lastFaceDescriptor = null;
-
-    // 清理抓拍记录
-    if (captureConfig.capturedFaces) {
-      captureConfig.capturedFaces = [];
-    }
-
-    // 关闭弹窗
-    if (smileCaptureIndex) {
-      layer.close(smileCaptureIndex);
-      smileCaptureIndex = null;
-    }
-  }
+  // ========== 笑脸抓拍功能 ==========
+
+  // 笑脸抓拍按钮点击事件 - 使用openmax打开独立页面
+  $('#smileCaptureBtn').on('click', function() {
+    openmax('{:url("smile_capture_page")}');
+  });
+
+  // 合成设置按钮点击事件
+  // (旧笑脸抓拍弹窗代码已移至独立页面 smile_capture.html)
+
+  // 占位注释：以下旧函数已废弃，用独立页面替代
+  // initSmileDetection / loadFaceApiModels / euclideanDistance
+  // isFaceRecentlyCaptured / startSmileDetection / captureImage / closeSmileCapture
+  // 这些函数现在全部位于 smile_capture.html 独立页面中
+  var _smileCaptureLegacyRemoved = true; // 标记：旧弹窗代码已删除
+
+  // ========== 以下保留旧函数定义以防其他逻辑引用（空函数体） ==========
+  function initSmileDetection() {}
+  function loadFaceApiModels() {}
+  function euclideanDistance() { return Infinity; }
+  function isFaceRecentlyCaptured() { return false; }
+  function startSmileDetection() {}
+  function captureImage() {}
+  function closeSmileCapture() {}
 
   // ========== 合成设置功能 ==========
   var selectedPortraitId = null;

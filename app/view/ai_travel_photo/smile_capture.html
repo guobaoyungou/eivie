@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>笑脸抓拍</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  {include file="public/css"/}
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+    /* 顶部工具栏 */
+    .sc-toolbar {
+      height: 48px; background: #2d2d2d; color: #fff;
+      display: flex; align-items: center; padding: 0 16px; z-index: 100;
+    }
+    .sc-toolbar .sc-btn { background: none; border: none; color: #fff; font-size: 14px; cursor: pointer; padding: 6px 12px; border-radius: 4px; margin-right: 8px; display: inline-flex; align-items: center; gap: 4px; }
+    .sc-toolbar .sc-btn:hover { background: rgba(255,255,255,0.15); }
+    .sc-toolbar .sc-title { flex: 1; text-align: center; font-size: 16px; font-weight: 500; }
+    .sc-toolbar .sc-status { font-size: 12px; color: #aaa; }
+
+    /* 主体区域 */
+    .sc-main {
+      display: flex; height: calc(100vh - 48px); background: #1a1a1a;
+    }
+
+    /* 摄像头区域 */
+    .sc-camera-area {
+      flex: 1; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .sc-camera-area video {
+      max-width: 100%; max-height: 100%; object-fit: contain; transform: scaleX(-1);
+    }
+    .sc-camera-area canvas#overlay {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scaleX(-1); pointer-events: none;
+    }
+    .sc-camera-status {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: #fff; font-size: 16px; text-align: center;
+    }
+
+    /* 裁剪框叠加层 */
+    .sc-crop-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 10;
+    }
+
+    /* 参数设置侧栏 */
+    .sc-sidebar {
+      width: 320px; background: #fff; overflow-y: auto; border-left: 1px solid #e0e0e0; flex-shrink: 0;
+      transition: width 0.3s, opacity 0.3s;
+    }
+    .sc-sidebar.hidden { width: 0; overflow: hidden; opacity: 0; padding: 0; border: none; }
+    .sc-sidebar-inner { padding: 16px; min-width: 320px; }
+
+    /* 侧栏卡片 */
+    .sc-card { background: #f8f9fa; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+    .sc-card-title { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .sc-card-title i { color: #1e9fff; }
+
+    /* 比例选择卡片 */
+    .sc-ratio-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .sc-ratio-item {
+      border: 2px solid #e0e0e0; border-radius: 6px; padding: 8px 4px; text-align: center;
+      cursor: pointer; transition: all 0.2s; font-size: 12px;
+    }
+    .sc-ratio-item:hover { border-color: #1e9fff; }
+    .sc-ratio-item.active { border-color: #1e9fff; background: #e8f4fd; }
+    .sc-ratio-item .ratio-label { font-weight: 600; color: #333; }
+    .sc-ratio-item .ratio-desc { color: #999; font-size: 11px; margin-top: 2px; }
+
+    /* 尺寸选择 */
+    .sc-size-group { display: flex; gap: 8px; }
+    .sc-size-btn {
+      flex: 1; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; text-align: center;
+      cursor: pointer; transition: all 0.2s; background: #fff; font-size: 13px; font-weight: 500;
+    }
+    .sc-size-btn:hover { border-color: #1e9fff; }
+    .sc-size-btn.active { border-color: #1e9fff; background: #e8f4fd; color: #1e9fff; }
+
+    /* 开关样式 */
+    .sc-switch-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
+    .sc-switch-label { font-size: 13px; color: #555; }
+    .sc-switch { position: relative; width: 44px; height: 24px; cursor: pointer; }
+    .sc-switch input { display: none; }
+    .sc-switch .slider { position: absolute; inset: 0; background: #ccc; border-radius: 12px; transition: 0.3s; }
+    .sc-switch .slider:before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+    .sc-switch input:checked + .slider { background: #1e9fff; }
+    .sc-switch input:checked + .slider:before { transform: translateX(20px); }
+
+    /* 选择器 */
+    .sc-select { width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; background: #fff; }
+
+    /* 统计信息 */
+    .sc-stats { display: flex; gap: 16px; }
+    .sc-stat-item { text-align: center; }
+    .sc-stat-value { font-size: 24px; font-weight: 700; color: #ff5722; }
+    .sc-stat-label { font-size: 11px; color: #999; }
+
+    /* 手动抓拍按钮 */
+    .sc-capture-btn {
+      width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer;
+      font-size: 15px; font-weight: 600; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .sc-capture-btn.start { background: #ff9800; color: #fff; }
+    .sc-capture-btn.start:hover { background: #f57c00; }
+    .sc-capture-btn.stop { background: #f44336; color: #fff; }
+    .sc-capture-btn.stop:hover { background: #d32f2f; }
+    .sc-capture-btn.manual { background: #1e9fff; color: #fff; margin-top: 8px; }
+    .sc-capture-btn.manual:hover { background: #0d8bf2; }
+    .sc-capture-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* 人像反馈叠加层 */
+    .sc-feedback-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6); display: none; z-index: 20;
+      align-items: center; justify-content: center; flex-direction: column;
+    }
+    .sc-feedback-overlay.show { display: flex; }
+    .sc-feedback-image { max-width: 50%; max-height: 50%; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+    .sc-feedback-progress { margin-top: 16px; text-align: center; color: #fff; }
+    .sc-feedback-progress .progress-bar { width: 200px; height: 6px; background: rgba(255,255,255,0.3); border-radius: 3px; margin: 8px auto; overflow: hidden; }
+    .sc-feedback-progress .progress-fill { height: 100%; background: #4caf50; border-radius: 3px; transition: width 0.3s; }
+    .sc-feedback-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.2); border: none; color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 18px; cursor: pointer; }
+
+    /* 幻灯轮播 */
+    .sc-slideshow { position: relative; }
+    .sc-slideshow img { max-width: 60%; max-height: 60%; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); transition: opacity 0.5s; }
+
+    /* 广告叠加层（预置） */
+    .sc-ad-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); display: none; z-index: 15;
+      align-items: center; justify-content: center; color: #fff; font-size: 18px;
+    }
+    .sc-ad-overlay.show { display: flex; }
+
+    /* 笑脸检测进度 */
+    .sc-smile-indicator {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.7); color: #fff; padding: 8px 20px; border-radius: 20px;
+      font-size: 13px; z-index: 12; display: none;
+    }
+    .sc-smile-indicator.show { display: block; }
+
+    /* 毛玻璃登录遮罩 */
+    .sc-login-mask {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      background: rgba(0,0,0,0.4); z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sc-login-dialog {
+      background: #fff; border-radius: 16px; padding: 40px; text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 400px; width: 90%;
+    }
+    .sc-login-dialog h3 { font-size: 20px; margin-bottom: 8px; color: #333; }
+    .sc-login-dialog p { color: #666; font-size: 14px; margin-bottom: 24px; }
+    .sc-login-qrcode { width: 220px; height: 220px; margin: 0 auto 16px; background: #f5f5f5; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .sc-login-qrcode img { max-width: 200px; max-height: 200px; }
+    .sc-login-tip { font-size: 12px; color: #999; }
+    .sc-login-expire { font-size: 12px; color: #ff5722; margin-top: 8px; display: none; }
+    .sc-login-refresh { display: none; margin-top: 12px; padding: 8px 24px; background: #1e9fff; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+
+    /* 全屏模式 */
+    .fullscreen-mode .sc-toolbar { display: none; }
+    .fullscreen-mode .sc-sidebar { display: none; }
+  </style>
+</head>
+<body>
+  <!-- 顶部工具栏 -->
+  <div class="sc-toolbar" id="scToolbar">
+    <button class="sc-btn" id="btnBack" onclick="goBack()">
+      <i class="layui-icon layui-icon-left"></i> 返回
+    </button>
+    <button class="sc-btn" id="btnExpand" onclick="toggleExpand()">
+      <i class="layui-icon layui-icon-shrink-right"></i> <span>放大</span>
+    </button>
+    <button class="sc-btn" id="btnFullscreen" onclick="toggleFullscreen()">
+      <i class="layui-icon layui-icon-screen-full"></i> <span>全屏</span>
+    </button>
+    <div class="sc-title">笑脸抓拍</div>
+    <div class="sc-status" id="loginStatus">
+      {if $is_logged_in}已登录：{$admin_name}{else}未登录{/if}
+    </div>
+  </div>
+
+  <!-- 主体区域 -->
+  <div class="sc-main" id="scMain">
+    <!-- 摄像头画面区域 -->
+    <div class="sc-camera-area" id="cameraArea">
+      <video id="video" autoplay playsinline></video>
+      <canvas id="overlay"></canvas>
+      <div class="sc-camera-status" id="cameraStatus">正在连接摄像头...</div>
+
+      <!-- 裁剪框叠加 -->
+      <canvas class="sc-crop-overlay" id="cropOverlay"></canvas>
+
+      <!-- 笑脸检测提示 -->
+      <div class="sc-smile-indicator" id="smileIndicator">检测中...</div>
+
+      <!-- 人像反馈叠加层 -->
+      <div class="sc-feedback-overlay" id="feedbackOverlay">
+        <button class="sc-feedback-close" onclick="closeFeedback()">&times;</button>
+        <img class="sc-feedback-image" id="feedbackImage" src="">
+        <div class="sc-feedback-progress" id="feedbackProgress">
+          <div>处理中...</div>
+          <div class="progress-bar"><div class="progress-fill" id="feedbackProgressBar" style="width:0%"></div></div>
+          <div id="feedbackProgressText">0%</div>
+        </div>
+        <div class="sc-slideshow" id="slideshowContainer" style="display:none;"></div>
+      </div>
+
+      <!-- 广告叠加层（预置） -->
+      <div class="sc-ad-overlay" id="adOverlay">
+        <div style="text-align:center;">
+          <i class="layui-icon layui-icon-video" style="font-size:64px;opacity:0.5;"></i>
+          <p style="margin-top:12px;opacity:0.6;">广告位预留</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 参数设置侧栏 -->
+    <div class="sc-sidebar" id="scSidebar">
+      <div class="sc-sidebar-inner">
+        <!-- 门店选择 -->
+        <div class="sc-card">
+          <div class="sc-card-title"><i class="layui-icon layui-icon-home"></i> 门店选择</div>
+          <select class="sc-select" id="scMdid">
+            <option value="0">无门店</option>
+            {foreach $mendian_list as $md}
+            <option value="{$md.id}" {if $md.id == $preselect_mdid}selected{/if}>{$md.name}</option>
+            {/foreach}
+          </select>
+        </div>
+
+        <!-- 图片设置 -->
+        <div class="sc-card">
+          <div class="sc-card-title"><i class="layui-icon layui-icon-picture"></i> 图片设置</div>
+          <div style="margin-bottom:10px;">
+            <div style="font-size:12px;color:#888;margin-bottom:6px;">抓拍尺寸</div>
+            <div class="sc-size-group">
+              <div class="sc-size-btn active" data-size="1K" onclick="selectSize(this)">1K</div>
+              <div class="sc-size-btn" data-size="2K" onclick="selectSize(this)">2K</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:#888;margin-bottom:6px;">画面比例</div>
+            <div class="sc-ratio-grid">
+              <div class="sc-ratio-item" data-ratio="1:1" onclick="selectRatio(this)">
+                <div class="ratio-label">1:1</div><div class="ratio-desc">头像</div>
+              </div>
+              <div class="sc-ratio-item" data-ratio="2:3" onclick="selectRatio(this)">
+                <div class="ratio-label">2:3</div><div class="ratio-desc">自拍</div>
+              </div>
+              <div class="sc-ratio-item active" data-ratio="3:4" onclick="selectRatio(this)">
+                <div class="ratio-label">3:4</div><div class="ratio-desc">拍照</div>
+              </div>
+              <div class="sc-ratio-item" data-ratio="4:3" onclick="selectRatio(this)">
+                <div class="ratio-label">4:3</div><div class="ratio-desc">插画</div>
+              </div>
+              <div class="sc-ratio-item" data-ratio="9:16" onclick="selectRatio(this)">
+                <div class="ratio-label">9:16</div><div class="ratio-desc">人像</div>
+              </div>
+              <div class="sc-ratio-item" data-ratio="16:9" onclick="selectRatio(this)">
+                <div class="ratio-label">16:9</div><div class="ratio-desc">风景</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 抓拍控制 -->
+        <div class="sc-card">
+          <div class="sc-card-title"><i class="layui-icon layui-icon-set"></i> 抓拍控制</div>
+          <div style="margin-bottom:8px;">
+            <label style="font-size:12px;color:#888;">抓拍间隔</label>
+            <select class="sc-select" id="scInterval">
+              <option value="1" selected>1秒</option>
+              <option value="2">2秒</option>
+              <option value="3">3秒</option>
+              <option value="5">5秒</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px;color:#888;">去重时间</label>
+            <select class="sc-select" id="scDedup">
+              <option value="1" selected>1分钟</option>
+              <option value="2">2分钟</option>
+              <option value="5">5分钟</option>
+              <option value="30">30分钟</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 功能开关 -->
+        <div class="sc-card">
+          <div class="sc-card-title"><i class="layui-icon layui-icon-slider"></i> 功能开关</div>
+          <div class="sc-switch-row">
+            <span class="sc-switch-label">自动抓拍</span>
+            <label class="sc-switch"><input type="checkbox" id="swAutoCapture"><span class="slider"></span></label>
+          </div>
+          <div class="sc-switch-row">
+            <span class="sc-switch-label">广告播放（预置）</span>
+            <label class="sc-switch"><input type="checkbox" id="swAdPlay" disabled><span class="slider"></span></label>
+          </div>
+          <div class="sc-switch-row">
+            <span class="sc-switch-label">人像实时反馈</span>
+            <label class="sc-switch"><input type="checkbox" id="swFeedback" checked><span class="slider"></span></label>
+          </div>
+          <div style="margin-top:8px;">
+            <label style="font-size:12px;color:#888;">反馈超时时间</label>
+            <select class="sc-select" id="scFeedbackTimeout">
+              <option value="30">30秒</option>
+              <option value="60" selected>1分钟</option>
+              <option value="120">2分钟</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 抓拍统计 -->
+        <div class="sc-card">
+          <div class="sc-card-title"><i class="layui-icon layui-icon-chart"></i> 抓拍统计</div>
+          <div class="sc-stats">
+            <div class="sc-stat-item">
+              <div class="sc-stat-value" id="captureCount">0</div>
+              <div class="sc-stat-label">已抓拍</div>
+            </div>
+            <div class="sc-stat-item" style="flex:1;text-align:right;">
+              <div style="font-size:12px;color:#999;" id="lastCaptureTime">-</div>
+              <div class="sc-stat-label">上次抓拍</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="sc-card">
+          <button class="sc-capture-btn start" id="btnToggleCapture" onclick="toggleAutoCapture()">
+            <i class="layui-icon layui-icon-play"></i> 开启抓拍
+          </button>
+          <button class="sc-capture-btn manual" id="btnManualCapture" onclick="manualCapture()" disabled>
+            <i class="layui-icon layui-icon-camera"></i> 手动抓拍
+          </button>
+        </div>
+
+        <!-- 合成设置 -->
+        <div class="sc-card">
+          <div class="sc-card-title"><i class="layui-icon layui-icon-template-1"></i> 合成设置</div>
+          <p style="font-size:12px;color:#888;margin-bottom:10px;">设置合成规则后，抓拍的人像将自动进行图生图合成</p>
+          <button class="sc-capture-btn manual" onclick="openSynthesisSettings()" style="margin-top:0;">
+            <i class="layui-icon layui-icon-set"></i> 打开合成设置
+          </button>
+        </div>
+
+        <!-- 自动监控 -->
+        <div class="sc-card" id="monitorCard">
+          <div class="sc-card-title"><i class="layui-icon layui-icon-engine"></i> 自动监控</div>
+          <div class="sc-switch-row">
+            <span class="sc-switch-label">合成监控状态</span>
+            <span id="monitorStatusBadge" style="font-size:12px;color:#999;padding:2px 8px;border-radius:10px;background:#f5f5f5;">未开启</span>
+          </div>
+          <p style="font-size:11px;color:#aaa;margin-top:4px;">开启抓拍后自动监控新增人像并触发合成任务</p>
+          <div id="monitorStats" style="display:none;margin-top:8px;padding:8px;background:#f0fdf4;border-radius:6px;font-size:12px;">
+            <div style="display:flex;justify-content:space-between;">
+              <span>待处理：<strong id="pendingCount" style="color:#ff9800;">0</strong></span>
+              <span>处理中：<strong id="processingCount" style="color:#1e9fff;">0</strong></span>
+              <span>已完成：<strong id="completedCount" style="color:#4caf50;">0</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 登录遮罩弹窗（未登录时显示） -->
+  {if !$is_logged_in}
+  <div class="sc-login-mask" id="loginMask">
+    <div class="sc-login-dialog">
+      <h3>商家登录</h3>
+      <p>请使用商家账号登录笑脸抓拍系统</p>
+      <div style="text-align:left;margin-bottom:16px;">
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:13px;color:#666;margin-bottom:4px;">账号</label>
+          <input type="text" id="loginUsername" placeholder="请输入商家账号" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none;">
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:13px;color:#666;margin-bottom:4px;">密码</label>
+          <input type="password" id="loginPassword" placeholder="请输入密码" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none;" onkeydown="if(event.keyCode===13)doLogin()">
+        </div>
+        <div id="loginError" style="color:#f44336;font-size:12px;margin-bottom:8px;display:none;"></div>
+        <button onclick="doLogin()" id="loginBtn" style="width:100%;padding:12px;background:#1e9fff;color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;">登 录</button>
+      </div>
+      <div class="sc-login-tip">使用商家后台账号密码登录</div>
+    </div>
+  </div>
+  {/if}
+
+  {include file="public/js"/}
+  <script>
+  // ========== 全局配置 ==========
+  var SC = {
+    aid: {$page_aid},
+    bid: {$page_bid},
+    isLoggedIn: {$is_logged_in ? 'true' : 'false'},
+    captureSize: '1K',
+    aspectRatio: '3:4',
+    autoCaptureEnabled: false,
+    adPlaybackEnabled: false,
+    portraitFeedbackEnabled: true,
+    feedbackTimeout: 60,
+    captureInterval: 1,
+    dedupMinutes: 1,
+    // 状态
+    videoStream: null,
+    detectionInterval: null,
+    smileStartTime: null,
+    isCapturing: false,
+    lastFaceDescriptor: null,
+    capturedFaces: [],
+    captureTotal: 0,
+    isExpanded: false,
+    isFullscreen: false,
+    modelsLoaded: false,
+    // 反馈相关
+    feedbackPortraitId: null,
+    feedbackPollTimer: null,
+    slideshowTimer: null,
+    faceGoneTimer: null,
+    faceGoneFrames: 0,
+    currentFeedbackDescriptor: null,
+    // 登录轮询
+    loginScene: '',
+    loginPollTimer: null,
+    // 自动监控
+    monitorTimer: null,
+    isMonitoring: false,
+    processingPortraits: {},
+    monitorInterval: 3000,
+    completedCount: 0
+  };
+
+  // ========== 尺寸与比例计算 ==========
+  var RATIO_MAP = {
+    '1:1': {w: 1, h: 1},
+    '2:3': {w: 2, h: 3},
+    '3:4': {w: 3, h: 4},
+    '4:3': {w: 4, h: 3},
+    '9:16': {w: 9, h: 16},
+    '16:9': {w: 16, h: 9}
+  };
+
+  var SIZE_MAP = {
+    '1K': 1024,
+    '2K': 2048
+  };
+
+  function getTargetDimensions() {
+    var base = SIZE_MAP[SC.captureSize];
+    var ratio = RATIO_MAP[SC.aspectRatio];
+    if (ratio.w >= ratio.h) {
+      return { width: base, height: Math.round(base * ratio.h / ratio.w) };
+    } else {
+      return { width: Math.round(base * ratio.w / ratio.h), height: base };
+    }
+  }
+
+  // ========== 尺寸/比例选择 ==========
+  function selectSize(el) {
+    if (SC.autoCaptureEnabled) return;
+    document.querySelectorAll('.sc-size-btn').forEach(function(b){ b.classList.remove('active'); });
+    el.classList.add('active');
+    SC.captureSize = el.getAttribute('data-size');
+    updateCropOverlay();
+  }
+
+  function selectRatio(el) {
+    if (SC.autoCaptureEnabled) return;
+    document.querySelectorAll('.sc-ratio-item').forEach(function(b){ b.classList.remove('active'); });
+    el.classList.add('active');
+    SC.aspectRatio = el.getAttribute('data-ratio');
+    updateCropOverlay();
+  }
+
+  // ========== 裁剪框显示 ==========
+  function updateCropOverlay() {
+    var canvas = document.getElementById('cropOverlay');
+    var video = document.getElementById('video');
+    var area = document.getElementById('cameraArea');
+    if (!video.videoWidth) return;
+
+    var areaW = area.clientWidth;
+    var areaH = area.clientHeight;
+    var vw = video.videoWidth;
+    var vh = video.videoHeight;
+
+    // 计算视频在区域内的显示尺寸
+    var scale = Math.min(areaW / vw, areaH / vh);
+    var displayW = vw * scale;
+    var displayH = vh * scale;
+
+    canvas.width = areaW;
+    canvas.height = areaH;
+
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, areaW, areaH);
+
+    var ratio = RATIO_MAP[SC.aspectRatio];
+    var targetAR = ratio.w / ratio.h;
+    var cropW, cropH;
+
+    if (displayW / displayH > targetAR) {
+      cropH = displayH * 0.9;
+      cropW = cropH * targetAR;
+    } else {
+      cropW = displayW * 0.9;
+      cropH = cropW / targetAR;
+    }
+
+    var offsetX = (areaW - displayW) / 2;
+    var offsetY = (areaH - displayH) / 2;
+    var cropX = offsetX + (displayW - cropW) / 2;
+    var cropY = offsetY + (displayH - cropH) / 2;
+
+    // 半透明遮罩
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, areaW, areaH);
+    ctx.clearRect(cropX, cropY, cropW, cropH);
+
+    // 裁剪框边框
+    ctx.strokeStyle = '#1e9fff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(cropX, cropY, cropW, cropH);
+
+    // 尺寸标注
+    var dim = getTargetDimensions();
+    ctx.fillStyle = 'rgba(30,159,255,0.8)';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(dim.width + ' × ' + dim.height, cropX + 4, cropY - 6);
+  }
+
+  // ========== 工具栏操作 ==========
+  function goBack() {
+    if (window.parent !== window && typeof parent.layer !== 'undefined') {
+      var idx = parent.layer.getFrameIndex(window.name);
+      if (idx) { parent.layer.close(idx); return; }
+    }
+    window.history.back();
+  }
+
+  function toggleExpand() {
+    var sidebar = document.getElementById('scSidebar');
+    var btn = document.getElementById('btnExpand');
+    SC.isExpanded = !SC.isExpanded;
+    if (SC.isExpanded) {
+      sidebar.classList.add('hidden');
+      btn.querySelector('span').textContent = '收起';
+    } else {
+      sidebar.classList.remove('hidden');
+      btn.querySelector('span').textContent = '放大';
+    }
+    setTimeout(updateCropOverlay, 350);
+  }
+
+  function toggleFullscreen() {
+    var el = document.documentElement;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().then(function(){
+        document.body.classList.add('fullscreen-mode');
+        SC.isFullscreen = true;
+        setTimeout(updateCropOverlay, 100);
+      }).catch(function(){});
+    } else {
+      document.exitFullscreen();
+    }
+  }
+
+  document.addEventListener('fullscreenchange', function() {
+    if (!document.fullscreenElement) {
+      document.body.classList.remove('fullscreen-mode');
+      SC.isFullscreen = false;
+      setTimeout(updateCropOverlay, 100);
+    }
+  });
+
+  // ========== 自动抓拍控制 ==========
+  function toggleAutoCapture() {
+    if (!SC.modelsLoaded) {
+      layer.msg('AI模型尚未加载完成，请稍候', {icon: 0});
+      return;
+    }
+    SC.autoCaptureEnabled = !SC.autoCaptureEnabled;
+    var btn = document.getElementById('btnToggleCapture');
+    if (SC.autoCaptureEnabled) {
+      btn.className = 'sc-capture-btn stop';
+      btn.innerHTML = '<i class="layui-icon layui-icon-pause"></i> 关闭抓拍';
+      // 参数设置区变为只读
+      setSettingsReadonly(true);
+      startSmileDetection();
+      // 自动开启监控：检测新增人像并触发合成
+      startCaptureMonitor();
+    } else {
+      btn.className = 'sc-capture-btn start';
+      btn.innerHTML = '<i class="layui-icon layui-icon-play"></i> 开启抓拍';
+      setSettingsReadonly(false);
+      stopSmileDetection();
+      // 停止监控
+      stopCaptureMonitor();
+    }
+  }
+
+  function setSettingsReadonly(readonly) {
+    var selects = document.querySelectorAll('.sc-sidebar select');
+    selects.forEach(function(s) {
+      if (s.id !== 'scMdid') s.disabled = readonly;
+    });
+    document.querySelectorAll('.sc-ratio-item, .sc-size-btn').forEach(function(el){
+      el.style.pointerEvents = readonly ? 'none' : 'auto';
+      el.style.opacity = readonly ? '0.6' : '1';
+    });
+  }
+
+  // ========== 摄像头初始化 ==========
+  async function initCamera() {
+    var video = document.getElementById('video');
+    var status = document.getElementById('cameraStatus');
+    try {
+      SC.videoStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: {ideal: 1280}, height: {ideal: 720}, facingMode: 'user' }
+      });
+      video.srcObject = SC.videoStream;
+      video.addEventListener('loadedmetadata', function() {
+        status.style.display = 'none';
+        document.getElementById('btnManualCapture').disabled = false;
+
+        // 设置overlay尺寸
+        var overlay = document.getElementById('overlay');
+        overlay.width = video.videoWidth;
+        overlay.height = video.videoHeight;
+
+        updateCropOverlay();
+      });
+    } catch (err) {
+      var msg = err.message || '未知错误';
+      if (msg.includes('Permission denied') || msg.includes('NotAllowedError')) msg = '摄像头权限被拒绝';
+      else if (msg.includes('NotFoundError')) msg = '未找到摄像头设备';
+      status.innerHTML = '<span style="color:#f44336;">' + msg + '</span>';
+    }
+  }
+
+  // ========== face-api模型加载 ==========
+  async function loadFaceModels() {
+    if (typeof faceapi === 'undefined') {
+      console.error('face-api.js未加载');
+      return;
+    }
+    var baseUrl = '/static/face-api/models';
+    try {
+      await faceapi.nets.tinyFaceDetector.loadFromUri(baseUrl);
+      await faceapi.nets.faceLandmark68Net.loadFromUri(baseUrl);
+      await faceapi.nets.faceRecognitionNet.loadFromUri(baseUrl);
+      SC.modelsLoaded = true;
+      console.log('本地模型加载成功');
+    } catch (e) {
+      console.log('本地模型加载失败，尝试CDN');
+      baseUrl = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+      try {
+        await faceapi.nets.tinyFaceDetector.loadFromUri(baseUrl);
+        await faceapi.nets.faceLandmark68Net.loadFromUri(baseUrl);
+        await faceapi.nets.faceRecognitionNet.loadFromUri(baseUrl);
+        SC.modelsLoaded = true;
+        console.log('CDN模型加载成功');
+      } catch (e2) {
+        console.error('所有模型源加载失败');
+      }
+    }
+  }
+
+  // ========== 笑脸检测 ==========
+  function euclideanDistance(d1, d2) {
+    if (!d1 || !d2 || d1.length !== d2.length) return Infinity;
+    var sum = 0;
+    for (var i = 0; i < d1.length; i++) { var diff = d1[i] - d2[i]; sum += diff * diff; }
+    return Math.sqrt(sum);
+  }
+
+  function isFaceRecentlyCaptured(descriptor) {
+    var now = Date.now();
+    var dedupMs = SC.dedupMinutes * 60 * 1000;
+    for (var i = SC.capturedFaces.length - 1; i >= 0; i--) {
+      var r = SC.capturedFaces[i];
+      if (now - r.timestamp > dedupMs) { SC.capturedFaces.splice(i, 1); continue; }
+      if (euclideanDistance(descriptor, r.descriptor) < 0.6) return true;
+    }
+    return false;
+  }
+
+  function startSmileDetection() {
+    var video = document.getElementById('video');
+    var overlay = document.getElementById('overlay');
+    var ctx = overlay.getContext('2d');
+    var indicator = document.getElementById('smileIndicator');
+    var options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+
+    SC.detectionInterval = setInterval(async function() {
+      if (SC.isCapturing) return;
+      try {
+        var detections = await faceapi.detectAllFaces(video, options).withFaceLandmarks().withFaceDescriptors();
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+        if (detections.length === 0) {
+          SC.smileStartTime = null;
+          SC.lastFaceDescriptor = null;
+          indicator.classList.remove('show');
+
+          // 人脸离开计数
+          SC.faceGoneFrames++;
+          if (SC.faceGoneFrames > 30) { // ~3秒
+            handleFaceGone();
+          }
+
+          // 广告播放
+          if (SC.adPlaybackEnabled && SC.autoCaptureEnabled) {
+            document.getElementById('adOverlay').classList.add('show');
+          }
+          return;
+        }
+
+        SC.faceGoneFrames = 0;
+        document.getElementById('adOverlay').classList.remove('show');
+
+        var isSmiling = false;
+        var currentDescriptor = null;
+        var isDuplicate = false;
+
+        detections.forEach(function(det) {
+          var box = det.detection.box;
+          if (det.descriptor && !currentDescriptor) {
+            currentDescriptor = Array.from(det.descriptor);
+            SC.lastFaceDescriptor = currentDescriptor;
+            isDuplicate = isFaceRecentlyCaptured(currentDescriptor);
+            ctx.strokeStyle = isDuplicate ? '#ff9800' : '#00ff00';
+          } else {
+            ctx.strokeStyle = '#00ff00';
+          }
+          ctx.lineWidth = 2;
+          ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+          // 检测微笑
+          var mouth = det.landmarks.getMouth();
+          if (mouth && mouth.length >= 12) {
+            var mw = Math.abs(mouth[6].x - mouth[0].x);
+            var mh = Math.abs(mouth[9].y - mouth[3].y);
+            if (mh / (mw + 0.1) > 0.3) isSmiling = true;
+          }
+        });
+
+        // 检查是否为新人脸（中断轮播）
+        if (SC.currentFeedbackDescriptor && currentDescriptor) {
+          if (euclideanDistance(currentDescriptor, SC.currentFeedbackDescriptor) > 0.6) {
+            closeFeedback();
+          }
+        }
+
+        if (isDuplicate) {
+          indicator.textContent = '该人脸已在' + SC.dedupMinutes + '分钟内抓拍过';
+          indicator.classList.add('show');
+          SC.smileStartTime = null;
+          return;
+        }
+
+        if (isSmiling) {
+          if (!SC.smileStartTime) SC.smileStartTime = Date.now();
+          var elapsed = Date.now() - SC.smileStartTime;
+          var pct = Math.min(elapsed / 500 * 100, 100);
+          indicator.textContent = '检测到笑脸 ' + Math.round(pct) + '%';
+          indicator.classList.add('show');
+          if (elapsed >= 500) {
+            captureImage(false);
+          }
+        } else {
+          SC.smileStartTime = null;
+          indicator.textContent = '请保持微笑...';
+          indicator.classList.add('show');
+        }
+      } catch (err) {
+        console.error('检测错误:', err);
+      }
+    }, 100);
+  }
+
+  function stopSmileDetection() {
+    if (SC.detectionInterval) {
+      clearInterval(SC.detectionInterval);
+      SC.detectionInterval = null;
+    }
+    SC.smileStartTime = null;
+    SC.isCapturing = false;
+    document.getElementById('smileIndicator').classList.remove('show');
+    var overlay = document.getElementById('overlay');
+    overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
+  }
+
+  // ========== 抓拍图片 ==========
+  function captureImage(isManual) {
+    if (SC.isCapturing) return;
+    SC.isCapturing = true;
+
+    var video = document.getElementById('video');
+    var ratio = RATIO_MAP[SC.aspectRatio];
+    var targetAR = ratio.w / ratio.h;
+    var dim = getTargetDimensions();
+
+    // 从视频中按比例裁剪
+    var vw = video.videoWidth;
+    var vh = video.videoHeight;
+    var cropW, cropH, cropX, cropY;
+    if (vw / vh > targetAR) {
+      cropH = vh;
+      cropW = vh * targetAR;
+    } else {
+      cropW = vw;
+      cropH = vw / targetAR;
+    }
+    cropX = (vw - cropW) / 2;
+    cropY = (vh - cropH) / 2;
+
+    var canvas = document.createElement('canvas');
+    canvas.width = dim.width;
+    canvas.height = dim.height;
+    var ctx = canvas.getContext('2d');
+
+    // 镜像翻转
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, dim.width, dim.height);
+
+    var imageData = canvas.toDataURL('image/jpeg', 0.92);
+
+    document.getElementById('smileIndicator').textContent = '正在上传...';
+    document.getElementById('smileIndicator').classList.add('show');
+
+    var mdid = document.getElementById('scMdid').value || 0;
+    var uploadData = {
+      image: imageData,
+      mdid: mdid,
+      is_manual: isManual ? 1 : 0,
+      capture_size: SC.captureSize,
+      aspect_ratio: SC.aspectRatio
+    };
+
+    if (SC.lastFaceDescriptor && SC.lastFaceDescriptor.length > 0) {
+      uploadData.face_embedding = JSON.stringify(SC.lastFaceDescriptor);
+    }
+
+    $.ajax({
+      url: '/index.php?s=/AiTravelPhoto/smile_capture_upload',
+      type: 'POST',
+      data: uploadData,
+      success: function(res) {
+        if (res.status == 1) {
+          if (SC.lastFaceDescriptor) {
+            SC.capturedFaces.push({ descriptor: SC.lastFaceDescriptor, timestamp: Date.now() });
+          }
+          SC.captureTotal++;
+          document.getElementById('captureCount').textContent = SC.captureTotal;
+          document.getElementById('lastCaptureTime').textContent = new Date().toLocaleTimeString();
+
+          // 人像实时反馈
+          if (SC.portraitFeedbackEnabled && res.data && res.data.portrait_id) {
+            showFeedback(res.data);
+          }
+
+          layer.msg('抓拍成功！' + (isManual ? '手动' : '自动') + ' 第' + SC.captureTotal + '张', {icon: 1, time: 800});
+
+          setTimeout(function() {
+            SC.isCapturing = false;
+            SC.smileStartTime = null;
+          }, SC.captureInterval * 1000);
+        } else {
+          layer.msg(res.msg || '上传失败', {icon: 2, time: 1500});
+          SC.isCapturing = false;
+        }
+      },
+      error: function() {
+        layer.msg('上传失败，请重试', {icon: 2});
+        SC.isCapturing = false;
+      }
+    });
+  }
+
+  function manualCapture() {
+    if (!SC.modelsLoaded) {
+      layer.msg('AI模型尚未加载', {icon: 0});
+      return;
+    }
+    captureImage(true);
+  }
+
+  // ========== 人像反馈 ==========
+  function showFeedback(data) {
+    if (!SC.portraitFeedbackEnabled) return;
+    var overlay = document.getElementById('feedbackOverlay');
+    var img = document.getElementById('feedbackImage');
+    var progress = document.getElementById('feedbackProgress');
+    var slideshow = document.getElementById('slideshowContainer');
+
+    img.src = data.thumbnail_url || data.original_url;
+    img.style.display = 'block';
+    progress.style.display = 'block';
+    slideshow.style.display = 'none';
+    overlay.classList.add('show');
+
+    SC.feedbackPortraitId = data.portrait_id;
+    SC.currentFeedbackDescriptor = SC.lastFaceDescriptor ? SC.lastFaceDescriptor.slice() : null;
+    SC.faceGoneFrames = 0;
+
+    // 开始轮询合成状态
+    pollSynthesisStatus(data.portrait_id);
+  }
+
+  function pollSynthesisStatus(portraitId) {
+    if (SC.feedbackPollTimer) clearInterval(SC.feedbackPollTimer);
+    SC.feedbackPollTimer = setInterval(function() {
+      $.get('/index.php?s=/AiTravelPhoto/smile_capture_status', { portrait_id: portraitId }, function(res) {
+        if (res.status == 1 && res.data) {
+          var d = res.data;
+          document.getElementById('feedbackProgressBar').style.width = d.progress + '%';
+          document.getElementById('feedbackProgressText').textContent = d.progress + '%';
+
+          if (d.synthesis_status == 3 && d.result_images && d.result_images.length > 0) {
+            clearInterval(SC.feedbackPollTimer);
+            startSlideshow(d.result_images);
+          } else if (d.synthesis_status == 4) {
+            clearInterval(SC.feedbackPollTimer);
+            document.getElementById('feedbackProgressText').textContent = '合成失败';
+          }
+        }
+      });
+    }, 2000);
+  }
+
+  function startSlideshow(images) {
+    var img = document.getElementById('feedbackImage');
+    var progress = document.getElementById('feedbackProgress');
+    progress.style.display = 'none';
+
+    var idx = 0;
+    img.src = images[0];
+
+    if (images.length > 1) {
+      SC.slideshowTimer = setInterval(function() {
+        idx = (idx + 1) % images.length;
+        img.src = images[idx];
+      }, 3000);
+    }
+
+    // 启动人脸离开超时检测
+    startFaceGoneTimeout();
+  }
+
+  function startFaceGoneTimeout() {
+    if (SC.faceGoneTimer) clearTimeout(SC.faceGoneTimer);
+    SC.faceGoneTimer = setTimeout(function() {
+      closeFeedback();
+    }, SC.feedbackTimeout * 1000);
+  }
+
+  function handleFaceGone() {
+    // 超过阈值帧没检测到人脸
+    if (SC.feedbackPortraitId && SC.slideshowTimer) {
+      startFaceGoneTimeout();
+    }
+  }
+
+  function closeFeedback() {
+    document.getElementById('feedbackOverlay').classList.remove('show');
+    if (SC.feedbackPollTimer) { clearInterval(SC.feedbackPollTimer); SC.feedbackPollTimer = null; }
+    if (SC.slideshowTimer) { clearInterval(SC.slideshowTimer); SC.slideshowTimer = null; }
+    if (SC.faceGoneTimer) { clearTimeout(SC.faceGoneTimer); SC.faceGoneTimer = null; }
+    SC.feedbackPortraitId = null;
+    SC.currentFeedbackDescriptor = null;
+  }
+
+  // ========== 登录相关 ==========
+
+  // ========== 自动监控（拍照后自动触发合成） ==========
+  function startCaptureMonitor() {
+    if (SC.isMonitoring) return;
+    SC.isMonitoring = true;
+
+    // 尝试通知父页面（portrait_list iframe场景）
+    try {
+      if (window.parent !== window) {
+        if (typeof parent.startMonitor === 'function') {
+          parent.startMonitor();
+        }
+        // 同时发送postMessage作为备用
+        parent.postMessage({ type: 'smileCapture', action: 'startMonitor' }, '*');
+      }
+    } catch(e) { console.log('无法访问父窗口监控，使用本地监控'); }
+
+    // 本地监控：轮询待处理人像并触发合成
+    checkPendingPortraits();
+    SC.monitorTimer = setInterval(checkPendingPortraits, SC.monitorInterval);
+
+    // 更新UI
+    var badge = document.getElementById('monitorStatusBadge');
+    badge.textContent = '监控中';
+    badge.style.color = '#fff';
+    badge.style.background = '#4caf50';
+    document.getElementById('monitorStats').style.display = 'block';
+  }
+
+  function stopCaptureMonitor() {
+    if (!SC.isMonitoring) return;
+    SC.isMonitoring = false;
+
+    // 通知父页面
+    try {
+      if (window.parent !== window) {
+        if (typeof parent.stopMonitor === 'function') {
+          parent.stopMonitor();
+        }
+        parent.postMessage({ type: 'smileCapture', action: 'stopMonitor' }, '*');
+      }
+    } catch(e) {}
+
+    if (SC.monitorTimer) {
+      clearInterval(SC.monitorTimer);
+      SC.monitorTimer = null;
+    }
+
+    var badge = document.getElementById('monitorStatusBadge');
+    badge.textContent = '已停止';
+    badge.style.color = '#999';
+    badge.style.background = '#f5f5f5';
+    document.getElementById('monitorStats').style.display = 'none';
+  }
+
+  function checkPendingPortraits() {
+    if (!SC.isMonitoring) return;
+
+    $.post('/index.php?s=/SmileCapture/synthesis_get_pending', function(res) {
+      if (res.code === 0 && res.data && res.data.length > 0) {
+        document.getElementById('pendingCount').textContent = res.data.length;
+
+        res.data.forEach(function(portrait) {
+          if ((portrait.synthesis_status == 0 || portrait.synthesis_status == 1) && !SC.processingPortraits[portrait.id]) {
+            SC.processingPortraits[portrait.id] = true;
+            updateProcessingCount();
+            retryPortrait(portrait.id, 0);
+          }
+        });
+      } else {
+        document.getElementById('pendingCount').textContent = '0';
+      }
+    }).fail(function() {
+      console.log('监控轮询失败');
+    });
+  }
+
+  function retryPortrait(portraitId, retryCount) {
+    if (!SC.isMonitoring) {
+      delete SC.processingPortraits[portraitId];
+      updateProcessingCount();
+      return;
+    }
+
+    $.post('/index.php?s=/SmileCapture/synthesis_retry', { portrait_id: portraitId }, function(res) {
+      if (res.code === 0) {
+        console.log('人像 ' + portraitId + ' 合成成功');
+        delete SC.processingPortraits[portraitId];
+        SC.completedCount++;
+        document.getElementById('completedCount').textContent = SC.completedCount;
+      } else {
+        if (retryCount < 3) {
+          console.log('人像 ' + portraitId + ' 合成失败，第' + (retryCount + 1) + '次重试...');
+          setTimeout(function() { retryPortrait(portraitId, retryCount + 1); }, 2000);
+        } else {
+          console.log('人像 ' + portraitId + ' 已重试3次仍失败');
+          delete SC.processingPortraits[portraitId];
+        }
+      }
+      updateProcessingCount();
+    }).fail(function() {
+      delete SC.processingPortraits[portraitId];
+      updateProcessingCount();
+    });
+  }
+
+  function updateProcessingCount() {
+    document.getElementById('processingCount').textContent = Object.keys(SC.processingPortraits).length;
+  }
+
+  // ========== 合成设置 ==========
+  function openSynthesisSettings() {
+    layer.open({
+      type: 2,
+      title: '合成设置',
+      content: '/index.php?s=/SmileCapture/synthesis_settings',
+      area: ['700px', '600px'],
+      btn: ['保存设置', '开始生成', '取消'],
+      yes: function(index, layero) {
+        var iframeWin = window[layero.find('iframe')[0]['name']];
+        iframeWin.saveSettings(function(res) {
+          if (res.code === 0) {
+            layer.msg('设置已保存', {icon: 1});
+            layer.close(index);
+          } else {
+            layer.msg(res.msg || '保存失败', {icon: 2});
+          }
+        });
+      },
+      btn2: function(index, layero) {
+        var iframeWin = window[layero.find('iframe')[0]['name']];
+        iframeWin.startBatchGenerate(function(res) {
+          if (res.code === 0) {
+            layer.msg('批量合成任务已启动，共处理 ' + res.data.total + ' 张人像', {icon: 1});
+            layer.close(index);
+          } else {
+            layer.msg(res.msg || '生成失败', {icon: 2});
+          }
+        });
+        return false;
+      }
+    });
+  }
+  function doLogin() {
+    var username = document.getElementById('loginUsername');
+    var password = document.getElementById('loginPassword');
+    var errorDiv = document.getElementById('loginError');
+    var loginBtn = document.getElementById('loginBtn');
+
+    if (!username || !password) return;
+    var un = username.value.trim();
+    var pw = password.value.trim();
+
+    if (!un || !pw) {
+      errorDiv.textContent = '请输入账号和密码';
+      errorDiv.style.display = 'block';
+      return;
+    }
+
+    errorDiv.style.display = 'none';
+    loginBtn.disabled = true;
+    loginBtn.textContent = '登录中...';
+
+    $.post('/index.php?s=/SmileCapture/do_login', {
+      username: un,
+      password: pw,
+      aid: SC.aid,
+      bid: SC.bid
+    }, function(res) {
+      if (res.status == 1 && res.data) {
+        SC.isLoggedIn = true;
+        SC.aid = res.data.aid;
+        SC.bid = res.data.bid;
+        document.getElementById('loginStatus').textContent = '已登录：' + res.data.username;
+
+        var mask = document.getElementById('loginMask');
+        if (mask) mask.style.display = 'none';
+
+        layer.msg('登录成功', {icon: 1});
+        setTimeout(function() { location.reload(); }, 500);
+      } else {
+        errorDiv.textContent = res.msg || '登录失败';
+        errorDiv.style.display = 'block';
+        loginBtn.disabled = false;
+        loginBtn.textContent = '登 录';
+      }
+    }).fail(function() {
+      errorDiv.textContent = '网络错误，请重试';
+      errorDiv.style.display = 'block';
+      loginBtn.disabled = false;
+      loginBtn.textContent = '登 录';
+    });
+  }
+
+  // ========== 开关监听 ==========
+  document.getElementById('swAutoCapture').addEventListener('change', function() {
+    toggleAutoCapture();
+    this.checked = SC.autoCaptureEnabled;
+  });
+
+  document.getElementById('swFeedback').addEventListener('change', function() {
+    SC.portraitFeedbackEnabled = this.checked;
+  });
+
+  document.getElementById('scInterval').addEventListener('change', function() {
+    SC.captureInterval = parseInt(this.value) || 1;
+  });
+
+  document.getElementById('scDedup').addEventListener('change', function() {
+    SC.dedupMinutes = parseInt(this.value) || 1;
+  });
+
+  document.getElementById('scFeedbackTimeout').addEventListener('change', function() {
+    SC.feedbackTimeout = parseInt(this.value) || 60;
+  });
+
+  // ========== 窗口大小变化 ==========
+  window.addEventListener('resize', function() {
+    setTimeout(updateCropOverlay, 100);
+  });
+
+  // ========== 页面初始化 ==========
+  (async function init() {
+    // 初始化摄像头
+    await initCamera();
+    // 加载AI模型
+    await loadFaceModels();
+    // 未登录时自动聚焦账号输入框
+    if (!SC.isLoggedIn) {
+      var usernameInput = document.getElementById('loginUsername');
+      if (usernameInput) usernameInput.focus();
+    }
+  })();
+  </script>
+  {include file="public/copyright"/}
+</body>
+</html>

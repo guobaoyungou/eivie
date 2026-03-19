@@ -1469,6 +1469,16 @@ class AiTravelPhoto extends Common
             $mdid = input('post.mdid/d', 0);
             $isManual = input('post.is_manual/d', 0);
 
+            // 获取抓拍尺寸与比例参数
+            $captureSize = input('post.capture_size', '1K');
+            $aspectRatio = input('post.aspect_ratio', '3:4');
+
+            // 校验参数合法性
+            $validSizes = ['1K', '2K'];
+            $validRatios = ['1:1', '2:3', '3:4', '4:3', '9:16', '16:9'];
+            if (!in_array($captureSize, $validSizes)) $captureSize = '1K';
+            if (!in_array($aspectRatio, $validRatios)) $aspectRatio = '3:4';
+
             // 创建临时文件
             $tempFile = tempnam(sys_get_temp_dir(), 'smile_');
             file_put_contents($tempFile, $imageContent);
@@ -1488,9 +1498,34 @@ class AiTravelPhoto extends Common
                 return json(['status' => 0, 'msg' => '图片尺寸过小']);
             }
 
-            // 计算MD5
-            $fileMd5 = md5_file($tempFile);
-            $fileSize = filesize($tempFile);
+            // 根据capture_size和aspect_ratio计算目标尺寸并裁剪缩放
+            $basePx = ($captureSize === '2K') ? 2048 : 1024;
+            $ratioParts = explode(':', $aspectRatio);
+            $rw = intval($ratioParts[0]);
+            $rh = intval($ratioParts[1]);
+            if ($rw >= $rh) {
+                $targetWidth = $basePx;
+                $targetHeight = intval($basePx * $rh / $rw);
+            } else {
+                $targetHeight = $basePx;
+                $targetWidth = intval($basePx * $rw / $rh);
+            }
+
+            // 对原始抓拍图进行裁剪缩放到目标尺寸
+            $resized = $this->resizeCapture($tempFile, $width, $height, $targetWidth, $targetHeight, $extension);
+            if ($resized) {
+                $imageContent = file_get_contents($tempFile);
+                $width = $targetWidth;
+                $height = $targetHeight;
+                $fileSize = strlen($imageContent);
+                $fileMd5 = md5($imageContent);
+            }
+
+            // 计算MD5（如未经裁剪缩放才在此计算）
+            if (!isset($fileMd5)) {
+                $fileMd5 = md5_file($tempFile);
+                $fileSize = filesize($tempFile);
+            }
 
             // 超级管理员bid为0时，使用aid对应的第一个商家
             $targetBid = $this->bid;
@@ -1757,6 +1792,184 @@ class AiTravelPhoto extends Common
                 'portrait_id' => $portraitId,
                 'error' => $e->getMessage()
             ]);
+        }
+    }
+
+    /**
+     * 笑脸抓拍独立页面（后台内嵌入口）
+     * 
+     * 路径: AiTravelPhoto/smile_capture_page
+     * 方法: GET
+     * 参数: mdid(可选，门店ID预选)
+     */
+    public function smile_capture_page()
+    {
+        // 复用Common控制器的认证体系，已登录
+        $mdid = input('param.mdid/d', 0);
+
+        // 超级管理员bid为0时，使用aid对应的第一个商家
+        $targetBid = $this->bid;
+        if ($targetBid == 0) {
+            $targetBid = Db::name('business')->where('aid', $this->aid)->value('id');
+        }
+
+        // 获取门店列表
+        $bid = $this->bid;
+        $mendian_list = Db::name('mendian')
+            ->where('aid', $this->aid)
+            ->where(function($query) use ($bid) {
+                $query->whereOr([
+                    ['bid', '=', $bid],
+                    ['bid', '=', 0]
+                ]);
+            })
+            ->select()
+            ->toArray();
+
+        $business = Db::name('business')->where('id', $targetBid)->find();
+        $business_info = [
+            'id' => $targetBid,
+            'name' => $business['name'] ?? '',
+        ];
+
+        View::assign('is_logged_in', true);
+        View::assign('page_aid', $this->aid);
+        View::assign('page_bid', $targetBid);
+        View::assign('preselect_mdid', $mdid);
+        View::assign('admin_name', session('ADMIN_NAME') ?: '');
+        View::assign('mendian_list', $mendian_list);
+        View::assign('business_info', $business_info);
+
+        return View::fetch('ai_travel_photo/smile_capture');
+    }
+
+    /**
+     * 查询抓拍处理状态
+     * 
+     * 路径: AiTravelPhoto/smile_capture_status
+     * 方法: GET
+     * 参数: portrait_id(必填)
+     */
+    public function smile_capture_status()
+    {
+        $portraitId = input('param.portrait_id/d', 0);
+        if (!$portraitId) {
+            return json(['status' => 0, 'msg' => '缺少portrait_id参数']);
+        }
+
+        try {
+            // 查询人像记录
+            $portrait = Db::name('ai_travel_photo_portrait')
+                ->where('id', $portraitId)
+                ->where('aid', $this->aid)
+                ->field('id, synthesis_status, synthesis_count')
+                ->find();
+
+            if (!$portrait) {
+                return json(['status' => 0, 'msg' => '人像记录不存在']);
+            }
+
+            $synthesisStatus = intval($portrait['synthesis_status'] ?? 0);
+            $progress = 0;
+            $resultImages = [];
+
+            // 根据合成状态计算进度
+            switch ($synthesisStatus) {
+                case 0: $progress = 0; break;
+                case 1: $progress = 20; break;
+                case 2: $progress = 60; break;
+                case 3:
+                    $progress = 100;
+                    // 查询成片图片
+                    $results = Db::name('ai_travel_photo_result')
+                        ->where('portrait_id', $portraitId)
+                        ->where('status', 1)
+                        ->field('url, thumbnail_url')
+                        ->select();
+                    foreach ($results as $r) {
+                        $resultImages[] = $r['url'] ?: $r['thumbnail_url'];
+                    }
+                    break;
+                case 4: $progress = 100; break;
+            }
+
+            return json([
+                'status' => 1,
+                'data' => [
+                    'synthesis_status' => $synthesisStatus,
+                    'progress' => $progress,
+                    'result_images' => $resultImages
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('查询抓拍状态失败', [
+                'portrait_id' => $portraitId,
+                'error' => $e->getMessage()
+            ]);
+            return json(['status' => 0, 'msg' => '查询失败：' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 裁剪缩放抓拍图片到目标尺寸
+     * @param string $tempFile 临时文件路径
+     * @param int $srcW 原图宽度
+     * @param int $srcH 原图高度
+     * @param int $dstW 目标宽度
+     * @param int $dstH 目标高度
+     * @param string $ext 文件扩展名
+     * @return bool
+     */
+    private function resizeCapture($tempFile, $srcW, $srcH, $dstW, $dstH, $ext)
+    {
+        try {
+            // 创建原始图像资源
+            if ($ext == 'jpg' || $ext == 'jpeg') {
+                $srcImg = imagecreatefromjpeg($tempFile);
+            } elseif ($ext == 'png') {
+                $srcImg = imagecreatefrompng($tempFile);
+            } else {
+                return false;
+            }
+            if (!$srcImg) return false;
+
+            // 计算裁剪区域（居中裁剪）
+            $targetAR = $dstW / $dstH;
+            $srcAR = $srcW / $srcH;
+            if ($srcAR > $targetAR) {
+                $cropH = $srcH;
+                $cropW = intval($srcH * $targetAR);
+            } else {
+                $cropW = $srcW;
+                $cropH = intval($srcW / $targetAR);
+            }
+            $cropX = intval(($srcW - $cropW) / 2);
+            $cropY = intval(($srcH - $cropH) / 2);
+
+            // 创建目标图像
+            $dstImg = imagecreatetruecolor($dstW, $dstH);
+            if ($ext == 'png') {
+                imagealphablending($dstImg, false);
+                imagesavealpha($dstImg, true);
+            }
+
+            imagecopyresampled($dstImg, $srcImg, 0, 0, $cropX, $cropY, $dstW, $dstH, $cropW, $cropH);
+
+            // 保存回临时文件
+            if ($ext == 'png') {
+                imagepng($dstImg, $tempFile, 8);
+            } else {
+                imagejpeg($dstImg, $tempFile, 92);
+            }
+
+            imagedestroy($srcImg);
+            imagedestroy($dstImg);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('抓拍图片裁剪缩放失败', [
+                'error' => $e->getMessage()
+            ]);
+            return false;
         }
     }
 
