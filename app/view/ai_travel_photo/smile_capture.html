@@ -171,8 +171,13 @@
     .sc-login-refresh { display: none; margin-top: 12px; padding: 8px 24px; background: #1e9fff; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
 
     /* 全屏模式 */
+    .fullscreen-mode { background: #000; }
     .fullscreen-mode .sc-toolbar { display: none; }
     .fullscreen-mode .sc-sidebar { display: none; }
+    .fullscreen-mode .sc-main { height: 100vh; background: #000; }
+    .fullscreen-mode .sc-camera-area { background: #000; }
+    .fullscreen-mode .sc-camera-area video { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; }
+    .fullscreen-mode .sc-crop-overlay { display: none; }
   </style>
 </head>
 <body>
@@ -255,13 +260,16 @@
           <div>
             <div style="font-size:12px;color:#888;margin-bottom:6px;">画面比例</div>
             <div class="sc-ratio-grid">
+              <div class="sc-ratio-item active" data-ratio="screen" onclick="selectRatio(this)">
+                <div class="ratio-label">适配</div><div class="ratio-desc">屏幕</div>
+              </div>
               <div class="sc-ratio-item" data-ratio="1:1" onclick="selectRatio(this)">
                 <div class="ratio-label">1:1</div><div class="ratio-desc">头像</div>
               </div>
               <div class="sc-ratio-item" data-ratio="2:3" onclick="selectRatio(this)">
                 <div class="ratio-label">2:3</div><div class="ratio-desc">自拍</div>
               </div>
-              <div class="sc-ratio-item active" data-ratio="3:4" onclick="selectRatio(this)">
+              <div class="sc-ratio-item" data-ratio="3:4" onclick="selectRatio(this)">
                 <div class="ratio-label">3:4</div><div class="ratio-desc">拍照</div>
               </div>
               <div class="sc-ratio-item" data-ratio="4:3" onclick="selectRatio(this)">
@@ -415,7 +423,7 @@
     bid: {$page_bid},
     isLoggedIn: {$is_logged_in ? 'true' : 'false'},
     captureSize: '1K',
-    aspectRatio: '3:4',
+    aspectRatio: 'screen',
     autoCaptureEnabled: false,
     adPlaybackEnabled: false,
     portraitFeedbackEnabled: true,
@@ -468,9 +476,19 @@
     '2K': 2048
   };
 
+  // 获取当前比例值（支持'screen'动态计算屏幕比例）
+  function getAspectRatioValues() {
+    if (SC.aspectRatio === 'screen') {
+      var sw = window.screen.width || window.innerWidth;
+      var sh = window.screen.height || window.innerHeight;
+      return {w: sw, h: sh};
+    }
+    return RATIO_MAP[SC.aspectRatio];
+  }
+
   function getTargetDimensions() {
     var base = SIZE_MAP[SC.captureSize];
-    var ratio = RATIO_MAP[SC.aspectRatio];
+    var ratio = getAspectRatioValues();
     if (ratio.w >= ratio.h) {
       return { width: base, height: Math.round(base * ratio.h / ratio.w) };
     } else {
@@ -518,11 +536,15 @@
     var ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, areaW, areaH);
 
-    var ratio = RATIO_MAP[SC.aspectRatio];
+    var ratio = getAspectRatioValues();
     var targetAR = ratio.w / ratio.h;
     var cropW, cropH;
 
-    if (displayW / displayH > targetAR) {
+    // 适配屏幕模式：裁剪框覆盖整个可见区域
+    if (SC.aspectRatio === 'screen') {
+      cropW = displayW;
+      cropH = displayH;
+    } else if (displayW / displayH > targetAR) {
       cropH = displayH * 0.9;
       cropW = cropH * targetAR;
     } else {
@@ -581,7 +603,7 @@
       el.requestFullscreen().then(function(){
         document.body.classList.add('fullscreen-mode');
         SC.isFullscreen = true;
-        setTimeout(updateCropOverlay, 100);
+        setTimeout(function() { updateOverlayScale(); updateCropOverlay(); }, 100);
       }).catch(function(){});
     } else {
       document.exitFullscreen();
@@ -592,9 +614,33 @@
     if (!document.fullscreenElement) {
       document.body.classList.remove('fullscreen-mode');
       SC.isFullscreen = false;
-      setTimeout(updateCropOverlay, 100);
+      setTimeout(function() { updateOverlayScale(); updateCropOverlay(); }, 100);
     }
   });
+
+  // 全屏模式下调整人脸检测overlay与video cover显示对齐
+  function updateOverlayScale() {
+    var overlay = document.getElementById('overlay');
+    var video = document.getElementById('video');
+    var area = document.getElementById('cameraArea');
+    if (!video.videoWidth) return;
+
+    if (SC.isFullscreen) {
+      var aW = area.clientWidth;
+      var aH = area.clientHeight;
+      var vW = video.videoWidth;
+      var vH = video.videoHeight;
+      // video使用object-fit:cover时的缩放比例
+      var coverScale = Math.max(aW / vW, aH / vH);
+      overlay.style.width = (vW * coverScale) + 'px';
+      overlay.style.height = (vH * coverScale) + 'px';
+      overlay.style.transform = 'translate(-50%, -50%) scaleX(-1)';
+    } else {
+      overlay.style.width = '';
+      overlay.style.height = '';
+      overlay.style.transform = 'translate(-50%, -50%) scaleX(-1)';
+    }
+  }
 
   // ========== 自动抓拍控制 ==========
   function toggleAutoCapture() {
@@ -831,7 +877,7 @@
     SC.isCapturing = true;
 
     var video = document.getElementById('video');
-    var ratio = RATIO_MAP[SC.aspectRatio];
+    var ratio = getAspectRatioValues();
     var targetAR = ratio.w / ratio.h;
     var dim = getTargetDimensions();
 
@@ -1289,7 +1335,7 @@
 
   // ========== 窗口大小变化 ==========
   window.addEventListener('resize', function() {
-    setTimeout(updateCropOverlay, 100);
+    setTimeout(function() { updateOverlayScale(); updateCropOverlay(); }, 100);
   });
 
   // ========== 页面初始化 ==========

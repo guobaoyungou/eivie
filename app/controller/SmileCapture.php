@@ -398,7 +398,7 @@ class SmileCapture extends Base
             $aspectRatio = input('post.aspect_ratio', '3:4');
 
             $validSizes = ['1K', '2K'];
-            $validRatios = ['1:1', '2:3', '3:4', '4:3', '9:16', '16:9'];
+            $validRatios = ['1:1', '2:3', '3:4', '4:3', '9:16', '16:9', 'screen'];
             if (!in_array($captureSize, $validSizes)) $captureSize = '1K';
             if (!in_array($aspectRatio, $validRatios)) $aspectRatio = '3:4';
 
@@ -419,15 +419,26 @@ class SmileCapture extends Base
             }
 
             $basePx = ($captureSize === '2K') ? 2048 : 1024;
-            $ratioParts = explode(':', $aspectRatio);
-            $rw = intval($ratioParts[0]);
-            $rh = intval($ratioParts[1]);
-            if ($rw >= $rh) {
-                $targetWidth = $basePx;
-                $targetHeight = intval($basePx * $rh / $rw);
+            if ($aspectRatio === 'screen') {
+                // 适配屏幕模式：保持原始比例，只限制最大像素
+                if ($width >= $height) {
+                    $targetWidth = min($width, $basePx);
+                    $targetHeight = intval($targetWidth * $height / $width);
+                } else {
+                    $targetHeight = min($height, $basePx);
+                    $targetWidth = intval($targetHeight * $width / $height);
+                }
             } else {
-                $targetHeight = $basePx;
-                $targetWidth = intval($basePx * $rw / $rh);
+                $ratioParts = explode(':', $aspectRatio);
+                $rw = intval($ratioParts[0]);
+                $rh = intval($ratioParts[1]);
+                if ($rw >= $rh) {
+                    $targetWidth = $basePx;
+                    $targetHeight = intval($basePx * $rh / $rw);
+                } else {
+                    $targetHeight = $basePx;
+                    $targetWidth = intval($basePx * $rw / $rh);
+                }
             }
 
             $resized = $this->resizeCapture($tempFile, $width, $height, $targetWidth, $targetHeight, $extension);
