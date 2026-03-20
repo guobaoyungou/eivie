@@ -284,6 +284,20 @@
             </div>
           </div>
           <div style="margin-top:10px;">
+            <div style="font-size:12px;color:#888;margin-bottom:6px;">自动对焦</div>
+            <div class="sc-focus-control" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+              <select class="sc-select" id="scFocusMode" style="flex:1;">
+                <option value="continuous">持续对焦</option>
+                <option value="single-shot">单次对焦</option>
+                <option value="manual">手动对焦</option>
+              </select>
+              <button class="sc-size-btn" id="btnRefocus" onclick="triggerRefocus()" title="手动触发重新对焦" style="white-space:nowrap;padding:4px 10px;cursor:pointer;">
+                <i class="layui-icon layui-icon-refresh"></i> 对焦
+              </button>
+            </div>
+            <div id="focusStatus" style="font-size:11px;color:#aaa;margin-bottom:6px;"></div>
+          </div>
+          <div style="margin-top:10px;">
             <div style="font-size:12px;color:#888;margin-bottom:6px;">摄像头旋转</div>
             <div class="sc-ratio-grid" style="grid-template-columns: repeat(4, 1fr);">
               <div class="sc-ratio-item active" data-rotation="0" onclick="selectRotation(this)">
@@ -488,7 +502,12 @@
     isMonitoring: false,
     processingPortraits: {},
     monitorInterval: 3000,
-    completedCount: 0
+    completedCount: 0,
+    // 对焦
+    focusMode: 'continuous',
+    focusCapabilities: null,
+    focusRefreshTimer: null,
+    focusRefreshInterval: 5000
   };
 
   // ========== 尺寸与比例计算 ==========
@@ -764,8 +783,17 @@
     var video = document.getElementById('video');
     var status = document.getElementById('cameraStatus');
     try {
+      // 请求摄像头时优先启用持续自动对焦
+      var videoConstraints = {
+        width: {ideal: 1280},
+        height: {ideal: 720},
+        facingMode: 'user'
+      };
+      // 通过 advanced 约束请求持续对焦（兼容性更好）
+      videoConstraints.advanced = [{focusMode: 'continuous'}];
+
       SC.videoStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: {ideal: 1280}, height: {ideal: 720}, facingMode: 'user' }
+        video: videoConstraints
       });
       video.srcObject = SC.videoStream;
       video.addEventListener('loadedmetadata', function() {
@@ -775,13 +803,193 @@
         // 设置overlay尺寸并应用旋转
         applyVideoRotation();
         updateCropOverlay();
+
+        // 初始化自动对焦
+        setupAutoFocus();
       });
     } catch (err) {
+      // advanced 约束失败时降级为基础约束重试
+      if (err.name === 'OverconstrainedError') {
+        try {
+          SC.videoStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: {ideal: 1280}, height: {ideal: 720}, facingMode: 'user' }
+          });
+          video.srcObject = SC.videoStream;
+          video.addEventListener('loadedmetadata', function() {
+            status.style.display = 'none';
+            document.getElementById('btnManualCapture').disabled = false;
+            applyVideoRotation();
+            updateCropOverlay();
+            setupAutoFocus();
+          });
+          return;
+        } catch (err2) {
+          err = err2;
+        }
+      }
       var msg = err.message || '未知错误';
       if (msg.includes('Permission denied') || msg.includes('NotAllowedError')) msg = '摄像头权限被拒绝';
       else if (msg.includes('NotFoundError')) msg = '未找到摄像头设备';
       status.innerHTML = '<span style="color:#f44336;">' + msg + '</span>';
     }
+  }
+
+  // ========== 自动对焦管理 ==========
+  /**
+   * 初始化自动对焦
+   * 检测摄像头对焦能力 → 应用最优对焦模式 → 启动周期性重对焦（如需）
+   */
+  async function setupAutoFocus() {
+    if (!SC.videoStream) return;
+    var track = SC.videoStream.getVideoTracks()[0];
+    if (!track) return;
+
+    var statusEl = document.getElementById('focusStatus');
+    var selectEl = document.getElementById('scFocusMode');
+
+    // 检测摄像头对焦能力
+    try {
+      var capabilities = track.getCapabilities ? track.getCapabilities() : {};
+      SC.focusCapabilities = capabilities;
+
+      if (capabilities.focusMode && capabilities.focusMode.length > 0) {
+        var supportedModes = capabilities.focusMode;
+        console.log('摄像头支持的对焦模式:', supportedModes);
+
+        // 更新UI：禁用不支持的选项
+        Array.from(selectEl.options).forEach(function(opt) {
+          if (supportedModes.indexOf(opt.value) === -1) {
+            opt.disabled = true;
+            opt.textContent += '（不支持）';
+          }
+        });
+
+        // 按优先级应用对焦模式：continuous > single-shot > manual
+        var bestMode = 'manual';
+        if (supportedModes.indexOf('continuous') !== -1) {
+          bestMode = 'continuous';
+        } else if (supportedModes.indexOf('single-shot') !== -1) {
+          bestMode = 'single-shot';
+        }
+
+        await applyFocusMode(bestMode);
+        selectEl.value = bestMode;
+        SC.focusMode = bestMode;
+
+        statusEl.textContent = '对焦模式: ' + getFocusModeLabel(bestMode);
+        statusEl.style.color = '#52c41a';
+      } else {
+        // 摄像头不报告对焦能力（可能是固定焦距或API不支持）
+        statusEl.textContent = '当前摄像头未报告对焦能力（可能为固定焦距）';
+        statusEl.style.color = '#faad14';
+        selectEl.disabled = true;
+        document.getElementById('btnRefocus').disabled = true;
+
+        // 即使无法检测能力，也尝试应用continuous（部分浏览器/设备支持但不报告）
+        try {
+          await track.applyConstraints({advanced: [{focusMode: 'continuous'}]});
+          statusEl.textContent = '已尝试启用持续对焦';
+          statusEl.style.color = '#52c41a';
+        } catch(e) {
+          console.log('尝试应用对焦约束失败:', e.message);
+        }
+      }
+    } catch (e) {
+      console.warn('对焦能力检测异常:', e);
+      statusEl.textContent = '对焦检测异常: ' + e.message;
+      statusEl.style.color = '#f5222d';
+    }
+  }
+
+  /**
+   * 应用指定对焦模式
+   */
+  async function applyFocusMode(mode) {
+    if (!SC.videoStream) return;
+    var track = SC.videoStream.getVideoTracks()[0];
+    if (!track) return;
+
+    // 停止之前的周期性重对焦
+    stopFocusRefresh();
+
+    try {
+      await track.applyConstraints({advanced: [{focusMode: mode}]});
+      SC.focusMode = mode;
+      console.log('对焦模式已设置:', mode);
+
+      // single-shot 模式：启动周期性重对焦
+      if (mode === 'single-shot') {
+        startFocusRefresh();
+      }
+    } catch (e) {
+      console.warn('设置对焦模式失败:', mode, e.message);
+      throw e;
+    }
+  }
+
+  /**
+   * 周期性重对焦（用于single-shot模式）
+   * 每隔N秒触发一次重新对焦，模拟持续对焦效果
+   */
+  function startFocusRefresh() {
+    stopFocusRefresh();
+    SC.focusRefreshTimer = setInterval(function() {
+      triggerRefocus(true);
+    }, SC.focusRefreshInterval);
+    console.log('周期性重对焦已启动, 间隔:', SC.focusRefreshInterval + 'ms');
+  }
+
+  function stopFocusRefresh() {
+    if (SC.focusRefreshTimer) {
+      clearInterval(SC.focusRefreshTimer);
+      SC.focusRefreshTimer = null;
+    }
+  }
+
+  /**
+   * 手动触发重新对焦
+   * 对于continuous模式：先切manual再切回continuous强制重新对焦
+   * 对于single-shot模式：重新应用single-shot触发一次对焦
+   */
+  async function triggerRefocus(silent) {
+    if (!SC.videoStream) return;
+    var track = SC.videoStream.getVideoTracks()[0];
+    if (!track) return;
+
+    var statusEl = document.getElementById('focusStatus');
+    try {
+      if (SC.focusMode === 'continuous') {
+        // continuous: 切换到manual再切回，强制重新开始对焦
+        await track.applyConstraints({advanced: [{focusMode: 'manual'}]});
+        await new Promise(function(r) { setTimeout(r, 100); });
+        await track.applyConstraints({advanced: [{focusMode: 'continuous'}]});
+      } else if (SC.focusMode === 'single-shot') {
+        // single-shot: 重新应用约束触发一次对焦
+        await track.applyConstraints({advanced: [{focusMode: 'single-shot'}]});
+      } else {
+        // manual: 不做操作
+        if (!silent) layer.msg('手动模式下无法自动对焦', {icon: 0});
+        return;
+      }
+      if (!silent) {
+        statusEl.textContent = '✓ 重新对焦成功';
+        statusEl.style.color = '#52c41a';
+        setTimeout(function() {
+          statusEl.textContent = '对焦模式: ' + getFocusModeLabel(SC.focusMode);
+        }, 2000);
+      }
+    } catch (e) {
+      if (!silent) {
+        statusEl.textContent = '重新对焦失败: ' + e.message;
+        statusEl.style.color = '#f5222d';
+      }
+      console.warn('重新对焦失败:', e);
+    }
+  }
+
+  function getFocusModeLabel(mode) {
+    var labels = {'continuous': '持续对焦', 'single-shot': '单次对焦', 'manual': '手动对焦'};
+    return labels[mode] || mode;
   }
 
   // ========== face-api模型加载 ==========
@@ -1433,6 +1641,19 @@
 
   document.getElementById('scFeedbackTimeout').addEventListener('change', function() {
     SC.feedbackTimeout = parseInt(this.value) || 60;
+  });
+
+  document.getElementById('scFocusMode').addEventListener('change', async function() {
+    var mode = this.value;
+    var statusEl = document.getElementById('focusStatus');
+    try {
+      await applyFocusMode(mode);
+      statusEl.textContent = '对焦模式: ' + getFocusModeLabel(mode);
+      statusEl.style.color = '#52c41a';
+    } catch(e) {
+      statusEl.textContent = '切换失败: ' + e.message;
+      statusEl.style.color = '#f5222d';
+    }
   });
 
   // ========== 窗口大小变化 ==========
