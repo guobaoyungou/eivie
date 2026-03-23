@@ -56,6 +56,7 @@ class AiTravelPhotoPickService
             'portrait_id' => $portrait->id,
             'aid' => $portrait->aid,
             'bid' => $portrait->bid,
+            'mdid' => $portrait->mdid ?? 0,
             'qrcode_id' => $qrcode->id,
         ];
     }
@@ -122,7 +123,7 @@ class AiTravelPhotoPickService
     {
         $list = [];
         foreach ($results as $item) {
-            // 优先使用水印图 > 缩略图 > 原图
+            // 缩略图：优先使用水印图 > 缩略图 > 原图
             $thumbUrl = $item['watermark_url'] ?: ($item['thumbnail_url'] ?: $item['url']);
 
             // 如果是COS原图且无缩略图/水印图，追加COS数据万象参数生成缩略图
@@ -130,9 +131,13 @@ class AiTravelPhotoPickService
                 $thumbUrl .= '?imageMogr2/thumbnail/600x/quality/80';
             }
 
+            // 预览大图：优先使用水印图 > 原图 > 缩略图
+            $previewUrl = $item['watermark_url'] ?: ($item['url'] ?: ($item['thumbnail_url'] ?: ''));
+
             $list[] = [
                 'id' => $item['id'],
                 'thumbnail_url' => $thumbUrl ?: '',
+                'preview_url' => $previewUrl ?: '',
                 'type' => $item['type'],
                 'width' => $item['width'],
                 'height' => $item['height'],

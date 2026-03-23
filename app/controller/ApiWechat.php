@@ -519,19 +519,18 @@ class ApiWechat extends BaseController
 							Db::name('member')->where('id', $member['id'])->update(['subscribe' => 1, 'subscribe_time' => time()]);
 						}
 
-						// 获取人像缩略图作为图文封面
+						// 获取人像缩略图作为图文封面（三级回退+URL规范化）
 						$portrait = Db::name('ai_travel_photo_portrait')->where('id', $qrcodeRecord['portrait_id'])->find();
-						$picUrl = '';
-						if($portrait){
-							$picUrl = $portrait['thumbnail_url'] ?: ($portrait['original_url'] ?: '');
-						}
-						if(!$picUrl) $picUrl = PRE_URL.'/static/img/touxiang.png';
+						$picUrl = $portrait ? $this->getPortraitPicUrl($portrait) : (PRE_URL.'/static/img/touxiang.png');
+
+						// 获取商家自定义图文标题和描述
+						$articleConfig = $this->getPickArticleConfig($qrcodeRecord['bid'] ?? 0);
 
 						// 回复选片链接图文消息
 						$pickUrl = PRE_URL . '/public/pick/index.html?qr=' . urlencode($pickQrcode);
 						$this->response_article(aid, [[
-							'title' => '📸 点击查看您的专属写真',
-							'description' => '您的AI旅拍成片已准备就绪，点击查看和选购',
+							'title' => $articleConfig['title'],
+							'description' => $articleConfig['desc'],
 							'pic' => $picUrl,
 							'url' => $pickUrl
 						]], $postObj);
@@ -598,9 +597,12 @@ class ApiWechat extends BaseController
 								->find();
 							$pickQrcode = $pickQrcodeRecord ? $pickQrcodeRecord['qrcode'] : '';
 
-							// 获取人像缩略图作为图文封面
-							$picUrl = $portrait['thumbnail_url'] ?: ($portrait['original_url'] ?: '');
-							if(!$picUrl) $picUrl = PRE_URL.'/static/img/touxiang.png';
+							// 获取人像缩略图作为图文封面（三级回退+URL规范化）
+							$picUrl = $this->getPortraitPicUrl($portrait);
+
+							// 获取商家自定义图文标题和描述
+							$articleBid = $sceneBid ?: ($portrait['bid'] ?? 0);
+							$articleConfig = $this->getPickArticleConfig($articleBid);
 
 							// 构建选片链接
 							if($pickQrcode){
@@ -608,8 +610,8 @@ class ApiWechat extends BaseController
 
 								// 回复选片链接图文消息
 								$this->response_article(aid, [[
-									'title' => '📸 点击查看您的专属写真',
-									'description' => '您的AI旅拍成片已准备就绪，点击查看和选购',
+									'title' => $articleConfig['title'],
+									'description' => $articleConfig['desc'],
 									'pic' => $picUrl,
 									'url' => $pickUrl
 								]], $postObj);
@@ -1262,6 +1264,62 @@ class ApiWechat extends BaseController
 		$socket = new \app\common\WebsocketClient('127.0.0.1',$config['kfport']);
 		$socket->send(json_encode($sendata));
 	}
+	/**
+	 * 获取人像封面图URL（三级回退+URL规范化）
+	 * 优先级：watermark_url → thumbnail_url → original_url → 系统默认头像
+	 * @param array $portrait 人像记录
+	 * @return string 可公开访问的图片URL
+	 */
+	private function getPortraitPicUrl($portrait)
+	{
+		$picUrl = '';
+		if (!empty($portrait['watermark_url'])) {
+			$picUrl = $portrait['watermark_url'];
+		} elseif (!empty($portrait['thumbnail_url'])) {
+			$picUrl = $portrait['thumbnail_url'];
+		} elseif (!empty($portrait['original_url'])) {
+			$picUrl = $portrait['original_url'];
+		}
+
+		if (!$picUrl) {
+			return PRE_URL . '/static/img/touxiang.png';
+		}
+
+		// URL规范化：补全域名前缀
+		if (strpos($picUrl, 'http://') !== 0 && strpos($picUrl, 'https://') !== 0) {
+			$picUrl = PRE_URL . '/' . ltrim($picUrl, '/');
+		}
+
+		// 腾讯云COS链接追加数据万象缩略参数
+		if (strpos($picUrl, 'myqcloud.com') !== false && strpos($picUrl, 'imageMogr2') === false) {
+			$picUrl .= (strpos($picUrl, '?') !== false ? '&' : '?') . 'imageMogr2/thumbnail/400x/quality/80';
+		}
+
+		return $picUrl;
+	}
+
+	/**
+	 * 获取商家自定义图文消息标题和描述
+	 * @param int $bid 商家ID
+	 * @return array ['title' => string, 'desc' => string]
+	 */
+	private function getPickArticleConfig($bid)
+	{
+		$defaultTitle = '📸 点击查看您的专属写真';
+		$defaultDesc = '您的AI旅拍成片已准备就绪，点击查看和选购';
+
+		if ($bid <= 0) {
+			return ['title' => $defaultTitle, 'desc' => $defaultDesc];
+		}
+
+		$business = Db::name('business')->where('id', $bid)->field('ai_pick_article_title, ai_pick_article_desc')->find();
+
+		return [
+			'title' => (!empty($business['ai_pick_article_title'])) ? $business['ai_pick_article_title'] : $defaultTitle,
+			'desc' => (!empty($business['ai_pick_article_desc'])) ? $business['ai_pick_article_desc'] : $defaultDesc,
+		];
+	}
+
 	//回复文本
 	function response_text($aid,$txt,$postObj,$isdecode=true,$isdie=true){
 		if($isdecode){

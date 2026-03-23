@@ -51,6 +51,10 @@ class AiTravelPhotoResult extends Model
         'update_time' => 'integer',
     ];
     
+    // 内容类型常量（通过type字段自动推导）
+    const CONTENT_TYPE_IMAGE = 1;   // 图片
+    const CONTENT_TYPE_VIDEO = 2;   // 视频
+    
     // 状态常量
     const STATUS_DISABLED = 0;  // 禁用
     const STATUS_NORMAL = 1;    // 正常
@@ -124,6 +128,14 @@ class AiTravelPhotoResult extends Model
     public function albums()
     {
         return $this->hasMany(AiTravelPhotoUserAlbum::class, 'result_id', 'id');
+    }
+    
+    /**
+     * 获取内容类型（从type字段自动推导：非视频=图片）
+     */
+    public function getContentTypeAttr($value, $data)
+    {
+        return (($data['type'] ?? 1) == self::TYPE_VIDEO) ? self::CONTENT_TYPE_VIDEO : self::CONTENT_TYPE_IMAGE;
     }
     
     /**

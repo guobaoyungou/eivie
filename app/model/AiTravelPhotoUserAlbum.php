@@ -57,6 +57,18 @@ class AiTravelPhotoUserAlbum extends Model
     const TYPE_IMAGE = 1;       // 图片
     const TYPE_VIDEO = 2;       // 视频
     
+    // 内容类型常量（与TYPE_保持一致）
+    const CONTENT_TYPE_IMAGE = 1;   // 图片
+    const CONTENT_TYPE_VIDEO = 2;   // 视频
+    
+    /**
+     * 获取内容类型（从type字段自动推导）
+     */
+    public function getContentTypeAttr($value, $data)
+    {
+        return (($data['type'] ?? 1) == self::TYPE_VIDEO) ? self::CONTENT_TYPE_VIDEO : self::CONTENT_TYPE_IMAGE;
+    }
+    
     /**
      * 关联订单
      */

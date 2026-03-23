@@ -83,6 +83,35 @@ class AiTravelPhotoPick extends BaseController
                 ->find();
             $uid = $member ? (int)$member['id'] : 0;
 
+            // 查询商家名称
+            $businessName = '';
+            $faceWatermarkEnabled = 0;
+            if ($portraitInfo['bid'] > 0) {
+                $businessRow = \think\facade\Db::name('business')
+                    ->where('id', $portraitInfo['bid'])
+                    ->field('name, ai_pick_face_watermark_enabled')
+                    ->find();
+                $businessName = $businessRow ? ($businessRow['name'] ?: '') : '';
+                $faceWatermarkEnabled = $businessRow ? intval($businessRow['ai_pick_face_watermark_enabled'] ?? 0) : 0;
+            }
+
+            // 查询公众号昵称（用于水印文字）
+            $mpNickname = '';
+            if ($faceWatermarkEnabled && $portraitInfo['aid'] > 0) {
+                $mpNickname = \think\facade\Db::name('admin_setapp_mp')
+                    ->where('aid', $portraitInfo['aid'])
+                    ->value('nickname') ?: '';
+            }
+
+            // 查询门店名称
+            $storeName = '';
+            $mdid = $portraitInfo['mdid'] ?? 0;
+            if ($mdid > 0) {
+                $storeName = \think\facade\Db::name('mendian')
+                    ->where('id', $mdid)
+                    ->value('name') ?: '';
+            }
+
             return json([
                 'code' => 200,
                 'msg' => '成功',
@@ -93,6 +122,10 @@ class AiTravelPhotoPick extends BaseController
                     'qrcode_id' => $portraitInfo['qrcode_id'],
                     'openid' => $openid,
                     'uid' => $uid,
+                    'business_name' => $businessName,
+                    'store_name' => $storeName,
+                    'face_watermark_enabled' => $faceWatermarkEnabled,
+                    'mp_nickname' => $mpNickname,
                 ],
             ]);
         } catch (\Exception $e) {

@@ -7,19 +7,20 @@ namespace Composer\Autoload;
 class ComposerStaticInit6fa24cacc7733af572b2803561ff620b
 {
     public static $files = array (
+        'a4a119a56e50fbb293281d9a48007e0e' => __DIR__ . '/..' . '/symfony/polyfill-php80/bootstrap.php',
+        '25072dd6e2470089de65ae7bf11d3109' => __DIR__ . '/..' . '/symfony/polyfill-php72/bootstrap.php',
+        '0e6d7bf4a5811bfa5cf40c5ccd6fae6a' => __DIR__ . '/..' . '/symfony/polyfill-mbstring/bootstrap.php',
         '7b11c4dc42b3b3023073cb14e519683c' => __DIR__ . '/..' . '/ralouphie/getallheaders/src/getallheaders.php',
         'a0edc8309cc5e1d60e3047b5df6b7052' => __DIR__ . '/..' . '/guzzlehttp/psr7/src/functions_include.php',
-        '25072dd6e2470089de65ae7bf11d3109' => __DIR__ . '/..' . '/symfony/polyfill-php72/bootstrap.php',
         'c964ee0ededf28c96ebd9db5099ef910' => __DIR__ . '/..' . '/guzzlehttp/promises/src/functions_include.php',
         'e69f7f6ee287b969198c3c9d6777bd38' => __DIR__ . '/..' . '/symfony/polyfill-intl-normalizer/bootstrap.php',
         'f598d06aa772fa33d905e87be6398fb1' => __DIR__ . '/..' . '/symfony/polyfill-intl-idn/bootstrap.php',
         '37a3dc5111fe8f707ab4c132ef1dbc62' => __DIR__ . '/..' . '/guzzlehttp/guzzle/src/functions_include.php',
-        'd767e4fc2dc52fe66584ab8c6684783e' => __DIR__ . '/..' . '/adbario/php-dot-notation/src/helpers.php',
-        '0e6d7bf4a5811bfa5cf40c5ccd6fae6a' => __DIR__ . '/..' . '/symfony/polyfill-mbstring/bootstrap.php',
-        'a4a119a56e50fbb293281d9a48007e0e' => __DIR__ . '/..' . '/symfony/polyfill-php80/bootstrap.php',
-        '9b552a3cc426e3287cc811caefa3cf53' => __DIR__ . '/..' . '/topthink/think-helper/src/helper.php',
-        '320cde22f66dd4f5d3fd621d3e88b98f' => __DIR__ . '/..' . '/symfony/polyfill-ctype/bootstrap.php',
         '667aeda72477189d0494fecd327c3641' => __DIR__ . '/..' . '/symfony/var-dumper/Resources/functions/dump.php',
+        'd767e4fc2dc52fe66584ab8c6684783e' => __DIR__ . '/..' . '/adbario/php-dot-notation/src/helpers.php',
+        '9b552a3cc426e3287cc811caefa3cf53' => __DIR__ . '/..' . '/topthink/think-helper/src/helper.php',
+        '6124b4c8570aa390c21fafd04a26c69f' => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy/deep_copy.php',
+        '320cde22f66dd4f5d3fd621d3e88b98f' => __DIR__ . '/..' . '/symfony/polyfill-ctype/bootstrap.php',
         '65fec9ebcfbb3cbb4fd0d519687aea01' => __DIR__ . '/..' . '/danielstjules/stringy/src/Create.php',
         'a9ed0d27b5a698798a89181429f162c5' => __DIR__ . '/..' . '/khanamiryan/qrcode-detector-decoder/lib/Common/customFunctions.php',
         'abede361264e2ae69ec1eee813a101af' => __DIR__ . '/..' . '/markbaker/complex/classes/src/functions/abs.php',
@@ -81,7 +82,6 @@ class ComposerStaticInit6fa24cacc7733af572b2803561ff620b
         '4888a6f58c08148ebe17682f9ce9b2a8' => __DIR__ . '/..' . '/markbaker/matrix/classes/src/Operations/divideby.php',
         'eef6fa3879d3efa347cd24d5eb348f85' => __DIR__ . '/..' . '/markbaker/matrix/classes/src/Operations/divideinto.php',
         'b067bc7112e384b61c701452d53a14a8' => __DIR__ . '/..' . '/mtdowling/jmespath.php/src/JmesPath.php',
-        '6124b4c8570aa390c21fafd04a26c69f' => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy/deep_copy.php',
         'fe62ba7e10580d903cc46d808b5961a4' => __DIR__ . '/..' . '/tightenco/collect/src/Collect/Support/helpers.php',
         'caf31cc6ec7cf2241cb6f12c226c3846' => __DIR__ . '/..' . '/tightenco/collect/src/Collect/Support/alias.php',
         '66453932bc1be9fb2f910a27947d11b6' => __DIR__ . '/..' . '/alibabacloud/client/src/Functions.php',
@@ -95,10 +95,10 @@ class ComposerStaticInit6fa24cacc7733af572b2803561ff620b
         '263010cc0791a948b93b0451326d8490' => __DIR__ . '/..' . '/baidu/aip-sdk/AipNlp.php',
         '20465600cdf87e7598e8d3b23e358ef7' => __DIR__ . '/..' . '/baidu/aip-sdk/AipOcr.php',
         '03d6be5ce0d7e73da2264e6c76dbce69' => __DIR__ . '/..' . '/baidu/aip-sdk/AipSpeech.php',
-        'decc78cc4436b1292c6c0d151b19445c' => __DIR__ . '/..' . '/phpseclib/phpseclib/phpseclib/bootstrap.php',
         '841780ea2e1d6545ea3a253239d59c05' => __DIR__ . '/..' . '/qiniu/php-sdk/src/Qiniu/functions.php',
         '1cfd2761b63b0a29ed23657ea394cb2d' => __DIR__ . '/..' . '/topthink/think-captcha/src/helper.php',
         'cc56288302d9df745d97c934d6a6e5f0' => __DIR__ . '/..' . '/topthink/think-queue/src/common.php',
+        'cd5441689b14144e5573bf989ee47b34' => __DIR__ . '/..' . '/qcloud/cos-sdk-v5/src/Common.php',
     );
 
     public static $prefixLengthsPsr4 = array (
@@ -113,10 +113,6 @@ class ComposerStaticInit6fa24cacc7733af572b2803561ff620b
         's' => 
         array (
             'setasign\\Fpdi\\' => 14,
-        ),
-        'p' => 
-        array (
-            'phpseclib3\\' => 11,
         ),
         'c' => 
         array (
@@ -163,6 +159,7 @@ class ComposerStaticInit6fa24cacc7733af572b2803561ff620b
         'Q' => 
         array (
             'Qiniu\\' => 6,
+            'Qcloud\\Cos\\' => 11,
             'QL\\' => 3,
         ),
         'P' => 
@@ -175,7 +172,6 @@ class ComposerStaticInit6fa24cacc7733af572b2803561ff620b
             'PhpOffice\\PhpWord\\' => 18,
             'PhpOffice\\PhpSpreadsheet\\' => 25,
             'PhpOffice\\Math\\' => 15,
-            'ParagonIE\\ConstantTime\\' => 23,
         ),
         'O' => 
         array (
@@ -288,10 +284,6 @@ class ComposerStaticInit6fa24cacc7733af572b2803561ff620b
         array (
             0 => __DIR__ . '/..' . '/setasign/fpdi/src',
         ),
-        'phpseclib3\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/phpseclib/phpseclib/phpseclib',
-        ),
         'clagiordano\\weblibs\\configmanager\\' => 
         array (
             0 => __DIR__ . '/..' . '/clagiordano/weblibs-configmanager/src',
@@ -394,6 +386,10 @@ class ComposerStaticInit6fa24cacc7733af572b2803561ff620b
         array (
             0 => __DIR__ . '/..' . '/qiniu/php-sdk/src/Qiniu',
         ),
+        'Qcloud\\Cos\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/qcloud/cos-sdk-v5/src',
+        ),
         'QL\\' => 
         array (
             0 => __DIR__ . '/..' . '/jaeger/querylist/src',
@@ -429,10 +425,6 @@ class ComposerStaticInit6fa24cacc7733af572b2803561ff620b
         'PhpOffice\\Math\\' => 
         array (
             0 => __DIR__ . '/..' . '/phpoffice/math/src/Math',
-        ),
-        'ParagonIE\\ConstantTime\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/paragonie/constant_time_encoding/src',
         ),
         'OneSm\\' => 
         array (
@@ -609,13 +601,6 @@ class ComposerStaticInit6fa24cacc7733af572b2803561ff620b
     );
 
     public static $prefixesPsr0 = array (
-        'Q' => 
-        array (
-            'Qcloud\\Cos\\' => 
-            array (
-                0 => __DIR__ . '/..' . '/qcloud/cos-sdk-v5/src',
-            ),
-        ),
         'P' => 
         array (
             'PayPal' => 
@@ -661,16 +646,46 @@ class ComposerStaticInit6fa24cacc7733af572b2803561ff620b
         'CallbackParameterToReference' => __DIR__ . '/..' . '/jaeger/phpquery-single/phpQuery.php',
         'CallbackReturnReference' => __DIR__ . '/..' . '/jaeger/phpquery-single/phpQuery.php',
         'CallbackReturnValue' => __DIR__ . '/..' . '/jaeger/phpquery-single/phpQuery.php',
+        'ComposerAutoloaderInitc58d291072fac211c36774780be871de' => __DIR__ . '/..' . '/AdapayCore/vendor/composer/autoload_real.php',
+        'Composer\\Autoload\\ClassLoader' => __DIR__ . '/..' . '/AdapayCore/vendor/composer/ClassLoader.php',
+        'Composer\\Autoload\\ComposerStaticInitc58d291072fac211c36774780be871de' => __DIR__ . '/..' . '/AdapayCore/vendor/composer/autoload_static.php',
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'DOMDocumentWrapper' => __DIR__ . '/..' . '/jaeger/phpquery-single/phpQuery.php',
         'DOMEvent' => __DIR__ . '/..' . '/jaeger/phpquery-single/phpQuery.php',
         'Dompdf\\Cpdf' => __DIR__ . '/..' . '/dompdf/dompdf/lib/Cpdf.php',
+        'Error' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Lib/Constants.php',
         'ICallbackNamed' => __DIR__ . '/..' . '/jaeger/phpquery-single/phpQuery.php',
         'Normalizer' => __DIR__ . '/..' . '/symfony/polyfill-intl-normalizer/Resources/stubs/Normalizer.php',
         'QcloudApi' => __DIR__ . '/..' . '/tencentcloud/tencentcloud-sdk-php/src/QcloudApi/QcloudApi.php',
         'Stringable' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/Stringable.php',
         'UnhandledMatchError' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/UnhandledMatchError.php',
         'ValueError' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/ValueError.php',
+        'Workerman\\Autoloader' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Autoloader.php',
+        'Workerman\\Connection\\AsyncTcpConnection' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Connection/AsyncTcpConnection.php',
+        'Workerman\\Connection\\AsyncUdpConnection' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Connection/AsyncUdpConnection.php',
+        'Workerman\\Connection\\ConnectionInterface' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Connection/ConnectionInterface.php',
+        'Workerman\\Connection\\TcpConnection' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Connection/TcpConnection.php',
+        'Workerman\\Connection\\UdpConnection' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Connection/UdpConnection.php',
+        'Workerman\\Events\\Ev' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Events/Ev.php',
+        'Workerman\\Events\\Event' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Events/Event.php',
+        'Workerman\\Events\\EventInterface' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Events/EventInterface.php',
+        'Workerman\\Events\\Libevent' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Events/Libevent.php',
+        'Workerman\\Events\\React\\Base' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Events/React/Base.php',
+        'Workerman\\Events\\React\\ExtEventLoop' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Events/React/ExtEventLoop.php',
+        'Workerman\\Events\\React\\ExtLibEventLoop' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Events/React/ExtLibEventLoop.php',
+        'Workerman\\Events\\React\\StreamSelectLoop' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Events/React/StreamSelectLoop.php',
+        'Workerman\\Events\\Select' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Events/Select.php',
+        'Workerman\\Events\\Swoole' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Events/Swoole.php',
+        'Workerman\\Lib\\Timer' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Lib/Timer.php',
+        'Workerman\\Protocols\\Frame' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Protocols/Frame.php',
+        'Workerman\\Protocols\\Http' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Protocols/Http.php',
+        'Workerman\\Protocols\\HttpCache' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Protocols/Http.php',
+        'Workerman\\Protocols\\ProtocolInterface' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Protocols/ProtocolInterface.php',
+        'Workerman\\Protocols\\Text' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Protocols/Text.php',
+        'Workerman\\Protocols\\Websocket' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Protocols/Websocket.php',
+        'Workerman\\Protocols\\Ws' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Protocols/Ws.php',
+        'Workerman\\WebServer' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/WebServer.php',
+        'Workerman\\Worker' => __DIR__ . '/..' . '/AdapayCore/vendor/workerman/workerman/Worker.php',
         'phpQuery' => __DIR__ . '/..' . '/jaeger/phpquery-single/phpQuery.php',
         'phpQueryEvents' => __DIR__ . '/..' . '/jaeger/phpquery-single/phpQuery.php',
         'phpQueryObject' => __DIR__ . '/..' . '/jaeger/phpquery-single/phpQuery.php',

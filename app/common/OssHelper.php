@@ -105,7 +105,7 @@ class OssHelper
         $region = $cosConf['local'] ?? 'ap-guangzhou';
         
         try {
-            require_once ROOT_PATH . 'vendor/qcloud/cos-sdk-v5/include.php';
+            // COS SDK 通过 Composer PSR-4 自动加载，无需手动 require
             $this->cosClient = new \Qcloud\Cos\Client([
                 'region' => $region,
                 'credentials' => [

@@ -25,6 +25,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 
 /* 头部 */
 .header{background:linear-gradient(135deg,#07c160,#06ad56);color:#fff;padding:20px 16px 60px;text-align:center;position:relative}
+.header .store-name{font-size:12px;opacity:.75;margin-bottom:6px;letter-spacing:1px}
 .header h2{font-size:18px;font-weight:500;margin-bottom:4px}
 .header p{font-size:13px;opacity:.8}
 .header .my-orders-btn{position:absolute;top:50%;right:6px;transform:translateY(-50%);writing-mode:vertical-rl;text-orientation:upright;letter-spacing:2px;display:flex;align-items:center;gap:0;background:rgba(255,255,255,.18);color:#fff;border:none;padding:10px 5px;border-radius:14px;font-size:11px;cursor:pointer;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:2;line-height:1}
@@ -46,6 +47,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .grid-item .check svg{width:14px;height:14px;fill:#fff;opacity:0;transition:opacity .2s}
 .grid-item .check.active svg{opacity:1}
 .grid-item .type-badge{position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,.5);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;z-index:3}
+.grid-item .zoom-btn{position:absolute;bottom:6px;right:6px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.45);border:none;color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;z-index:4;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.grid-item .zoom-btn:active{background:rgba(0,0,0,.7)}
 
 /* 全选按钮 */
 .select-all-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;border:1.5px solid #ddd;font-size:13px;color:#666;background:#fff;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}
@@ -103,6 +106,33 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .orders-panel .orders-loading{text-align:center;padding:40px 20px}
 .orders-panel .orders-loading .spinner{width:28px;height:28px;border:3px solid #eee;border-top-color:#07c160;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto}
 .orders-panel .orders-loading p{margin-top:8px;font-size:13px;color:#999}
+
+/* Lightbox */
+.lightbox-mask{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.92);z-index:600;display:none;flex-direction:column;align-items:center;justify-content:center}
+.lightbox-mask.show{display:flex}
+.lightbox-close{position:absolute;top:12px;right:14px;width:36px;height:36px;background:rgba(255,255,255,.15);border:none;border-radius:50%;color:#fff;font-size:20px;cursor:pointer;z-index:602;display:flex;align-items:center;justify-content:center}
+.lightbox-close:active{background:rgba(255,255,255,.3)}
+.lightbox-img-wrap{flex:1;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:50px 8px 100px}
+.lightbox-img-wrap img{max-width:100%;max-height:100%;object-fit:contain;pointer-events:none;-webkit-touch-callout:none}
+.lightbox-img-wrap video{max-width:100%;max-height:100%;object-fit:contain}
+.lightbox-arrow{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:60px;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:22px;cursor:pointer;z-index:602;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.lightbox-arrow:active{background:rgba(255,255,255,.25)}
+.lightbox-arrow.left{left:4px}
+.lightbox-arrow.right{right:4px}
+.lightbox-footer{position:absolute;bottom:0;left:0;width:100%;background:linear-gradient(transparent,rgba(0,0,0,.7));padding:16px 16px calc(16px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;z-index:602}
+.lightbox-counter{color:rgba(255,255,255,.7);font-size:13px}
+.lightbox-select-btn{background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4);padding:8px 20px;border-radius:20px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px}
+.lightbox-select-btn.active{background:#07c160;border-color:#07c160}
+.lightbox-select-btn:active{opacity:.8}
+
+/* 水印Canvas层 */
+.lightbox-img-wrap canvas{max-width:100%;max-height:100%;object-fit:contain;-webkit-touch-callout:none}
+.lightbox-loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:10px;z-index:3}
+.lightbox-loading .spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+.lightbox-loading p{color:rgba(255,255,255,.7);font-size:13px}
+/* 缩放容器 */
+.wm-zoom-wrap{width:100%;height:100%;overflow:hidden;touch-action:none;position:relative;display:flex;align-items:center;justify-content:center}
+.wm-zoom-wrap canvas{transform-origin:0 0;will-change:transform}
 </style>
 </head>
 <body>
@@ -138,6 +168,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
       <span class="badge" id="ordersBadge"></span>
       我的订单
     </button>
+    <div class="store-name" id="storeName" style="display:none"></div>
     <h2>📸 选择你喜欢的照片</h2>
     <p>浏览成片，勾选心仪照片后付费下载原片</p>
   </div>
@@ -200,6 +231,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
   </div>
 </div>
 
+<!-- Lightbox 放大预览 -->
+<div class="lightbox-mask" id="lightboxMask">
+  <button class="lightbox-close" id="lightboxClose" onclick="closeLightbox()">✕</button>
+  <button class="lightbox-arrow left" id="lightboxPrev" onclick="lightboxNav(-1)">&#8249;</button>
+  <button class="lightbox-arrow right" id="lightboxNext" onclick="lightboxNav(1)">&#8250;</button>
+  <div class="lightbox-img-wrap" id="lightboxImgWrap"></div>
+  <div class="lightbox-footer">
+    <span class="lightbox-counter" id="lightboxCounter">1 / 1</span>
+    <button class="lightbox-select-btn" id="lightboxSelectBtn" onclick="lightboxToggleSelect()">✔ 选片</button>
+  </div>
+</div>
+
 <script>
 // 全局状态
 var APP = {
@@ -208,7 +251,9 @@ var APP = {
   packages: [], singlePrice: 0,
   recommendData: null, selectedPackageId: 0,
   paying: false,
-  apiBase: '/index.php?s=/api/ai_travel_photo/pick/'
+  apiBase: '/index.php?s=/api/ai_travel_photo/pick/',
+  faceWatermarkEnabled: 0,
+  mpNickname: ''
 };
 
 // 初始化
@@ -241,6 +286,20 @@ var APP = {
       APP.bid = res.data.bid;
       APP.qrcodeId = res.data.qrcode_id;
       APP.openid = res.data.openid || '';
+
+      // 人脸水印配置
+      APP.faceWatermarkEnabled = res.data.face_watermark_enabled || 0;
+      APP.mpNickname = res.data.mp_nickname || '';
+
+      // 展示商家/门店名称
+      var bName = res.data.business_name || '';
+      var sName = res.data.store_name || '';
+      if (bName) {
+        var nameEl = document.getElementById('storeName');
+        nameEl.textContent = sName ? (bName + ' · ' + sName) : bName;
+        nameEl.style.display = 'block';
+      }
+
       loadResults();
     } else {
       if (res.msg && res.msg.indexOf('过期') > -1) {
@@ -295,8 +354,10 @@ function renderSimilarGrid() {
   document.getElementById('similarDesc').textContent = '共' + APP.similarResults.length + '张';
   var grid = document.getElementById('similarGrid');
   var html = '';
+  var offset = APP.results.length; // 全局偏移量
   for (var i = 0; i < APP.similarResults.length; i++) {
     var r = APP.similarResults[i];
+    var globalIdx = offset + i;
     var isSelected = APP.selectedIds.indexOf(r.id) > -1;
     var typeText = r.type === 19 ? '视频' : '';
     html += '<div class="grid-item" data-id="' + r.id + '" onclick="toggleSelect(' + r.id + ')">' +
@@ -306,6 +367,7 @@ function renderSimilarGrid() {
         '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
       '</div>' +
       (typeText ? '<span class="type-badge">' + typeText + '</span>' : '') +
+      '<button class="zoom-btn" onclick="event.stopPropagation();openLightbox(' + globalIdx + ')">🔍</button>' +
     '</div>';
   }
   grid.innerHTML = html;
@@ -325,6 +387,7 @@ function renderGrid() {
         '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
       '</div>' +
       (typeText ? '<span class="type-badge">' + typeText + '</span>' : '') +
+      '<button class="zoom-btn" onclick="event.stopPropagation();openLightbox(' + i + ')">🔍</button>' +
     '</div>';
   }
   grid.innerHTML = html;
@@ -549,6 +612,349 @@ function fetchApi(action, params, method, callback) {
     xhr.send(JSON.stringify(params));
   }
 }
+
+// ========== Lightbox 放大预览 ==========
+var LB = { index: 0, open: false, touchStartX: 0, touchStartY: 0, wmCache: {}, faceApiReady: false, faceApiLoading: false };
+
+// ========== face-api.js 加载和人脸检测水印 ==========
+var FACE_API_CDN = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+var FACE_MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
+
+function loadFaceApi(cb) {
+  if (LB.faceApiReady) { cb && cb(); return; }
+  if (LB.faceApiLoading) { var t = setInterval(function(){ if(LB.faceApiReady){clearInterval(t);cb&&cb();} }, 200); return; }
+  LB.faceApiLoading = true;
+  var s = document.createElement('script');
+  s.src = FACE_API_CDN;
+  s.onload = function() {
+    faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODEL_URL).then(function() {
+      LB.faceApiReady = true;
+      LB.faceApiLoading = false;
+      cb && cb();
+    }).catch(function() {
+      LB.faceApiLoading = false;
+      cb && cb();
+    });
+  };
+  s.onerror = function() { LB.faceApiLoading = false; cb && cb(); };
+  document.head.appendChild(s);
+}
+
+function drawWatermarkCanvas(imgSrc, itemId, callback) {
+  // 检查缓存
+  if (LB.wmCache[itemId]) { callback(LB.wmCache[itemId]); return; }
+
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function() {
+    var canvas = document.createElement('canvas');
+    var cw = img.naturalWidth, ch = img.naturalHeight;
+    canvas.width = cw; canvas.height = ch;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, cw, ch);
+
+    // 检测人脸
+    if (!LB.faceApiReady || typeof faceapi === 'undefined') {
+      applyTextWatermark(ctx, cw, ch, []);
+      LB.wmCache[itemId] = canvas;
+      callback(canvas);
+      return;
+    }
+
+    var options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 });
+    faceapi.detectAllFaces(canvas, options).then(function(detections) {
+      var faceRects = detections.map(function(d) {
+        var b = d.box;
+        // 扩大人脸区域30%作为保护区
+        var pad = Math.max(b.width, b.height) * 0.3;
+        return {
+          x: Math.max(0, b.x - pad),
+          y: Math.max(0, b.y - pad),
+          w: Math.min(cw, b.width + pad * 2),
+          h: Math.min(ch, b.height + pad * 2)
+        };
+      });
+      applyTextWatermark(ctx, cw, ch, faceRects);
+      LB.wmCache[itemId] = canvas;
+      callback(canvas);
+    }).catch(function() {
+      applyTextWatermark(ctx, cw, ch, []);
+      LB.wmCache[itemId] = canvas;
+      callback(canvas);
+    });
+  };
+  img.onerror = function() { callback(null); };
+  img.src = imgSrc;
+}
+
+function applyTextWatermark(ctx, cw, ch, faceRects) {
+  var text = APP.mpNickname || '版权保护';
+  // 密集水印网格
+  var fontSize = Math.max(14, Math.round(Math.min(cw, ch) * 0.028));
+  ctx.save();
+  ctx.font = fontSize + 'px sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  var spacing = fontSize * 5;
+  var angle = -Math.PI / 6; // -30度
+
+  // 计算对角线长度确保覆盖旋转后的区域
+  var diag = Math.sqrt(cw * cw + ch * ch);
+
+  for (var y = -diag; y < diag * 2; y += spacing) {
+    for (var x = -diag; x < diag * 2; x += spacing) {
+      // 计算旋转后的实际坐标
+      var rx = x * Math.cos(angle) - y * Math.sin(angle);
+      var ry = x * Math.sin(angle) + y * Math.cos(angle);
+
+      // 检查是否在人脸保护区内
+      if (isInFaceRect(rx, ry, faceRects)) continue;
+
+      ctx.save();
+      ctx.translate(rx, ry);
+      ctx.rotate(angle);
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+
+function isInFaceRect(x, y, rects) {
+  for (var i = 0; i < rects.length; i++) {
+    var r = rects[i];
+    if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return true;
+  }
+  return false;
+}
+
+function openLightbox(idx) {
+  if (APP.allResults.length === 0) return;
+  LB.index = Math.max(0, Math.min(idx, APP.allResults.length - 1));
+  LB.open = true;
+  renderLightbox();
+  document.getElementById('lightboxMask').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+  LB.open = false;
+  document.getElementById('lightboxMask').classList.remove('show');
+  document.body.style.overflow = '';
+  // 停止视频播放并清理内容
+  var wrap = document.getElementById('lightboxImgWrap');
+  var vid = wrap.querySelector('video');
+  if (vid) vid.pause();
+  wrap.innerHTML = '';
+}
+
+function lightboxNav(dir) {
+  var newIdx = LB.index + dir;
+  if (newIdx < 0 || newIdx >= APP.allResults.length) return;
+  LB.index = newIdx;
+  renderLightbox();
+}
+
+function renderLightbox() {
+  var item = APP.allResults[LB.index];
+  var wrap = document.getElementById('lightboxImgWrap');
+  var previewUrl = item.preview_url || item.thumbnail_url || '';
+  var isVideo = (item.type === 19) && previewUrl && (/\.(mp4|webm|mov)/i.test(previewUrl) || previewUrl.indexOf('video') > -1);
+
+  if (isVideo) {
+    wrap.innerHTML = '<video src="' + previewUrl + '" autoplay muted loop playsinline style="max-width:100%;max-height:100%;object-fit:contain"></video>';
+  } else if (APP.faceWatermarkEnabled && !isVideo) {
+    // 水印模式：显示loading→检测人脸→绘制水印canvas→允许缩放
+    wrap.innerHTML = '<div class="lightbox-loading" id="wmLoading"><div class="spinner"></div><p>正在加载高清预览...</p></div>';
+    loadFaceApi(function() {
+      // 确保没有切换到其他图片
+      if (APP.allResults[LB.index] !== item) return;
+      drawWatermarkCanvas(previewUrl, item.id, function(canvas) {
+        if (APP.allResults[LB.index] !== item) return;
+        if (!canvas) {
+          wrap.innerHTML = '<img src="' + previewUrl + '" alt="">';
+          return;
+        }
+        // 可缩放容器
+        wrap.innerHTML = '';
+        var zoomWrap = document.createElement('div');
+        zoomWrap.className = 'wm-zoom-wrap';
+        zoomWrap.id = 'wmZoomWrap';
+        // 设置 canvas 显示尺寸自适应
+        var maxW = wrap.clientWidth - 16;
+        var maxH = wrap.clientHeight;
+        var ratio = Math.min(maxW / canvas.width, maxH / canvas.height, 1);
+        canvas.style.width = Math.round(canvas.width * ratio) + 'px';
+        canvas.style.height = Math.round(canvas.height * ratio) + 'px';
+        canvas.id = 'wmCanvas';
+        zoomWrap.appendChild(canvas);
+        wrap.appendChild(zoomWrap);
+        initCanvasZoom(zoomWrap, canvas, ratio);
+      });
+    });
+  } else {
+    wrap.innerHTML = '<img src="' + previewUrl + '" alt="">';
+  }
+
+  // 更新计数器
+  document.getElementById('lightboxCounter').textContent = (LB.index + 1) + ' / ' + APP.allResults.length;
+
+  // 更新箭头显隐
+  document.getElementById('lightboxPrev').style.display = LB.index > 0 ? 'flex' : 'none';
+  document.getElementById('lightboxNext').style.display = LB.index < APP.allResults.length - 1 ? 'flex' : 'none';
+
+  // 更新勾选按钮状态
+  var isSelected = APP.selectedIds.indexOf(item.id) > -1;
+  var selectBtn = document.getElementById('lightboxSelectBtn');
+  selectBtn.className = 'lightbox-select-btn' + (isSelected ? ' active' : '');
+  selectBtn.innerHTML = (isSelected ? '✔ 已选' : '✔ 选片');
+}
+
+// ========== Canvas 缩放交互（双击缩放 + 双指缩放 + 平移） ==========
+function initCanvasZoom(container, canvas, initRatio) {
+  var state = { scale: 1, minScale: 1, maxScale: 4, tx: 0, ty: 0, dragging: false, lastX: 0, lastY: 0 };
+  var pinch = { active: false, startDist: 0, startScale: 1 };
+  var lastTap = 0;
+
+  function clampTranslate() {
+    var cw = parseFloat(canvas.style.width) * state.scale;
+    var ch = parseFloat(canvas.style.height) * state.scale;
+    var ww = container.clientWidth;
+    var wh = container.clientHeight;
+    if (cw <= ww) { state.tx = (ww - cw) / 2; }
+    else { state.tx = Math.min(0, Math.max(ww - cw, state.tx)); }
+    if (ch <= wh) { state.ty = (wh - ch) / 2; }
+    else { state.ty = Math.min(0, Math.max(wh - ch, state.ty)); }
+  }
+
+  function applyTransform() {
+    canvas.style.transform = 'translate(' + state.tx + 'px,' + state.ty + 'px) scale(' + state.scale + ')';
+  }
+
+  // 初始居中
+  clampTranslate();
+  applyTransform();
+
+  // 双击缩放
+  container.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 2) {
+      pinch.active = true;
+      pinch.startDist = getTouchDist(e);
+      pinch.startScale = state.scale;
+      e.preventDefault();
+      return;
+    }
+    var now = Date.now();
+    if (now - lastTap < 300) {
+      // 双击
+      e.preventDefault();
+      if (state.scale > 1.1) {
+        state.scale = 1; state.tx = 0; state.ty = 0;
+      } else {
+        state.scale = 2.5;
+        // 以触摸点为中心放大
+        var rect = container.getBoundingClientRect();
+        var px = e.touches[0].clientX - rect.left;
+        var py = e.touches[0].clientY - rect.top;
+        state.tx = px - px * state.scale;
+        state.ty = py - py * state.scale;
+      }
+      clampTranslate();
+      applyTransform();
+      lastTap = 0;
+      return;
+    }
+    lastTap = now;
+
+    if (state.scale > 1.05) {
+      state.dragging = true;
+      state.lastX = e.touches[0].clientX;
+      state.lastY = e.touches[0].clientY;
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  container.addEventListener('touchmove', function(e) {
+    if (pinch.active && e.touches.length === 2) {
+      var dist = getTouchDist(e);
+      var newScale = pinch.startScale * (dist / pinch.startDist);
+      state.scale = Math.max(state.minScale, Math.min(state.maxScale, newScale));
+      clampTranslate();
+      applyTransform();
+      e.preventDefault();
+      return;
+    }
+    if (state.dragging) {
+      var dx = e.touches[0].clientX - state.lastX;
+      var dy = e.touches[0].clientY - state.lastY;
+      state.tx += dx;
+      state.ty += dy;
+      state.lastX = e.touches[0].clientX;
+      state.lastY = e.touches[0].clientY;
+      clampTranslate();
+      applyTransform();
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  container.addEventListener('touchend', function(e) {
+    if (pinch.active && e.touches.length < 2) { pinch.active = false; }
+    state.dragging = false;
+  }, { passive: true });
+
+  function getTouchDist(e) {
+    var dx = e.touches[0].clientX - e.touches[1].clientX;
+    var dy = e.touches[0].clientY - e.touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+}
+
+function lightboxToggleSelect() {
+  var item = APP.allResults[LB.index];
+  toggleSelect(item.id);
+  // 更新Lightbox内的勾选状态
+  var isSelected = APP.selectedIds.indexOf(item.id) > -1;
+  var selectBtn = document.getElementById('lightboxSelectBtn');
+  selectBtn.className = 'lightbox-select-btn' + (isSelected ? ' active' : '');
+  selectBtn.innerHTML = (isSelected ? '✔ 已选' : '✔ 选片');
+}
+
+// Lightbox 键盘事件
+document.addEventListener('keydown', function(e) {
+  if (!LB.open) return;
+  if (e.key === 'Escape') closeLightbox();
+  else if (e.key === 'ArrowLeft') lightboxNav(-1);
+  else if (e.key === 'ArrowRight') lightboxNav(1);
+});
+
+// Lightbox 触屏滑动
+(function() {
+  var mask = document.getElementById('lightboxMask');
+  var imgWrap = document.getElementById('lightboxImgWrap');
+
+  imgWrap.addEventListener('touchstart', function(e) {
+    if (document.getElementById('wmZoomWrap')) return; // 缩放模式下不处理滑动切换
+    LB.touchStartX = e.touches[0].clientX;
+    LB.touchStartY = e.touches[0].clientY;
+  }, {passive: true});
+
+  imgWrap.addEventListener('touchend', function(e) {
+    if (document.getElementById('wmZoomWrap')) return; // 缩放模式下不处理滑动切换
+    var dx = e.changedTouches[0].clientX - LB.touchStartX;
+    var dy = e.changedTouches[0].clientY - LB.touchStartY;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) lightboxNav(1);  // 左滑 → 下一张
+      else lightboxNav(-1);        // 右滑 → 上一张
+    }
+  }, {passive: true});
+
+  // 点击遮罩关闭（排除图片、箭头、底栏等）
+  mask.addEventListener('click', function(e) {
+    if (e.target === mask) closeLightbox();
+  });
+})();
 
 // 禁止长按保存图片
 document.addEventListener('contextmenu', function(e) { e.preventDefault(); });

@@ -123,6 +123,46 @@
                   </div>
                   
                   <div class="form-section">
+                    <div class="form-section-title">图文消息设置</div>
+                    
+                    <div class="layui-form-item">
+                      <label class="layui-form-label">图文标题：</label>
+                      <div class="layui-input-block" style="max-width:500px">
+                        <input type="text" name="ai_pick_article_title" value="{$business.ai_pick_article_title}" maxlength="100" autocomplete="off" class="layui-input" placeholder="📸 点击查看您的专属写真">
+                      </div>
+                    </div>
+                    <div class="layui-form-item">
+                      <div class="layui-input-block" style="max-width:500px;margin-top:-5px">
+                        <div class="layui-form-mid layui-word-aux" style="padding-left:0">用户扫码关注公众号后收到的图文消息标题，留空则使用系统默认文案</div>
+                      </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                      <label class="layui-form-label">图文描述：</label>
+                      <div class="layui-input-block" style="max-width:500px">
+                        <textarea name="ai_pick_article_desc" maxlength="255" autocomplete="off" class="layui-textarea" placeholder="您的AI旅拍成片已准备就绪，点击查看和选购" style="min-height:70px">{$business.ai_pick_article_desc}</textarea>
+                      </div>
+                    </div>
+                    <div class="layui-form-item">
+                      <div class="layui-input-block" style="max-width:500px;margin-top:-5px">
+                        <div class="layui-form-mid layui-word-aux" style="padding-left:0">图文消息的描述文案，留空则使用系统默认文案</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="form-section">
+                    <div class="form-section-title">选片防截屏水印</div>
+                    
+                    <div class="layui-form-item">
+                      <label class="layui-form-label">人脸识别水印：</label>
+                      <div class="layui-input-inline">
+                        <input type="checkbox" name="ai_pick_face_watermark_enabled" value="1" lay-skin="switch" lay-text="开启|关闭" {if $business.ai_pick_face_watermark_enabled==1}checked{/if}>
+                      </div>
+                      <div class="layui-form-mid layui-word-aux">开启后，选片放大预览时会在非人脸区域绘制公众号名称水印，防止用户截屏</div>
+                    </div>
+                  </div>
+                  
+                  <div class="form-section">
                     <div class="form-section-title">视频设置</div>
                     
                     <div class="layui-form-item">

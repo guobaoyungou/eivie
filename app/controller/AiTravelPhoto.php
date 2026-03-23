@@ -3169,7 +3169,10 @@ class AiTravelPhoto extends Common
                 'ai_qrcode_expire_days' => intval($data['ai_qrcode_expire_days'] ?? 30),
                 'ai_auto_generate_video' => isset($data['ai_auto_generate_video']) ? 1 : 0,
                 'ai_video_duration' => intval($data['ai_video_duration'] ?? 5),
-                'ai_max_scenes' => intval($data['ai_max_scenes'] ?? 10)
+                'ai_max_scenes' => intval($data['ai_max_scenes'] ?? 10),
+                'ai_pick_article_title' => mb_substr(trim($data['ai_pick_article_title'] ?? ''), 0, 100),
+                'ai_pick_article_desc' => mb_substr(trim($data['ai_pick_article_desc'] ?? ''), 0, 255),
+                'ai_pick_face_watermark_enabled' => isset($data['ai_pick_face_watermark_enabled']) ? 1 : 0,
             ];
             
             // 数据验证
@@ -5761,8 +5764,24 @@ class AiTravelPhoto extends Common
             }
 
         } catch (\Exception $e) {
+            // 异常时重置portrait状态为失败，避免永久卡在“处理中”
+            if (!empty($portraitId)) {
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'synthesis_status' => 4,
+                    'synthesis_error' => '重试异常: ' . $e->getMessage(),
+                    'update_time' => time()
+                ]);
+            }
             return json(['code' => 1, 'msg' => '重试异常: ' . $e->getMessage()]);
         } catch (\Throwable $e) {
+            // 异常时重置portrait状态为失败，避免永久卡在“处理中”
+            if (!empty($portraitId)) {
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'synthesis_status' => 4,
+                    'synthesis_error' => '重试失败: ' . $e->getMessage(),
+                    'update_time' => time()
+                ]);
+            }
             return json(['code' => 1, 'msg' => '重试失败: ' . $e->getMessage()]);
         }
     }

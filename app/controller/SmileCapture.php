@@ -1192,6 +1192,14 @@ class SmileCapture extends Base
                 return json(['code' => 1, 'msg' => $errorMsg]);
             }
         } catch (\Exception $e) {
+            // 异常时重置portrait状态为失败，避免永久卡在“处理中”
+            if (!empty($portraitId)) {
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'synthesis_status' => 4,
+                    'synthesis_error' => '重试异常: ' . $e->getMessage(),
+                    'update_time' => time()
+                ]);
+            }
             return json(['code' => 1, 'msg' => '重试异常: ' . $e->getMessage()]);
         }
     }

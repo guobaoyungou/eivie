@@ -103,7 +103,7 @@ class AiTravelPhotoSynthesisService
                             Db::name('ai_travel_photo_result')
                                 ->where('id', $resultId)
                                 ->update(['result_url_watermark' => $watermarkedUrl]);
-                        } catch (\Exception $e) {
+                        } catch (\Throwable $e) {
                             // 水印添加失败，使用原图
                             \think\facade\Log::error('合成图片水印添加失败: ' . $e->getMessage());
                         }
@@ -136,7 +136,7 @@ class AiTravelPhotoSynthesisService
                     } catch (\Exception $orderEx) {
                         Log::error('创建生成订单失败[' . $templateName . ']: ' . $orderEx->getMessage());
                     }
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     // 更新generation状态为失败，记录error_msg
                     if ($generationId > 0) {
                         $this->updateGenerationStatus($generationId, 3, $e->getMessage());
@@ -176,7 +176,7 @@ class AiTravelPhotoSynthesisService
                 ]
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return [
                 'code' => 1,
                 'msg' => $e->getMessage()
