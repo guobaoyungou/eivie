@@ -303,4 +303,11 @@ Route::any('api/ai_travel_photo/order/:function', 'api.AiTravelPhotoOrder/:funct
 
 // API路由 - 相册相关
 Route::any('api/ai_travel_photo/album/:function', 'api.AiTravelPhotoAlbum/:function');
+
+// API路由 - 选片交付（H5扫码选片 → 套餐推荐 → 付费下载）
+Route::any('api/ai_travel_photo/pick/:function', 'api.AiTravelPhotoPick/:function');
+
+// API路由 - XPD大屏选片端
+Route::any('api/ai-travel-photo/selection-list', 'api.AiTravelPhotoXpd/selection_list');
+Route::any('api/ai_travel_photo/xpd/:function', 'api.AiTravelPhotoXpd/:function');
 // ====================AI旅拍系统路由结束====================

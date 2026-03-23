@@ -50,6 +50,9 @@ class AiTravelPhotoOrder extends Model
         'close_time' => 'integer',
         'create_time' => 'integer',
         'update_time' => 'integer',
+        'selected_count' => 'integer',
+        'download_count' => 'integer',
+        'download_limit' => 'integer',
     ];
     
     // 状态常量

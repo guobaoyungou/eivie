@@ -37,7 +37,7 @@
             <div class="layui-form-item">
               <label class="layui-form-label">包含图片数：</label>
               <div class="layui-input-inline">
-                <input type="text" name="photo_count" value="{$info.photo_count|default='10'}" lay-verify="required|number" class="layui-input" placeholder="请输入包含图片数量">
+                <input type="text" name="num" value="{$info.num|default='10'}" lay-verify="required|number" class="layui-input" placeholder="请输入包含图片数量">
               </div>
               <div class="layui-form-mid layui-word-aux">张</div>
             </div>
@@ -45,7 +45,7 @@
             <div class="layui-form-item">
               <label class="layui-form-label">包含视频数：</label>
               <div class="layui-input-inline">
-                <input type="text" name="video_count" value="{$info.video_count|default='0'}" lay-verify="required|number" class="layui-input" placeholder="请输入包含视频数量">
+                <input type="text" name="video_num" value="{$info.video_num|default='0'}" lay-verify="required|number" class="layui-input" placeholder="请输入包含视频数量">
               </div>
               <div class="layui-form-mid layui-word-aux">个</div>
             </div>
@@ -64,6 +64,37 @@
                 <input type="text" name="original_price" value="{$info.original_price}" class="layui-input" placeholder="用于显示划线价（选填）">
               </div>
               <div class="layui-form-mid layui-word-aux">元</div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">折合单价：</label>
+              <div class="layui-input-inline">
+                <input type="text" name="unit_price" value="{$info.unit_price|default='0.00'}" class="layui-input" placeholder="系统自动计算" readonly style="background:#f2f2f2">
+              </div>
+              <div class="layui-form-mid layui-word-aux">元/张（自动计算：套餐价÷包含数）</div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">套餐标签：</label>
+              <div class="layui-input-inline" style="width: 200px;">
+                <select name="label">
+                  <option value="" {if !$info['label']}selected{/if}>无</option>
+                  <option value="推荐" {if $info['label']=='推荐'}selected{/if}>推荐</option>
+                  <option value="最划算" {if $info['label']=='最划算'}selected{/if}>最划算</option>
+                  <option value="热门" {if $info['label']=='热门'}selected{/if}>热门</option>
+                  <option value="限时" {if $info['label']=='限时'}selected{/if}>限时</option>
+                </select>
+              </div>
+              <div class="layui-form-mid layui-word-aux">用户选片页展示的醒目标签</div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">默认推荐：</label>
+              <div class="layui-input-inline">
+                <input type="radio" name="is_default" value="1" title="是" {if $info['is_default']==1}checked{/if}>
+                <input type="radio" name="is_default" value="0" title="否" {if !$info['is_default'] || $info['is_default']==0}checked{/if}>
+              </div>
+              <div class="layui-form-mid layui-word-aux">设为默认后，用户打开选片页时优先推荐此套餐</div>
             </div>
             
             <div class="layui-form-item">
@@ -93,6 +124,16 @@
   </div>
   {include file="public/js"/}
   <script>
+  // 自动计算折合单价
+  function calcUnitPrice() {
+    var price = parseFloat($('input[name=price]').val()) || 0;
+    var num = parseInt($('input[name=num]').val()) || 0;
+    var unitPrice = (num > 0) ? (price / num).toFixed(2) : '0.00';
+    $('input[name=unit_price]').val(unitPrice);
+  }
+  $('input[name=price], input[name=num]').on('input change', calcUnitPrice);
+  calcUnitPrice();
+
   layui.form.on('submit(formsubmit)', function(obj){
     var field = obj.field;
     var index = layer.load();

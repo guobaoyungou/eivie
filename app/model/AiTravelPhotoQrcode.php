@@ -43,11 +43,16 @@ class AiTravelPhotoQrcode extends Model
         'expire_time' => 'integer',
         'create_time' => 'integer',
         'update_time' => 'integer',
+        'qrcode_type' => 'integer',
     ];
     
     // 状态常量
     const STATUS_INVALID = 0;   // 失效
     const STATUS_VALID = 1;     // 有效
+    
+    // 二维码类型常量
+    const QRCODE_TYPE_PICK = 1;    // 选片页二维码
+    const QRCODE_TYPE_MP = 2;      // 公众号二维码
     
     /**
      * 关联人像

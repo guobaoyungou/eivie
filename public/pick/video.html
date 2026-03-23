@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>生成视频</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#000;color:#fff;min-height:100vh;overflow:hidden}
+/* 幻灯片容器 */
+.slide-container{position:relative;width:100vw;height:100vh;overflow:hidden;background:#000}
+.slide-img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity 1s ease}
+.slide-img.active{opacity:1}
+.slide-img.kb{animation:kenburns 6s ease-in-out forwards}
+@keyframes kenburns{0%{transform:scale(1) translate(0,0)}100%{transform:scale(1.12) translate(-2%,-1%)}}
+/* 顶部渐变遮罩 */
+.top-overlay{position:fixed;top:0;left:0;right:0;height:80px;background:linear-gradient(to bottom,rgba(0,0,0,.6),transparent);z-index:10;display:flex;align-items:flex-start;padding:16px}
+.top-overlay .back-btn{color:#fff;font-size:14px;padding:6px 12px;border-radius:20px;background:rgba(255,255,255,.15);text-decoration:none;display:flex;align-items:center;gap:4px}
+.top-overlay .title-area{flex:1;text-align:center;font-size:15px;font-weight:500;padding-top:4px}
+/* 底部控制栏 */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.75),transparent);z-index:10;padding:20px 16px calc(env(safe-area-inset-bottom) + 16px)}
+.progress-wrap{height:3px;background:rgba(255,255,255,.2);border-radius:2px;margin-bottom:12px;overflow:hidden}
+.progress-fill{height:100%;background:#07c160;border-radius:2px;transition:width .3s linear;width:0}
+.controls{display:flex;align-items:center;gap:12px}
+.ctrl-btn{width:44px;height:44px;border:none;border-radius:50%;background:rgba(255,255,255,.15);color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.ctrl-btn:active{background:rgba(255,255,255,.3)}
+.slide-counter{flex:1;text-align:center;font-size:13px;color:rgba(255,255,255,.7)}
+.btn-gen{background:linear-gradient(135deg,#7c4dff,#536dfe);color:#fff;border:none;padding:10px 20px;border-radius:24px;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px}
+.btn-gen:active{opacity:.8}
+.btn-gen:disabled{opacity:.5;cursor:not-allowed}
+/* 加载 / 结束状态 */
+.loading-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.loading-overlay .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.2);border-top-color:#07c160;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay p{margin-top:16px;color:#fff;font-size:14px}
+.hidden{display:none!important}
+.end-screen{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.88);z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.end-screen h2{font-size:22px;font-weight:600}
+.end-screen p{font-size:13px;color:rgba(255,255,255,.6)}
+.end-screen .end-btns{display:flex;gap:12px;margin-top:8px}
+.end-btn{padding:12px 24px;border-radius:24px;border:none;font-size:14px;font-weight:500;cursor:pointer}
+.end-btn-primary{background:linear-gradient(135deg,#7c4dff,#536dfe);color:#fff}
+.end-btn-ghost{background:rgba(255,255,255,.12);color:#fff}
+.end-btn:active{opacity:.8}
+</style>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <p id="loadingText">加载照片中...</p>
+</div>
+
+<div class="slide-container" id="slideContainer"></div>
+
+<div class="top-overlay">
+  <a class="back-btn" id="backBtn" href="javascript:void(0)">‹ 返回</a>
+  <div class="title-area">回忆视频</div>
+  <div style="width:60px"></div>
+</div>
+
+<div class="bottom-bar">
+  <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="controls">
+    <button class="ctrl-btn" id="btnPlayPause" onclick="togglePlay()">❚❚</button>
+    <div class="slide-counter"><span id="slideIdx">1</span> / <span id="slideTotal">0</span></div>
+    <button class="btn-gen" id="btnGenVideo" onclick="generateVideo()">🎬 生成视频文件</button>
+  </div>
+</div>
+
+<div class="end-screen hidden" id="endScreen">
+  <h2>🎬 播放完成</h2>
+  <p>共 <span id="endCount">0</span> 张精彩照片</p>
+  <div class="end-btns">
+    <button class="end-btn end-btn-ghost" onclick="replay()">↻ 重新播放</button>
+    <button class="end-btn end-btn-primary" onclick="generateVideo()">📥 生成视频文件</button>
+  </div>
+  <button class="end-btn end-btn-ghost" style="margin-top:4px" onclick="goBack()">返回下载页</button>
+</div>
+
+<script>
+var API = '/index.php?s=/api/ai_travel_photo/pick/';
+var orderNo = new URLSearchParams(location.search).get('order_no') || '';
+var photos = [];
+var currentIdx = 0;
+var playing = false;
+var timer = null;
+var DURATION = 4000; // 每张4秒
+
+document.getElementById('backBtn').href = '/public/pick/download.html?order_no=' + encodeURIComponent(orderNo);
+
+if (!orderNo) {
+  document.getElementById('loadingText').textContent = '缺少订单参数';
+} else {
+  loadPhotos();
+}
+
+function loadPhotos() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', API + 'downloads&order_no=' + encodeURIComponent(orderNo), true);
+  xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+  xhr.onload = function() {
+    try {
+      var res = JSON.parse(xhr.responseText);
+      if (res.code !== 200 || !res.data) {
+        document.getElementById('loadingText').textContent = res.msg || '加载失败';
+        return;
+      }
+      var dl = res.data.downloads || [];
+      photos = [];
+      for (var i = 0; i < dl.length; i++) {
+        if (dl[i].type !== 2) { // 只要图片，不要视频
+          photos.push(dl[i].download_url);
+        }
+      }
+      if (photos.length === 0) {
+        document.getElementById('loadingText').textContent = '没有可用的照片';
+        return;
+      }
+      document.getElementById('slideTotal').textContent = photos.length;
+      document.getElementById('endCount').textContent = photos.length;
+      preloadAndStart();
+    } catch(e) {
+      document.getElementById('loadingText').textContent = '解析失败';
+    }
+  };
+  xhr.onerror = function() { document.getElementById('loadingText').textContent = '网络错误'; };
+  xhr.send();
+}
+
+function preloadAndStart() {
+  var loaded = 0;
+  var container = document.getElementById('slideContainer');
+  for (var i = 0; i < photos.length; i++) {
+    var img = document.createElement('img');
+    img.className = 'slide-img';
+    img.dataset.idx = i;
+    img.src = photos[i];
+    img.onload = img.onerror = function() {
+      loaded++;
+      document.getElementById('loadingText').textContent = '加载照片 ' + loaded + '/' + photos.length;
+      if (loaded >= photos.length) {
+        document.getElementById('loadingOverlay').classList.add('hidden');
+        startSlideshow();
+      }
+    };
+    container.appendChild(img);
+  }
+}
+
+function startSlideshow() {
+  currentIdx = 0;
+  showSlide(0);
+  playing = true;
+  updatePlayBtn();
+  scheduleNext();
+}
+
+function showSlide(idx) {
+  var imgs = document.querySelectorAll('.slide-img');
+  for (var i = 0; i < imgs.length; i++) {
+    imgs[i].classList.remove('active', 'kb');
+  }
+  if (imgs[idx]) {
+    imgs[idx].classList.add('active', 'kb');
+  }
+  currentIdx = idx;
+  document.getElementById('slideIdx').textContent = idx + 1;
+  var pct = ((idx + 1) / photos.length) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function scheduleNext() {
+  clearTimeout(timer);
+  if (!playing) return;
+  timer = setTimeout(function() {
+    if (currentIdx < photos.length - 1) {
+      showSlide(currentIdx + 1);
+      scheduleNext();
+    } else {
+      // 播放结束
+      playing = false;
+      updatePlayBtn();
+      document.getElementById('endScreen').classList.remove('hidden');
+    }
+  }, DURATION);
+}
+
+function togglePlay() {
+  if (playing) {
+    playing = false;
+    clearTimeout(timer);
+  } else {
+    playing = true;
+    if (currentIdx >= photos.length - 1) {
+      currentIdx = -1;
+    }
+    showSlide(currentIdx < photos.length - 1 ? currentIdx + 1 : 0);
+    scheduleNext();
+  }
+  updatePlayBtn();
+  document.getElementById('endScreen').classList.add('hidden');
+}
+
+function updatePlayBtn() {
+  document.getElementById('btnPlayPause').textContent = playing ? '❚❚' : '▶';
+}
+
+function replay() {
+  document.getElementById('endScreen').classList.add('hidden');
+  startSlideshow();
+}
+
+function goBack() {
+  location.href = '/public/pick/download.html?order_no=' + encodeURIComponent(orderNo);
+}
+
+// ===== 服务端视频生成 =====
+function generateVideo() {
+  var btn = document.getElementById('btnGenVideo');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ 生成中...';
+  document.getElementById('endScreen').classList.add('hidden');
+
+  var overlay = document.getElementById('loadingOverlay');
+  document.getElementById('loadingText').textContent = '正在生成视频，请耐心等待...';
+  overlay.classList.remove('hidden');
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', API + 'gen_video', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+  xhr.timeout = 120000; // 2分钟超时
+  xhr.onload = function() {
+    overlay.classList.add('hidden');
+    btn.disabled = false;
+    btn.innerHTML = '🎬 生成视频文件';
+    try {
+      var res = JSON.parse(xhr.responseText);
+      if (res.code === 200 && res.data && res.data.video_url) {
+        showVideoResult(res.data.video_url);
+      } else {
+        alert(res.msg || '视频生成失败');
+      }
+    } catch(e) {
+      alert('请求异常');
+    }
+  };
+  xhr.onerror = xhr.ontimeout = function() {
+    overlay.classList.add('hidden');
+    btn.disabled = false;
+    btn.innerHTML = '🎬 生成视频文件';
+    alert('请求超时，请稍后重试');
+  };
+  xhr.send(JSON.stringify({order_no: orderNo}));
+}
+
+function showVideoResult(url) {
+  // 创建结果弹窗
+  var div = document.createElement('div');
+  div.className = 'end-screen';
+  div.id = 'videoResult';
+  div.innerHTML = '<h2>✅ 视频已生成</h2>' +
+    '<p>点击下方按钮保存视频</p>' +
+    '<video src="' + url + '" controls style="width:80%;max-height:50vh;border-radius:12px;margin:8px 0" playsinline></video>' +
+    '<div class="end-btns">' +
+      '<a class="end-btn end-btn-primary" href="' + url + '" style="text-decoration:none">📥 下载视频</a>' +
+      '<button class="end-btn end-btn-ghost" onclick="this.parentElement.parentElement.remove()">关闭</button>' +
+    '</div>' +
+    '<p style="margin-top:8px;font-size:11px;color:rgba(255,255,255,.4)">微信内请长按视频 → 保存视频</p>';
+  document.body.appendChild(div);
+}
+</script>
+</body>
+</html>

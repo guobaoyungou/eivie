@@ -614,33 +614,66 @@
                     this.updateQrcode();
                 },
                 
-                // 更新二维码
+                // 更新二维码（优先显示公众号二维码，降级为选片页二维码）
                 updateQrcode() {
                     const currentItem = this.dataList[this.currentGroupIndex];
-                    if (!currentItem || !currentItem.qrcode) {
+                    if (!currentItem) {
                         document.getElementById('qrcodeContainer').classList.remove('show');
                         return;
                     }
                     
-                    // 清除旧二维码
                     const canvas = document.getElementById('qrcodeCanvas');
                     const container = document.getElementById('qrcodeContainer');
+                    
+                    // 优先展示公众号二维码图片
+                    if (currentItem.mp_qrcode_url) {
+                        if (this.qrcodeInstance) {
+                            this.qrcodeInstance.clear();
+                        }
+                        canvas.width = 0;
+                        canvas.height = 0;
+                        
+                        let mpImg = container.querySelector('.mp-qrcode-img');
+                        if (!mpImg) {
+                            mpImg = document.createElement('img');
+                            mpImg.className = 'mp-qrcode-img';
+                            mpImg.style.cssText = 'width:200px;height:200px;object-fit:contain;';
+                            container.appendChild(mpImg);
+                        }
+                        mpImg.src = currentItem.mp_qrcode_url;
+                        container.classList.add('show');
+                        return;
+                    }
+                    
+                    // 移除公众号二维码图片（如果存在）
+                    const mpImg = container.querySelector('.mp-qrcode-img');
+                    if (mpImg) mpImg.remove();
+                    
+                    if (!currentItem.qrcode) {
+                        container.classList.remove('show');
+                        return;
+                    }
+                    
+                    // 清除旧二维码
                     canvas.width = 0;
                     canvas.height = 0;
                     
-                    // 生成新二维码
+                    // 降级：用QRCode.js生成选片页二维码
                     try {
                         if (this.qrcodeInstance) {
                             this.qrcodeInstance.clear();
                         }
                         
+                        // 构建选片页完整URL（避免中文字符导致溢出）
+                        const pickPageUrl = window.location.origin + '/public/pick/index.html?qr=' + encodeURIComponent(currentItem.qrcode);
+                        
                         this.qrcodeInstance = new QRCode(canvas, {
-                            text: currentItem.qrcode,
+                            text: pickPageUrl,
                             width: 200,
                             height: 200,
                             colorDark: '#000000',
                             colorLight: '#ffffff',
-                            correctLevel: QRCode.CorrectLevel.H
+                            correctLevel: QRCode.CorrectLevel.L
                         });
                         
                         container.classList.add('show');

@@ -193,6 +193,80 @@
                 height: 190px;
             }
         }
+
+        /* 人脸检测状态指示器 */
+        .face-status {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            font-size: 13px;
+            z-index: 1001;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+        .face-status:hover { opacity: 1; }
+        .face-status .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #666;
+        }
+        .face-status .dot.loading { background: #f0ad4e; animation: pulse 1s infinite; }
+        .face-status .dot.active { background: #5cb85c; }
+        .face-status .dot.matched { background: #ff6b6b; animation: pulse 0.5s infinite; }
+        .face-status .dot.error { background: #d9534f; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* 公众号二维码展示区 */
+        .mp-qrcode-container {
+            position: fixed;
+            bottom: 21vh;
+            right: 30px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+        .mp-qrcode-container.show { display: flex; }
+        .mp-qrcode-container.highlight {
+            box-shadow: 0 0 30px rgba(255, 107, 107, 0.6);
+            transform: scale(1.05);
+        }
+        .mp-qrcode-container img {
+            width: 200px;
+            height: 200px;
+            border-radius: 8px;
+        }
+        .mp-qrcode-tip {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+        }
+
+        /* 隐藏摄像头视频 */
+        #cameraVideo {
+            position: fixed;
+            top: -9999px;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
+        }
     </style>
 </head>
 <body>
@@ -217,12 +291,27 @@
                 <div class="avatar-list" id="avatarList"></div>
             </div>
 
-            <!-- 二维码容器 -->
+            <!-- 二维码容器（选片页二维码，保留兼容） -->
             <div class="qrcode-container" id="qrcodeContainer">
                 <canvas id="qrcodeCanvas"></canvas>
                 <div class="qrcode-tip">扫码查看和购买</div>
             </div>
+
+            <!-- 公众号二维码展示区 -->
+            <div class="mp-qrcode-container" id="mpQrcodeContainer">
+                <img id="mpQrcodeImg" src="" alt="扫码关注公众号">
+                <div class="mp-qrcode-tip">微信扫码关注<br>查看您的专属照片</div>
+            </div>
         </div>
+
+        <!-- 人脸检测状态指示 -->
+        <div class="face-status" id="faceStatus" style="display:none;">
+            <div class="dot" id="faceStatusDot"></div>
+            <span id="faceStatusText">初始化...</span>
+        </div>
+
+        <!-- 隐藏摄像头视频 -->
+        <video id="cameraVideo" autoplay muted playsinline></video>
 
         <!-- 加载动画 -->
         <div class="loading-spinner" id="loadingSpinner"></div>
@@ -236,6 +325,8 @@
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <!-- QRCode -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs2@0.0.2/qrcode.min.js"></script>
+    <!-- face-api.js for face detection and recognition -->
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1/dist/face-api.js"></script>
 
     <script>
         const { createApp } = Vue;
@@ -259,12 +350,12 @@
                     
                     // 配置
                     config: {
-                        imageDuration: 1000,      // 单张图片展示1秒
-                        groupDuration: 5000,      // 单组展示5秒
-                        refreshInterval: 30000,   // 30秒刷新数据
-                        avatarLimit: 15,          // 显示15个头像
-                        retryCount: 3,            // 重试3次
-                        retryDelay: 5000          // 重试间隔5秒
+                        imageDuration: 1000,
+                        groupDuration: 5000,
+                        refreshInterval: 30000,
+                        avatarLimit: 15,
+                        retryCount: 3,
+                        retryDelay: 5000
                     },
                     
                     // Swiper实例
@@ -275,7 +366,21 @@
                     refreshTimer: null,
                     
                     // 二维码实例
-                    qrcodeInstance: null
+                    qrcodeInstance: null,
+                    
+                    // ===== 人脸检测相关 =====
+                    faceDetectionEnabled: false,
+                    faceDescriptorMap: new Map(),     // portraitId -> Float32Array descriptor
+                    currentMode: 'default',           // 'default' or 'faceMatch'
+                    matchedPortraitId: null,
+                    cameraReady: false,
+                    lastFaceDetectedTime: 0,
+                    faceModelsLoaded: false,
+                    faceDetectionTimer: null,
+                    noFaceTimeout: 5000,
+                    matchThreshold: 0.6,
+                    detectionInterval: 1000,
+                    faceMatchPlayComplete: false
                 };
             },
             
@@ -289,14 +394,14 @@
             
             methods: {
                 // 初始化
-                init() {
+                async init() {
                     console.log('初始化选片端...');
                     
                     // 解析URL参数
                     this.parseUrlParams();
                     
-                    // 参数验证
-                    if (!this.aid || !this.bid) {
+                    // 参数验证：aid 必须有值，bid 和 mdid 至少有一个
+                    if (!this.aid || (!this.bid && !this.mdid)) {
                         this.showError('缺少必要参数');
                         return;
                     }
@@ -305,7 +410,10 @@
                     this.initSwiper();
                     
                     // 获取数据
-                    this.fetchData();
+                    await this.fetchData();
+                    
+                    // 初始化人脸检测（异步，不阻塞主流程）
+                    this.initFaceDetection();
                 },
                 
                 // 解析URL参数
@@ -464,17 +572,32 @@
                         if (response.data.status === 1 && response.data.data && response.data.data.list) {
                             this.dataList = response.data.data.list;
                             
+                            // 应用后端配置
+                            if (response.data.data.config) {
+                                const cfg = response.data.data.config;
+                                if (cfg.image_duration) this.config.imageDuration = cfg.image_duration;
+                                if (cfg.group_duration) this.config.groupDuration = cfg.group_duration;
+                            }
+                            
+                            // 按 create_time 倒序排列
+                            this.sortDataByTimeDesc();
+                            
                             if (this.dataList.length > 0) {
                                 this.renderContent();
                                 this.startPlay();
                                 this.scheduleRefresh();
+                                
+                                // 如果人脸检测已就绪，重新构建特征库
+                                if (this.faceModelsLoaded) {
+                                    this.buildFaceDescriptors();
+                                }
                             } else {
-                                // 数据为空时使用演示数据
                                 console.log('数据为空，使用演示数据');
                                 this.useDemoData();
                             }
                         } else {
-                            throw new Error('数据格式错误');
+                            const apiMsg = (response.data && response.data.msg) ? response.data.msg : '数据格式错误';
+                            throw new Error(apiMsg);
                         }
                         
                         document.getElementById('loadingSpinner').style.display = 'none';
@@ -483,18 +606,21 @@
                         console.error('获取数据失败:', error);
                         document.getElementById('loadingSpinner').style.display = 'none';
                         
-                        // 重试机制
                         if (retryCount < this.config.retryCount) {
                             console.log(`${this.config.retryDelay / 1000}秒后重试...`);
                             setTimeout(() => {
                                 this.fetchData(retryCount + 1);
                             }, this.config.retryDelay);
                         } else {
-                            // 重试失败后使用演示数据
                             console.log('重试失败，使用演示数据');
                             this.useDemoData();
                         }
                     }
+                },
+                
+                // 按 create_time 倒序排列
+                sortDataByTimeDesc() {
+                    this.dataList.sort((a, b) => (b.create_time || 0) - (a.create_time || 0));
                 },
                 
                 // 使用演示数据
@@ -607,33 +733,60 @@
                     this.updateQrcode();
                 },
                 
-                // 更新二维码
+                // 更新二维码（优先显示公众号二维码，降级为选片页二维码）
                 updateQrcode() {
                     const currentItem = this.dataList[this.currentGroupIndex];
-                    if (!currentItem || !currentItem.qrcode) {
+                    if (!currentItem) {
+                        document.getElementById('qrcodeContainer').classList.remove('show');
+                        document.getElementById('mpQrcodeContainer').classList.remove('show');
+                        return;
+                    }
+                    
+                    // 优先展示公众号二维码图片
+                    if (currentItem.mp_qrcode_url) {
+                        const mpContainer = document.getElementById('mpQrcodeContainer');
+                        const mpImg = document.getElementById('mpQrcodeImg');
+                        mpImg.src = currentItem.mp_qrcode_url;
+                        mpContainer.classList.add('show');
+                        // 人脸匹配模式时突出显示
+                        if (this.currentMode === 'faceMatch') {
+                            mpContainer.classList.add('highlight');
+                        } else {
+                            mpContainer.classList.remove('highlight');
+                        }
+                        // 隐藏选片页二维码
                         document.getElementById('qrcodeContainer').classList.remove('show');
                         return;
                     }
                     
-                    // 清除旧二维码
+                    // 降级：显示选片页二维码
+                    document.getElementById('mpQrcodeContainer').classList.remove('show');
+                    
+                    if (!currentItem.qrcode) {
+                        document.getElementById('qrcodeContainer').classList.remove('show');
+                        return;
+                    }
+                    
                     const canvas = document.getElementById('qrcodeCanvas');
                     const container = document.getElementById('qrcodeContainer');
                     canvas.width = 0;
                     canvas.height = 0;
                     
-                    // 生成新二维码
                     try {
                         if (this.qrcodeInstance) {
                             this.qrcodeInstance.clear();
                         }
                         
+                        // 构建选片页完整URL
+                        const pickPageUrl = window.location.origin + '/public/pick/index.html?qr=' + encodeURIComponent(currentItem.qrcode);
+                        
                         this.qrcodeInstance = new QRCode(canvas, {
-                            text: currentItem.qrcode,
+                            text: pickPageUrl,
                             width: 200,
                             height: 200,
                             colorDark: '#000000',
                             colorLight: '#ffffff',
-                            correctLevel: QRCode.CorrectLevel.H
+                            correctLevel: QRCode.CorrectLevel.L
                         });
                         
                         container.classList.add('show');
@@ -696,27 +849,35 @@
                 
                 // 切换到下一组
                 switchToNextGroup() {
+                    // 人脸匹配模式下，播放完毕后标记并等待回退
+                    if (this.currentMode === 'faceMatch') {
+                        this.faceMatchPlayComplete = true;
+                        // 等待3秒后检查是否应该回退到默认模式
+                        setTimeout(() => {
+                            if (this.faceMatchPlayComplete && this.currentMode === 'faceMatch') {
+                                console.log('人脸匹配成片播放完毕，回到默认轮播');
+                                this.switchToDefaultMode();
+                            }
+                        }, 3000);
+                        return;
+                    }
+                    
                     this.currentGroupIndex = (this.currentGroupIndex + 1) % this.dataList.length;
                     this.currentImageIndex = 0;
                     this.groupStartTime = Date.now();
                     
-                    // 计算全局索引
                     let globalIndex = 0;
                     for (let i = 0; i < this.currentGroupIndex; i++) {
                         globalIndex += this.dataList[i].results.length;
                     }
                     
                     this.swiper.slideTo(globalIndex);
-                    
-                    // 更新头像高亮
                     this.updateAvatarHighlight();
-                    
-                    // 更新二维码
                     this.updateQrcode();
                     
-                    // 如果回到第一组，说明已经循环一轮
                     if (this.currentGroupIndex === 0) {
-                        console.log('一轮播放完成，等待刷新...');
+                        console.log('一轮播放完成，触发数据刷新...');
+                        this.scheduleRefresh();
                     }
                 },
                 
@@ -815,13 +976,285 @@
                 cleanup() {
                     console.log('清理资源...');
                     this.stopPlay();
+                    this.stopFaceDetection();
                     if (this.refreshTimer) {
                         clearTimeout(this.refreshTimer);
                     }
                     if (this.swiper) {
                         this.swiper.destroy();
                     }
-                }
+                    // 停止摄像头
+                    const video = document.getElementById('cameraVideo');
+                    if (video && video.srcObject) {
+                        video.srcObject.getTracks().forEach(t => t.stop());
+                    }
+                },
+                
+                // ===================================================
+                // 人脸检测与智能轮播相关方法
+                // ===================================================
+                
+                // 初始化人脸检测模块
+                async initFaceDetection() {
+                    try {
+                        this.updateFaceStatus('loading', '加载人脸检测模型...');
+                        document.getElementById('faceStatus').style.display = 'flex';
+                        
+                        await this.loadFaceModels();
+                        this.faceModelsLoaded = true;
+                        
+                        this.updateFaceStatus('loading', '初始化摄像头...');
+                        await this.initCamera();
+                        
+                        // 构建特征库
+                        this.updateFaceStatus('loading', '构建人脸特征库...');
+                        await this.buildFaceDescriptors();
+                        
+                        // 启动人脸检测
+                        this.faceDetectionEnabled = true;
+                        this.startFaceDetection();
+                        this.updateFaceStatus('active', '人脸检测已开启');
+                        
+                    } catch (error) {
+                        console.warn('人脸检测初始化失败，降级为纯轮播模式:', error);
+                        this.updateFaceStatus('error', '人脸检测不可用');
+                        this.faceDetectionEnabled = false;
+                        // 延迟5秒后隐藏状态指示
+                        setTimeout(() => {
+                            document.getElementById('faceStatus').style.display = 'none';
+                        }, 5000);
+                    }
+                },
+                
+                // 加载 face-api.js 模型
+                async loadFaceModels() {
+                    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1/model';
+                    await Promise.all([
+                        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                    ]);
+                    console.log('face-api.js 模型加载完成');
+                },
+                
+                // 初始化摄像头
+                async initCamera() {
+                    const video = document.getElementById('cameraVideo');
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: 640, height: 480, facingMode: 'user' },
+                        audio: false
+                    });
+                    video.srcObject = stream;
+                    
+                    // 等待视频就绪
+                    await new Promise(resolve => {
+                        video.onloadedmetadata = () => {
+                            video.play();
+                            resolve();
+                        };
+                    });
+                    
+                    this.cameraReady = true;
+                    console.log('摄像头已就绪');
+                },
+                
+                // 构建人脸特征库
+                async buildFaceDescriptors() {
+                    this.faceDescriptorMap.clear();
+                    let successCount = 0;
+                    
+                    for (const item of this.dataList) {
+                        try {
+                            const imgUrl = item.original_url || item.thumbnail_url;
+                            if (!imgUrl) continue;
+                            
+                            // 加载图片
+                            const img = await faceapi.fetchImage(imgUrl);
+                            
+                            // 检测人脸并提取特征向量
+                            const detection = await faceapi
+                                .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }))
+                                .withFaceLandmarks()
+                                .withFaceDescriptor();
+                            
+                            if (detection) {
+                                this.faceDescriptorMap.set(item.id, detection.descriptor);
+                                successCount++;
+                                console.log(`人像 ${item.id} 特征提取成功`);
+                            } else {
+                                console.warn(`人像 ${item.id} 未检测到人脸`);
+                            }
+                        } catch (error) {
+                            console.warn(`人像 ${item.id} 特征提取失败:`, error.message);
+                        }
+                    }
+                    
+                    console.log(`人脸特征库构建完成：${successCount}/${this.dataList.length}`);
+                },
+                
+                // 启动人脸检测定时器
+                startFaceDetection() {
+                    if (this.faceDetectionTimer) {
+                        clearInterval(this.faceDetectionTimer);
+                    }
+                    
+                    this.faceDetectionTimer = setInterval(() => {
+                        this.detectFace();
+                    }, this.detectionInterval);
+                },
+                
+                // 停止人脸检测
+                stopFaceDetection() {
+                    if (this.faceDetectionTimer) {
+                        clearInterval(this.faceDetectionTimer);
+                        this.faceDetectionTimer = null;
+                    }
+                },
+                
+                // 实时检测人脸
+                async detectFace() {
+                    if (!this.faceDetectionEnabled || !this.cameraReady) return;
+                    if (this.faceDescriptorMap.size === 0) return;
+                    
+                    try {
+                        const video = document.getElementById('cameraVideo');
+                        
+                        // 从摄像头检测人脸
+                        const detections = await faceapi
+                            .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }))
+                            .withFaceLandmarks()
+                            .withFaceDescriptors();
+                        
+                        if (detections.length === 0) {
+                            // 未检测到人脸
+                            const now = Date.now();
+                            if (this.currentMode === 'faceMatch' && 
+                                (now - this.lastFaceDetectedTime > this.noFaceTimeout)) {
+                                console.log('无人脸超时，回到默认轮播');
+                                this.switchToDefaultMode();
+                            }
+                            return;
+                        }
+                        
+                        this.lastFaceDetectedTime = Date.now();
+                        
+                        // 取置信度最高的人脸
+                        const bestDetection = detections.reduce((best, det) => 
+                            det.detection.score > best.detection.score ? det : best
+                        );
+                        
+                        // 与特征库比对
+                        const matchResult = this.matchFace(bestDetection.descriptor);
+                        
+                        if (matchResult) {
+                            this.updateFaceStatus('matched', `匹配到人像 #${matchResult}`);
+                            
+                            // 如果匹配到新人像，切换到该人像的成片
+                            if (this.currentMode !== 'faceMatch' || this.matchedPortraitId !== matchResult) {
+                                this.switchToFaceMatchMode(matchResult);
+                            }
+                        } else {
+                            // 检测到人脸但未匹配
+                            if (this.currentMode === 'faceMatch' && this.faceMatchPlayComplete) {
+                                this.switchToDefaultMode();
+                            }
+                        }
+                        
+                    } catch (error) {
+                        // 检测错误静默处理，不影响播放
+                        console.debug('人脸检测异常:', error.message);
+                    }
+                },
+                
+                // 人脸匹配：欧氏距离比对
+                matchFace(descriptor) {
+                    let bestMatch = null;
+                    let bestDistance = Infinity;
+                    
+                    for (const [portraitId, storedDescriptor] of this.faceDescriptorMap) {
+                        const distance = faceapi.euclideanDistance(descriptor, storedDescriptor);
+                        if (distance < bestDistance) {
+                            bestDistance = distance;
+                            bestMatch = portraitId;
+                        }
+                    }
+                    
+                    if (bestDistance < this.matchThreshold) {
+                        console.log(`人脸匹配成功: portraitId=${bestMatch}, distance=${bestDistance.toFixed(4)}`);
+                        return bestMatch;
+                    }
+                    
+                    return null;
+                },
+                
+                // 切换到人脸匹配播放模式
+                switchToFaceMatchMode(portraitId) {
+                    console.log(`切换到人脸匹配模式: portraitId=${portraitId}`);
+                    
+                    this.currentMode = 'faceMatch';
+                    this.matchedPortraitId = portraitId;
+                    this.faceMatchPlayComplete = false;
+                    
+                    // 找到匹配的人像在列表中的索引
+                    const groupIndex = this.dataList.findIndex(item => item.id === portraitId);
+                    if (groupIndex < 0) return;
+                    
+                    // 停止当前播放
+                    this.stopPlay();
+                    
+                    // 切换到该组
+                    this.currentGroupIndex = groupIndex;
+                    this.currentImageIndex = 0;
+                    this.groupStartTime = Date.now();
+                    
+                    let globalIndex = 0;
+                    for (let i = 0; i < groupIndex; i++) {
+                        globalIndex += this.dataList[i].results.length;
+                    }
+                    
+                    this.swiper.slideTo(globalIndex, 500);
+                    this.updateAvatarHighlight();
+                    this.updateQrcode();
+                    
+                    // 重启播放（只播放匹配组）
+                    this.isPlaying = true;
+                    this.playTimer = setInterval(() => {
+                        this.playNext();
+                    }, this.config.imageDuration);
+                },
+                
+                // 切换到默认轮播模式
+                switchToDefaultMode() {
+                    console.log('切换到默认轮播模式');
+                    
+                    this.currentMode = 'default';
+                    this.matchedPortraitId = null;
+                    this.faceMatchPlayComplete = false;
+                    
+                    // 停止当前播放
+                    this.stopPlay();
+                    
+                    // 恢复正常播放流程
+                    this.startPlay();
+                    
+                    this.updateFaceStatus('active', '人脸检测已开启');
+                    
+                    // 移除公众号二维码高亮
+                    const mpContainer = document.getElementById('mpQrcodeContainer');
+                    if (mpContainer) {
+                        mpContainer.classList.remove('highlight');
+                    }
+                },
+                
+                // 更新人脸检测状态指示器
+                updateFaceStatus(state, text) {
+                    const dot = document.getElementById('faceStatusDot');
+                    const textEl = document.getElementById('faceStatusText');
+                    if (!dot || !textEl) return;
+                    
+                    dot.className = 'dot ' + state;
+                    textEl.textContent = text;
+                },
             }
         }).mount('#app');
     </script>

@@ -475,6 +475,152 @@ class ApiWechat extends BaseController
 					}
 					die('success');
 				}
+				// AI旅拍选片公众号二维码处理
+				// scene格式: pick_{qrcode标识}
+				// 用户扫码关注/已关注扫码 → 自动注册会员 → 回复选片链接
+				if(strpos($eventKey, 'pick_') === 0){
+					$pickQrcode = substr($eventKey, 5);
+					$qrcodeRecord = Db::name('ai_travel_photo_qrcode')
+						->where('qrcode', $pickQrcode)
+						->where('aid', aid)
+						->find();
+
+					if($qrcodeRecord){
+						// 查找或创建会员
+						$member = Db::name('member')->where('aid', aid)->where('mpopenid', $openid)->find();
+						if(!$member){
+							$rs = curl_get('https://api.weixin.qq.com/cgi-bin/user/info?access_token='.\app\common\Wechat::access_token(aid,'mp').'&openid='.$openid.'&lang=zh_CN');
+							$fansinfo = json_decode($rs, true);
+							if($fansinfo && !empty($fansinfo['unionid'])){
+								$member = Db::name('member')->where('aid', aid)->where('unionid', $fansinfo['unionid'])->find();
+								if($member){
+									Db::name('member')->where('id', $member['id'])->update(['mpopenid' => $openid, 'subscribe' => 1, 'subscribe_time' => time()]);
+								}
+							}
+							if(!$member){
+								$data = [
+									'aid' => aid,
+									'mpopenid' => $openid,
+									'nickname' => ($fansinfo && isset($fansinfo['nickname']) && $fansinfo['nickname']) ? $fansinfo['nickname'] : '微信用户',
+									'sex' => ($fansinfo && isset($fansinfo['sex'])) ? $fansinfo['sex'] : 3,
+									'headimg' => ($fansinfo && isset($fansinfo['headimgurl']) && $fansinfo['headimgurl']) ? $fansinfo['headimgurl'] : PRE_URL.'/static/img/touxiang.png',
+									'unionid' => ($fansinfo && !empty($fansinfo['unionid'])) ? $fansinfo['unionid'] : '',
+									'subscribe' => 1,
+									'subscribe_time' => time(),
+									'createtime' => time(),
+									'last_visittime' => time(),
+									'platform' => 'mp'
+								];
+								$mid = \app\model\Member::add(aid, $data);
+								$member = Db::name('member')->where('id', $mid)->find();
+							}
+						}
+						if($member && $postObj->Event == 'subscribe'){
+							Db::name('member')->where('id', $member['id'])->update(['subscribe' => 1, 'subscribe_time' => time()]);
+						}
+
+						// 获取人像缩略图作为图文封面
+						$portrait = Db::name('ai_travel_photo_portrait')->where('id', $qrcodeRecord['portrait_id'])->find();
+						$picUrl = '';
+						if($portrait){
+							$picUrl = $portrait['thumbnail_url'] ?: ($portrait['original_url'] ?: '');
+						}
+						if(!$picUrl) $picUrl = PRE_URL.'/static/img/touxiang.png';
+
+						// 回复选片链接图文消息
+						$pickUrl = PRE_URL . '/public/pick/index.html?qr=' . urlencode($pickQrcode);
+						$this->response_article(aid, [[
+							'title' => '📸 点击查看您的专属写真',
+							'description' => '您的AI旅拍成片已准备就绪，点击查看和选购',
+							'pic' => $picUrl,
+							'url' => $pickUrl
+						]], $postObj);
+					}
+					die('success');
+				}
+				// XPD大屏公众号二维码处理
+				// scene格式: portraitId_{ID}-bid_{bid}
+				// 用户扫码关注/已关注扫码 → 自动注册会员 → 回复选片链接
+				if(strpos($eventKey, 'portraitId_') === 0){
+					// 解析 portraitId 和 bid
+					$scenePortraitId = 0;
+					$sceneBid = 0;
+					$parts = explode('-', $eventKey);
+					foreach($parts as $part){
+						if(strpos($part, 'portraitId_') === 0){
+							$scenePortraitId = intval(substr($part, strlen('portraitId_')));
+						}elseif(strpos($part, 'bid_') === 0){
+							$sceneBid = intval(substr($part, strlen('bid_')));
+						}
+					}
+					if($scenePortraitId > 0){
+						// 查找人像记录
+						$portrait = Db::name('ai_travel_photo_portrait')->where('id', $scenePortraitId)->find();
+						if($portrait){
+							// 查找或创建会员
+							$member = Db::name('member')->where('aid', aid)->where('mpopenid', $openid)->find();
+							if(!$member){
+								$rs = curl_get('https://api.weixin.qq.com/cgi-bin/user/info?access_token='.\app\common\Wechat::access_token(aid,'mp').'&openid='.$openid.'&lang=zh_CN');
+								$fansinfo = json_decode($rs, true);
+								if($fansinfo && !empty($fansinfo['unionid'])){
+									$member = Db::name('member')->where('aid', aid)->where('unionid', $fansinfo['unionid'])->find();
+									if($member){
+										Db::name('member')->where('id', $member['id'])->update(['mpopenid' => $openid, 'subscribe' => 1, 'subscribe_time' => time()]);
+									}
+								}
+								if(!$member){
+									$data = [
+										'aid' => aid,
+										'mpopenid' => $openid,
+										'nickname' => ($fansinfo && isset($fansinfo['nickname']) && $fansinfo['nickname']) ? $fansinfo['nickname'] : '微信用户',
+										'sex' => ($fansinfo && isset($fansinfo['sex'])) ? $fansinfo['sex'] : 3,
+										'headimg' => ($fansinfo && isset($fansinfo['headimgurl']) && $fansinfo['headimgurl']) ? $fansinfo['headimgurl'] : PRE_URL.'/static/img/touxiang.png',
+										'unionid' => ($fansinfo && !empty($fansinfo['unionid'])) ? $fansinfo['unionid'] : '',
+										'subscribe' => 1,
+										'subscribe_time' => time(),
+										'createtime' => time(),
+										'last_visittime' => time(),
+										'platform' => 'mp'
+									];
+									$mid = \app\model\Member::add(aid, $data);
+									$member = Db::name('member')->where('id', $mid)->find();
+								}
+							}
+							if($member && $postObj->Event == 'subscribe'){
+								Db::name('member')->where('id', $member['id'])->update(['subscribe' => 1, 'subscribe_time' => time()]);
+							}
+
+							// 获取该人像对应的选片页二维码
+							$pickQrcodeRecord = Db::name('ai_travel_photo_qrcode')
+								->where('portrait_id', $scenePortraitId)
+								->where('qrcode_type', 1)
+								->where('status', 1)
+								->find();
+							$pickQrcode = $pickQrcodeRecord ? $pickQrcodeRecord['qrcode'] : '';
+
+							// 获取人像缩略图作为图文封面
+							$picUrl = $portrait['thumbnail_url'] ?: ($portrait['original_url'] ?: '');
+							if(!$picUrl) $picUrl = PRE_URL.'/static/img/touxiang.png';
+
+							// 构建选片链接
+							if($pickQrcode){
+								$pickUrl = PRE_URL . '/public/pick/index.html?qr=' . urlencode($pickQrcode);
+
+								// 回复选片链接图文消息
+								$this->response_article(aid, [[
+									'title' => '📸 点击查看您的专属写真',
+									'description' => '您的AI旅拍成片已准备就绪，点击查看和选购',
+									'pic' => $picUrl,
+									'url' => $pickUrl
+								]], $postObj);
+							}else{
+								// 无选片页二维码时，发送文字提示
+								$this->send_text(aid, '📸 您的AI旅拍成片正在处理中，请稍后再扫码查看。', $openid);
+							}
+						}
+					}
+					die('success');
+				}
 				$eventKeyArr = explode('_',$eventKey);
 				if($eventKeyArr[0] == 'pid'){ //推广
 					$fromid = intval($eventKeyArr[1]);

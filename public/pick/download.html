@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>下载照片</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f5f5;color:#333;padding-bottom:24px}
+.loading{text-align:center;padding:60px 20px}
+.loading .spinner{width:36px;height:36px;border:3px solid #eee;border-top-color:#07c160;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{margin-top:12px;color:#999;font-size:14px}
+.header{background:linear-gradient(135deg,#07c160,#06ad56);color:#fff;padding:20px 16px;text-align:center}
+.header .icon{font-size:40px}
+.header h2{font-size:17px;font-weight:500;margin:4px 0 2px}
+.header p{font-size:12px;opacity:.8}
+/* 长按保存提示横幅 */
+.save-tip{background:linear-gradient(135deg,#fff3e0,#ffe0b2);margin:12px;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(255,152,0,.15)}
+.save-tip .tip-icon{font-size:32px;flex-shrink:0}
+.save-tip .tip-text{flex:1}
+.save-tip .tip-title{font-size:15px;font-weight:600;color:#e65100}
+.save-tip .tip-desc{font-size:12px;color:#bf360c;margin-top:2px}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.save-tip .tip-icon{animation:pulse 2s ease-in-out infinite}
+.order-info{background:#fff;margin:0 12px 12px;border-radius:12px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.order-info .row{display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;color:#666}
+.order-info .row:last-child{margin-bottom:0}
+.order-info .row .val{color:#333;font-weight:500}
+.section-title{padding:12px 16px 8px;font-size:15px;font-weight:600;color:#333}
+.photo-grid{padding:0 12px}
+.dl-item{background:#fff;border-radius:12px;margin-bottom:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.05);position:relative}
+.dl-item .preview{width:100%;display:block;cursor:pointer}
+.dl-item .actions{display:flex;padding:10px 12px;gap:8px}
+.dl-item .btn{flex:1;border:none;padding:10px 0;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;text-align:center}
+.btn-save{background:linear-gradient(135deg,#07c160,#06ad56);color:#fff}
+.btn-save:active{opacity:.8}
+.type-badge{display:inline-block;background:rgba(0,0,0,.55);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;position:absolute;top:10px;left:10px}
+/* 功能卡片区 */
+.feature-cards{padding:0 12px;margin-top:4px}
+.f-card{background:#fff;border-radius:14px;padding:18px 16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05);display:flex;align-items:center;gap:14px;cursor:pointer;transition:transform .15s}
+.f-card:active{transform:scale(.98)}
+.f-card .f-icon{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.f-card .f-body{flex:1}
+.f-card .f-title{font-size:15px;font-weight:600;color:#333}
+.f-card .f-desc{font-size:12px;color:#999;margin-top:2px}
+.f-card .f-arrow{color:#ccc;font-size:18px;flex-shrink:0}
+.icon-video{background:linear-gradient(135deg,#7c4dff,#536dfe)}
+.icon-member{background:linear-gradient(135deg,#ff6d00,#ff9100)}
+.icon-follow{background:linear-gradient(135deg,#07c160,#00e676)}
+/* 公众号区域 */
+.mp-section{background:#fff;margin:0 12px 12px;border-radius:14px;padding:20px 16px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.mp-section .mp-title{font-size:15px;font-weight:600;margin-bottom:4px}
+.mp-section .mp-desc{font-size:12px;color:#999;margin-bottom:12px}
+.mp-section .mp-qr{width:180px;height:180px;border-radius:8px;border:1px solid #eee}
+.mp-section .mp-name{margin-top:8px;font-size:14px;font-weight:500;color:#07c160}
+.mp-section .mp-hint{font-size:11px;color:#999;margin-top:4px}
+/* Lightbox */
+.lightbox{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center}
+.lightbox.show{display:flex}
+.lightbox .lb-close{position:absolute;top:12px;right:16px;color:#fff;font-size:28px;cursor:pointer;z-index:1001;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.15);border-radius:50%}
+.lightbox .lb-img{max-width:92%;max-height:70vh;border-radius:4px;object-fit:contain}
+.lightbox .lb-tip{color:#fff;font-size:16px;font-weight:600;margin-top:16px;text-align:center;padding:10px 20px;background:rgba(255,255,255,.12);border-radius:24px}
+.lightbox .lb-tip em{font-style:normal;color:#ffd54f}
+.error{text-align:center;padding:60px 20px}
+.error h3{font-size:16px;color:#e64340;margin-bottom:8px}
+.error p{font-size:13px;color:#999}
+.tips{padding:12px 16px;text-align:center;font-size:11px;color:#bbb;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="loading" id="loading"><div class="spinner"></div><p>加载中...</p></div>
+
+<div id="mainContent" style="display:none">
+  <div class="header">
+    <div class="icon">🎉</div>
+    <h2>支付成功</h2>
+    <p>感谢购买，以下是你的高清原片</p>
+  </div>
+
+  <div class="save-tip">
+    <div class="tip-icon">👆</div>
+    <div class="tip-text">
+      <div class="tip-title">长按图片 → 保存到手机相册</div>
+      <div class="tip-desc">点击图片可放大查看，长按即可保存到手机</div>
+    </div>
+  </div>
+
+  <div class="order-info">
+    <div class="row"><span>订单号</span><span class="val" id="infoOrderNo"></span></div>
+    <div class="row"><span>套餐</span><span class="val" id="infoPkgName"></span></div>
+    <div class="row"><span>照片数量</span><span class="val" id="infoTotal"></span></div>
+  </div>
+
+  <div class="section-title">📸 照片列表</div>
+  <div class="photo-grid" id="downloadList"></div>
+
+  <div class="section-title">✨ 更多服务</div>
+  <div class="feature-cards">
+    <div class="f-card" id="cardVideo" onclick="goVideo()">
+      <div class="f-icon icon-video">🎬</div>
+      <div class="f-body">
+        <div class="f-title">一键生成视频</div>
+        <div class="f-desc">将你的照片制作成精美回忆视频</div>
+      </div>
+      <div class="f-arrow">›</div>
+    </div>
+    <div class="f-card" id="cardMember" onclick="goMember()">
+      <div class="f-icon icon-member">👤</div>
+      <div class="f-body">
+        <div class="f-title">绑定微信 · 成为会员</div>
+        <div class="f-desc">转存到云空间，随时查看你的照片</div>
+      </div>
+      <div class="f-arrow">›</div>
+    </div>
+    <div class="f-card" id="cardFollow" onclick="toggleMpSection()">
+      <div class="f-icon icon-follow">📱</div>
+      <div class="f-body">
+        <div class="f-title">关注公众号</div>
+        <div class="f-desc">获取更多精彩内容和专属优惠</div>
+      </div>
+      <div class="f-arrow" id="followArrow">›</div>
+    </div>
+  </div>
+
+  <div class="mp-section" id="mpSection" style="display:none">
+    <div class="mp-title">关注公众号</div>
+    <div class="mp-desc">长按识别下方二维码，关注获取更多精彩</div>
+    <img class="mp-qr" id="mpQrcode" src="" alt="公众号二维码">
+    <div class="mp-name" id="mpNickname"></div>
+    <div class="mp-hint">长按二维码 → 识别图中二维码 → 关注</div>
+  </div>
+
+  <div class="tips">下载链接24小时内有效，过期可重新扫码进入<br>如遇问题请联系客服</div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+  <div class="lb-close" onclick="closeLightbox(event)">✕</div>
+  <img class="lb-img" id="lbImg" src="">
+  <div class="lb-tip">👆 <em>长按图片</em> 即可保存到手机相册</div>
+</div>
+
+<div class="error" id="errorTip" style="display:none">
+  <h3 id="errorTitle">加载失败</h3>
+  <p id="errorMsg"></p>
+</div>
+
+<script>
+var API = '/index.php?s=/api/ai_travel_photo/pick/';
+var orderNo = new URLSearchParams(location.search).get('order_no') || '';
+var APP = {aid: 0, bid: 0};
+
+if (!orderNo) { showError('缺少订单号', '请从支付完成页面进入'); }
+else { loadDownloads(); }
+
+function loadDownloads() {
+  get('downloads', {order_no: orderNo}, function(res) {
+    hide('loading');
+    if (res.code === 401) { showError('未授权', '请从微信扫码重新进入'); return; }
+    if (res.code !== 200) { showError('加载失败', res.msg || ''); return; }
+    var d = res.data;
+    APP.aid = d.aid || 0;
+    APP.bid = d.bid || 0;
+    el('infoOrderNo').textContent = d.order_no;
+    el('infoPkgName').textContent = d.package_name || '单张购买';
+    el('infoTotal').textContent = d.total + '张';
+    renderPhotos(d.downloads || []);
+    show('mainContent');
+    loadMpInfo();
+  });
+}
+
+function renderPhotos(list) {
+  var c = el('downloadList'), html = '';
+  for (var i = 0; i < list.length; i++) {
+    var it = list[i], isV = it.type === 2;
+    html += '<div class="dl-item">' +
+      (isV ? '<span class="type-badge">视频</span>' : '') +
+      (isV
+        ? '<video src="'+it.download_url+'" controls poster="'+it.thumbnail_url+'" style="width:100%;display:block"></video>'
+        : '<img src="'+it.download_url+'" class="preview" alt="照片" onclick="openLightbox(\''+it.download_url+'\')">') +
+      '<div class="actions">' +
+        '<button class="btn btn-save" onclick="'+(isV ? 'saveVideo(\''+it.download_url+'\')' : 'openLightbox(\''+it.download_url+'\')')+'">📥 下载到手机</button>' +
+      '</div></div>';
+    // record download
+    post('record_download', {goods_id: it.id}, function(){});
+  }
+  c.innerHTML = html || '<div style="text-align:center;padding:20px;color:#999">暂无可下载的文件</div>';
+}
+
+function loadMpInfo() {
+  get('mp_info', {order_no: orderNo}, function(res) {
+    if (res.code === 200 && res.data) {
+      var d = res.data;
+      if (d.qrcode) {
+        el('mpQrcode').src = d.qrcode;
+        el('mpNickname').textContent = d.nickname || '';
+      } else {
+        // 没有二维码，隐藏关注卡片
+        el('cardFollow').style.display = 'none';
+      }
+    }
+  });
+}
+
+// ===== Lightbox =====
+function openLightbox(url) {
+  el('lbImg').src = url;
+  el('lightbox').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox(e) {
+  if (e.target.id === 'lightbox' || e.target.classList.contains('lb-close') || e.target.parentElement.classList.contains('lb-close')) {
+    el('lightbox').classList.remove('show');
+    document.body.style.overflow = '';
+  }
+}
+
+// ===== 一键生成视频 =====
+function goVideo() {
+  location.href = '/public/pick/video.html?order_no=' + encodeURIComponent(orderNo);
+}
+
+// ===== 绑定会员 =====
+function goMember() {
+  if (APP.aid) {
+    location.href = '/h5/' + APP.aid + '.html#/pages/user/user?from=pick&order_no=' + encodeURIComponent(orderNo);
+  } else {
+    alert('请稍后再试');
+  }
+}
+
+// ===== 关注公众号 =====
+function toggleMpSection() {
+  var sec = el('mpSection');
+  if (sec.style.display === 'none') {
+    sec.style.display = 'block';
+    el('followArrow').textContent = '∨';
+    sec.scrollIntoView({behavior:'smooth', block:'center'});
+  } else {
+    sec.style.display = 'none';
+    el('followArrow').textContent = '›';
+  }
+}
+
+function saveVideo(url) { location.href = url; }
+
+// ===== 工具函数 =====
+function el(id) { return document.getElementById(id); }
+function show(id) { el(id).style.display = 'block'; }
+function hide(id) { el(id).style.display = 'none'; }
+
+function showError(t, m) {
+  hide('loading');
+  show('errorTip');
+  el('errorTitle').textContent = t;
+  el('errorMsg').textContent = m || '';
+}
+
+function get(action, params, cb) {
+  var qs = Object.keys(params).map(function(k){return k+'='+encodeURIComponent(params[k])}).join('&');
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', API + action + '&' + qs, true);
+  xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
+  xhr.onload = function(){ try{cb(JSON.parse(xhr.responseText))}catch(e){cb({code:500,msg:'解析失败'})} };
+  xhr.onerror = function(){ cb({code:500,msg:'网络错误'}) };
+  xhr.send();
+}
+function post(action, params, cb) {
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', API + action, true);
+  xhr.setRequestHeader('Content-Type','application/json');
+  xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
+  xhr.onload = function(){ try{cb(JSON.parse(xhr.responseText))}catch(e){cb({code:500,msg:'解析失败'})} };
+  xhr.onerror = function(){ cb({code:500,msg:'网络错误'}) };
+  xhr.send(JSON.stringify(params));
+}
+</script>
+</body>
+</html>

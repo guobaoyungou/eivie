@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>选片中心</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#f5f5f5;color:#333;overflow-x:hidden;-webkit-user-select:none;user-select:none}
+.loading-mask{position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column}
+.loading-mask .spinner{width:40px;height:40px;border:3px solid #eee;border-top-color:#07c160;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-mask p{margin-top:12px;color:#999;font-size:14px}
+
+/* 非微信提示 */
+.not-wechat{display:none;text-align:center;padding:80px 40px}
+.not-wechat img{width:80px;margin-bottom:20px}
+.not-wechat h3{font-size:18px;color:#333;margin-bottom:10px}
+.not-wechat p{font-size:14px;color:#999}
+
+/* 过期提示 */
+.expired{display:none;text-align:center;padding:80px 40px}
+.expired h3{font-size:18px;color:#e64340;margin-bottom:10px}
+.expired p{font-size:14px;color:#999}
+
+/* 头部 */
+.header{background:linear-gradient(135deg,#07c160,#06ad56);color:#fff;padding:20px 16px 60px;text-align:center;position:relative}
+.header h2{font-size:18px;font-weight:500;margin-bottom:4px}
+.header p{font-size:13px;opacity:.8}
+.header .my-orders-btn{position:absolute;top:50%;right:6px;transform:translateY(-50%);writing-mode:vertical-rl;text-orientation:upright;letter-spacing:2px;display:flex;align-items:center;gap:0;background:rgba(255,255,255,.18);color:#fff;border:none;padding:10px 5px;border-radius:14px;font-size:11px;cursor:pointer;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:2;line-height:1}
+.header .my-orders-btn:active{background:rgba(255,255,255,.35)}
+.header .my-orders-btn .badge{position:absolute;top:-4px;right:-4px;display:none;min-width:16px;height:16px;line-height:16px;text-align:center;background:#ff4d4f;color:#fff;border-radius:9px;font-size:10px;padding:0 4px;writing-mode:horizontal-tb}
+
+/* 成片网格 */
+.pick-section{margin:-40px 12px 0;position:relative;z-index:1}
+.pick-count{background:#fff;border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.pick-count .total{font-size:14px;color:#666}
+.pick-count .selected{font-size:14px;color:#07c160;font-weight:600}
+
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:100px}
+.grid-item{position:relative;border-radius:8px;overflow:hidden;background:#eee;aspect-ratio:3/4}
+.grid-item .thumb{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;-webkit-touch-callout:none}
+.grid-item .overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2}
+.grid-item .check{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;z-index:3;background:rgba(0,0,0,.3);transition:all .2s}
+.grid-item .check.active{background:#07c160;border-color:#07c160}
+.grid-item .check svg{width:14px;height:14px;fill:#fff;opacity:0;transition:opacity .2s}
+.grid-item .check.active svg{opacity:1}
+.grid-item .type-badge{position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,.5);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;z-index:3}
+
+/* 全选按钮 */
+.select-all-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:16px;border:1.5px solid #ddd;font-size:13px;color:#666;background:#fff;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}
+.select-all-btn.active{border-color:#07c160;color:#07c160;background:#f0faf4}
+.select-all-btn svg{width:16px;height:16px;fill:currentColor}
+
+/* 底部浮动栏 */
+.bottom-bar{position:fixed;bottom:0;left:0;width:100%;background:#fff;box-shadow:0 -2px 10px rgba(0,0,0,.08);z-index:100;display:none}
+.bar-guide{padding:8px 16px;background:#fff9ed;font-size:12px;color:#ff9500;line-height:1.4}
+.bar-content{display:flex;align-items:center;padding:10px 16px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+.bar-info{flex:1;min-width:0}
+.bar-info .price-row{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.bar-info .price{font-size:22px;font-weight:700;color:#e64340}
+.bar-info .price-orig{font-size:13px;color:#bbb;text-decoration:line-through}
+.bar-info .desc{font-size:11px;color:#999;margin-top:2px}
+.bar-btn{background:linear-gradient(135deg,#07c160,#06ad56);color:#fff;border:none;padding:12px 24px;border-radius:24px;font-size:15px;font-weight:600;cursor:pointer;white-space:nowrap;min-width:120px;text-align:center}
+.bar-btn:active{opacity:.8}
+.bar-btn:disabled{background:#ccc}
+
+/* 分区标题 */
+.section-header{background:#fff;border-radius:12px;padding:12px 16px;margin:16px 0 12px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.section-title{font-size:15px;font-weight:600;color:#333}
+.section-desc{font-size:12px;color:#999;margin-left:8px}
+
+/* 空状态 */
+.empty{text-align:center;padding:60px 20px}
+.empty p{font-size:14px;color:#999}
+
+/* 我的订单面板 */
+.orders-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:500;display:none;opacity:0;transition:opacity .25s}
+.orders-overlay.show{display:block;opacity:1}
+.orders-panel{position:fixed;top:0;right:-100%;width:100%;max-width:380px;height:100%;background:#f5f5f5;z-index:501;transition:right .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.orders-panel.show{right:0}
+.orders-panel .panel-header{background:linear-gradient(135deg,#07c160,#06ad56);color:#fff;padding:16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.orders-panel .panel-close{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.orders-panel .panel-close:active{background:rgba(255,255,255,.35)}
+.orders-panel .panel-title{font-size:17px;font-weight:600;flex:1}
+.orders-panel .panel-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.orders-panel .order-card{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;gap:12px;cursor:pointer;transition:transform .15s}
+.orders-panel .order-card:active{transform:scale(.98)}
+.orders-panel .order-cover{width:64px;height:80px;border-radius:8px;object-fit:cover;background:#eee;flex-shrink:0}
+.orders-panel .order-info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between}
+.orders-panel .order-top{display:flex;align-items:center;justify-content:space-between}
+.orders-panel .order-pkg{font-size:14px;font-weight:600;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
+.orders-panel .order-status{font-size:11px;padding:2px 8px;border-radius:10px;flex-shrink:0}
+.orders-panel .order-status.paid{background:#e8f5e9;color:#2e7d32}
+.orders-panel .order-status.completed{background:#e3f2fd;color:#1565c0}
+.orders-panel .order-meta{font-size:12px;color:#999;display:flex;align-items:center;gap:8px}
+.orders-panel .order-bottom{display:flex;align-items:center;justify-content:space-between}
+.orders-panel .order-amount{font-size:16px;font-weight:700;color:#e64340}
+.orders-panel .order-download{font-size:12px;color:#07c160;font-weight:500}
+.orders-panel .orders-empty{text-align:center;padding:60px 20px}
+.orders-panel .orders-empty .empty-icon{font-size:48px;margin-bottom:12px}
+.orders-panel .orders-empty p{font-size:14px;color:#999}
+.orders-panel .orders-loading{text-align:center;padding:40px 20px}
+.orders-panel .orders-loading .spinner{width:28px;height:28px;border:3px solid #eee;border-top-color:#07c160;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto}
+.orders-panel .orders-loading p{margin-top:8px;font-size:13px;color:#999}
+</style>
+</head>
+<body>
+
+<!-- 加载遮罩 -->
+<div class="loading-mask" id="loadingMask">
+  <div class="spinner"></div>
+  <p>加载中...</p>
+</div>
+
+<!-- 非微信提示 -->
+<div class="not-wechat" id="notWechat">
+  <h3>请使用微信扫码打开</h3>
+  <p>该页面仅支持在微信客户端中访问</p>
+</div>
+
+<!-- 过期提示 -->
+<div class="expired" id="expiredTip">
+  <h3>二维码已过期</h3>
+  <p id="expiredMsg">请联系商家重新生成</p>
+</div>
+
+<!-- 通用错误提示 -->
+<div class="expired" id="errorTip" style="display:none">
+  <h3 style="color:#999">加载失败</h3>
+  <p id="errorMsg">请稍后重试</p>
+</div>
+
+<!-- 主内容 -->
+<div id="mainContent" style="display:none">
+  <div class="header">
+    <button class="my-orders-btn" id="myOrdersBtn" onclick="openMyOrders()">
+      <span class="badge" id="ordersBadge"></span>
+      我的订单
+    </button>
+    <h2>📸 选择你喜欢的照片</h2>
+    <p>浏览成片，勾选心仪照片后付费下载原片</p>
+  </div>
+
+  <div class="pick-section">
+    <div class="pick-count">
+      <span class="total">共 <strong id="totalCount">0</strong> 张成片</span>
+      <span style="display:flex;align-items:center;gap:10px">
+        <span class="selected">已选 <strong id="selectedCount">0</strong> 张</span>
+        <span class="select-all-btn" id="selectAllBtn" onclick="toggleSelectAll()">
+          <svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/></svg>
+          全选
+        </span>
+      </span>
+    </div>
+
+    <div class="grid" id="photoGrid"></div>
+    <div class="empty" id="emptyTip" style="display:none"><p>暂无成片，请稍候...</p></div>
+
+    <!-- 更多推荐成片区域 -->
+    <div id="similarSection" style="display:none">
+      <div class="section-header">
+        <span class="section-title">🔍 更多与你相似的成片</span>
+        <span class="section-desc" id="similarDesc"></span>
+      </div>
+      <div class="grid" id="similarGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 我的订单遮罩 -->
+<div class="orders-overlay" id="ordersOverlay" onclick="closeMyOrders()"></div>
+
+<!-- 我的订单侧滑面板 -->
+<div class="orders-panel" id="ordersPanel">
+  <div class="panel-header">
+    <button class="panel-close" onclick="closeMyOrders()">✕</button>
+    <div class="panel-title">我的订单</div>
+  </div>
+  <div class="panel-body" id="ordersList">
+    <div class="orders-loading" id="ordersLoading">
+      <div class="spinner"></div>
+      <p>加载中...</p>
+    </div>
+  </div>
+</div>
+
+<!-- 底部浮动栏 -->
+<div class="bottom-bar" id="bottomBar">
+  <div class="bar-guide" id="barGuide"></div>
+  <div class="bar-content">
+    <div class="bar-info">
+      <div class="price-row">
+        <span class="price">¥<span id="barPrice">0</span></span>
+        <span class="price-orig" id="barOrigPrice" style="display:none">¥<span id="barOrigPriceVal">0</span></span>
+      </div>
+      <div class="desc" id="barDesc"></div>
+    </div>
+    <button class="bar-btn" id="barBtn" onclick="submitOrder()">立即支付</button>
+  </div>
+</div>
+
+<script>
+// 全局状态
+var APP = {
+  qr: '', aid: 0, bid: 0, portraitId: 0, qrcodeId: 0, openid: '',
+  results: [], similarResults: [], allResults: [], selectedIds: [],
+  packages: [], singlePrice: 0,
+  recommendData: null, selectedPackageId: 0,
+  paying: false,
+  apiBase: '/index.php?s=/api/ai_travel_photo/pick/'
+};
+
+// 初始化
+(function init() {
+  var params = new URLSearchParams(window.location.search);
+  APP.qr = params.get('qr') || '';
+
+  if (!APP.qr) {
+    showError('缺少二维码参数');
+    return;
+  }
+
+  // 检测微信浏览器
+  var ua = navigator.userAgent.toLowerCase();
+  if (ua.indexOf('micromessenger') === -1) {
+    document.getElementById('loadingMask').style.display = 'none';
+    document.getElementById('notWechat').style.display = 'block';
+    return;
+  }
+
+  // 请求入口接口
+  fetchApi('index', {qr: APP.qr}, 'GET', function(res) {
+    if (res.code === 302 && res.data && res.data.need_auth) {
+      startOAuth();
+      return;
+    }
+    if (res.code === 200) {
+      APP.portraitId = res.data.portrait_id;
+      APP.aid = res.data.aid;
+      APP.bid = res.data.bid;
+      APP.qrcodeId = res.data.qrcode_id;
+      APP.openid = res.data.openid || '';
+      loadResults();
+    } else {
+      if (res.msg && res.msg.indexOf('过期') > -1) {
+        document.getElementById('loadingMask').style.display = 'none';
+        document.getElementById('expiredTip').style.display = 'block';
+        document.getElementById('expiredMsg').textContent = res.msg;
+      } else {
+        showError(res.msg || '加载失败');
+      }
+    }
+  });
+})();
+
+function startOAuth() {
+  window.location.href = window.location.origin + APP.apiBase + 'start_oauth&qr=' + APP.qr;
+}
+
+function loadResults() {
+  fetchApi('results', {portrait_id: APP.portraitId, bid: APP.bid, aid: APP.aid}, 'GET', function(res) {
+    document.getElementById('loadingMask').style.display = 'none';
+    if (res.code !== 200) { showError(res.msg); return; }
+
+    APP.results = res.data.results || [];
+    APP.similarResults = res.data.similar_results || [];
+    APP.allResults = APP.results.concat(APP.similarResults);
+
+    var totalAll = APP.results.length + APP.similarResults.length;
+    document.getElementById('totalCount').textContent = totalAll;
+
+    if (APP.results.length === 0 && APP.similarResults.length === 0) {
+      document.getElementById('mainContent').style.display = 'block';
+      document.getElementById('emptyTip').style.display = 'block';
+      return;
+    }
+
+    renderGrid();
+    renderSimilarGrid();
+    document.getElementById('mainContent').style.display = 'block';
+
+    // 预加载套餐信息
+    fetchApi('packages', {bid: APP.bid}, 'GET', function(pkgRes) {
+      if (pkgRes.code === 200) {
+        APP.packages = pkgRes.data || [];
+      }
+    });
+  });
+}
+
+function renderSimilarGrid() {
+  if (APP.similarResults.length === 0) return;
+  document.getElementById('similarSection').style.display = 'block';
+  document.getElementById('similarDesc').textContent = '共' + APP.similarResults.length + '张';
+  var grid = document.getElementById('similarGrid');
+  var html = '';
+  for (var i = 0; i < APP.similarResults.length; i++) {
+    var r = APP.similarResults[i];
+    var isSelected = APP.selectedIds.indexOf(r.id) > -1;
+    var typeText = r.type === 19 ? '视频' : '';
+    html += '<div class="grid-item" data-id="' + r.id + '" onclick="toggleSelect(' + r.id + ')">' +
+      '<div style="width:100%;height:100%;background:url(\'' + r.thumbnail_url + '\') center/cover no-repeat" class="thumb"></div>' +
+      '<div class="overlay"></div>' +
+      '<div class="check ' + (isSelected ? 'active' : '') + '" id="check_' + r.id + '">' +
+        '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
+      '</div>' +
+      (typeText ? '<span class="type-badge">' + typeText + '</span>' : '') +
+    '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+function renderGrid() {
+  var grid = document.getElementById('photoGrid');
+  var html = '';
+  for (var i = 0; i < APP.results.length; i++) {
+    var r = APP.results[i];
+    var isSelected = APP.selectedIds.indexOf(r.id) > -1;
+    var typeText = r.type === 19 ? '视频' : '';
+    html += '<div class="grid-item" data-id="' + r.id + '" onclick="toggleSelect(' + r.id + ')">' +
+      '<div style="width:100%;height:100%;background:url(\'' + r.thumbnail_url + '\') center/cover no-repeat" class="thumb"></div>' +
+      '<div class="overlay"></div>' +
+      '<div class="check ' + (isSelected ? 'active' : '') + '" id="check_' + r.id + '">' +
+        '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
+      '</div>' +
+      (typeText ? '<span class="type-badge">' + typeText + '</span>' : '') +
+    '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+// ========== 选片操作 ==========
+
+function toggleSelect(id) {
+  var idx = APP.selectedIds.indexOf(id);
+  if (idx > -1) {
+    APP.selectedIds.splice(idx, 1);
+  } else {
+    APP.selectedIds.push(id);
+  }
+  var el = document.getElementById('check_' + id);
+  if (el) el.classList.toggle('active');
+  onSelectionChanged();
+}
+
+function toggleSelectAll() {
+  var allItems = APP.allResults;
+  var isAllSelected = APP.selectedIds.length === allItems.length;
+  if (isAllSelected) {
+    // 取消全选
+    APP.selectedIds = [];
+  } else {
+    // 全选（包含我的成片 + 推荐成片）
+    APP.selectedIds = allItems.map(function(r) { return r.id; });
+  }
+  // 更新所有勾选框
+  for (var i = 0; i < allItems.length; i++) {
+    var el = document.getElementById('check_' + allItems[i].id);
+    if (el) {
+      if (APP.selectedIds.indexOf(allItems[i].id) > -1) {
+        el.classList.add('active');
+      } else {
+        el.classList.remove('active');
+      }
+    }
+  }
+  onSelectionChanged();
+}
+
+function onSelectionChanged() {
+  var count = APP.selectedIds.length;
+  document.getElementById('selectedCount').textContent = count;
+
+  // 更新全选按钮状态
+  var allBtn = document.getElementById('selectAllBtn');
+  if (count === APP.allResults.length && count > 0) {
+    allBtn.classList.add('active');
+  } else {
+    allBtn.classList.remove('active');
+  }
+
+  if (count > 0) {
+    document.getElementById('bottomBar').style.display = 'block';
+    updatePricing();
+  } else {
+    document.getElementById('bottomBar').style.display = 'none';
+  }
+}
+
+// ========== 自动价格计算 ==========
+
+function updatePricing() {
+  var count = APP.selectedIds.length;
+  fetchApi('recommend', {selected_count: count, bid: APP.bid}, 'POST', function(res) {
+    if (res.code !== 200) return;
+    APP.recommendData = res.data;
+    APP.singlePrice = res.data.single_price || 0;
+
+    var guide = document.getElementById('barGuide');
+    var priceEl = document.getElementById('barPrice');
+    var origPriceWrap = document.getElementById('barOrigPrice');
+    var origPriceVal = document.getElementById('barOrigPriceVal');
+    var desc = document.getElementById('barDesc');
+    var btn = document.getElementById('barBtn');
+
+    var singleTotal = res.data.single_total; // 原价（按单张价格×数量）
+    var finalPrice = singleTotal;
+    var unitPrice = res.data.single_price;
+    var descText = count + '张 × ¥' + res.data.single_price + '/张';
+    var showOrig = false;
+
+    // 如果有推荐套餐，自动使用套餐价
+    if (res.data.recommended) {
+      var pkg = res.data.recommended;
+      APP.selectedPackageId = pkg.id;
+
+      if (count <= pkg.num) {
+        // 选片数 ≤ 套餐包含数，按套餐价
+        finalPrice = parseFloat(pkg.price);
+      } else {
+        // 选片数 > 套餐包含数，套餐价 + 超出部分按单价
+        var extra = (count - pkg.num) * res.data.single_price;
+        finalPrice = parseFloat(pkg.price) + extra;
+      }
+      finalPrice = Math.round(finalPrice * 100) / 100;
+      unitPrice = Math.round(finalPrice / count * 100) / 100;
+      descText = '折合¥' + unitPrice + '/张 · ' + pkg.name;
+
+      if (singleTotal > finalPrice) {
+        showOrig = true;
+      }
+    } else {
+      APP.selectedPackageId = 0;
+    }
+
+    // 更新UI
+    priceEl.textContent = finalPrice.toFixed(2);
+    if (showOrig) {
+      origPriceVal.textContent = singleTotal.toFixed(2);
+      origPriceWrap.style.display = 'inline';
+    } else {
+      origPriceWrap.style.display = 'none';
+    }
+    desc.textContent = descText;
+
+    guide.textContent = res.data.guide_text || '';
+    guide.style.display = res.data.guide_text ? 'block' : 'none';
+
+    btn.textContent = '立即支付 ¥' + finalPrice.toFixed(2);
+    if (!APP.paying) {
+      btn.disabled = false;
+    }
+  });
+}
+
+// ========== 下单支付 ==========
+
+function submitOrder() {
+  if (APP.selectedIds.length === 0) { alert('请至少选择一张照片'); return; }
+  if (APP.paying) return;
+  APP.paying = true;
+
+  var btn = document.getElementById('barBtn');
+  btn.disabled = true;
+  btn.textContent = '创建订单中...';
+
+  fetchApi('order', {
+    portrait_id: APP.portraitId,
+    result_ids: APP.selectedIds,
+    package_id: APP.selectedPackageId,
+    aid: APP.aid,
+    bid: APP.bid,
+    qrcode_id: APP.qrcodeId
+  }, 'POST', function(res) {
+    if (res.code !== 200) {
+      alert(res.msg || '下单失败');
+      resetPayBtn();
+      return;
+    }
+    startPay(res.data.order_no);
+  });
+}
+
+function startPay(orderNo) {
+  var btn = document.getElementById('barBtn');
+  btn.textContent = '跳转支付中...';
+
+  // 跳转到 /h5/ 目录下的收银台页面（在已注册的微信JSAPI支付授权目录 https://ai.eivie.cn/h5/ 下）
+  var cashierUrl = '/h5/cashier.html?order_no=' + encodeURIComponent(orderNo) + '&qr=' + encodeURIComponent(APP.qr);
+  window.location.href = cashierUrl;
+}
+
+function resetPayBtn() {
+  APP.paying = false;
+  var btn = document.getElementById('barBtn');
+  btn.disabled = false;
+  var price = document.getElementById('barPrice').textContent;
+  btn.textContent = '立即支付 ¥' + price;
+}
+
+function pollPayStatus(orderNo) {
+  var attempts = 0;
+  var maxAttempts = 30;
+  var timer = setInterval(function() {
+    attempts++;
+    fetchApi('pay_status', {order_no: orderNo}, 'GET', function(res) {
+      if (res.code === 200 && res.data.status === 'paid') {
+        clearInterval(timer);
+        window.location.href = window.location.origin + '/public/pick/download.html?order_no=' + orderNo;
+      }
+    });
+    if (attempts >= maxAttempts) {
+      clearInterval(timer);
+      window.location.href = window.location.origin + '/public/pick/download.html?order_no=' + orderNo;
+    }
+  }, 2000);
+}
+
+function showError(msg) {
+  document.getElementById('loadingMask').style.display = 'none';
+  document.getElementById('errorTip').style.display = 'block';
+  document.getElementById('errorMsg').textContent = msg || '加载失败';
+}
+
+// API请求工具
+function fetchApi(action, params, method, callback) {
+  var url = APP.apiBase + action;
+  var xhr = new XMLHttpRequest();
+
+  if (method === 'GET') {
+    var qs = Object.keys(params).map(function(k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
+    if (qs) url += '&' + qs;
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.onload = function() {
+      try { callback(JSON.parse(xhr.responseText)); } catch(e) { callback({code:500,msg:'解析失败'}); }
+    };
+    xhr.onerror = function() { callback({code:500,msg:'网络错误'}); };
+    xhr.send();
+  } else {
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.onload = function() {
+      try { callback(JSON.parse(xhr.responseText)); } catch(e) { callback({code:500,msg:'解析失败'}); }
+    };
+    xhr.onerror = function() { callback({code:500,msg:'网络错误'}); };
+    xhr.send(JSON.stringify(params));
+  }
+}
+
+// 禁止长按保存图片
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+document.addEventListener('touchstart', function(e) {
+  if (e.touches.length > 1) e.preventDefault();
+}, {passive: false});
+
+// ========== 我的订单 ==========
+var myOrdersLoaded = false;
+
+function openMyOrders() {
+  document.getElementById('ordersOverlay').classList.add('show');
+  document.getElementById('ordersPanel').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  if (!myOrdersLoaded) {
+    loadMyOrders();
+  }
+}
+
+function closeMyOrders() {
+  document.getElementById('ordersOverlay').classList.remove('show');
+  document.getElementById('ordersPanel').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function loadMyOrders() {
+  var listEl = document.getElementById('ordersList');
+  listEl.innerHTML = '<div class="orders-loading"><div class="spinner"></div><p>加载中...</p></div>';
+
+  fetchApi('my_orders', {}, 'GET', function(res) {
+    if (res.code === 401) {
+      listEl.innerHTML = '<div class="orders-empty"><div class="empty-icon">🔒</div><p>请先扫码授权后查看</p></div>';
+      return;
+    }
+    if (res.code !== 200) {
+      listEl.innerHTML = '<div class="orders-empty"><div class="empty-icon">⚠️</div><p>' + (res.msg || '加载失败') + '</p></div>';
+      return;
+    }
+    var list = res.data || [];
+    if (list.length === 0) {
+      listEl.innerHTML = '<div class="orders-empty"><div class="empty-icon">📦</div><p>暂无已支付订单</p></div>';
+      return;
+    }
+    // 更新徽章
+    var badge = document.getElementById('ordersBadge');
+    badge.textContent = list.length;
+    badge.style.display = 'inline-block';
+
+    var html = '';
+    for (var i = 0; i < list.length; i++) {
+      var o = list[i];
+      var statusClass = o.status === 2 ? 'completed' : 'paid';
+      var coverHtml = o.cover_image
+        ? '<img class="order-cover" src="' + o.cover_image + '" alt="">'
+        : '<div class="order-cover" style="display:flex;align-items:center;justify-content:center;font-size:24px;background:#f0f0f0">🖼️</div>';
+      html += '<div class="order-card" onclick="goOrderDownload(\'' + o.order_no + '\')">' +
+        coverHtml +
+        '<div class="order-info">' +
+          '<div class="order-top">' +
+            '<span class="order-pkg">' + o.package_name + '</span>' +
+            '<span class="order-status ' + statusClass + '">' + o.status_text + '</span>' +
+          '</div>' +
+          '<div class="order-meta">' +
+            '<span>📷 ' + o.selected_count + '张</span>' +
+            '<span>' + o.pay_time + '</span>' +
+          '</div>' +
+          '<div class="order-bottom">' +
+            '<span class="order-amount">¥' + parseFloat(o.actual_amount).toFixed(2) + '</span>' +
+            '<span class="order-download">查看下载 ›</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+    listEl.innerHTML = html;
+    myOrdersLoaded = true;
+  });
+}
+
+function goOrderDownload(orderNo) {
+  window.location.href = '/public/pick/download.html?order_no=' + encodeURIComponent(orderNo);
+}
+</script>
+</body>
+</html>

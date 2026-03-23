@@ -384,6 +384,21 @@ class Payorder
                 Log::error('创作会员激活失败: '.$e->getMessage());
             }
             return ['status'=>1,'msg'=>''];
+        }elseif($type=='ai_travel_photo'){
+            // 笑脸抓拍选片订单支付回调
+            try {
+                $pickService = new \app\service\AiTravelPhotoPickService();
+                $order = \app\model\AiTravelPhotoOrder::find($payorder['orderid']);
+                if ($order) {
+                    $pickService->paySuccessfulfilment($order->order_no, [
+                        'transaction_id' => $paynum ?: '',
+                        'pay_type' => $paytype,
+                    ]);
+                }
+            } catch(\Exception $e) {
+                Log::error('AI旅拍选片支付回调失败: '.$e->getMessage());
+            }
+            return ['status'=>1,'msg'=>''];
         }else{
 			Db::name($type.'_order')->where('id',$payorder['orderid'])->update(['status'=>1,'paytime'=>time(),'paytype'=>$paytype,'paytypeid'=>$paytypeid,'paynum'=>$paynum,'platform'=>$payorder['platform']]);
 		}

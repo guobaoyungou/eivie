@@ -54,7 +54,7 @@
           
           <!-- 操作列模板 -->
           <script type="text/html" id="barTpl">
-            <button class="table-btn" onclick="viewQrcode('{{d.qrcode}}')">查看二维码</button>
+            <button class="table-btn" onclick="generateMpQrcode('{{d.qrcode}}')">公众号二维码</button>
             <button class="table-btn" onclick="viewPortrait({{d.portrait_id}})">查看人像</button>
           </script>
         </div>
@@ -136,14 +136,14 @@
         {field: 'scan_count', title: '扫码次数', width: 100, sort: true},
         {field: 'status', title: '状态', width: 100, templet: function(d){
           var now = Math.floor(Date.now() / 1000);
-          if(d.expire_time > now){
+          if(d.expire_time == 0 || d.expire_time > now){
             return '<span style="color:#5FB878;">有效</span>';
           } else {
             return '<span style="color:#FF5722;">已过期</span>';
           }
         }},
         {field: 'expire_time', title: '过期时间', width: 160, templet: function(d){
-          return d.expire_time ? date('Y-m-d H:i:s', d.expire_time) : '-';
+          return d.expire_time ? date('Y-m-d H:i:s', d.expire_time) : '永不过期';
         }},
         {field: 'create_time', title: '创建时间', width: 160, templet: function(d){
           return d.create_time ? date('Y-m-d H:i:s', d.create_time) : '-';
@@ -163,8 +163,52 @@
     renderTable();
   }
   
-  // 查看二维码
+  // 生成公众号带参二维码
+  function generateMpQrcode(qrcode) {
+    var loadingIdx = layer.load(1, {shade: [0.3, '#000']});
+    $.ajax({
+      url: '{:url("generate_mp_qrcode")}',
+      type: 'POST',
+      data: {qrcode: qrcode},
+      dataType: 'json',
+      success: function(res) {
+        layer.close(loadingIdx);
+        if (res.status === 1) {
+          var expireDays = Math.floor((res.expire_seconds || 2592000) / 86400);
+          layer.open({
+            type: 1,
+            title: '公众号选片二维码',
+            area: ['420px', '520px'],
+            content: '<div style="padding:20px;text-align:center;">' +
+              '<img src="' + res.url + '" style="width:280px;height:280px;">' +
+              '<p style="margin-top:15px;font-size:14px;color:#333;font-weight:bold;">扫码关注公众号，查看专属写真</p>' +
+              '<p style="margin-top:8px;font-size:12px;color:#999;">用户扫码关注后自动推送选片链接</p>' +
+              '<p style="margin-top:4px;font-size:12px;color:#ff9500;">有效期' + expireDays + '天，过期后需重新生成</p>' +
+              '<p style="margin-top:12px;"><a href="' + res.url + '" download="qrcode_' + qrcode + '.jpg" target="_blank" class="layui-btn layui-btn-sm layui-btn-normal"><i class="layui-icon layui-icon-download-circle"></i> 下载二维码</a></p>' +
+              '</div>'
+          });
+        } else {
+          layer.msg(res.msg || '生成失败', {icon: 2});
+        }
+      },
+      error: function(xhr, status, error) {
+        layer.close(loadingIdx);
+        console.error('generate_mp_qrcode error:', status, error, xhr.responseText);
+        var errDetail = '';
+        try {
+          var res = JSON.parse(xhr.responseText);
+          if (res && res.msg) errDetail = res.msg;
+        } catch(e) {
+          errDetail = xhr.responseText ? xhr.responseText.substring(0, 200) : ('状态码:' + xhr.status);
+        }
+        layer.msg(errDetail || '请求失败，请稍后重试', {icon: 2, time: 5000});
+      }
+    });
+  }
+
+  // 查看二维码（保留作为备用）
   function viewQrcode(qrcode) {
+    var pickUrl = window.location.protocol + '//' + window.location.host + '/public/pick/index.html?qr=' + encodeURIComponent(qrcode);
     layer.open({
       type: 1,
       title: '选片二维码',
@@ -173,15 +217,16 @@
         '<div id="qrcodeContainer"></div>' +
         '<p style="margin-top:15px;font-size:14px;color:#666;">扫码查看和购买</p>' +
         '<p style="margin-top:10px;font-size:12px;color:#999;">二维码ID: ' + qrcode + '</p>' +
+        '<p style="margin-top:8px;"><a href="' + pickUrl + '" target="_blank" style="font-size:12px;color:#1E9FFF;">在浏览器中打开</a></p>' +
         '</div>',
       success: function(){
         new QRCode(document.getElementById('qrcodeContainer'), {
-          text: window.location.protocol + '//' + window.location.host + '/api/ai-travel-photo/qrcode-detail?qrid=' + qrcode,
+          text: pickUrl,
           width: 256,
           height: 256,
           colorDark: '#000000',
           colorLight: '#ffffff',
-          correctLevel: QRCode.CorrectLevel.H
+          correctLevel: QRCode.CorrectLevel.M
         });
       }
     });

@@ -47,11 +47,11 @@
       cols: [[
         {field: 'id', title: 'ID', width: 80, sort: true},
         {field: 'name', title: '套餐名称', width: 200},
-        {field: 'photo_count', title: '包含图片数', width: 120, templet: function(d){
-          return d.photo_count + '张';
+        {field: 'num', title: '包含图片数', width: 120, templet: function(d){
+          return d.num + '张';
         }},
-        {field: 'video_count', title: '包含视频数', width: 120, templet: function(d){
-          return d.video_count + '个';
+        {field: 'video_num', title: '包含视频数', width: 120, templet: function(d){
+          return d.video_num + '个';
         }},
         {field: 'price', title: '套餐价格', width: 120, templet: function(d){
           return '¥' + d.price;

@@ -84,7 +84,7 @@ class AiTravelPhotoResult extends Model
     const TYPE_BUTTERFLY = 16;      // 蝴蝶光镜头
     const TYPE_REMBRANDT = 17;      // 伦勃朗光镜头
     const TYPE_SPLIT = 18;          // 分割光镜头
-    const TYPE_VIDEO = 19;          // 视频
+    // TYPE_VIDEO = 19 已在上方多图输出类型区域定义，此处不再重复定义
     
     /**
      * 关联生成记录

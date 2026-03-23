@@ -46,6 +46,8 @@ class AiTravelPhotoPackage extends Model
         'end_time' => 'integer',
         'create_time' => 'integer',
         'update_time' => 'integer',
+        'unit_price' => 'float',
+        'is_default' => 'integer',
     ];
     
     // 状态常量

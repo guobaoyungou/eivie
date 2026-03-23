@@ -1129,7 +1129,16 @@ class AiTravelPhoto extends Common
 
         if (request()->isPost()) {
             try {
-                $data = input('post.');
+                $post = input('post.');
+                
+                // 白名单字段，避免传入数据库不存在的字段
+                $allowFields = ['name', 'desc', 'num', 'video_num', 'price', 'original_price', 'unit_price', 'sort', 'status', 'label', 'is_default', 'is_recommend', 'tag', 'tag_color', 'valid_days', 'stock'];
+                $data = [];
+                foreach ($allowFields as $field) {
+                    if (isset($post[$field])) {
+                        $data[$field] = $post[$field];
+                    }
+                }
                 $data['aid'] = $this->aid;
                 $data['bid'] = $this->bid;
 
@@ -2412,7 +2421,7 @@ class AiTravelPhoto extends Common
             ->alias('o')
             ->leftJoin('member m', 'o.uid = m.id')
             ->where('o.id', $id)
-            ->field('o.*, m.nickname, m.tel as mobile, m.headimg')
+            ->field('o.*, o.openid, m.nickname, m.tel as mobile, m.headimg')
             ->find();
 
         if (!$order) {
@@ -2424,7 +2433,7 @@ class AiTravelPhoto extends Common
             ->alias('g')
             ->leftJoin('ai_travel_photo_result r', 'g.result_id = r.id')
             ->where('g.order_id', $id)
-            ->field('g.*, r.url, r.thumbnail_url, r.type as result_type')
+            ->field('g.*, g.goods_image, g.type, g.num, r.url, r.thumbnail_url, r.type as result_type')
             ->select();
 
         View::assign('order', $order);
@@ -2634,10 +2643,18 @@ class AiTravelPhoto extends Common
                     $where[] = ['p.mdid', '=', $mdid];
                 }
 
-                // 状态筛选
+                // 状态筛选（综合status字段和expire_time判断）
                 $status = input('param.status', '');
-                if ($status !== '') {
-                    $where[] = ['q.status', '=', $status];
+                if ($status === '1') {
+                    // 有效：status=1 且 未过期（expire_time=0表示永不过期，或expire_time>当前时间）
+                    $where[] = ['q.status', '=', 1];
+                    $now = time();
+                    // expire_time=0 或 expire_time>当前时间
+                    $where[] = ['', 'exp', Db::raw("(q.expire_time = 0 OR q.expire_time > {$now})")];
+                } elseif ($status === '0') {
+                    // 已过期：status=0 或 (expire_time>0 且 expire_time<=当前时间)
+                    $now = time();
+                    $where[] = ['', 'exp', Db::raw("(q.status = 0 OR (q.expire_time > 0 AND q.expire_time <= {$now}))")];
                 }
 
                 // 日期范围筛选
@@ -2698,6 +2715,102 @@ class AiTravelPhoto extends Common
 
         View::assign('mendian_list', $mendian_list);
         return View::fetch();
+    }
+
+    /**
+     * 生成公众号带参二维码（选片入口）
+     * POST (AJAX)
+     * 参数：qrcode - 二维码标识字符串
+     * 返回：{status: 1, url: '公众号二维码图片URL'} 或错误信息
+     *
+     * 使用微信临时带参二维码（QR_STR_SCENE），有效期30天
+     * scene格式：pick_{qrcode标识}
+     * 用户扫码后关注公众号 → 自动注册会员(获得uid) → 回复选片链接
+     */
+    public function generate_mp_qrcode()
+    {
+        $qrcode = input('post.qrcode', '');
+        if (empty($qrcode)) {
+            return json(['status' => 0, 'msg' => '缺少二维码参数']);
+        }
+
+        Log::info('generate_mp_qrcode 开始', ['aid' => $this->aid, 'bid' => $this->bid, 'qrcode' => $qrcode]);
+
+        // 验证qrcode属于当前商家
+        $targetBid = $this->bid;
+        if ($targetBid == 0) {
+            $targetBid = Db::name('business')->where('aid', $this->aid)->value('id');
+        }
+
+        $record = Db::name('ai_travel_photo_qrcode')
+            ->where('qrcode', $qrcode)
+            ->where('aid', $this->aid)
+            ->where('bid', $targetBid)
+            ->find();
+
+        if (!$record) {
+            Log::error('generate_mp_qrcode 二维码记录不存在', ['qrcode' => $qrcode, 'aid' => $this->aid, 'bid' => $targetBid]);
+            return json(['status' => 0, 'msg' => '二维码记录不存在']);
+        }
+
+        // 检查公众号配置
+        $mpappinfo = Db::name('admin_setapp_mp')->where('aid', $this->aid)->find();
+        if (!$mpappinfo || empty($mpappinfo['appid'])) {
+            Log::error('generate_mp_qrcode 公众号未绑定', ['aid' => $this->aid]);
+            return json(['status' => 0, 'msg' => '请先绑定微信公众号']);
+        }
+
+        try {
+            // 生成带参数临时二维码（有效期30天）
+            $scene = 'pick_' . $qrcode;
+
+            // 使用输出缓冲区捕获access_token中可能的echojson输出
+            ob_start();
+            $access_token = \app\common\Wechat::access_token($this->aid, 'mp');
+            $ob_output = ob_get_clean();
+
+            if (!$access_token) {
+                // 如果access_token为空，检查是否有被echojson输出的错误信息
+                if ($ob_output) {
+                    $ob_data = json_decode($ob_output, true);
+                    $errMsg = $ob_data['msg'] ?? 'access_token获取失败';
+                    Log::error('generate_mp_qrcode access_token失败(echojson)', ['output' => $ob_output]);
+                    return json(['status' => 0, 'msg' => $errMsg]);
+                }
+                Log::error('generate_mp_qrcode access_token为空', ['aid' => $this->aid]);
+                return json(['status' => 0, 'msg' => 'access_token获取失败，请检查公众号配置']);
+            }
+
+            $url = 'https://api.weixin.qq.com/cgi-bin/qrcode/create?access_token=' . $access_token;
+            $postData = [
+                'expire_seconds' => 2592000, // 30天
+                'action_name' => 'QR_STR_SCENE',
+                'action_info' => ['scene' => ['scene_str' => $scene]]
+            ];
+
+            $rs = request_post($url, jsonEncode($postData));
+            $result = json_decode($rs, true);
+
+            Log::info('generate_mp_qrcode 微信API响应', ['scene' => $scene, 'result' => $result]);
+
+            if (!$result || empty($result['ticket'])) {
+                $errMsg = isset($result['errmsg']) ? $result['errmsg'] : '未知错误';
+                Log::error('generate_mp_qrcode 生成失败', ['result' => $result]);
+                return json(['status' => 0, 'msg' => '生成二维码失败：' . $errMsg]);
+            }
+
+            // 获取二维码图片URL
+            $qrcodeUrl = 'https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=' . urlencode($result['ticket']);
+
+            return json([
+                'status' => 1,
+                'url' => $qrcodeUrl,
+                'expire_seconds' => $result['expire_seconds'] ?? 2592000
+            ]);
+        } catch (\Exception $e) {
+            Log::error('generate_mp_qrcode 异常', ['msg' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return json(['status' => 0, 'msg' => '生成失败：' . $e->getMessage()]);
+        }
     }
 
     /**

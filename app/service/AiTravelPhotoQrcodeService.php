@@ -6,8 +6,10 @@ namespace app\service;
 use app\model\AiTravelPhotoQrcode;
 use app\model\AiTravelPhotoPortrait;
 use app\common\OssHelper;
+use app\common\Wechat;
 use think\exception\ValidateException;
 use think\facade\Cache;
+use think\facade\Log;
 
 /**
  * AI旅拍-二维码管理服务
@@ -20,7 +22,19 @@ class AiTravelPhotoQrcodeService
     
     public function __construct()
     {
-        $this->ossHelper = new OssHelper();
+        // OssHelper 采用延迟初始化，避免不需要 OSS 的方法触发 SDK 加载
+    }
+    
+    /**
+     * 获取 OssHelper 实例（延迟初始化）
+     * @return OssHelper
+     */
+    private function getOssHelper(): OssHelper
+    {
+        if ($this->ossHelper === null) {
+            $this->ossHelper = new OssHelper();
+        }
+        return $this->ossHelper;
     }
     
     /**
@@ -128,7 +142,7 @@ class AiTravelPhotoQrcodeService
         // 上传到OSS
         try {
             $ossPath = 'ai_travel_photo/qrcode/' . date('Ymd') . '/' . $qrcodeStr . '.png';
-            $qrcodeUrl = $this->ossHelper->uploadFile($tempFile, $ossPath);
+            $qrcodeUrl = $this->getOssHelper()->uploadFile($tempFile, $ossPath);
             
             // 删除临时文件
             @unlink($tempFile);
@@ -377,5 +391,169 @@ class AiTravelPhotoQrcodeService
         }
         
         return $result;
+    }
+    
+    /**
+     * 生成微信公众号带参数永久二维码
+     * @param int $portraitId 人像ID
+     * @param int $aid 平台ID
+     * @param int $bid 商家ID
+     * @return string 公众号二维码图片URL
+     */
+    public function generateMpQrcode(int $portraitId, int $aid, int $bid): string
+    {
+        // 1. 检查是否已有 qrcode_type=2 的公众号二维码记录
+        $existQrcode = AiTravelPhotoQrcode::where('portrait_id', $portraitId)
+            ->where('qrcode_type', AiTravelPhotoQrcode::QRCODE_TYPE_MP)
+            ->where('status', AiTravelPhotoQrcode::STATUS_VALID)
+            ->find();
+        
+        if ($existQrcode && !empty($existQrcode->mp_qrcode_url)) {
+            return $existQrcode->mp_qrcode_url;
+        }
+        
+        // 2. 构建 scene_str，格式为 portraitId_{ID}-bid_{bid}
+        $sceneStr = 'portraitId_' . $portraitId . '-bid_' . $bid;
+        
+        // 3. 调用 Wechat::getQRCode 生成公众号永久二维码
+        try {
+            $result = Wechat::getQRCode($aid, 'mp', '', $sceneStr, $bid);
+            
+            if (!$result || $result['status'] != 1 || empty($result['url'])) {
+                Log::write('[公众号二维码生成失败] portraitId=' . $portraitId . ' result=' . json_encode($result), 'error');
+                return '';
+            }
+            
+            $mpQrcodeUrl = $result['url'];
+            
+            // 4. 保存公众号二维码记录
+            if ($existQrcode) {
+                // 更新已有记录
+                $existQrcode->mp_qrcode_url = $mpQrcodeUrl;
+                $existQrcode->save();
+            } else {
+                // 创建新记录
+                AiTravelPhotoQrcode::create([
+                    'aid' => $aid,
+                    'portrait_id' => $portraitId,
+                    'bid' => $bid,
+                    'qrcode' => 'MP_' . $sceneStr,
+                    'qrcode_url' => '',
+                    'mp_qrcode_url' => $mpQrcodeUrl,
+                    'qrcode_type' => AiTravelPhotoQrcode::QRCODE_TYPE_MP,
+                    'status' => AiTravelPhotoQrcode::STATUS_VALID,
+                    'expire_time' => 0, // 永久二维码
+                ]);
+            }
+            
+            return $mpQrcodeUrl;
+            
+        } catch (\Exception $e) {
+            Log::write('[公众号二维码生成异常] portraitId=' . $portraitId . ' error=' . $e->getMessage(), 'error');
+            return '';
+        }
+    }
+    
+    /**
+     * 获取选片列表数据（供XPD大屏使用）
+     * @param int $aid 平台ID
+     * @param int $bid 商家ID
+     * @param int $mdid 门店ID
+     * @param int $limit 返回数量上限
+     * @return array
+     */
+    public function getSelectionList(int $aid, int $bid, int $mdid = 0, int $limit = 15): array
+    {
+        // 查询人像列表，按 create_time 倒序
+        $query = AiTravelPhotoPortrait::where('aid', $aid)
+            ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL);
+        
+        // bid>0 时按商家筛选，否则仅按门店筛选
+        if ($bid > 0) {
+            $query->where('bid', $bid);
+        }
+        if ($mdid > 0) {
+            $query->where('mdid', $mdid);
+        }
+        
+        $portraits = $query->order('create_time', 'desc')
+            ->limit($limit)
+            ->select();
+        
+        if ($portraits->isEmpty()) {
+            return ['list' => [], 'config' => $this->getXpdConfig($bid, $mdid)];
+        }
+        
+        $list = [];
+        foreach ($portraits as $portrait) {
+            // 查询该人像的成片
+            $results = \app\model\AiTravelPhotoResult::where('portrait_id', $portrait->id)
+                ->where('status', \app\model\AiTravelPhotoResult::STATUS_NORMAL)
+                ->order('type', 'asc')
+                ->select();
+            
+            if ($results->isEmpty()) {
+                continue; // 跳过没有成片的人像
+            }
+            
+            // 获取或生成选片页二维码
+            $qrcodeRecord = AiTravelPhotoQrcode::where('portrait_id', $portrait->id)
+                ->where('qrcode_type', AiTravelPhotoQrcode::QRCODE_TYPE_PICK)
+                ->where('status', AiTravelPhotoQrcode::STATUS_VALID)
+                ->find();
+            $qrcodeStr = $qrcodeRecord ? $qrcodeRecord->qrcode : '';
+            
+            // 获取或生成公众号二维码
+            $mpQrcodeUrl = $this->generateMpQrcode($portrait->id, $aid, $bid);
+            
+            $resultList = [];
+            foreach ($results as $result) {
+                $resultList[] = [
+                    'id' => $result->id,
+                    'type' => $result->type,
+                    'watermark_url' => $result->watermark_url ?: $result->url,
+                    'thumbnail_url' => $result->thumbnail_url ?: '',
+                    'video_duration' => $result->video_duration ?: 0,
+                ];
+            }
+            
+            $list[] = [
+                'id' => $portrait->id,
+                'original_url' => $portrait->original_url,
+                'thumbnail_url' => $portrait->thumbnail_url ?: $portrait->original_url,
+                'create_time' => $portrait->create_time,
+                'results' => $resultList,
+                'mp_qrcode_url' => $mpQrcodeUrl,
+                'qrcode' => $qrcodeStr,
+            ];
+        }
+        
+        return [
+            'list' => $list,
+            'config' => $this->getXpdConfig($bid, $mdid),
+        ];
+    }
+    
+    /**
+     * 获取XPD配置
+     * @param int $bid 商家ID
+     * @param int $mdid 门店ID
+     * @return array
+     */
+    private function getXpdConfig(int $bid, int $mdid = 0): array
+    {
+        $mendian = null;
+        // 优先按 mdid 查询门店配置
+        if ($mdid > 0) {
+            $mendian = \think\facade\Db::name('mendian')->where('id', $mdid)->find();
+        }
+        // 降级按 bid 查询第一个门店
+        if (!$mendian && $bid > 0) {
+            $mendian = \think\facade\Db::name('mendian')->where('bid', $bid)->order('id asc')->find();
+        }
+        return [
+            'image_duration' => $mendian['xpd_image_duration'] ?? 1000,
+            'group_duration' => $mendian['xpd_group_duration'] ?? 5000,
+        ];
     }
 }

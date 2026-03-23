@@ -39,6 +39,8 @@ class AiTravelPhotoOrderGoods extends Model
         'total_price' => 'float',
         'status' => 'integer',
         'create_time' => 'integer',
+        'is_downloaded' => 'integer',
+        'download_time' => 'integer',
     ];
     
     // 状态常量

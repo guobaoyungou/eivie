@@ -102,7 +102,7 @@
             <h3>订单基本信息</h3>
             <div class="order-info-row">
               <div class="order-info-label">订单号：</div>
-              <div class="order-info-value">{$order.order_sn}</div>
+              <div class="order-info-value">{$order.order_no}</div>
             </div>
             <div class="order-info-row">
               <div class="order-info-label">创建时间：</div>
@@ -127,9 +127,10 @@
               <div class="order-info-label">支付方式：</div>
               <div class="order-info-value">
                 {switch $order.pay_type}
-                {case 1}微信支付{/case}
-                {case 2}支付宝{/case}
-                {case 3}余额支付{/case}
+                {case wxpay}微信支付{/case}
+                {case wechat}微信支付{/case}
+                {case alipay}支付宝{/case}
+                {case balance}余额支付{/case}
                 {default /}未知{/switch}
               </div>
             </div>
@@ -144,10 +145,24 @@
               {/if}
               <div>
                 <div style="margin-bottom: 8px;">
-                  <span style="font-weight: bold;">昵称：</span>{$order.nickname ?: '未知'}
+                  <span style="font-weight: bold;">昵称：</span>
+                  {if $order.nickname}
+                    {$order.nickname}
+                  {elseif $order.openid /}
+                    H5扫码用户（{$order.openid|substr=###,-6}）
+                  {else /}
+                    未知
+                  {/if}
                 </div>
                 <div>
-                  <span style="font-weight: bold;">手机号：</span>{$order.mobile ?: '未绑定'}
+                  <span style="font-weight: bold;">手机号：</span>
+                  {if $order.mobile}
+                    {$order.mobile}
+                  {elseif $order.openid /}
+                    H5扫码用户（无手机号绑定）
+                  {else /}
+                    未绑定
+                  {/if}
                 </div>
               </div>
             </div>
@@ -170,22 +185,26 @@
                 {foreach $goods as $item}
                 <tr>
                   <td>
-                    {if $item.thumbnail_url}
+                    {if $item.goods_image}
+                    <img src="{$item.goods_image}" class="goods-thumbnail" onclick="layer.photos({photos: {data: [{src: '{$item.goods_image}'}]}, anim: 5});">
+                    {elseif $item.thumbnail_url /}
                     <img src="{$item.thumbnail_url}" class="goods-thumbnail" onclick="layer.photos({photos: {data: [{src: '{$item.url}'}]}, anim: 5});">
-                    {else}
+                    {elseif $item.url /}
+                    <img src="{$item.url}?imageMogr2/thumbnail/200x200" class="goods-thumbnail" onclick="layer.photos({photos: {data: [{src: '{$item.url}'}]}, anim: 5});">
+                    {else /}
                     暂无图片
                     {/if}
                   </td>
                   <td>
-                    {if $item.result_type < 19}
-                    图片
-                    {else}
+                    {if $item.type == 2}
                     视频
+                    {else /}
+                    图片
                     {/if}
                   </td>
-                  <td>{$item.quantity}</td>
+                  <td>{$item.num}</td>
                   <td>¥{$item.price}</td>
-                  <td>¥{$item.quantity * $item.price}</td>
+                  <td>¥{$item.num * $item.price}</td>
                 </tr>
                 {/foreach}
               </tbody>
@@ -198,7 +217,7 @@
             <div class="amount-summary">
               <div class="amount-row">
                 <label>商品总额：</label>
-                <span>¥{$order.goods_amount ?: $order.total_amount}</span>
+                <span>¥{$order.total_price}</span>
               </div>
               {if $order.discount_amount > 0}
               <div class="amount-row">
@@ -208,7 +227,7 @@
               {/if}
               <div class="amount-row total">
                 <label>实付金额：</label>
-                <span>¥{$order.total_amount}</span>
+                <span>¥{$order.actual_amount}</span>
               </div>
             </div>
           </div>
