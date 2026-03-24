@@ -1,5 +1,22 @@
 <?php
 $admin = db('admin')->where('id',$aid)->find();
+
+// 从auth_data中提取模块前缀权限（用于通配符匹配）
+// Common.php中auth_data已被展平为一维数组如 ['PhotoGeneration/task_create', 'VideoGeneration/record_list', ...]
+// 视图中 in_array('PhotoGeneration/*', $auth_data) 无法匹配，需要补充通配符
+$auth_module_prefixes = [];
+if(is_array($auth_data) && $auth_data != 'all'){
+	foreach($auth_data as $p){
+		if(is_string($p) && preg_match('#^([A-Za-z]+)/#', $p, $m)){
+			$prefix = $m[1].'/*';
+			if(!in_array($prefix, $auth_module_prefixes)){
+				$auth_module_prefixes[] = $prefix;
+			}
+		}
+	}
+	$auth_data = array_merge($auth_data, $auth_module_prefixes);
+}
+
 //商品分类
 $clist = db('shop_category')->field('id,name,pic')->where('aid',aid)->where('status',1)->where('pid',0)->order('sort desc,id')->select()->toArray();
 foreach($clist as $k=>$v){
@@ -69,6 +86,15 @@ foreach($kecheng_clist as $k=>$v){
 }
 //周期购分类
 $cycle_clist = db('cycle_category')->field('id,name,pic')->where('aid',aid)->where('status',1)->where('pid',0)->order('sort desc,id')->select()->toArray();
+
+//场景分类（图片生成）
+$photo_scene_clist = db('generation_scene_category')->field('id,name')->where('aid',aid)->where('generation_type',1)->where('status',1)->order('sort desc,id')->select()->toArray();
+//场景分类（视频生成）
+$video_scene_clist = db('generation_scene_category')->field('id,name')->where('aid',aid)->where('generation_type',2)->where('status',1)->order('sort desc,id')->select()->toArray();
+//场景分组（图片生成）
+$photo_scene_glist = db('generation_scene_group')->field('id,name')->where('aid',aid)->where('generation_type',1)->where('status',1)->order('sort desc,id')->select()->toArray();
+//场景分组（视频生成）
+$video_scene_glist = db('generation_scene_group')->field('id,name')->where('aid',aid)->where('generation_type',2)->where('status',1)->order('sort desc,id')->select()->toArray();
 
 if(getcustom('car_hailing')){
 	$carhailing_clist = db('car_hailing_category')->field('id,name,pic')->where('aid',aid)->where('bid',$bid)->where('status',1)->where('pid',0)->order('sort desc,id')->select()->toArray();

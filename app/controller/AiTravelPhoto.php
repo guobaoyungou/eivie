@@ -5322,14 +5322,9 @@ class AiTravelPhoto extends Common
             ->find();
         
         \think\facade\Log::info('Synthesis setting loaded', [
-            'current_bid' => $this->bid,
             'target_bid' => $targetBid,
-            'aid' => $this->aid,
-            'portrait_id' => 0,
             'setting_found' => !empty($setting),
-            'setting_id' => $setting['id'] ?? 'none',
-            'template_ids' => $setting['template_ids'] ?? 'none',
-            'sql' => Db::name('ai_travel_photo_synthesis_setting')->getLastSql()
+            'template_ids' => $setting['template_ids'] ?? 'none'
         ]);
 
         // 获取可用的照片场景模板列表（从generation_scene_template表查询，generation_type=1为照片生成）
@@ -5367,12 +5362,8 @@ class AiTravelPhoto extends Common
         View::assign('templates', $templates);
         
         \think\facade\Log::info('Synthesis settings view data', [
-            'portrait_id' => 0,
-            'setting_assigned' => !empty($setting),
-            'template_ids' => $setting['template_ids'] ?? 'none',
-            'templates_count' => count($templates),
-            'template_ids_in_view' => !empty($templates) ? array_column($templates->toArray(), 'id') : [],
-            'first_few_templates' => !empty($templates) ? array_slice($templates->toArray(), 0, 3) : []
+            'setting_found' => !empty($setting),
+            'template_ids' => $setting['template_ids'] ?? 'none'
         ]);
         
         return View::fetch();
@@ -5432,8 +5423,7 @@ class AiTravelPhoto extends Common
             ];
             
             \think\facade\Log::info('Synthesis settings saving', [
-                'template_ids_array' => $templateIds,
-                'template_ids_imploded' => implode(',', $templateIds)
+                'template_ids' => implode(',', $templateIds)
             ]);
 
             // 检查是否已存在设置
@@ -5442,13 +5432,10 @@ class AiTravelPhoto extends Common
                 ->where('aid', $this->aid)
                 ->where('bid', $targetBid)  // 修复：使用targetBid而不是$this->bid
                 ->find();
-            
+
             \think\facade\Log::info('Checking existing setting', [
-                'portrait_id' => $portraitId,
-                'aid' => $this->aid,
                 'target_bid' => $targetBid,
-                'exists' => !empty($exists),
-                'existing_id' => $exists['id'] ?? 'none'
+                'exists' => !empty($exists)
             ]);
 
             if ($exists) {

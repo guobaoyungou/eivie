@@ -122,26 +122,12 @@
     setTimeout(function() {
       // 清空已选模板数组，确保不会残留旧数据
       selectedTemplateIds = [];
-      console.log('Cleared selectedTemplateIds, current length:', selectedTemplateIds.length);
       
       // 初始化模板数据
       initTemplatesData();
 
       // 加载已保存的全局设置（portrait_id=0）
       var setting = {:empty($setting) ? 'null' : json_encode($setting)};
-      console.log('Setting data:', setting); // 调试日志
-      console.log('PHP setting var:', '{$setting|json_encode}');
-      console.log('Template IDs raw:', setting ? setting.template_ids : 'no setting');
-      
-      // 输出页面上实际渲染的模板
-      var renderedTemplates = [];
-      document.querySelectorAll('.template-item').forEach(function(item){
-        renderedTemplates.push({
-          id: item.getAttribute('data-id'),
-          name: item.getAttribute('data-name')
-        });
-      });
-      console.log('Rendered templates on page:', renderedTemplates);
       
       if(setting && setting.template_ids){
         // 设置合成数量
@@ -152,27 +138,16 @@
 
         // 选中已保存的模板
         var savedTemplateIds = setting.template_ids ? setting.template_ids.split(',') : [];
-        console.log('Saved template IDs:', savedTemplateIds); // 调试日志
-        console.log('Raw template_ids string:', setting.template_ids);
-        
-        // 再次检查模板是否加载完成
-        console.log('Templates in DOM:', document.querySelectorAll('.template-item').length);
         
         savedTemplateIds.forEach(function(id){
-          if(id && id.trim() !== '') { // 确保id不为空或空白
+          if(id && id.trim() !== '') {
             var templateId = parseInt(id.trim());
-            console.log('Selecting template ID:', templateId);
             selectTemplateById(templateId);
           }
         });
 
         form.render('radio');
         updateModeDesc();
-        
-        // 检查最终选中的模板
-        console.log('Final selected templates:', selectedTemplateIds);
-      } else {
-        console.log('No setting found');
       }
 
       // 监听模式切换
@@ -185,7 +160,6 @@
   // 初始化模板数据
   function initTemplatesData(){
     var items = document.querySelectorAll('.template-item');
-    console.log('Initializing templates, found items:', items.length);
     allTemplates = []; // 清空数组，避免重复
     items.forEach(function(item){
       var idStr = item.getAttribute('data-id');
@@ -193,16 +167,13 @@
       var name = item.getAttribute('data-name');
       var type = item.getAttribute('data-type');
       allTemplates.push({id: id, name: name, type: type, element: item, idStr: idStr});
-      console.log('Template loaded:', {id: id, name: name, idStr: idStr});
     });
-    console.log('All templates initialized:', allTemplates);
   }
 
   // 根据ID选中模板
   function selectTemplateById(id){
     // 检查是否已存在
     if(selectedTemplateIds.indexOf(id) > -1){
-      console.log('Template already selected:', id);
       return;
     }
     selectedTemplateIds.push(id);
@@ -217,7 +188,6 @@
         var itemId = parseInt(items[i].getAttribute('data-id'));
         if(itemId === id) {
           item = items[i];
-          console.log('Found template by iteration, ID:', id);
           break;
         }
       }
@@ -225,12 +195,6 @@
     
     if(item){
       item.classList.add('selected');
-      console.log('Template selected successfully:', id);
-    } else {
-      console.warn('Template element not found for ID:', id);
-      console.warn('Available template IDs:', Array.from(document.querySelectorAll('.template-item')).map(function(el) {
-        return el.getAttribute('data-id');
-      }));
     }
     updateSelectedDisplay();
   }
@@ -301,10 +265,6 @@
       // 从 allTemplates 数组中查找模板信息
       var template = allTemplates.find(function(t) { return t.id === id; });
       var name = template ? template.name : '模板' + id;
-      
-      if(!template) {
-        console.warn('Template not found in allTemplates for ID:', id, 'Available IDs:', allTemplates.map(function(t) { return t.id; }));
-      }
       
       html += '<span class="selected-item">';
       html += name;

@@ -2,6 +2,22 @@
 $admin = db('admin')->where('id',$aid)->find();
 $bset = db('business_sysset')->where('aid',aid)->find();
 
+// 从auth_data中提取模块前缀权限（用于通配符匹配）
+// Common.php中auth_data已被展平为一维数组如 ['PhotoGeneration/task_create', 'VideoGeneration/record_list', ...]
+// 视图中 in_array('PhotoGeneration/*', $auth_data) 无法匹配，需要补充通配符
+$auth_module_prefixes = [];
+if(is_array($auth_data) && $auth_data != 'all'){
+	foreach($auth_data as $p){
+		if(is_string($p) && preg_match('#^([A-Za-z]+)/#', $p, $m)){
+			$prefix = $m[1].'/*';
+			if(!in_array($prefix, $auth_module_prefixes)){
+				$auth_module_prefixes[] = $prefix;
+			}
+		}
+	}
+	$auth_data = array_merge($auth_data, $auth_module_prefixes);
+}
+
 //商品分类
 $clist = db('shop_category')->field('id,name,pic')->where('aid',aid)->where('status',1)->where('pid',0)->order('sort desc,id')->select()->toArray();
 foreach($clist as $k=>$v){
