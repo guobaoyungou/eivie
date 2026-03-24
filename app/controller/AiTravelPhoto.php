@@ -1253,9 +1253,19 @@ class AiTravelPhoto extends Common
 
         // 获取商户信息（云空间、余额、到期时间）
         $business = Db::name('business')->where('id', $targetBid)->find();
+        
+        // 实时计算云空间已用量（从 portrait + result 表聚合）
+        $spaceService = new \app\service\SpaceCheckService();
+        $spaceInfo = $spaceService->getUsageInfo($targetBid);
+        $cloudSpaceUsed = $spaceInfo['usedMB'];
+        $cloudSpaceTotal = $spaceInfo['totalMB'];
+        $cloudSpacePercent = $spaceInfo['percent'];
+        
         $businessInfo = [
             'id' => $targetBid,
-            'cloud_space' => $business['cloud_space'] ?? 5120,
+            'cloud_space' => $cloudSpaceTotal,
+            'cloud_space_used' => $cloudSpaceUsed,
+            'cloud_space_percent' => $cloudSpacePercent,
             'account_balance' => $business['account_balance'] ?? 0,
             'money' => $business['money'] ?? 0,
             'endtime' => $business['endtime'] ?? 0
@@ -1276,6 +1286,11 @@ class AiTravelPhoto extends Common
             ->select();
 
         View::assign('mendian_list', $mendian_list);
+
+        // 判断是否为平台管理员（bid==0），控制“充值余额”卡片可见性
+        $isAdmin = intval($this->user['bid'] ?? -1) === 0;
+        View::assign('is_admin', $isAdmin);
+
         return View::fetch();
     }
 
@@ -2337,10 +2352,21 @@ class AiTravelPhoto extends Common
         // 如果是AJAX请求，返回JSON数据
         if (request()->isAjax()) {
             try {
+                // 使用 getTargetBid 统一处理 admin(bid=0) 的情况
+                $targetBid = $this->getTargetBid();
+
                 $where = [
                     ['o.aid', '=', $this->aid],
-                    ['o.bid', '=', $this->bid]
+                    ['o.bid', '=', $targetBid]
                 ];
+
+                // 门店筛选
+                $mdid = input('param.mdid/d', 0);
+                if ($this->mdid > 0) {
+                    $where[] = ['o.mdid', '=', $this->mdid];
+                } elseif ($mdid > 0) {
+                    $where[] = ['o.mdid', '=', $mdid];
+                }
 
                 // 状态筛选
                 $status = input('param.status', '');
@@ -2358,14 +2384,22 @@ class AiTravelPhoto extends Common
                     $where[] = ['o.create_time', '<=', strtotime($end_date . ' 23:59:59')];
                 }
 
+                // 关键词搜索
+                $keyword = input('param.keyword', '');
+                if ($keyword) {
+                    $where[] = ['o.order_no|m.nickname|m.tel', 'like', '%' . $keyword . '%'];
+                }
+
                 $page = input('page/d', 1);
                 $limit = input('limit/d', 20);
 
                 $list = Db::name('ai_travel_photo_order')
                     ->alias('o')
                     ->leftJoin('ddwx_member m', 'o.uid = m.id')
+                    ->leftJoin('ddwx_payorder p', 'o.payorderid = p.id')
+                    ->leftJoin('mendian md', 'o.mdid = md.id')
                     ->where($where)
-                    ->field('o.*, m.nickname, m.tel as mobile')
+                    ->field('o.*, m.nickname, m.tel as mobile, p.paytype, p.paynum, p.paytime, md.name as mendian_name')
                     ->order('o.id DESC')
                     ->page($page, $limit)
                     ->select();
@@ -2373,15 +2407,19 @@ class AiTravelPhoto extends Common
                 // 转换为数组
                 $list = $list ? $list->toArray() : [];
 
-                // 查询订单商品数量
+                // 查询订单商品数量 + 格式化支付时间
                 foreach ($list as &$item) {
                     $item['goods_count'] = Db::name('ai_travel_photo_order_goods')
                         ->where('order_id', $item['id'])
                         ->count();
+                    $item['pay_time_text'] = !empty($item['paytime']) ? date('Y-m-d H:i:s', $item['paytime']) : '-';
+                    // 支付方式显示
+                    $item['paytype_text'] = $item['paytype'] ?: '-';
                 }
 
                 $count = Db::name('ai_travel_photo_order')
                     ->alias('o')
+                    ->leftJoin('ddwx_member m', 'o.uid = m.id')
                     ->where($where)
                     ->count();
 
@@ -2406,6 +2444,14 @@ class AiTravelPhoto extends Common
                 ]);
             }
         }
+
+        // 获取门店列表供筛选框使用
+        $targetBid = $this->getTargetBid();
+        $mendian_list = Db::name('mendian')
+            ->where('aid', $this->aid)
+            ->where('bid', $targetBid)
+            ->select()->toArray();
+        View::assign('mendian_list', $mendian_list);
 
         return View::fetch();
     }
@@ -2528,21 +2574,44 @@ class AiTravelPhoto extends Common
      */
     public function statistics()
     {
+        // 使用 getTargetBid 统一处理 admin(bid=0) 的情况
+        $targetBid = $this->getTargetBid();
+
+        // 门店筛选
+        $mdid = input('param.mdid/d', 0);
+        if ($this->mdid > 0) {
+            $mdid = $this->mdid;
+        }
+
         // 今日数据
         $today = date('Y-m-d');
         $today_stat = Db::name('ai_travel_photo_statistics')
             ->where('aid', $this->aid)
-            ->where('bid', $this->bid)
-            ->where('stat_date', $today)
-            ->find();
+            ->where('bid', $targetBid)
+            ->where('stat_date', $today);
+        if ($mdid > 0) {
+            $today_stat = $today_stat->where('mdid', $mdid);
+        }
+        $today_stat = $today_stat->find();
 
-        if (!$today_stat) {
+        // 实时兜底：当预聚合表无数据时从原始表实时聚合
+        if (!$today_stat || ($today_stat['upload_count'] == 0 && $today_stat['generation_count'] == 0 && $today_stat['video_count'] == 0)) {
+            $todayStart = strtotime($today);
+            $todayEnd = $todayStart + 86400;
+
+            $portraitWhere = [['aid', '=', $this->aid], ['bid', '=', $targetBid], ['create_time', '>=', $todayStart], ['create_time', '<', $todayEnd]];
+            $resultWhere = [['aid', '=', $this->aid], ['bid', '=', $targetBid], ['create_time', '>=', $todayStart], ['create_time', '<', $todayEnd]];
+            $orderWhere = [['aid', '=', $this->aid], ['bid', '=', $targetBid], ['create_time', '>=', $todayStart], ['create_time', '<', $todayEnd], ['status', '=', 1]];
+            if ($mdid > 0) {
+                $portraitWhere[] = ['mdid', '=', $mdid];
+            }
+
             $today_stat = [
-                'upload_count' => 0,
-                'generation_count' => 0,
-                'video_count' => 0,
-                'order_count' => 0,
-                'order_amount' => 0.00,
+                'upload_count' => Db::name('ai_travel_photo_portrait')->where($portraitWhere)->count(),
+                'generation_count' => Db::name('ai_travel_photo_result')->where($resultWhere)->where('type', 1)->count(),
+                'video_count' => Db::name('ai_travel_photo_result')->where($resultWhere)->where('type', 2)->count(),
+                'order_count' => Db::name('ai_travel_photo_order')->where($orderWhere)->count(),
+                'order_amount' => Db::name('ai_travel_photo_order')->where($orderWhere)->sum('total_price') ?: 0.00,
                 'scan_count' => 0
             ];
         }
@@ -2550,33 +2619,85 @@ class AiTravelPhoto extends Common
         // 本月数据
         $month_start = date('Y-m-01');
         $month_end = date('Y-m-d');
-        $month_stat = Db::name('ai_travel_photo_statistics')
+        $monthQuery = Db::name('ai_travel_photo_statistics')
             ->where('aid', $this->aid)
-            ->where('bid', $this->bid)
-            ->where('stat_date', 'between', [$month_start, $month_end])
+            ->where('bid', $targetBid)
+            ->where('stat_date', 'between', [$month_start, $month_end]);
+        if ($mdid > 0) {
+            $monthQuery = $monthQuery->where('mdid', $mdid);
+        }
+        $month_stat = $monthQuery
             ->field('SUM(upload_count) as upload_count, SUM(generation_count) as generation_count, SUM(video_count) as video_count, SUM(order_count) as order_count, SUM(order_amount) as order_amount, SUM(scan_count) as scan_count')
             ->find();
 
+        // 本月兜底
+        if (!$month_stat || ($month_stat['upload_count'] == 0 && $month_stat['generation_count'] == 0)) {
+            $monthStartTs = strtotime($month_start);
+            $monthEndTs = strtotime($month_end . ' 23:59:59');
+            $pWhere = [['aid', '=', $this->aid], ['bid', '=', $targetBid], ['create_time', '>=', $monthStartTs], ['create_time', '<=', $monthEndTs]];
+            $rWhere = [['aid', '=', $this->aid], ['bid', '=', $targetBid], ['create_time', '>=', $monthStartTs], ['create_time', '<=', $monthEndTs]];
+            $oWhere = [['aid', '=', $this->aid], ['bid', '=', $targetBid], ['create_time', '>=', $monthStartTs], ['create_time', '<=', $monthEndTs], ['status', '=', 1]];
+            if ($mdid > 0) {
+                $pWhere[] = ['mdid', '=', $mdid];
+            }
+
+            $month_stat = [
+                'upload_count' => Db::name('ai_travel_photo_portrait')->where($pWhere)->count(),
+                'generation_count' => Db::name('ai_travel_photo_result')->where($rWhere)->where('type', 1)->count(),
+                'video_count' => Db::name('ai_travel_photo_result')->where($rWhere)->where('type', 2)->count(),
+                'order_count' => Db::name('ai_travel_photo_order')->where($oWhere)->count(),
+                'order_amount' => Db::name('ai_travel_photo_order')->where($oWhere)->sum('total_price') ?: 0.00,
+                'scan_count' => 0
+            ];
+        }
+
         // 趋势图数据（最近7天）
-        $trend_data = Db::name('ai_travel_photo_statistics')
+        $trendQuery = Db::name('ai_travel_photo_statistics')
             ->where('aid', $this->aid)
-            ->where('bid', $this->bid)
-            ->where('stat_date', '>=', date('Y-m-d', strtotime('-7 days')))
-            ->order('stat_date ASC')
-            ->select();
+            ->where('bid', $targetBid)
+            ->where('stat_date', '>=', date('Y-m-d', strtotime('-7 days')));
+        if ($mdid > 0) {
+            $trendQuery = $trendQuery->where('mdid', $mdid);
+        }
+        $trend_data = $trendQuery->order('stat_date ASC')->select();
+
+        // 趋势图补充订单金额数据
+        $orderTrend = Db::name('ai_travel_photo_order')
+            ->where('aid', $this->aid)
+            ->where('bid', $targetBid)
+            ->where('status', 1)
+            ->where('create_time', '>=', strtotime('-7 days'))
+            ->field("FROM_UNIXTIME(create_time, '%Y-%m-%d') as stat_date, SUM(total_price) as order_amount")
+            ->group('stat_date')
+            ->select()->toArray();
+        $orderTrendMap = array_column($orderTrend, 'order_amount', 'stat_date');
+
+        // 将订单金额合并到趋势数据
+        $trendArray = $trend_data ? $trend_data->toArray() : [];
+        foreach ($trendArray as &$item) {
+            $item['order_amount'] = floatval($orderTrendMap[$item['stat_date']] ?? ($item['order_amount'] ?? 0));
+        }
 
         // 热门场景TOP10
         $hot_scenes = Db::name('ai_travel_photo_scene')
             ->where('aid', $this->aid)
-            ->where('bid', $this->bid)
+            ->where('bid', $targetBid)
             ->order('use_count DESC')
             ->limit(10)
             ->select();
 
+        // 获取门店列表供筛选
+        $mendian_list = Db::name('mendian')
+            ->where('aid', $this->aid)
+            ->where('bid', $targetBid)
+            ->select()->toArray();
+
         View::assign('today_stat', $today_stat);
         View::assign('month_stat', $month_stat);
-        View::assign('trend_data', $trend_data);
+        View::assign('trend_data', json_encode($trendArray));
         View::assign('hot_scenes', $hot_scenes);
+        View::assign('mendian_list', $mendian_list);
+        View::assign('current_mdid', $mdid);
         return View::fetch();
     }
 
@@ -3008,14 +3129,19 @@ class AiTravelPhoto extends Common
         // 超级管理员bid为0时，使用aid对应的第一个商家bid
         $targetBid = $this->getTargetBid();
 
-        // 判断是否为管理员（groupid为0或isadmin>0）
-        $isAdmin = $this->user['groupid'] === 0 || $this->user['isadmin'] > 0;
+        // 判断是否为平台管理员（admin_user.bid==0 表示平台级用户，bid>0 为商户用户）
+        // 注意：商户管理员(如gzq)的isadmin=1且groupid=0，不能用这两个字段判断
+        $isAdmin = intval($this->user['bid'] ?? -1) === 0;
 
         // 获取Tab类型
         $tab = input('tab', 'basic');
 
         if (request()->isPost()) {
-            if ($tab == 'package' && $isAdmin) {
+            if ($tab == 'package') {
+                // POST提交安全校验：非管理员拒绝访问
+                if (!$isAdmin) {
+                    return json(['status' => 0, 'msg' => '无权操作，仅管理员可修改套餐定价']);
+                }
                 return $this->savePackageSettings();
             }
             return $this->saveBasicSettings($targetBid);
@@ -3091,7 +3217,11 @@ class AiTravelPhoto extends Common
                             'name' => $item['name'],
                             'size' => intval($item['size']),
                             'price' => floatval($item['price']),
-                            'desc' => $item['desc'] ?? ''
+                            'original_price' => floatval($item['original_price'] ?? 0),
+                            'desc' => $item['desc'] ?? '',
+                            'is_recommend' => intval($item['is_recommend'] ?? 0),
+                            'sort' => intval($item['sort'] ?? 99),
+                            'status' => intval($item['status'] ?? 1)
                         ];
                     }
                 }
@@ -3105,7 +3235,10 @@ class AiTravelPhoto extends Common
                             'name' => $item['name'],
                             'amount' => floatval($item['amount']),
                             'gift' => floatval($item['gift'] ?? 0),
-                            'desc' => $item['desc'] ?? ''
+                            'desc' => $item['desc'] ?? '',
+                            'is_recommend' => intval($item['is_recommend'] ?? 0),
+                            'sort' => intval($item['sort'] ?? 99),
+                            'status' => intval($item['status'] ?? 1)
                         ];
                     }
                 }
@@ -3119,7 +3252,11 @@ class AiTravelPhoto extends Common
                             'name' => $item['name'],
                             'days' => intval($item['days']),
                             'price' => floatval($item['price']),
-                            'desc' => $item['desc'] ?? ''
+                            'original_price' => floatval($item['original_price'] ?? 0),
+                            'desc' => $item['desc'] ?? '',
+                            'is_recommend' => intval($item['is_recommend'] ?? 0),
+                            'sort' => intval($item['sort'] ?? 99),
+                            'status' => intval($item['status'] ?? 1)
                         ];
                     }
                 }
@@ -3149,6 +3286,31 @@ class AiTravelPhoto extends Common
             return $targetBid;
         }
         return $this->bid;
+    }
+
+    /**
+     * 获取合成单价
+     * 优先级：模板 base_price > 商家 ai_photo_price > 平台默认 0
+     *
+     * @param int $bid 商家ID
+     * @param array $templates 模板列表
+     * @return float 单价
+     */
+    private function getSynthesisUnitCost(int $bid, array $templates): float
+    {
+        // 优先1：模板独立定价（取第一个模板的base_price作为参考）
+        if (!empty($templates) && isset($templates[0]['base_price']) && floatval($templates[0]['base_price']) > 0) {
+            return floatval($templates[0]['base_price']);
+        }
+
+        // 优先2：商家统一图片价格
+        $aiPhotoPrice = Db::name('business')->where('id', $bid)->value('ai_photo_price');
+        if ($aiPhotoPrice && floatval($aiPhotoPrice) > 0) {
+            return floatval($aiPhotoPrice);
+        }
+
+        // 优先3：平台默认 0（免费）
+        return 0;
     }
     
     /**
@@ -5434,18 +5596,28 @@ class AiTravelPhoto extends Common
                     'update_time' => time()
                 ]);
 
-            // 2. 获取未处理(0)或已提交(1)的人像
+            // 2. 获取未处理(0)、已提交(1)、余额不足暂停(5)、空间不足暂停(6)的人像
             $portraits = Db::name('ai_travel_photo_portrait')
                 ->where('aid', $this->aid)
                 ->where('bid', $targetBid)
                 ->where('status', 1)
-                ->whereIn('synthesis_status', [0, 1])
+                ->whereIn('synthesis_status', [0, 1, 5, 6])
                 ->field('id, aid, bid, original_url, cutout_url, thumbnail_url, synthesis_status, synthesis_count, synthesis_error, create_time')
                 ->select();
 
+            // 统计暂停数量
+            $pausedBalance = 0;
+            $pausedSpace = 0;
+            foreach ($portraits as $p) {
+                if ($p['synthesis_status'] == 5) $pausedBalance++;
+                if ($p['synthesis_status'] == 6) $pausedSpace++;
+            }
+
             return json([
                 'code' => 0,
-                'data' => $portraits
+                'data' => $portraits,
+                'paused_balance' => $pausedBalance,
+                'paused_space' => $pausedSpace
             ]);
 
         } catch (\Exception $e) {
@@ -5548,6 +5720,12 @@ class AiTravelPhoto extends Common
             // 统一转为数组，避免Collection索引访问问题
             $templatesArray = $templates->toArray();
 
+            // M6: 初始化扣费服务和空间服务
+            $balanceService = new \app\service\BalanceDeductService();
+            $spaceService = new \app\service\SpaceCheckService();
+            $pausedCount = 0;
+            $insufficientType = '';
+
             foreach ($portraits as $portrait) {
                 // 根据模式选择模板（支持循环：当N>模板数时重复使用模板）
                 $selectedTemplates = [];
@@ -5568,8 +5746,63 @@ class AiTravelPhoto extends Common
                     }
                 }
 
+                // ======== M6: 每个人像合成前预检余额和空间 ========
+                $bid = $portrait['bid'] ?? $targetBid;
+                $templateCount = count($selectedTemplates);
+                $unitCost = $this->getSynthesisUnitCost($bid, $selectedTemplates);
+                $totalCost = round($unitCost * $templateCount, 2);
+                $deductId = 0;
+
+                if ($totalCost > 0) {
+                    $balanceCheck = $balanceService->checkBalance($bid, $totalCost);
+                    if (!$balanceCheck['allowed']) {
+                        // 余额不足，设 status=5 并中断后续遍历
+                        Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])->update([
+                            'synthesis_status' => 5,
+                            'synthesis_error' => '余额不足',
+                            'update_time' => time()
+                        ]);
+                        $pausedCount++;
+                        $insufficientType = 'balance_insufficient';
+                        // 将剩余人像也标记为余额不足暂停
+                        break;
+                    }
+
+                    $deductResult = $balanceService->preDeduct($bid, $totalCost, $portrait['id'], '批量合成预扣费 人像ID:' . $portrait['id']);
+                    if (!$deductResult['status']) {
+                        Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])->update([
+                            'synthesis_status' => 5,
+                            'synthesis_error' => '预扣费失败',
+                            'update_time' => time()
+                        ]);
+                        $pausedCount++;
+                        $insufficientType = 'balance_insufficient';
+                        break;
+                    }
+                    $deductId = $deductResult['deductId'];
+                }
+
+                // 空间预检
+                $estimatedSpace = $spaceService->estimateRequired($templateCount, 'image');
+                $spaceCheck = $spaceService->checkSpace($bid, $estimatedSpace);
+                if (!$spaceCheck['allowed']) {
+                    // 空间不足，退还已扣余额
+                    if ($deductId > 0 && $totalCost > 0) {
+                        $balanceService->refundSingle($bid, $totalCost, $deductId, '空间不足退款');
+                    }
+                    Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])->update([
+                        'synthesis_status' => 6,
+                        'synthesis_error' => '云空间不足',
+                        'update_time' => time()
+                    ]);
+                    $pausedCount++;
+                    $insufficientType = 'space_insufficient';
+                    break;
+                }
+                // ======== M6: 预检结束 ========
+
                 try {
-                    $result = $synthesisService->generate($portrait, $selectedTemplates, $operatorName);
+                    $result = $synthesisService->generate($portrait, $selectedTemplates, $operatorName, $deductId, $unitCost);
                     $resultCount = $result['data']['count'] ?? 0;
                     if ($result['code'] === 0 && $resultCount > 0) {
                         // 更新人像合成状态为成功(3)
@@ -5610,14 +5843,40 @@ class AiTravelPhoto extends Common
                 }
             }
 
+            // 若因余额/空间不足中断，将剩余未处理人像标记为相应暂停状态
+            if ($insufficientType) {
+                $pauseStatus = ($insufficientType === 'balance_insufficient') ? 5 : 6;
+                // 将仍为“处理中”状态的剩余人像改为暂停
+                Db::name('ai_travel_photo_portrait')
+                    ->where('aid', $this->aid)
+                    ->where('bid', $targetBid)
+                    ->where('synthesis_status', 2)
+                    ->update([
+                        'synthesis_status' => $pauseStatus,
+                        'synthesis_error' => $insufficientType === 'balance_insufficient' ? '余额不足暂停' : '空间不足暂停',
+                        'update_time' => time()
+                    ]);
+            }
+
+            $responseData = [
+                'total' => $total,
+                'success' => $successCount,
+                'fail' => $failCount
+            ];
+            if ($insufficientType) {
+                $responseData['insufficient_type'] = $insufficientType;
+                $responseData['paused_count'] = $pausedCount;
+            }
+
+            $msg = "批量合成完成，成功：{$successCount}，失败：{$failCount}";
+            if ($insufficientType) {
+                $msg .= ($insufficientType === 'balance_insufficient') ? '，余额不足已暂停' : '，空间不足已暂停';
+            }
+
             return json([
                 'code' => 0,
-                'msg' => "批量合成完成，成功：{$successCount}，失败：{$failCount}",
-                'data' => [
-                    'total' => $total,
-                    'success' => $successCount,
-                    'fail' => $failCount
-                ]
+                'msg' => $msg,
+                'data' => $responseData
             ]);
 
         } catch (\Exception $e) {
@@ -5658,8 +5917,8 @@ class AiTravelPhoto extends Common
                 return json(['code' => 1, 'msg' => '人像不存在']);
             }
 
-            // 支持多种状态重试：未处理(0)、已提交(1)、失败(4)
-            if (!in_array($portrait['synthesis_status'], [0, 1, 4])) {
+            // 支持多种状态重试：未处理(0)、已提交(1)、失败(4)、余额不足暂停(5)、空间不足暂停(6)
+            if (!in_array($portrait['synthesis_status'], [0, 1, 4, 5, 6])) {
                 return json(['code' => 1, 'msg' => '该状态不能重试，当前状态: ' . $portrait['synthesis_status']]);
             }
 
@@ -5734,8 +5993,70 @@ class AiTravelPhoto extends Common
             // 调试日志：记录选中的模板
             \think\facade\Log::info('synthesis_retry 选中的模板: ' . json_encode($selectedTemplates, JSON_UNESCAPED_UNICODE));
 
+            // ======== M6: 余额预检与空间预检 ========
+            $bid = $portrait['bid'] ?? 0;
+            $templateCount = count($selectedTemplates);
+
+            // 获取合成单价
+            $unitCost = $this->getSynthesisUnitCost($bid, $selectedTemplates);
+            $totalCost = round($unitCost * $templateCount, 2);
+
+            $deductId = 0;
+            if ($totalCost > 0) {
+                // 余额预检
+                $balanceService = new \app\service\BalanceDeductService();
+                $balanceCheck = $balanceService->checkBalance($bid, $totalCost);
+                if (!$balanceCheck['allowed']) {
+                    // 余额不足 → 设 status=5
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'synthesis_status' => 5,
+                        'synthesis_error' => '余额不足，需要¥' . $totalCost . '，当前¥' . $balanceCheck['balance'],
+                        'update_time' => time()
+                    ]);
+                    return json(['code' => 2, 'msg' => '账户余额不足', 'type' => 'balance_insufficient', 'data' => [
+                        'required' => $totalCost,
+                        'balance' => $balanceCheck['balance'],
+                        'shortfall' => $balanceCheck['shortfall']
+                    ]]);
+                }
+
+                // 预扣费
+                $deductResult = $balanceService->preDeduct($bid, $totalCost, $portraitId, '合成预扣费 人像ID:' . $portraitId);
+                if (!$deductResult['status']) {
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'synthesis_status' => 5,
+                        'synthesis_error' => '预扣费失败（并发冲突）',
+                        'update_time' => time()
+                    ]);
+                    return json(['code' => 2, 'msg' => '余额扣费失败，请重试', 'type' => 'balance_insufficient']);
+                }
+                $deductId = $deductResult['deductId'];
+            }
+
+            // 空间预检
+            $spaceService = new \app\service\SpaceCheckService();
+            $estimatedSpace = $spaceService->estimateRequired($templateCount, 'image');
+            $spaceCheck = $spaceService->checkSpace($bid, $estimatedSpace);
+            if (!$spaceCheck['allowed']) {
+                // 空间不足，退还已扣余额
+                if ($deductId > 0 && $totalCost > 0) {
+                    $balanceService->refundSingle($bid, $totalCost, $deductId, '空间不足退款');
+                }
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'synthesis_status' => 6,
+                    'synthesis_error' => '云空间不足，需要' . $estimatedSpace . 'MB，剩余' . $spaceCheck['remainingMB'] . 'MB',
+                    'update_time' => time()
+                ]);
+                return json(['code' => 3, 'msg' => '云空间不足', 'type' => 'space_insufficient', 'data' => [
+                    'required' => $estimatedSpace,
+                    'remaining' => $spaceCheck['remainingMB'],
+                    'shortfall' => $spaceCheck['shortfallMB']
+                ]]);
+            }
+            // ======== M6: 预检结束 ========
+
             $operatorName = $this->user['un'] ?? '';
-            $result = $synthesisService->generate($portrait, $selectedTemplates, $operatorName);
+            $result = $synthesisService->generate($portrait, $selectedTemplates, $operatorName, $deductId, $unitCost);
 
             $resultCount = $result['data']['count'] ?? 0;
             if ($result['code'] === 0 && $resultCount > 0) {
@@ -5787,7 +6108,96 @@ class AiTravelPhoto extends Common
     }
 
     /**
-     * 创建支付订单
+     * 恢复暂停任务（充值/扩容后调用）
+     * POST /AiTravelPhoto/resume_paused_tasks
+     */
+    public function resume_paused_tasks()
+    {
+        if (!request()->isPost()) {
+            return json(['code' => 1, 'msg' => '非法请求']);
+        }
+
+        try {
+            $pauseType = input('post.pause_type', ''); // balance 或 space
+            if (!in_array($pauseType, ['balance', 'space'])) {
+                return json(['code' => 1, 'msg' => '参数错误，pause_type 必须为 balance 或 space']);
+            }
+
+            $targetBid = $this->getTargetBid();
+            $pauseStatus = ($pauseType === 'balance') ? 5 : 6;
+
+            // 查询暂停的人像数量
+            $pausedCount = Db::name('ai_travel_photo_portrait')
+                ->where('aid', $this->aid)
+                ->where('bid', $targetBid)
+                ->where('synthesis_status', $pauseStatus)
+                ->count();
+
+            if ($pausedCount === 0) {
+                return json(['code' => 1, 'msg' => '没有需要恢复的暂停任务']);
+            }
+
+            if ($pauseType === 'balance') {
+                // 重新校验余额是否充足
+                // 获取合成设置来估算每张费用
+                $setting = Db::name('ai_travel_photo_synthesis_setting')
+                    ->where('aid', $this->aid)
+                    ->where('bid', $targetBid)
+                    ->where('portrait_id', 0)
+                    ->find();
+                $generateCount = $setting ? intval($setting['generate_count']) : 1;
+
+                // 粗略估算总费用
+                $unitCost = floatval(Db::name('business')->where('id', $targetBid)->value('ai_photo_price') ?? 0);
+                $totalEstimate = round($unitCost * $generateCount * $pausedCount, 2);
+
+                $balanceService = new \app\service\BalanceDeductService();
+                $balanceCheck = $balanceService->checkBalance($targetBid, $unitCost * $generateCount); // 至少够处理一个人像
+                if (!$balanceCheck['allowed']) {
+                    return json(['code' => 0, 'msg' => '余额仍不足，还差¥' . $balanceCheck['shortfall'], 'data' => [
+                        'still_insufficient' => true,
+                        'shortfall' => $balanceCheck['shortfall'],
+                        'balance' => $balanceCheck['balance']
+                    ]]);
+                }
+            } else {
+                // 重新校验空间是否充足
+                $spaceService = new \app\service\SpaceCheckService();
+                $estimatedSpace = $spaceService->estimateRequired(1, 'image'); // 至少够处理一张
+                $spaceCheck = $spaceService->checkSpace($targetBid, $estimatedSpace);
+                if (!$spaceCheck['allowed']) {
+                    return json(['code' => 0, 'msg' => '空间仍不足，还差' . $spaceCheck['shortfallMB'] . 'MB', 'data' => [
+                        'still_insufficient' => true,
+                        'shortfall' => $spaceCheck['shortfallMB'],
+                        'remaining' => $spaceCheck['remainingMB']
+                    ]]);
+                }
+            }
+
+            // 校验通过，批量重置暂停人像为“未处理”
+            $affected = Db::name('ai_travel_photo_portrait')
+                ->where('aid', $this->aid)
+                ->where('bid', $targetBid)
+                ->where('synthesis_status', $pauseStatus)
+                ->update([
+                    'synthesis_status' => 0,
+                    'synthesis_error' => '',
+                    'update_time' => time()
+                ]);
+
+            return json(['code' => 0, 'msg' => '已恢复' . $affected . '个暂停任务', 'data' => [
+                'resumed_count' => $affected
+            ]]);
+
+        } catch (\Exception $e) {
+            return json(['code' => 1, 'msg' => '恢复失败: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 创建支付订单（集成标准 payorder 支付流程）
+     * 微信走 build_native_v3（PC扫码），支付宝走 build_page_pay（PC跳转）
+     * 支付回调由 notify.php → Notify → Payorder::payorder() 统一处理
      */
     public function createPayOrder()
     {
@@ -5805,13 +6215,20 @@ class AiTravelPhoto extends Common
                 return json(['status' => 0, 'msg' => '参数错误']);
             }
 
-            $targetBid = $this->getTargetBid();
+            // 'recharge' 映射到 'balance' (充值余额统一走 balance 套餐)
+            if ($type === 'recharge') {
+                $type = 'balance';
+            }
 
-            // 创建支付订单
-            $orderData = [
+            $targetBid = $this->getTargetBid();
+            $orderNo = 'AITP' . date('YmdHis') . rand(1000, 9999);
+            $title = 'AI旅拍-' . $packageName;
+
+            // 1. 创建 ai_travel_photo_pay_order 业务订单
+            $bizOrderData = [
                 'aid' => $this->aid,
                 'bid' => $targetBid,
-                'order_no' => 'AITP' . date('YmdHis') . rand(1000, 9999),
+                'order_no' => $orderNo,
                 'type' => $type,
                 'package_name' => $packageName,
                 'amount' => $amount,
@@ -5819,52 +6236,87 @@ class AiTravelPhoto extends Common
                 'status' => 0,
                 'createtime' => time()
             ];
+            $bizOrderId = Db::name('ai_travel_photo_pay_order')->insertGetId($bizOrderData);
 
-            $orderId = Db::name('ai_travel_photo_pay_order')->insertGetId($orderData);
+            // 2. 创建标准 payorder 记录（走标准支付回调流程: notify.php → Payorder::payorder）
+            $payorderData = [
+                'aid'        => $this->aid,
+                'bid'        => $targetBid,
+                'mid'        => 0, // 商户后台购买，非会员
+                'ordernum'   => $orderNo,
+                'orderid'    => $bizOrderId, // 关联业务订单ID
+                'type'       => 'ai_travel_photo_pay',
+                'title'      => $title,
+                'money'      => $amount,
+                'score'      => 0,
+                'status'     => 0,
+                'createtime' => time(),
+                'platform'   => 'pc',
+            ];
+            $payorderId = Db::name('payorder')->insertGetId($payorderData);
 
-            // 获取PC支付配置
-            $pcPayConfig = Db::name('admin_setapp_pc')->where('aid', $this->aid)->find();
+            // 关闭同商户同类型旧的未支付订单
+            Db::name('payorder')
+                ->where('id', '<>', $payorderId)
+                ->where('aid', $this->aid)
+                ->where('bid', $targetBid)
+                ->where('type', 'ai_travel_photo_pay')
+                ->where('status', 0)
+                ->update(['status' => 2]);
 
+            // 3. 调用支付方法
             if ($payMethod == 'wxpay') {
-                // 微信支付 - Native支付
-                if (!$pcPayConfig || $pcPayConfig['wxpay'] != 1) {
-                    return json(['status' => 0, 'msg' => '微信支付未配置']);
-                }
-
-                // 调用微信Native支付
-                $wxpayService = new \app\common\Wxpay();
-                $result = $wxpayService->nativePay($this->aid, $orderData['order_no'], $amount, 'AI旅拍-' . $packageName);
+                // 微信Native V3支付（PC端扫码支付）
+                $result = \app\common\Wxpay::build_native_v3(
+                    $this->aid, $targetBid, 0, $title,
+                    $orderNo, $amount, 'ai_travel_photo_pay'
+                );
 
                 if ($result['status'] == 1) {
                     return json([
                         'status' => 1,
-                        'msg' => '创建订单成功',
-                        'data' => [
-                            'order_id' => $orderId,
-                            'qrcode_url' => $result['qrcode_url']
+                        'msg'    => '创建订单成功',
+                        'data'   => [
+                            'order_id'    => $bizOrderId,
+                            'payorder_id' => $payorderId,
+                            'pay_method'  => 'qrcode',
+                            'qrcode_url'  => $result['data']['pay_wx_qrcode_url'] ?? ''
                         ]
                     ]);
                 } else {
-                    return json(['status' => 0, 'msg' => $result['msg']]);
+                    return json(['status' => 0, 'msg' => $result['msg'] ?? '微信支付创建失败']);
                 }
             } else {
-                // 支付宝支付
-                if (!$pcPayConfig || empty($pcPayConfig['alipay'])) {
-                    return json(['status' => 0, 'msg' => '支付宝支付未配置']);
+                // 支付宝电脑网站支付
+                $returnUrl = request()->domain() . (string)url('AiTravelPhoto/payReturn');
+                $result = \app\common\Alipay::build_page_pay(
+                    $this->aid, $targetBid, 0, $title,
+                    $orderNo, $amount, 'ai_travel_photo_pay', '', $returnUrl
+                );
+
+                if ($result['status'] == 1) {
+                    $responseData = [
+                        'order_id'    => $bizOrderId,
+                        'payorder_id' => $payorderId,
+                    ];
+
+                    // build_page_pay 返回 form_html（自动提交表单）或降级到 qrcode_url（当面付二维码）
+                    if (!empty($result['data']['form_html'])) {
+                        $responseData['form_html']  = $result['data']['form_html'];
+                        $responseData['pay_method'] = 'form';
+                    } elseif (!empty($result['data']['qrcode_url'])) {
+                        $responseData['qrcode_url'] = $result['data']['qrcode_url'];
+                        $responseData['pay_method'] = 'qrcode';
+                    }
+
+                    return json([
+                        'status' => 1,
+                        'msg'    => '创建订单成功',
+                        'data'   => $responseData
+                    ]);
+                } else {
+                    return json(['status' => 0, 'msg' => $result['msg'] ?? '支付宝支付创建失败']);
                 }
-
-                // 调用支付宝电脑网站支付
-                $alipayService = new \app\common\Alipay();
-                $payUrl = $alipayService->pagePay($this->aid, $orderData['order_no'], $amount, 'AI旅拍-' . $packageName, url('AiTravelPhoto/payReturn'));
-
-                return json([
-                    'status' => 1,
-                    'msg' => '创建订单成功',
-                    'data' => [
-                        'order_id' => $orderId,
-                        'pay_url' => $payUrl
-                    ]
-                ]);
             }
         } catch (\Exception $e) {
             return json(['status' => 0, 'msg' => '创建订单失败：' . $e->getMessage()]);
@@ -5872,7 +6324,7 @@ class AiTravelPhoto extends Common
     }
 
     /**
-     * 检查支付状态
+     * 检查支付状态（通过标准 payorder 记录查询）
      */
     public function checkPayStatus()
     {
@@ -5881,137 +6333,230 @@ class AiTravelPhoto extends Common
             return json(['status' => 0, 'msg' => '参数错误']);
         }
 
-        $order = Db::name('ai_travel_photo_pay_order')->where('id', $orderId)->find();
-        if (!$order) {
-            return json(['status' => 0, 'msg' => '订单不存在']);
+        // 通过业务订单ID查找关联的标准payorder
+        $payorder = Db::name('payorder')
+            ->where('type', 'ai_travel_photo_pay')
+            ->where('orderid', $orderId)
+            ->field('id,status,paytime')
+            ->find();
+
+        if ($payorder) {
+            $paid = ($payorder['status'] == 1);
+            // 如果payorder已支付，同步更新业务订单状态
+            if ($paid) {
+                Db::name('ai_travel_photo_pay_order')
+                    ->where('id', $orderId)
+                    ->where('status', 0)
+                    ->update(['status' => 1, 'paytime' => $payorder['paytime'] ?: time()]);
+            }
+            return json(['status' => 1, 'data' => ['paid' => $paid, 'order_status' => $payorder['status']]]);
         }
 
-        return json([
-            'status' => 1,
-            'data' => [
-                'paid' => $order['status'] == 1,
-                'order_status' => $order['status']
-            ]
-        ]);
+        // 兜底：直接查业务订单表
+        $bizOrder = Db::name('ai_travel_photo_pay_order')->where('id', $orderId)->find();
+        if (!$bizOrder) {
+            return json(['status' => 0, 'msg' => '订单不存在']);
+        }
+        return json(['status' => 1, 'data' => ['paid' => $bizOrder['status'] == 1, 'order_status' => $bizOrder['status']]]);
     }
 
     /**
      * 支付回调处理
+     * 注意：实际支付回调由 notify.php → Notify → Payorder::payorder() 统一处理
+     * 此方法仅作为兼容保留，不再直接处理支付回调
      */
     public function payNotify()
     {
-        // 获取回调数据
-        $data = input('post.');
-        $type = input('param.type', 'wxpay');
-
-        try {
-            if ($type == 'wxpay') {
-                // 微信支付回调验证
-                $wxpayService = new \app\common\Wxpay();
-                $result = $wxpayService->verifyNotify($this->aid, $data);
-            } else {
-                // 支付宝回调验证
-                $alipayService = new \app\common\Alipay();
-                $result = $alipayService->verifyNotify($this->aid, $data);
-            }
-
-            if ($result['status'] == 1) {
-                $orderNo = $result['order_no'];
-                $order = Db::name('ai_travel_photo_pay_order')
-                    ->where('order_no', $orderNo)
-                    ->where('status', 0)
-                    ->find();
-
-                if ($order) {
-                    // 更新订单状态
-                    Db::name('ai_travel_photo_pay_order')->where('id', $order['id'])->update([
-                        'status' => 1,
-                        'paytime' => time(),
-                        'pay_data' => json_encode($data)
-                    ]);
-
-                    // 更新商户账户
-                    $this->updateBusinessAccount($order);
-                }
-
-                return $type == 'wxpay' ? '<xml><return_code><![CDATA[SUCCESS]]></return_code></xml>' : 'success';
-            }
-        } catch (\Exception $e) {
-            Log::error('AI旅拍支付回调处理失败：' . $e->getMessage());
-        }
-
-        return $type == 'wxpay' ? '<xml><return_code><![CDATA[FAIL]]></return_code></xml>' : 'fail';
+        // 标准支付回调已由 notify.php 统一处理
+        // Payorder::payorder() 中 ai_travel_photo_pay 类型会触发 handlePaymentSuccess
+        return 'success';
     }
 
     /**
-     * 支付成功返回页面
+     * 获取可用套餐列表（商户端调用，仅返回status=1的套餐）
+     */
+    public function getPackages()
+    {
+        $type = input('param.type', '');
+
+        // 'recharge' 映射到 'balance'（充值余额统一走 balance 套餐）
+        if ($type === 'recharge') {
+            $type = 'balance';
+        }
+
+        $packages = $this->getPackageSettings();
+        
+        $result = [];
+        if ($type && isset($packages[$type])) {
+            // 返回指定类型的套餐，仅返回启用的
+            foreach ($packages[$type] as $item) {
+                if (($item['status'] ?? 1) == 1) {
+                    $result[] = $item;
+                }
+            }
+            // 按sort排序
+            usort($result, function($a, $b) {
+                return ($a['sort'] ?? 99) - ($b['sort'] ?? 99);
+            });
+        } else {
+            // 返回所有类型的套餐
+            foreach ($packages as $t => $items) {
+                $result[$t] = [];
+                foreach ($items as $item) {
+                    if (($item['status'] ?? 1) == 1) {
+                        $result[$t][] = $item;
+                    }
+                }
+                usort($result[$t], function($a, $b) {
+                    return ($a['sort'] ?? 99) - ($b['sort'] ?? 99);
+                });
+            }
+        }
+        
+        return json(['status' => 1, 'data' => $result]);
+    }
+
+    /**
+     * 支付成功返回页面（支付宝同步回跳）
      */
     public function payReturn()
     {
-        $this->success('支付成功', url('portrait_list'));
+        // 重定向到人像管理页面
+        return redirect((string)url('AiTravelPhoto/portrait_list'));
     }
 
     /**
-     * 更新商户账户
+     * 支付成功后更新商户账户（静态方法，供 Payorder::payorder() 回调调用）
+     * @param int $bizOrderId  ai_travel_photo_pay_order 表的ID
+     * @param int $aid  应用ID
      */
-    private function updateBusinessAccount($order)
+    public static function handlePaymentSuccess($bizOrderId, $aid = 0)
     {
+        $order = Db::name('ai_travel_photo_pay_order')->where('id', $bizOrderId)->find();
+        if (!$order) return;
+
+        // 已处理则跳过
+        if ($order['status'] == 1) return;
+
+        // 更新业务订单状态
+        Db::name('ai_travel_photo_pay_order')->where('id', $bizOrderId)->update([
+            'status' => 1,
+            'paytime' => time()
+        ]);
+
         $business = Db::name('business')->where('id', $order['bid'])->find();
         if (!$business) return;
 
+        // 获取套餐配置
+        $useAid = $aid ?: $order['aid'];
+        $defaultSettings = [
+            'space' => [
+                ['name' => '10GB 云空间', 'size' => 10240, 'price' => 99, 'desc' => '适合小型商户'],
+                ['name' => '50GB 云空间', 'size' => 51200, 'price' => 399, 'desc' => '适合中型商户'],
+                ['name' => '200GB 云空间', 'size' => 204800, 'price' => 999, 'desc' => '适合大型商户'],
+                ['name' => '1TB 云空间', 'size' => 1048576, 'price' => 2999, 'desc' => '适合旗舰店']
+            ],
+            'balance' => [
+                ['name' => '充值100元', 'amount' => 100, 'gift' => 10, 'desc' => '赠送10元'],
+                ['name' => '充值500元', 'amount' => 500, 'gift' => 80, 'desc' => '赠送80元'],
+                ['name' => '充值1000元', 'amount' => 1000, 'gift' => 200, 'desc' => '赠送200元'],
+                ['name' => '充值5000元', 'amount' => 5000, 'gift' => 1500, 'desc' => '赠送1500元']
+            ],
+            'renew' => [
+                ['name' => '月卡', 'days' => 30, 'price' => 299, 'desc' => '30天有效期'],
+                ['name' => '季卡', 'days' => 90, 'price' => 799, 'desc' => '90天有效期'],
+                ['name' => '年卡', 'days' => 365, 'price' => 2499, 'desc' => '365天有效期'],
+                ['name' => '永久', 'days' => 99999, 'price' => 9999, 'desc' => '一次购买永久使用']
+            ]
+        ];
+        $savedSettings = Db::name('admin_set')->where('aid', $useAid)->value('ai_travel_photo_packages');
+        $packages = $defaultSettings;
+        if ($savedSettings) {
+            $saved = json_decode($savedSettings, true);
+            if ($saved) $packages = array_merge($defaultSettings, $saved);
+        }
+
         switch ($order['type']) {
             case 'space':
-                // 云空间扩容
                 $addSpace = 0;
-                if (strpos($order['package_name'], '10GB') !== false) $addSpace = 10240;
-                elseif (strpos($order['package_name'], '50GB') !== false) $addSpace = 51200;
-                elseif (strpos($order['package_name'], '200GB') !== false) $addSpace = 204800;
-                elseif (strpos($order['package_name'], '1TB') !== false) $addSpace = 1048576;
-
-                Db::name('business')->where('id', $order['bid'])->update([
-                    'cloud_space' => ($business['cloud_space'] ?? 5120) + $addSpace
-                ]);
+                if (isset($packages['space'])) {
+                    foreach ($packages['space'] as $pkg) {
+                        if ($pkg['name'] == $order['package_name'] || floatval($pkg['price']) == floatval($order['amount'])) {
+                            $addSpace = intval($pkg['size']);
+                            break;
+                        }
+                    }
+                }
+                if ($addSpace > 0) {
+                    Db::name('business')->where('id', $order['bid'])->update([
+                        'cloud_space' => ($business['cloud_space'] ?? 5120) + $addSpace
+                    ]);
+                }
                 break;
 
             case 'balance':
-                // 账户余额充值
                 $giftAmount = 0;
-                if ($order['amount'] == 100) $giftAmount = 10;
-                elseif ($order['amount'] == 500) $giftAmount = 80;
-                elseif ($order['amount'] == 1000) $giftAmount = 200;
-                elseif ($order['amount'] == 5000) $giftAmount = 1500;
-
+                if (isset($packages['balance'])) {
+                    foreach ($packages['balance'] as $pkg) {
+                        if ($pkg['name'] == $order['package_name'] || floatval($pkg['amount'] ?? $pkg['price'] ?? 0) == floatval($order['amount'])) {
+                            $giftAmount = floatval($pkg['gift'] ?? 0);
+                            break;
+                        }
+                    }
+                }
                 Db::name('business')->where('id', $order['bid'])->update([
                     'account_balance' => ($business['account_balance'] ?? 0) + $order['amount'] + $giftAmount
                 ]);
                 break;
 
-            case 'recharge':
-                // 充值余额
-                Db::name('business')->where('id', $order['bid'])->update([
-                    'money' => ($business['money'] ?? 0) + $order['amount']
-                ]);
-                break;
-
             case 'renew':
-                // 旅拍续费
                 $addDays = 0;
-                if (strpos($order['package_name'], '月卡') !== false) $addDays = 30;
-                elseif (strpos($order['package_name'], '季卡') !== false) $addDays = 90;
-                elseif (strpos($order['package_name'], '年卡') !== false) $addDays = 365;
-                elseif (strpos($order['package_name'], '永久') !== false) $addDays = 99999;
-
-                $currentEndtime = $business['endtime'] ?? 0;
-                $newEndtime = ($currentEndtime > time()) ? $currentEndtime + ($addDays * 86400) : time() + ($addDays * 86400);
-
-                if ($addDays == 99999) {
-                    $newEndtime = 0; // 永久
+                if (isset($packages['renew'])) {
+                    foreach ($packages['renew'] as $pkg) {
+                        if ($pkg['name'] == $order['package_name'] || floatval($pkg['price']) == floatval($order['amount'])) {
+                            $addDays = intval($pkg['days']);
+                            break;
+                        }
+                    }
                 }
-
-                Db::name('business')->where('id', $order['bid'])->update([
-                    'endtime' => $newEndtime
-                ]);
+                if ($addDays > 0) {
+                    $currentEndtime = $business['endtime'] ?? 0;
+                    $newEndtime = ($currentEndtime > time()) ? $currentEndtime + ($addDays * 86400) : time() + ($addDays * 86400);
+                    if ($addDays >= 99999) {
+                        $newEndtime = 0; // 永久
+                    }
+                    Db::name('business')->where('id', $order['bid'])->update([
+                        'endtime' => $newEndtime
+                    ]);
+                }
                 break;
+        }
+    }
+
+    /**
+     * 回填成片文件大小（管理员接口）
+     * 通过 HTTP HEAD 请求获取 COS 文件实际大小，回填到 result 表的 file_size 字段
+     */
+    public function backfill_result_sizes()
+    {
+        // 仅平台管理员可操作
+        $isAdmin = intval($this->user['bid'] ?? -1) === 0;
+        if (!$isAdmin) {
+            return json(['status' => 0, 'msg' => '无权限操作']);
+        }
+
+        $bid = input('bid/d', 0);
+        $limit = input('limit/d', 200);
+
+        try {
+            $result = \app\service\SpaceCheckService::backfillResultFileSizes($bid, $limit);
+            return json([
+                'status' => 1,
+                'msg' => "回填完成：共{$result['total']}条，成功{$result['updated']}条，失败{$result['failed']}条",
+                'data' => $result
+            ]);
+        } catch (\Exception $e) {
+            return json(['status' => 0, 'msg' => '回填失败: ' . $e->getMessage()]);
         }
     }
 }

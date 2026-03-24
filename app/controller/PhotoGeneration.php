@@ -1912,9 +1912,15 @@ class PhotoGeneration extends Common
                 $where[] = ['o.mid', '=', $memberMid];
             } else {
                 // 商家查看自己的订单
-                $where[] = ['o.aid', '=', aid];
-                if (bid > 0) {
-                    $where[] = ['o.bid', '=', bid];
+                $where[] = ['o.aid', '=', $this->aid];
+                if ($this->bid > 0) {
+                    $where[] = ['o.bid', '=', $this->bid];
+                }
+                // 门店级别筛选
+                if ($this->mdid > 0) {
+                    $where[] = ['o.mdid', '=', $this->mdid];
+                } elseif (input('param.mdid/d', 0) > 0) {
+                    $where[] = ['o.mdid', '=', input('param.mdid/d')];
                 }
             }
 
@@ -1951,9 +1957,14 @@ class PhotoGeneration extends Common
             if ($memberMid > 0) {
                 $statsWhere[] = ['mid', '=', $memberMid];
             } else {
-                $statsWhere[] = ['aid', '=', aid];
-                if (bid > 0) {
-                    $statsWhere[] = ['bid', '=', bid];
+                $statsWhere[] = ['aid', '=', $this->aid];
+                if ($this->bid > 0) {
+                    $statsWhere[] = ['bid', '=', $this->bid];
+                }
+                if ($this->mdid > 0) {
+                    $statsWhere[] = ['mdid', '=', $this->mdid];
+                } elseif (input('param.mdid/d', 0) > 0) {
+                    $statsWhere[] = ['mdid', '=', input('param.mdid/d')];
                 }
             }
             
@@ -1982,6 +1993,16 @@ class PhotoGeneration extends Common
             View::assign('webinfo', $webinfo);
             return View::fetch('index3/photo_order');
         }
+
+        // 获取门店列表供筛选
+        $mendian_list = [];
+        if ($this->bid > 0) {
+            $mendian_list = Db::name('mendian')
+                ->where('aid', $this->aid)
+                ->where('bid', $this->bid)
+                ->select()->toArray();
+        }
+        View::assign('mendian_list', $mendian_list);
         
         return View::fetch();
     }
@@ -1993,7 +2014,7 @@ class PhotoGeneration extends Common
     {
         $orderId = input('param.orderid', 0);
         $orderService = new GenerationOrderService();
-        $detail = $orderService->getOrderDetail($orderId, aid, (bid > 0 ? bid : 0));
+        $detail = $orderService->getOrderDetail($orderId, $this->aid, ($this->bid > 0 ? $this->bid : 0));
 
         if (!$detail) {
             return json(['status' => 0, 'msg' => '订单不存在']);
@@ -2016,7 +2037,7 @@ class PhotoGeneration extends Common
         }
 
         $orderService = new GenerationOrderService();
-        $result = $orderService->checkRefund($orderId, $st, $remark, aid, (bid > 0 ? bid : 0));
+        $result = $orderService->checkRefund($orderId, $st, $remark, $this->aid, ($this->bid > 0 ? $this->bid : 0));
 
         if ($result['status'] == 1) {
             $action = $st == 1 ? '同意退款' : '驳回退款';

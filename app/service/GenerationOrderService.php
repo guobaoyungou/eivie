@@ -556,12 +556,20 @@ class GenerationOrderService
             $item['task_status_text'] = $this->getTaskStatusText($item['task_status']);
             $item['generation_type_text'] = $item['generation_type'] == self::TYPE_PHOTO ? '照片生成' : '视频生成';
             
-            // 当nickname为空时，尝试从template_snapshot中提取操作者名称（人像合成订单）
-            if (empty($item['nickname']) && !empty($item['template_snapshot'])) {
+            // 用户显示fallback：优先 member.nickname → 再取 template_snapshot.operator_name → 最终显示操作者账号名
+            $item['operator_name'] = '';
+            $item['account_name'] = '';
+            if (!empty($item['template_snapshot'])) {
                 $snapshot = json_decode($item['template_snapshot'], true);
                 if (is_array($snapshot) && !empty($snapshot['operator_name'])) {
-                    $item['nickname'] = $snapshot['operator_name'];
+                    $item['operator_name'] = $snapshot['operator_name'];
+                    if (empty($item['nickname'])) {
+                        $item['nickname'] = $snapshot['operator_name'];
+                    }
                 }
+            }
+            if (empty($item['nickname'])) {
+                $item['nickname'] = $item['remark'] ? explode(' ', $item['remark'])[0] : '';
             }
         }
         

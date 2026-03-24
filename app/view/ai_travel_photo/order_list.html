@@ -17,6 +17,17 @@
           <!-- 筛选区域 -->
           <div class="layui-form layui-form-search" style="margin-bottom: 15px;">
             <div class="layui-inline">
+              <label class="layui-form-label">门店：</label>
+              <div class="layui-input-inline">
+                <select name="mdid" lay-filter="mdidFilter">
+                  <option value="">全部门店</option>
+                  {foreach $mendian_list as $md}
+                  <option value="{$md.id}">{$md.name}</option>
+                  {/foreach}
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
               <label class="layui-form-label">订单状态：</label>
               <div class="layui-input-inline">
                 <select name="status" lay-filter="statusFilter">
@@ -26,6 +37,12 @@
                   <option value="2">已取消</option>
                   <option value="3">已退款</option>
                 </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">关键词：</label>
+              <div class="layui-input-inline" style="width:160px">
+                <input type="text" name="keyword" placeholder="订单号/用户名/手机号" autocomplete="off" class="layui-input">
               </div>
             </div>
             <div class="layui-inline">
@@ -40,6 +57,7 @@
             </div>
             <div class="layui-inline">
               <button class="layui-btn" lay-submit lay-filter="searchBtn"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+              <button type="button" class="layui-btn layui-btn-warm" id="exportBtn"><i class="layui-icon layui-icon-export"></i> 导出</button>
             </div>
           </div>
           
@@ -85,13 +103,14 @@
       cols: [[
         {field: 'id', title: 'ID', width: 80, sort: true},
         {field: 'order_no', title: '订单号', width: 200},
-        {field: 'nickname', title: '用户昵称', width: 150},
+        {field: 'nickname', title: '用户昵称', width: 120},
         {field: 'mobile', title: '手机号', width: 120},
-        {field: 'goods_count', title: '商品数量', width: 100},
-        {field: 'total_price', title: '订单金额', width: 120, templet: function(d){
+        {field: 'mendian_name', title: '门店', width: 120},
+        {field: 'goods_count', title: '商品数量', width: 90},
+        {field: 'total_price', title: '订单金额', width: 100, templet: function(d){
           return '¥' + (d.total_price || '0.00');
         }},
-        {field: 'status', title: '支付状态', width: 100, templet: function(d){
+        {field: 'status', title: '支付状态', width: 90, templet: function(d){
           var statusMap = {
             0: '<span style="color:#FFB800;">待支付</span>',
             1: '<span style="color:#5FB878;">已支付</span>',
@@ -100,6 +119,8 @@
           };
           return statusMap[d.status] || '-';
         }},
+        {field: 'paytype_text', title: '支付方式', width: 100},
+        {field: 'pay_time_text', title: '支付时间', width: 160},
         {field: 'create_time', title: '创建时间', width: 160, templet: function(d){
           return d.create_time ? date('Y-m-d H:i:s', d.create_time) : '-';
         }},

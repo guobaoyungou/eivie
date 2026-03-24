@@ -53,6 +53,17 @@
               </div>
             </div>
             <div class="layui-inline">
+              <label class="layui-form-label">门店</label>
+              <div class="layui-input-inline" style="width:150px">
+                <select name="mdid">
+                  <option value="">全部门店</option>
+                  {foreach $mendian_list as $md}
+                  <option value="{$md.id}">{$md.name}</option>
+                  {/foreach}
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
               <label class="layui-form-label">支付状态</label>
               <div class="layui-input-inline" style="width:120px">
                 <select name="pay_status">
@@ -104,7 +115,7 @@
       {{# } else { }}
       <img src="/static/img/default_avatar.png">
       {{# } }}
-      <span>{{d.nickname || '未知用户'}}</span>
+      <span>{{d.nickname || d.operator_name || d.account_name || '未知用户'}}</span>
     </div>
   </script>
   

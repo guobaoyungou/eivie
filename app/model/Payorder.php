@@ -399,6 +399,17 @@ class Payorder
                 Log::error('AI旅拍选片支付回调失败: '.$e->getMessage());
             }
             return ['status'=>1,'msg'=>''];
+        }elseif($type=='ai_travel_photo_pay'){
+            // AI旅拍套餐购买支付回调（云空间扩容/余额充值/续费）
+            try {
+                \app\controller\AiTravelPhoto::handlePaymentSuccess(
+                    intval($payorder['orderid']),
+                    $payorder['aid']
+                );
+            } catch(\Exception $e) {
+                Log::error('AI旅拍套餐支付回调失败: '.$e->getMessage());
+            }
+            return ['status'=>1,'msg'=>''];
         }else{
 			Db::name($type.'_order')->where('id',$payorder['orderid'])->update(['status'=>1,'paytime'=>time(),'paytype'=>$paytype,'paytypeid'=>$paytypeid,'paynum'=>$paynum,'platform'=>$payorder['platform']]);
 		}

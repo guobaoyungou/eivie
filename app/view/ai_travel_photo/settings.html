@@ -41,7 +41,7 @@
             <ul class="layui-tab-title">
               <li class="layui-this" lay-id="tab1">基础设置</li>
               {if $is_admin}
-              <li lay-id="tab2">套餐定价</li>
+              <li lay-id="tab2">商户采购定价</li>
               {/if}
             </ul>
             <div class="layui-tab-content">
@@ -214,30 +214,46 @@
                       {foreach $package_settings.space as $key=>$item}
                       <div class="package-item layui-form-item" data-index="{$key}">
                         <div class="layui-inline">
-                          <label class="layui-form-label">套餐名称：</label>
-                          <div class="layui-input-inline" style="width:150px">
-                            <input type="text" name="space[{$key}][name]" value="{$item.name}" class="layui-input" placeholder="如：10GB 云空间">
+                          <label class="layui-form-label">名称：</label>
+                          <div class="layui-input-inline" style="width:130px">
+                            <input type="text" name="space[{$key}][name]" value="{$item.name}" class="layui-input">
                           </div>
                         </div>
                         <div class="layui-inline">
-                          <label class="layui-form-label">空间大小：</label>
-                          <div class="layui-input-inline" style="width:100px">
-                            <input type="number" name="space[{$key}][size]" value="{$item.size}" class="layui-input" placeholder="MB">
+                          <label class="layui-form-label">空间(MB)：</label>
+                          <div class="layui-input-inline" style="width:80px">
+                            <input type="number" name="space[{$key}][size]" value="{$item.size}" class="layui-input">
                           </div>
-                          <div class="layui-form-mid">MB</div>
                         </div>
                         <div class="layui-inline">
-                          <label class="layui-form-label">价格：</label>
-                          <div class="layui-input-inline" style="width:100px">
-                            <input type="number" name="space[{$key}][price]" value="{$item.price}" class="layui-input" placeholder="元">
+                          <label class="layui-form-label">售价：</label>
+                          <div class="layui-input-inline" style="width:80px">
+                            <input type="number" name="space[{$key}][price]" value="{$item.price}" class="layui-input">
                           </div>
-                          <div class="layui-form-mid">元</div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">原价：</label>
+                          <div class="layui-input-inline" style="width:80px">
+                            <input type="number" name="space[{$key}][original_price]" value="{$item.original_price|default=0}" class="layui-input">
+                          </div>
                         </div>
                         <div class="layui-inline">
                           <label class="layui-form-label">描述：</label>
-                          <div class="layui-input-inline" style="width:200px">
-                            <input type="text" name="space[{$key}][desc]" value="{$item.desc}" class="layui-input" placeholder="套餐描述">
+                          <div class="layui-input-inline" style="width:130px">
+                            <input type="text" name="space[{$key}][desc]" value="{$item.desc}" class="layui-input">
                           </div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">排序：</label>
+                          <div class="layui-input-inline" style="width:60px">
+                            <input type="number" name="space[{$key}][sort]" value="{$item.sort|default=99}" class="layui-input">
+                          </div>
+                        </div>
+                        <div class="layui-inline">
+                          <input type="checkbox" name="space[{$key}][is_recommend]" value="1" lay-skin="primary" title="推荐" {if isset($item['is_recommend']) && $item['is_recommend']==1}checked{/if}>
+                        </div>
+                        <div class="layui-inline">
+                          <input type="checkbox" name="space[{$key}][status]" value="1" lay-skin="switch" lay-text="启用|停用" {if !isset($item['status']) || $item['status']==1}checked{/if}>
                         </div>
                         <div class="layui-inline">
                           <button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removePackageItem(this)"><i class="layui-icon layui-icon-delete"></i></button>
@@ -258,30 +274,40 @@
                       {foreach $package_settings.balance as $key=>$item}
                       <div class="package-item layui-form-item" data-index="{$key}">
                         <div class="layui-inline">
-                          <label class="layui-form-label">套餐名称：</label>
-                          <div class="layui-input-inline" style="width:150px">
+                          <label class="layui-form-label">名称：</label>
+                          <div class="layui-input-inline" style="width:130px">
                             <input type="text" name="balance[{$key}][name]" value="{$item.name}" class="layui-input" placeholder="如：充值100元">
                           </div>
                         </div>
                         <div class="layui-inline">
                           <label class="layui-form-label">充值金额：</label>
-                          <div class="layui-input-inline" style="width:100px">
+                          <div class="layui-input-inline" style="width:80px">
                             <input type="number" name="balance[{$key}][amount]" value="{$item.amount}" class="layui-input" placeholder="元">
                           </div>
-                          <div class="layui-form-mid">元</div>
                         </div>
                         <div class="layui-inline">
-                          <label class="layui-form-label">赠送金额：</label>
-                          <div class="layui-input-inline" style="width:100px">
+                          <label class="layui-form-label">赠送：</label>
+                          <div class="layui-input-inline" style="width:80px">
                             <input type="number" name="balance[{$key}][gift]" value="{$item.gift}" class="layui-input" placeholder="元">
                           </div>
-                          <div class="layui-form-mid">元</div>
                         </div>
                         <div class="layui-inline">
                           <label class="layui-form-label">描述：</label>
-                          <div class="layui-input-inline" style="width:200px">
+                          <div class="layui-input-inline" style="width:130px">
                             <input type="text" name="balance[{$key}][desc]" value="{$item.desc}" class="layui-input" placeholder="套餐描述">
                           </div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">排序：</label>
+                          <div class="layui-input-inline" style="width:60px">
+                            <input type="number" name="balance[{$key}][sort]" value="{$item.sort|default=99}" class="layui-input">
+                          </div>
+                        </div>
+                        <div class="layui-inline">
+                          <input type="checkbox" name="balance[{$key}][is_recommend]" value="1" lay-skin="primary" title="推荐" {if isset($item['is_recommend']) && $item['is_recommend']==1}checked{/if}>
+                        </div>
+                        <div class="layui-inline">
+                          <input type="checkbox" name="balance[{$key}][status]" value="1" lay-skin="switch" lay-text="启用|停用" {if !isset($item['status']) || $item['status']==1}checked{/if}>
                         </div>
                         <div class="layui-inline">
                           <button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removePackageItem(this)"><i class="layui-icon layui-icon-delete"></i></button>
@@ -302,30 +328,46 @@
                       {foreach $package_settings.renew as $key=>$item}
                       <div class="package-item layui-form-item" data-index="{$key}">
                         <div class="layui-inline">
-                          <label class="layui-form-label">套餐名称：</label>
-                          <div class="layui-input-inline" style="width:150px">
+                          <label class="layui-form-label">名称：</label>
+                          <div class="layui-input-inline" style="width:130px">
                             <input type="text" name="renew[{$key}][name]" value="{$item.name}" class="layui-input" placeholder="如：月卡">
                           </div>
                         </div>
                         <div class="layui-inline">
-                          <label class="layui-form-label">有效期：</label>
-                          <div class="layui-input-inline" style="width:100px">
-                            <input type="number" name="renew[{$key}][days]" value="{$item.days}" class="layui-input" placeholder="天">
+                          <label class="layui-form-label">有效期(天)：</label>
+                          <div class="layui-input-inline" style="width:80px">
+                            <input type="number" name="renew[{$key}][days]" value="{$item.days}" class="layui-input">
                           </div>
-                          <div class="layui-form-mid">天</div>
                         </div>
                         <div class="layui-inline">
-                          <label class="layui-form-label">价格：</label>
-                          <div class="layui-input-inline" style="width:100px">
-                            <input type="number" name="renew[{$key}][price]" value="{$item.price}" class="layui-input" placeholder="元">
+                          <label class="layui-form-label">售价：</label>
+                          <div class="layui-input-inline" style="width:80px">
+                            <input type="number" name="renew[{$key}][price]" value="{$item.price}" class="layui-input">
                           </div>
-                          <div class="layui-form-mid">元</div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">原价：</label>
+                          <div class="layui-input-inline" style="width:80px">
+                            <input type="number" name="renew[{$key}][original_price]" value="{$item.original_price|default=0}" class="layui-input">
+                          </div>
                         </div>
                         <div class="layui-inline">
                           <label class="layui-form-label">描述：</label>
-                          <div class="layui-input-inline" style="width:200px">
+                          <div class="layui-input-inline" style="width:130px">
                             <input type="text" name="renew[{$key}][desc]" value="{$item.desc}" class="layui-input" placeholder="套餐描述">
                           </div>
+                        </div>
+                        <div class="layui-inline">
+                          <label class="layui-form-label">排序：</label>
+                          <div class="layui-input-inline" style="width:60px">
+                            <input type="number" name="renew[{$key}][sort]" value="{$item.sort|default=99}" class="layui-input">
+                          </div>
+                        </div>
+                        <div class="layui-inline">
+                          <input type="checkbox" name="renew[{$key}][is_recommend]" value="1" lay-skin="primary" title="推荐" {if isset($item['is_recommend']) && $item['is_recommend']==1}checked{/if}>
+                        </div>
+                        <div class="layui-inline">
+                          <input type="checkbox" name="renew[{$key}][status]" value="1" lay-skin="switch" lay-text="启用|停用" {if !isset($item['status']) || $item['status']==1}checked{/if}>
                         </div>
                         <div class="layui-inline">
                           <button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removePackageItem(this)"><i class="layui-icon layui-icon-delete"></i></button>
@@ -397,10 +439,14 @@
   function addSpacePackage() {
     var index = $('#spacePackageList .package-item').length;
     var html = '<div class="package-item layui-form-item" data-index="' + index + '">';
-    html += '<div class="layui-inline"><label class="layui-form-label">套餐名称：</label><div class="layui-input-inline" style="width:150px"><input type="text" name="space[' + index + '][name]" class="layui-input" placeholder="如：10GB 云空间"></div></div>';
-    html += '<div class="layui-inline"><label class="layui-form-label">空间大小：</label><div class="layui-input-inline" style="width:100px"><input type="number" name="space[' + index + '][size]" class="layui-input" placeholder="MB"></div><div class="layui-form-mid">MB</div></div>';
-    html += '<div class="layui-inline"><label class="layui-form-label">价格：</label><div class="layui-input-inline" style="width:100px"><input type="number" name="space[' + index + '][price]" class="layui-input" placeholder="元"></div><div class="layui-form-mid">元</div></div>';
-    html += '<div class="layui-inline"><label class="layui-form-label">描述：</label><div class="layui-input-inline" style="width:200px"><input type="text" name="space[' + index + '][desc]" class="layui-input" placeholder="套餐描述"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">名称：</label><div class="layui-input-inline" style="width:130px"><input type="text" name="space[' + index + '][name]" class="layui-input" placeholder="如：10GB 云空间"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">空间(MB)：</label><div class="layui-input-inline" style="width:80px"><input type="number" name="space[' + index + '][size]" class="layui-input"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">售价：</label><div class="layui-input-inline" style="width:80px"><input type="number" name="space[' + index + '][price]" class="layui-input"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">原价：</label><div class="layui-input-inline" style="width:80px"><input type="number" name="space[' + index + '][original_price]" value="0" class="layui-input"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">描述：</label><div class="layui-input-inline" style="width:130px"><input type="text" name="space[' + index + '][desc]" class="layui-input" placeholder="套餐描述"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">排序：</label><div class="layui-input-inline" style="width:60px"><input type="number" name="space[' + index + '][sort]" value="99" class="layui-input"></div></div>';
+    html += '<div class="layui-inline"><input type="checkbox" name="space[' + index + '][is_recommend]" value="1" lay-skin="primary" title="推荐"></div>';
+    html += '<div class="layui-inline"><input type="checkbox" name="space[' + index + '][status]" value="1" lay-skin="switch" lay-text="启用|停用" checked></div>';
     html += '<div class="layui-inline"><button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removePackageItem(this)"><i class="layui-icon layui-icon-delete"></i></button></div>';
     html += '</div>';
     $('#spacePackageList').append(html);
@@ -411,10 +457,13 @@
   function addBalancePackage() {
     var index = $('#balancePackageList .package-item').length;
     var html = '<div class="package-item layui-form-item" data-index="' + index + '">';
-    html += '<div class="layui-inline"><label class="layui-form-label">套餐名称：</label><div class="layui-input-inline" style="width:150px"><input type="text" name="balance[' + index + '][name]" class="layui-input" placeholder="如：充值100元"></div></div>';
-    html += '<div class="layui-inline"><label class="layui-form-label">充值金额：</label><div class="layui-input-inline" style="width:100px"><input type="number" name="balance[' + index + '][amount]" class="layui-input" placeholder="元"></div><div class="layui-form-mid">元</div></div>';
-    html += '<div class="layui-inline"><label class="layui-form-label">赠送金额：</label><div class="layui-input-inline" style="width:100px"><input type="number" name="balance[' + index + '][gift]" class="layui-input" placeholder="元"></div><div class="layui-form-mid">元</div></div>';
-    html += '<div class="layui-inline"><label class="layui-form-label">描述：</label><div class="layui-input-inline" style="width:200px"><input type="text" name="balance[' + index + '][desc]" class="layui-input" placeholder="套餐描述"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">名称：</label><div class="layui-input-inline" style="width:130px"><input type="text" name="balance[' + index + '][name]" class="layui-input" placeholder="如：充值100元"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">充值金额：</label><div class="layui-input-inline" style="width:80px"><input type="number" name="balance[' + index + '][amount]" class="layui-input" placeholder="元"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">赠送：</label><div class="layui-input-inline" style="width:80px"><input type="number" name="balance[' + index + '][gift]" class="layui-input" placeholder="元"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">描述：</label><div class="layui-input-inline" style="width:130px"><input type="text" name="balance[' + index + '][desc]" class="layui-input" placeholder="套餐描述"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">排序：</label><div class="layui-input-inline" style="width:60px"><input type="number" name="balance[' + index + '][sort]" value="99" class="layui-input"></div></div>';
+    html += '<div class="layui-inline"><input type="checkbox" name="balance[' + index + '][is_recommend]" value="1" lay-skin="primary" title="推荐"></div>';
+    html += '<div class="layui-inline"><input type="checkbox" name="balance[' + index + '][status]" value="1" lay-skin="switch" lay-text="启用|停用" checked></div>';
     html += '<div class="layui-inline"><button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removePackageItem(this)"><i class="layui-icon layui-icon-delete"></i></button></div>';
     html += '</div>';
     $('#balancePackageList').append(html);
@@ -425,10 +474,14 @@
   function addRenewPackage() {
     var index = $('#renewPackageList .package-item').length;
     var html = '<div class="package-item layui-form-item" data-index="' + index + '">';
-    html += '<div class="layui-inline"><label class="layui-form-label">套餐名称：</label><div class="layui-input-inline" style="width:150px"><input type="text" name="renew[' + index + '][name]" class="layui-input" placeholder="如：月卡"></div></div>';
-    html += '<div class="layui-inline"><label class="layui-form-label">有效期：</label><div class="layui-input-inline" style="width:100px"><input type="number" name="renew[' + index + '][days]" class="layui-input" placeholder="天"></div><div class="layui-form-mid">天</div></div>';
-    html += '<div class="layui-inline"><label class="layui-form-label">价格：</label><div class="layui-input-inline" style="width:100px"><input type="number" name="renew[' + index + '][price]" class="layui-input" placeholder="元"></div><div class="layui-form-mid">元</div></div>';
-    html += '<div class="layui-inline"><label class="layui-form-label">描述：</label><div class="layui-input-inline" style="width:200px"><input type="text" name="renew[' + index + '][desc]" class="layui-input" placeholder="套餐描述"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">名称：</label><div class="layui-input-inline" style="width:130px"><input type="text" name="renew[' + index + '][name]" class="layui-input" placeholder="如：月卡"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">有效期(天)：</label><div class="layui-input-inline" style="width:80px"><input type="number" name="renew[' + index + '][days]" class="layui-input"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">售价：</label><div class="layui-input-inline" style="width:80px"><input type="number" name="renew[' + index + '][price]" class="layui-input"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">原价：</label><div class="layui-input-inline" style="width:80px"><input type="number" name="renew[' + index + '][original_price]" value="0" class="layui-input"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">描述：</label><div class="layui-input-inline" style="width:130px"><input type="text" name="renew[' + index + '][desc]" class="layui-input" placeholder="套餐描述"></div></div>';
+    html += '<div class="layui-inline"><label class="layui-form-label">排序：</label><div class="layui-input-inline" style="width:60px"><input type="number" name="renew[' + index + '][sort]" value="99" class="layui-input"></div></div>';
+    html += '<div class="layui-inline"><input type="checkbox" name="renew[' + index + '][is_recommend]" value="1" lay-skin="primary" title="推荐"></div>';
+    html += '<div class="layui-inline"><input type="checkbox" name="renew[' + index + '][status]" value="1" lay-skin="switch" lay-text="启用|停用" checked></div>';
     html += '<div class="layui-inline"><button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removePackageItem(this)"><i class="layui-icon layui-icon-delete"></i></button></div>';
     html += '</div>';
     $('#renewPackageList').append(html);

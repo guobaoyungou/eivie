@@ -114,6 +114,21 @@
         <div class="layui-card-header">数据统计</div>
         <div class="layui-card-body" pad15>
           
+          <!-- 筛选区域 -->
+          <div class="layui-form" style="margin-bottom: 20px;">
+            <div class="layui-inline">
+              <label class="layui-form-label">门店：</label>
+              <div class="layui-input-inline">
+                <select name="mdid" lay-filter="mdidFilter">
+                  <option value="">全部门店</option>
+                  {foreach $mendian_list as $md}
+                  <option value="{$md.id}" {if $current_mdid==$md.id}selected{/if}>{$md.name}</option>
+                  {/foreach}
+                </select>
+              </div>
+            </div>
+          </div>
+
           <!-- 今日数据 -->
           <h3 style="font-size: 16px; margin-bottom: 15px; color: #333;">今日数据</h3>
           <div class="stat-card-row">
@@ -191,17 +206,19 @@
     var echarts = layui.echarts;
     
     // 趋势图数据
-    var trendData = {$trend_data|json_encode};
+    var trendData = {$trend_data|raw};
     var dates = [];
     var uploadCounts = [];
     var generationCounts = [];
     var videoCounts = [];
+    var orderAmounts = [];
     
     trendData.forEach(function(item){
       dates.push(item.stat_date);
       uploadCounts.push(item.upload_count);
       generationCounts.push(item.generation_count);
       videoCounts.push(item.video_count);
+      orderAmounts.push(parseFloat(item.order_amount || 0));
     });
     
     // 初始化图表
@@ -212,7 +229,7 @@
         trigger: 'axis'
       },
       legend: {
-        data: ['上传人像', '生成图片', '生成视频']
+        data: ['上传人像', '生成图片', '生成视频', '订单金额']
       },
       grid: {
         left: '3%',
@@ -225,13 +242,23 @@
         boundaryGap: false,
         data: dates
       },
-      yAxis: {
-        type: 'value'
-      },
+      yAxis: [
+        {
+          type: 'value',
+          name: '数量',
+          position: 'left'
+        },
+        {
+          type: 'value',
+          name: '金额(元)',
+          position: 'right'
+        }
+      ],
       series: [
         {
           name: '上传人像',
           type: 'line',
+          yAxisIndex: 0,
           data: uploadCounts,
           smooth: true,
           itemStyle: {
@@ -241,6 +268,7 @@
         {
           name: '生成图片',
           type: 'line',
+          yAxisIndex: 0,
           data: generationCounts,
           smooth: true,
           itemStyle: {
@@ -250,10 +278,24 @@
         {
           name: '生成视频',
           type: 'line',
+          yAxisIndex: 0,
           data: videoCounts,
           smooth: true,
           itemStyle: {
             color: '#4facfe'
+          }
+        },
+        {
+          name: '订单金额',
+          type: 'line',
+          yAxisIndex: 1,
+          data: orderAmounts,
+          smooth: true,
+          itemStyle: {
+            color: '#43e97b'
+          },
+          areaStyle: {
+            color: 'rgba(67,233,123,0.1)'
           }
         }
       ]
@@ -264,6 +306,15 @@
     // 响应式
     window.addEventListener('resize', function(){
       trendChart.resize();
+    });
+  });
+
+  // 门店筛选事件
+  layui.use(['form'], function(){
+    var form = layui.form;
+    form.on('select(mdidFilter)', function(data){
+      var mdid = data.value;
+      location.href = "{:url('statistics')}" + (mdid ? '/mdid/' + mdid : '');
     });
   });
   </script>

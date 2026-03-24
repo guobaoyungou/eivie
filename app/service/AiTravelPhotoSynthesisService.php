@@ -42,7 +42,7 @@ class AiTravelPhotoSynthesisService
      * @param array $templates 模板列表
      * @return array
      */
-    public function generate(array $portrait, array $templates, string $operatorName = ''): array
+    public function generate(array $portrait, array $templates, string $operatorName = '', int $deductId = 0, float $unitCost = 0): array
     {
         try {
             $portraitId = $portrait['id'];
@@ -57,8 +57,13 @@ class AiTravelPhotoSynthesisService
                 ->where('id', $bid)
                 ->find();
 
+            // M6: 初始化服务实例
+            $balanceService = ($deductId > 0 || $unitCost > 0) ? new BalanceDeductService() : null;
+            $spaceService = new SpaceCheckService();
+
             $generatedResults = [];
             $lastError = '';
+            $failedCount = 0;
 
             // 遍历模板生成图片
             foreach ($templates as $template) {
@@ -81,6 +86,15 @@ class AiTravelPhotoSynthesisService
                     if (empty($generatedUrl)) {
                         // 更新generation状态为失败
                         $this->updateGenerationStatus($generationId, 3, '生成结果为空');
+                        // M6: 生成结果为空也需退款
+                        $failedCount++;
+                        if ($balanceService && $unitCost > 0 && $deductId > 0) {
+                            try {
+                                $balanceService->refundSingle($bid, $unitCost, $deductId, '生成结果为空退款[' . $templateName . ']');
+                            } catch (\Exception $refundEx) {
+                                Log::error('空结果退款失败: ' . $refundEx->getMessage());
+                            }
+                        }
                         continue;
                     }
 
@@ -130,6 +144,13 @@ class AiTravelPhotoSynthesisService
                         'watermarked_url' => $watermarkedUrl
                     ];
 
+                    // M6: 成功生成后更新云空间用量
+                    try {
+                        $spaceService->addUsage($bid, SpaceCheckService::ESTIMATE_IMAGE_SIZE_MB * 1024 * 1024);
+                    } catch (\Exception $spaceEx) {
+                        Log::warning('更新空间用量失败: ' . $spaceEx->getMessage());
+                    }
+
                     // 写入照片生成订单管理（generation_order表）
                     try {
                         $this->createGenerationOrder($portrait, $template, $generationId, 2, $operatorName); // 2=成功
@@ -149,6 +170,16 @@ class AiTravelPhotoSynthesisService
                         Log::error('创建失败订单记录失败[' . $templateName . ']: ' . $orderEx->getMessage());
                     }
 
+                    // M6: 失败的模板退回单张费用
+                    $failedCount++;
+                    if ($balanceService && $unitCost > 0 && $deductId > 0) {
+                        try {
+                            $balanceService->refundSingle($bid, $unitCost, $deductId, '单模板合成失败退款[' . $templateName . ']');
+                        } catch (\Exception $refundEx) {
+                            Log::error('单模板失败退款失败: ' . $refundEx->getMessage());
+                        }
+                    }
+
                     $lastError = $e->getMessage();
                     Log::error('合成模板[' . $templateName . ']失败: ' . $e->getMessage());
                 }
@@ -157,6 +188,11 @@ class AiTravelPhotoSynthesisService
             // 存入选片表（qrcode表）
             if (!empty($generatedResults)) {
                 $this->saveToQrcode($portraitId, $bid, $generatedResults, $aid);
+            }
+
+            // M6: 确认扣费
+            if ($balanceService && $deductId > 0) {
+                $balanceService->confirmDeduct($deductId);
             }
 
             // 关键修复：当count=0时返回失败，避免控制器误判为成功
@@ -1208,6 +1244,9 @@ class AiTravelPhotoSynthesisService
         // 获取人像信息中的aid
         $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
 
+        // 通过 HTTP HEAD 获取COS文件实际大小
+        $fileSize = SpaceCheckService::getRemoteFileSize($resultUrl);
+
         // ai_travel_photo_result表字段保存
         $data = [
             'aid' => $portrait['aid'] ?? 0,
@@ -1216,6 +1255,7 @@ class AiTravelPhotoSynthesisService
             'generation_id' => $generationId,
             'scene_id' => $template['id'] ?? 0,
             'url' => $resultUrl,
+            'file_size' => $fileSize,
             'type' => 1, // 图片类型
             'status' => 1,
             'desc' => $template['template_name'] ?? $template['name'] ?? '',
@@ -1223,7 +1263,22 @@ class AiTravelPhotoSynthesisService
             'update_time' => time()
         ];
 
-        return (int)Db::name('ai_travel_photo_result')->insertGetId($data);
+        $resultId = (int)Db::name('ai_travel_photo_result')->insertGetId($data);
+
+        if ($fileSize > 0) {
+            Log::info('saveResult 已记录文件大小', [
+                'result_id' => $resultId,
+                'file_size' => $fileSize,
+                'url' => $resultUrl
+            ]);
+        } else {
+            Log::warning('saveResult 无法获取文件大小', [
+                'result_id' => $resultId,
+                'url' => $resultUrl
+            ]);
+        }
+
+        return $resultId;
     }
 
     /**
