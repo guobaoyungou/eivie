@@ -89,7 +89,29 @@ class ApiPay extends ApiCommon
                 $is_create_child_order = false;
             }
 			if($is_create_child_order && $payorder && $payorder['mid'] != mid && $payorder['type'] != 'restaurant_shop') {
-				return $this->json(['status'=>0,'msg'=>'该订单不存在']);
+				// 选片订单特殊处理：通过 openid 匹配验证用户身份
+				if ($payorder['type'] == 'ai_pick') {
+					$aiPickVerified = false;
+					$aiPickOrder = Db::name('ai_travel_photo_order')
+						->where('id', $payorder['orderid'])
+						->where('aid', aid)
+						->find();
+					if ($aiPickOrder && !empty($aiPickOrder['openid'])) {
+						$member = Db::name('member')->where('id', mid)->find();
+						if ($member) {
+							$wxopenid = $member['wxopenid'] ?? '';
+							$mpopenid = $member['mpopenid'] ?? '';
+							if (($wxopenid && $wxopenid == $aiPickOrder['openid']) || ($mpopenid && $mpopenid == $aiPickOrder['openid'])) {
+								$aiPickVerified = true;
+							}
+						}
+					}
+					if (!$aiPickVerified) {
+						return $this->json(['status'=>0,'msg'=>'该订单不存在']);
+					}
+				} else {
+					return $this->json(['status'=>0,'msg'=>'该订单不存在']);
+				}
 			}
 		}
 

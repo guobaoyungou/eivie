@@ -13,7 +13,7 @@
 		<!--  #endif -->
 		<view class="order-content">
 			<block v-for="(item, index) in datalist" :key="index">
-				<view class="order-box" @tap="goto" :data-url="'detail?id=' + item.id">
+				<view class="order-box" @tap="goto" :data-url="item.detail_url || ('detail?id=' + item.id)">
 					<view class="head">
             <!-- 眼镜 显示订单号-->
             <block v-if="glass_order_custom == 1">
@@ -25,6 +25,7 @@
 						</block>
             <view class="flex1">
 								<text style="color:orangered; margin-left: 10rpx;" v-if="item.yuding_type && item.yuding_type =='1'">[预定订单]</text>
+								<text style="color:#1890ff; margin-left: 10rpx;" v-if="item.order_type && item.order_type!='shop'">[{{item.order_type_name}}]</text>
 						</view>
             <text style="color:orangered; margin-left: 10rpx;" v-if="item.wxtc && item.wxtc_status_name">{{item.wxtc_status_name}}</text>
 						<text v-if="item.status==0" class="st0">待付款</text>
@@ -125,7 +126,8 @@
 							<view class="btn2" @tap.stop="goto" :data-url="'invoice?type=shop&orderid=' + item.id">发票</view>
 						</block>
 						<view v-if="item.is_fenqi && item.is_fenqi == 1" @tap.stop="fenqiDetails(item)" class="btn2">分期详情</view>
-						<view @tap.stop="goto" :data-url="'detail?id=' + item.id" class="btn2">详情</view>
+						<!-- 根据订单类型使用不同的详情页跳转 -->
+						<view @tap.stop="goto" :data-url="item.detail_url || ('detail?id=' + item.id)" class="btn2">详情</view>
             <block v-if="item.status!=4 && item.transfer_order_parent_check">
               <view @tap.stop="transferOrder" :data-orderid="item.id" class="btn2" style="max-width: 220rpx">转给上级审核</view>
             </block>
@@ -406,16 +408,19 @@ export default {
 			that.nodata = false;
 			that.nomore = false;
 			that.loading = true;
+      // 使用原商城订单接口
       app.post('ApiOrder/orderlist', {st: st,pagenum: pagenum,keyword:that.keyword}, function (res) {
 				that.loading = false;
-        var data = res.datalist;
+        // 添加错误检查
+        if(!res || typeof res !== 'object'){
+          console.error('接口返回数据格式错误', res);
+          that.nodata = true;
+          that.loaded();
+          return;
+        }
+        var data = res.datalist || [];
         if (pagenum == 1) {
-					that.codtxt = res.codtxt;
-					that.canrefund = res.canrefund;
-					that.showprice_dollar = res.showprice_dollar
 					that.datalist = data;
-					that.mendian_no_select = res.mendian_no_select;
-					that.collect_reward_set = res.collect_reward_set;
           if (data.length == 0) {
             that.nodata = true;
           }
@@ -428,9 +433,6 @@ export default {
             var newdata = datalist.concat(data);
             that.datalist = newdata;
           }
-        }
-        if(res && res.glass_order_custom){
-          that.glass_order_custom = res.glass_order_custom;
         }
       });
     },

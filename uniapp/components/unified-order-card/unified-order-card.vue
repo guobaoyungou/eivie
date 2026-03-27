@@ -110,9 +110,15 @@ export default {
 			}
 		},
 		goPay: function() {
-			if (this.item.payorderid) {
-				app.goto('/pagesExt/pay/pay?id=' + this.item.payorderid);
+			if (!this.item.payorderid || this.item.payorderid == 0) {
+				uni.showToast({
+					title: '支付信息异常，请重新下单',
+					icon: 'none',
+					duration: 2000
+				});
+				return;
 			}
+			app.goto('/pagesExt/pay/pay?id=' + this.item.payorderid);
 		},
 		goDownload: function() {
 			if (this.item.download_url) {

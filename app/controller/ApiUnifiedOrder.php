@@ -436,14 +436,14 @@ class ApiUnifiedOrder extends ApiCommon
                     // 分支1: aid=1 AND uid=mid AND (其他条件)
                     $q->where('aid', $aidVal)->where('uid', $uidVal);
                     foreach ($otherConditions as $cond) {
-                        $q->where($cond[0], $cond[2]);
+                        $q->where($cond[0], $cond[1], $cond[2]);
                     }
 
                     // 分支2: aid=1 AND openid=xxx AND (其他条件)
                     $q->whereOr(function($q2) use ($aidVal, $openid, $otherConditions) {
                         $q2->where('aid', $aidVal)->where('openid', $openid);
                         foreach ($otherConditions as $cond) {
-                            $q2->where($cond[0], $cond[2]);
+                            $q2->where($cond[0], $cond[1], $cond[2]);
                         }
                     });
                 });
@@ -451,13 +451,13 @@ class ApiUnifiedOrder extends ApiCommon
                 // 只有 uid
                 $query->where('aid', $aidVal)->where('uid', $uidVal);
                 foreach ($otherConditions as $cond) {
-                    $query->where($cond[0], $cond[2]);
+                    $query->where($cond[0], $cond[1], $cond[2]);
                 }
             } elseif ($openid) {
                 // 只有 openid
                 $query->where('aid', $aidVal)->where('openid', $openid);
                 foreach ($otherConditions as $cond) {
-                    $query->where($cond[0], $cond[2]);
+                    $query->where($cond[0], $cond[1], $cond[2]);
                 }
             } else {
                 // 都没有，回退到普通查询
@@ -886,25 +886,55 @@ class ApiUnifiedOrder extends ApiCommon
         $title = 'AI旅拍选片';
 
         // 标题从 package_snapshot 解析套餐名称
+        $snapshot = null;
         if (!empty($row['package_snapshot'])) {
             $snapshot = json_decode($row['package_snapshot'], true);
             if ($snapshot) {
                 $title = $snapshot['name'] ?? $title;
-                // 如果有商品数据，使用第一个商品的图片
-                if (!empty($snapshot['products'])) {
-                    $coverImage = $snapshot['products'][0]['goods_image'] ?? '';
-                }
             }
         }
 
-        // 如果没有封面图，从数据库查询
+        // 多级图片回退策略
+        // 优先级一：从 order_goods 表获取 goods_image
         if (!$coverImage && !empty($goodsList)) {
             $coverImage = $goodsList[0]['goods_image'] ?? '';
         }
 
-        // 处理缩略图：如果图片URL存在，添加缩略图参数
+        // 优先级二：从 package_snapshot JSON 解析获取
+        if (!$coverImage && $snapshot && !empty($snapshot['products'])) {
+            $coverImage = $snapshot['products'][0]['goods_image'] ?? '';
+        }
+
+        // 优先级三：通过 result_id 关联查询 ai_travel_photo_result 表的封面图
+        if (!$coverImage && !empty($goodsList)) {
+            $resultIds = array_filter(array_column($goodsList, 'result_id'));
+            if (!empty($resultIds)) {
+                $resultImage = Db::name('ai_travel_photo_result')
+                    ->where('id', 'in', $resultIds)
+                    ->where('status', 1)
+                    ->order('id asc')
+                    ->value('thumbnail_url');
+                // thumbnail_url 为空时回退到 url
+                if (!$resultImage) {
+                    $resultImage = Db::name('ai_travel_photo_result')
+                        ->where('id', 'in', $resultIds)
+                        ->where('status', 1)
+                        ->order('id asc')
+                        ->value('url');
+                }
+                if ($resultImage) {
+                    $coverImage = $resultImage;
+                }
+            }
+        }
+
+        // 兆底：设置默认占位图
+        if (!$coverImage) {
+            $coverImage = '/static/img/placeholder.png';
+        }
+
+        // 处理缩略图：如果图片URL存在且为远程图片，添加缩略图参数
         if ($coverImage && strpos($coverImage, 'http') === 0) {
-            // 添加50x50缩略图参数（适配阿里云OSS、腾讯云COS等）
             if (strpos($coverImage, '?') === false) {
                 $coverImage = $coverImage . '?x-oss-process=image/resize,w_100,h_100';
             }
@@ -960,8 +990,33 @@ class ApiUnifiedOrder extends ApiCommon
         // 构造商品列表（兼容格式）
         $prolist = [];
         foreach ($goodsList as $goods) {
-            // 处理商品图片缩略图
-            $goodsPic = $goods['goods_image'] ?? $coverImage;
+            // 处理商品图片：多级回退策略
+            $goodsPic = $goods['goods_image'] ?? '';
+            // 回退到封面图
+            if (!$goodsPic) {
+                $goodsPic = $coverImage;
+            }
+            // 回退到成片结果表
+            if (!$goodsPic && !empty($goods['result_id'])) {
+                $resultPic = Db::name('ai_travel_photo_result')
+                    ->where('id', $goods['result_id'])
+                    ->where('status', 1)
+                    ->value('thumbnail_url');
+                // thumbnail_url 为空时回退到 url
+                if (!$resultPic) {
+                    $resultPic = Db::name('ai_travel_photo_result')
+                        ->where('id', $goods['result_id'])
+                        ->where('status', 1)
+                        ->value('url');
+                }
+                if ($resultPic) {
+                    $goodsPic = $resultPic;
+                }
+            }
+            // 兆底占位图
+            if (!$goodsPic) {
+                $goodsPic = '/static/img/placeholder.png';
+            }
             if ($goodsPic && strpos($goodsPic, 'http') === 0) {
                 if (strpos($goodsPic, '?') === false) {
                     $goodsPic = $goodsPic . '?x-oss-process=image/resize,w_100,h_100';
