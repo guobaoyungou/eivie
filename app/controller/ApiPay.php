@@ -151,6 +151,12 @@ class ApiPay extends ApiCommon
             $tourl = '/yuyue/yuyue/orderlist';
         }
 
+        // AI旅拍选片订单
+        if($payorder['type'] == 'ai_pick'){
+            $detailurl = '/pagesExt/order/detail?id='.$payorder['orderid'];
+            $tourl = '/pagesExt/order/unifiedOrderlist';
+        }
+
         if($payorder['type'] == 'kecheng'){
             $kcorder = Db::name('kecheng_order')->where('id',$payorder['orderid'])->find();
             $detailurl = '/activity/kecheng/product?id='.$kcorder['kcid'];

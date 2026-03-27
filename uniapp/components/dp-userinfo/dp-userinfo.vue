@@ -548,11 +548,11 @@
 	<view class="dp-userinfo-order" :style="{'margin':((params.padding_y*2.2) || 20)+'rpx '+(params.padding_x*2.2)+'rpx','marginTop':((params.style==2 && !data.parent_show && data.userinfo.othermoney_status !=1) ? '20rpx':((params.padding_y*2.2) || 20)+'rpx ')}" v-if="params.ordershow==1 && (!params.showtype || params.showtype == 0)">
 		<view class="head">
 			<text class="f1">我的订单</text>
-			<view class="f2" @tap="goto" data-url="/pagesExt/order/orderlist"><text>查看全部订单</text><image :src="pre_url+'/static/img/arrowright.png'" class="image"/></view>
+			<view class="f2" @tap="goto" data-url="/pagesExt/order/unifiedOrderlist"><text>查看全部订单</text><image :src="pre_url+'/static/img/arrowright.png'" class="image"/></view>
 		</view>
 		<view class="content">
 			<block v-for="(item,index) in myOrderList" :key="index">
-				<view class="item" @tap="goto" :data-url="`/pagesExt/order/orderlist?st=${index}`">
+				<view class="item" @tap="goto" :data-url="`/pagesExt/order/unifiedOrderlist?st=${index}`">
 					<text :class="[`iconfont`,item.iconType]" :style="{color:t('color1')}"></text>
 					<view class="t2" v-if="data.orderinfo[`count${index}`] > 0">{{data.orderinfo[`count${index}`]}}</view>
 					<text class="t3">{{item.title}}</text>
@@ -576,7 +576,7 @@
 	v-if="params.ordershow==1 && params.showtype == 1">
 		<view class="head">
 			<text class="f1">{{params.ordertitle}}</text>
-			<view class="f2" @tap="goto" data-url="/pagesExt/order/orderlist"><text>查看全部订单</text><image :src="pre_url+'/static/img/arrowright.png'" class="image"/></view>
+			<view class="f2" @tap="goto" data-url="/pagesExt/order/unifiedOrderlist"><text>查看全部订单</text><image :src="pre_url+'/static/img/arrowright.png'" class="image"/></view>
 		</view>
 		<view class="content">
 			 <view class="item" v-for="(item,index) in params.orderData" @click="optionJump(item.type)" v-if="item.show != 0">
@@ -592,17 +592,17 @@
 	<view class="dp-userinfo-order" :style="{'margin':(params.padding_y*2.2)+'rpx '+(params.padding_x*2.2)+'rpx','marginTop':(params.padding_y == 0 || params.padding_y > 10 ? '20rpx':(params.padding_y*2.2)+'rpx')}" v-if="params.scoreshopordershow==1">
 		<view class="head">
 			<text class="f1">{{t('积分')}}兑换订单</text>
-			<view class="f2" @tap="goto" data-url="/activity/scoreshop/orderlist"><text>查看全部订单</text><image :src="pre_url+'/static/img/arrowright.png'" class="image"/></view>
+			<view class="f2" @tap="goto" data-url="/pagesExt/order/unifiedOrderlist?order_type=scoreshop"><text>查看全部订单</text><image :src="pre_url+'/static/img/arrowright.png'" class="image"/></view>
 		</view>
 		<view class="content">
 			<block v-for="(item,index) in exchangeOrderList" :key="index">
-				<view class="item" @tap="goto" :data-url="`/activity/scoreshop/orderlist?st=${index}`">
+				<view class="item" @tap="goto" :data-url="`/pagesExt/order/unifiedOrderlist?st=${index}&order_type=scoreshop`">
 					<text :class="[`iconfont`,item.iconType]" :style="{color:t('color1')}"></text>
 					<view class="t2" v-if="data.scoreshoporder[`count${index}`] > 0">{{data.scoreshoporder[`count${index}`]}}</view>
 					<text class="t3">{{item.title}}</text>
 				</view>
 			</block>
-			 <view class="item" @tap="goto" data-url="/activity/scoreshop/orderlist?st=10" v-if="params.scoreshowrefund == 1">
+			 <view class="item" @tap="goto" data-url="/pagesExt/order/unifiedOrderlist?st=10&order_type=scoreshop" v-if="params.scoreshowrefund == 1">
 					<text class="iconfont icontuikuandingdan" :style="{color:t('color1')}"></text>
 					<view class="t2" v-if="data.scoreshoporder.count4>0">{{data.scoreshoporder.count4}}</view>
 					<text class="t3">退款/售后</text>
@@ -747,16 +747,16 @@
 				let url = '';
 				switch (type){
 					case 'daifukuan':
-					url = '/pagesExt/order/orderlist?st=0'
+					url = '/pagesExt/order/unifiedOrderlist?st=0'
 					break;
 					case 'daifahuo':
-					url = '/pagesExt/order/orderlist?st=1'
+					url = '/pagesExt/order/unifiedOrderlist?st=1'
 					break;
 					case 'daishouhuo':
-					url = '/pagesExt/order/orderlist?st=2'
+					url = '/pagesExt/order/unifiedOrderlist?st=2'
 					break;
 					case 'wancheng':
-					url = '/pagesExt/order/orderlist?st=3'
+					url = '/pagesExt/order/unifiedOrderlist?st=3'
 					break;
 					case 'tuikuan':
 					url = '/pagesExt/order/refundlist'
