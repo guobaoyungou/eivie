@@ -99,6 +99,184 @@ return [
         ],
     ],
 
+    // 爱诗科技（PixVerse）配置 - 通过阿里云百炼DashScope平台接入
+    'aishi' => [
+        'api_url' => 'https://dashscope.aliyuncs.com',
+        'generation_endpoint' => '/api/v1/services/aigc/video-generation/video-synthesis',
+        'task_query_endpoint' => '/api/v1/tasks/',
+        'timeout' => 30,
+        'poll_interval' => 10,
+        'max_poll_time' => 600,
+        'max_retry' => 3,
+        
+        // PixVerse模型能力注册
+        'models' => [
+            // 图生视频-基于首帧：1张图片 + 可选prompt → 视频
+            'pixverse/pixverse-v5.6-it2v' => [
+                'name' => '爱诗PixVerse V5.6 图生视频（首帧）',
+                'text_to_video' => false,
+                'first_frame' => true,
+                'first_last_frame' => false,
+                'reference_images' => false,
+                'with_audio' => true,
+                'max_duration' => 10,
+                'resolutions' => ['360P', '540P', '720P', '1080P'],
+                'durations' => [5, 8, 10],  // 1080P仅支持5、8
+                'price_per_second' => 0.50,
+            ],
+            // 图生视频-基于首尾帧：首帧+尾帧 + 必选prompt → 视频
+            'pixverse/pixverse-v5.6-kf2v' => [
+                'name' => '爱诗PixVerse V5.6 首尾帧生视频',
+                'text_to_video' => false,
+                'first_frame' => true,
+                'first_last_frame' => true,
+                'reference_images' => false,
+                'with_audio' => true,
+                'max_duration' => 10,
+                'resolutions' => ['360P', '540P', '720P', '1080P'],
+                'durations' => [5, 8, 10],  // 1080P仅支持5、8
+                'price_per_second' => 0.50,
+            ],
+            // 参考生视频：1-7张参考图 + 必选prompt → 视频
+            'pixverse/pixverse-v5.6-r2v' => [
+                'name' => '爱诗PixVerse V5.6 参考生视频',
+                'text_to_video' => false,
+                'first_frame' => false,
+                'first_last_frame' => false,
+                'reference_images' => true,
+                'with_audio' => true,
+                'max_duration' => 10,
+                'max_reference_images' => 7,
+                'resolutions' => ['360P', '540P', '720P', '1080P'],
+                'durations' => [5, 8, 10],  // 1080P仅支持5、8
+                'price_per_second' => 0.50,
+                // r2v使用size参数(宽*高)而非resolution
+                'use_size_param' => true,
+                'size_options' => [
+                    '360P'  => ['640*360', '640*480', '640*640', '480*640', '360*640'],
+                    '540P'  => ['1024*576', '1024*768', '1024*1024', '768*1024', '576*1024'],
+                    '720P'  => ['1280*720', '1108*830', '960*960', '830*1108', '720*1280'],
+                    '1080P' => ['1920*1080', '1662*1246', '1440*1440', '1246*1662', '1080*1920'],
+                ],
+            ],
+        ],
+    ],
+
+    // 即梦AI（火山引擎CV）配置
+    'jimeng' => [
+        'api_url' => 'https://visual.volcengineapi.com',
+        'submit_action' => 'CVSync2AsyncSubmitTask',
+        'query_action' => 'CVSync2AsyncGetResult',
+        'api_version' => '2022-08-31',
+        'region' => 'cn-north-1',
+        'service' => 'cv',
+        'timeout' => 300,
+        'poll_interval' => 5,
+        'max_poll_time' => 600,
+        'max_retry' => 3,
+        
+        // 即梦模型能力注册
+        'models' => [
+            // ===== 图片生成 =====
+            'jimeng_t2i_v40' => [
+                'name' => '即梦AI-图片生成4.0',
+                'type' => 'image',
+                'req_key' => 'jimeng_t2i_v40',
+                'text_to_image' => true,
+                'image_to_image' => true,
+                'max_input_images' => 10,
+                'max_output_images' => 15,
+                'supported_resolutions' => [
+                    '1K' => [
+                        '1024x1024',
+                    ],
+                    '2K' => [
+                        '2048x2048', '2304x1728', '2496x1664', '2560x1440', '3024x1296',
+                    ],
+                    '4K' => [
+                        '4096x4096', '4694x3520', '4992x3328', '5404x3040', '6198x2656',
+                    ],
+                ],
+                'default_size' => 4194304,  // 2048*2048
+                'price_per_image' => 0.06,  // 每张图0.06元
+            ],
+            
+            // ===== 视频生成3.0 720P =====
+            'jimeng_video_v30_720p' => [
+                'name' => '即梦AI-视频生成3.0 720P',
+                'type' => 'video',
+                'resolution' => '720P',
+                // 不同模式使用不同的req_key（TODO: 从火山引擎文档确认实际值）
+                'modes' => [
+                    'text_to_video' => [
+                        'req_key' => 'jimeng_video_v30_t2v_720p',  // TODO: 确认
+                        'description' => '输入文本提示词，生成720P视频',
+                    ],
+                    'first_frame' => [
+                        'req_key' => 'jimeng_video_v30_i2v_720p',  // TODO: 确认
+                        'description' => '输入首帧图片和文本提示词，生成720P视频',
+                    ],
+                    'first_last_frame' => [
+                        'req_key' => 'jimeng_video_v30_kf2v_720p',  // TODO: 确认
+                        'description' => '输入首尾帧图片和文本提示词，生成720P视频',
+                    ],
+                    'camera_motion' => [
+                        'req_key' => 'jimeng_video_v30_cam2v_720p',  // TODO: 确认
+                        'description' => '输入首帧图片、运镜类型和幅度，生成720P运镜视频',
+                    ],
+                ],
+                'text_to_video' => true,
+                'first_frame' => true,
+                'first_last_frame' => true,
+                'camera_motion' => true,
+                'with_audio' => false,
+                'max_duration' => 5,
+                'aspect_ratios' => ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '9:21'],
+                'camera_types' => [
+                    'horizontal_right', 'horizontal_left',     // 水平右移/左移
+                    'vertical_up', 'vertical_down',             // 垂直上移/下移
+                    'zoom_in', 'zoom_out',                       // 推近/拉远
+                    'pan_right', 'pan_left',                     // 右摇/左摇
+                    'tilt_up', 'tilt_down',                      // 仰拍/俯拍
+                    'hitchcock',                                  // 希区柯克
+                    'dynamic_surround',                          // 动感环绕
+                    'mechanical_arm',                            // 机械臂
+                ],
+                'price_per_video' => 0.40,  // 每条视频0.40元
+            ],
+            
+            // ===== 视频生成3.0 1080P =====
+            'jimeng_video_v30_1080p' => [
+                'name' => '即梦AI-视频生成3.0 1080P',
+                'type' => 'video',
+                'resolution' => '1080P',
+                // 不同模式使用不同的req_key（TODO: 从火山引擎文档确认实际值）
+                'modes' => [
+                    'text_to_video' => [
+                        'req_key' => 'jimeng_video_v30_t2v_1080p',  // TODO: 确认
+                        'description' => '输入文本提示词，生成1080P视频',
+                    ],
+                    'first_frame' => [
+                        'req_key' => 'jimeng_video_v30_i2v_1080p',  // TODO: 确认
+                        'description' => '输入首帧图片和文本提示词，生成1080P视频',
+                    ],
+                    'first_last_frame' => [
+                        'req_key' => 'jimeng_video_v30_kf2v_1080p',  // TODO: 确认
+                        'description' => '输入首尾帧图片和文本提示词，生成1080P视频',
+                    ],
+                ],
+                'text_to_video' => true,
+                'first_frame' => true,
+                'first_last_frame' => true,
+                'camera_motion' => false,  // 1080P不支持运镜
+                'with_audio' => false,
+                'max_duration' => 5,
+                'aspect_ratios' => ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '9:21'],
+                'price_per_video' => 0.80,  // 每条视频0.80元
+            ],
+        ],
+    ],
+
     // 队列配置
     'queue' => [
         'prefix' => 'aivideo:',
@@ -155,6 +333,11 @@ return [
             'description' => '1-4张参考图片驱动生成',
             'required_params' => ['reference_images'],
             'max_images' => 4,
+        ],
+        'camera_motion' => [
+            'name' => '运镜图生视频',
+            'description' => '首帧图片+运镜控制生成视频',
+            'required_params' => ['first_frame_image', 'camera_type'],
         ],
     ],
 ];

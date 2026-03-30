@@ -318,6 +318,14 @@ class GenerationService
             }
         }
         
+        // 即梦AI模型使用单独的调用流程（火山引擎V4签名 + 特殊endpoint）
+        if ($this->isJimengVideoModel($model['model_code'])) {
+            return $this->callJimengVideoApi($model, $apiKeyConfig, $inputParams);
+        }
+        if ($this->isJimengImageModel($model['model_code'], $providerCode)) {
+            return $this->callJimengApi($model, $apiKeyConfig, $inputParams);
+        }
+        
         // 构建请求头
         $headers = $this->buildAuthHeaders($providerCode, $apiKey, $apiSecret, $model['auth_config'] ?? []);
         
@@ -430,6 +438,7 @@ class GenerationService
                 break;
             case 'aliyun':
             case 'dashscope':
+            case 'aishi':
                 $headers[] = 'Authorization: Bearer ' . $apiKey;
                 // 启用DashScope异步模式，避免同步请求超时
                 $headers[] = 'X-DashScope-Async: enable';
@@ -495,6 +504,21 @@ class GenerationService
         // 检查是否是Seedance视频生成模型（需要特殊content数组格式）
         if ($this->isSeedanceVideoModel($modelCode)) {
             return $this->buildSeedanceRequestBody($modelCode, $inputParams);
+        }
+        
+        // 检查是否是爱诗科技PixVerse视频生成模型（DashScope model+input+parameters格式）
+        if ($this->isPixVerseVideoModel($modelCode, $providerCode)) {
+            return $this->buildPixVerseRequestBody($modelCode, $inputParams);
+        }
+        
+        // 检查是否是即梦AI视频生成模型（火山引擎CV API格式）
+        if ($this->isJimengVideoModel($modelCode)) {
+            return $this->buildJimengVideoRequestBody($modelCode, $inputParams);
+        }
+        
+        // 检查是否是即梦AI图片生成模型（火山引擎CV API格式）
+        if ($this->isJimengImageModel($modelCode, $providerCode)) {
+            return $this->buildJimengRequestBody($modelCode, $inputParams);
         }
         
         // 检查是否是阿里云百炼图像生成/编辑模型（需要将图片转为Base64）
@@ -579,6 +603,925 @@ class GenerationService
         ];
         
         return in_array($baseCode, $seedanceModels) || strpos($modelCode, 'doubao-seedance') === 0;
+    }
+    
+    /**
+     * 检查是否为爱诗科技PixVerse视频生成模型
+     * PixVerse模型通过阿里云百炼DashScope接入，使用 model+input+parameters 三层格式
+     * 
+     * @param string $modelCode 模型代码
+     * @param string $providerCode 供应商标识
+     * @return bool
+     */
+    protected function isPixVerseVideoModel($modelCode, $providerCode = '')
+    {
+        // 按model_code匹配
+        if (strpos($modelCode, 'pixverse') === 0) {
+            return true;
+        }
+        // 按provider_code匹配
+        if ($providerCode === 'aishi') {
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * 为爱诗科技PixVerse视频模型构建符合DashScope API格式的请求体
+     * 
+     * 支持三种模型变体：
+     * - pixverse/pixverse-v5.6-it2v: 图生视频（首帧），1张图片(image_url) + 可选prompt
+     * - pixverse/pixverse-v5.6-kf2v: 首尾帧生视频，首帧(first_frame)+尾帧(last_frame) + 必选prompt
+     * - pixverse/pixverse-v5.6-r2v:  参考生视频，1-7张参考图(image_url) + 必选prompt，使用size参数
+     * 
+     * DashScope API请求格式:
+     * {
+     *   "model": "pixverse/pixverse-v5.6-it2v",
+     *   "input": {
+     *     "media": [{"type": "image_url", "url": "..."}],
+     *     "prompt": "..."
+     *   },
+     *   "parameters": {
+     *     "resolution": "720P",
+     *     "duration": 5,
+     *     "audio": false,
+     *     "watermark": false
+     *   }
+     * }
+     * 
+     * @param string $modelCode 模型代码（如 pixverse/pixverse-v5.6-it2v）
+     * @param array $inputParams 用户输入参数
+     * @return array 符合API格式的请求体
+     */
+    protected function buildPixVerseRequestBody($modelCode, $inputParams)
+    {
+        // 识别PixVerse子模型类型
+        $isKf2v = (strpos($modelCode, 'kf2v') !== false);
+        $isR2v  = (strpos($modelCode, 'r2v') !== false);
+        $isIt2v = (strpos($modelCode, 'it2v') !== false);
+        
+        // ========== 构建media数组 ==========
+        $media = [];
+        
+        if ($isKf2v) {
+            // kf2v: 需要首帧(first_frame) + 尾帧(last_frame)
+            $firstFrameUrl = $inputParams['first_frame_image'] 
+                ?? $inputParams['image_url'] 
+                ?? $inputParams['image'] 
+                ?? '';
+            $lastFrameUrl = $inputParams['last_frame_image'] 
+                ?? $inputParams['tail_image_url'] 
+                ?? $inputParams['last_frame'] 
+                ?? '';
+            
+            if (!empty($firstFrameUrl)) {
+                $media[] = ['type' => 'first_frame', 'url' => $firstFrameUrl];
+            }
+            if (!empty($lastFrameUrl)) {
+                $media[] = ['type' => 'last_frame', 'url' => $lastFrameUrl];
+            }
+        } elseif ($isR2v) {
+            // r2v: 1-7张参考图片
+            $refImages = $inputParams['reference_images'] ?? [];
+            if (is_string($refImages) && !empty($refImages)) {
+                $refImages = array_filter(array_map('trim', explode(',', $refImages)));
+            }
+            // 也检查单张图片参数作为兑容
+            if (empty($refImages)) {
+                $singleImage = $inputParams['image_url'] 
+                    ?? $inputParams['first_frame_image'] 
+                    ?? $inputParams['image'] 
+                    ?? '';
+                if (!empty($singleImage)) {
+                    $refImages = [$singleImage];
+                }
+            }
+            foreach ($refImages as $imgUrl) {
+                if (!empty($imgUrl)) {
+                    $media[] = ['type' => 'image_url', 'url' => $imgUrl];
+                }
+            }
+        } else {
+            // it2v (默认): 单张图片作为首帧
+            $imageUrl = $inputParams['image_url'] 
+                ?? $inputParams['first_frame_image'] 
+                ?? $inputParams['image'] 
+                ?? $inputParams['input_image'] 
+                ?? '';
+            if (!empty($imageUrl)) {
+                $media[] = ['type' => 'image_url', 'url' => $imageUrl];
+            }
+        }
+        
+        // ========== 构建input部分 ==========
+        $input = [];
+        if (!empty($media)) {
+            $input['media'] = $media;
+        }
+        
+        // 提示词
+        $prompt = $inputParams['prompt'] ?? $inputParams['text'] ?? $inputParams['description'] ?? '';
+        if (!empty($prompt)) {
+            $input['prompt'] = $prompt;
+        }
+        
+        // ========== 构建parameters部分 ==========
+        $parameters = [];
+        
+        // 视频时长
+        if (!empty($inputParams['duration'])) {
+            $parameters['duration'] = intval($inputParams['duration']);
+        }
+        
+        // 分辨率参数：r2v使用size（宽*高），其他模型使用resolution（如720P）
+        if ($isR2v) {
+            if (!empty($inputParams['size'])) {
+                $parameters['size'] = $inputParams['size'];
+            } elseif (!empty($inputParams['resolution'])) {
+                // 将resolution转换为size（默认16:9宽高比）
+                $resolutionToSize = [
+                    '360P'  => '640*360',
+                    '540P'  => '1024*576',
+                    '720P'  => '1280*720',
+                    '1080P' => '1920*1080',
+                ];
+                $resKey = strtoupper($inputParams['resolution']);
+                $parameters['size'] = $resolutionToSize[$resKey] ?? '1280*720';
+            }
+        } else {
+            if (!empty($inputParams['resolution'])) {
+                $parameters['resolution'] = strtoupper($inputParams['resolution']);
+            }
+        }
+        
+        // 音频参数
+        if (isset($inputParams['audio'])) {
+            $parameters['audio'] = filter_var($inputParams['audio'], FILTER_VALIDATE_BOOLEAN);
+        } elseif (isset($inputParams['with_audio'])) {
+            $parameters['audio'] = filter_var($inputParams['with_audio'], FILTER_VALIDATE_BOOLEAN);
+        }
+        
+        // 水印参数
+        if (isset($inputParams['watermark'])) {
+            $parameters['watermark'] = filter_var($inputParams['watermark'], FILTER_VALIDATE_BOOLEAN);
+        }
+        
+        // 随机种子
+        if (isset($inputParams['seed']) && $inputParams['seed'] !== '' && $inputParams['seed'] !== null) {
+            $parameters['seed'] = intval($inputParams['seed']);
+        }
+        
+        // ========== 组装最终请求体 ==========
+        $body = [
+            'model' => $modelCode,
+            'input' => $input,
+        ];
+        
+        if (!empty($parameters)) {
+            $body['parameters'] = $parameters;
+        }
+        
+        \think\facade\Log::info('buildPixVerseRequestBody: 构建PixVerse请求体', [
+            'model' => $modelCode,
+            'sub_type' => $isKf2v ? 'kf2v' : ($isR2v ? 'r2v' : 'it2v'),
+            'media_count' => count($media),
+            'has_prompt' => !empty($prompt),
+            'parameters' => $parameters
+        ]);
+        
+        return $body;
+    }
+    
+    /**
+     * 检查是否为即梦AI图片生成模型
+     * 即梦模型通过火山引擎CV API接入，使用V4签名认证
+     * 
+     * @param string $modelCode 模型代码
+     * @param string $providerCode 供应商标识
+     * @return bool
+     */
+    protected function isJimengImageModel($modelCode, $providerCode = '')
+    {
+        // 即梦视频模型不走图片流程
+        if ($this->isJimengVideoModel($modelCode)) {
+            return false;
+        }
+        if (strpos($modelCode, 'jimeng') === 0) {
+            return true;
+        }
+        if ($providerCode === 'jimeng') {
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * 检查是否为即梦AI视频生成模型
+     * 
+     * @param string $modelCode 模型代码
+     * @return bool
+     */
+    protected function isJimengVideoModel($modelCode)
+    {
+        return strpos($modelCode, 'jimeng_video') === 0;
+    }
+    
+    /**
+     * 为即梦AI图片生成模型构建请求体
+     * 
+     * 即梦API请求格式:
+     * {
+     *   "req_key": "jimeng_t2i_v40",
+     *   "image_urls": ["url1", "url2"],
+     *   "prompt": "描述文字",
+     *   "size": 4194304,
+     *   "width": 2048, "height": 2048,
+     *   "scale": 0.5,
+     *   "force_single": false
+     * }
+     * 
+     * @param string $modelCode 模型代码
+     * @param array $inputParams 用户输入参数
+     * @return array 符合API格式的请求体
+     */
+    protected function buildJimengRequestBody($modelCode, $inputParams)
+    {
+        // 从配置中获取req_key，默认为 jimeng_t2i_v40
+        $jimengConfig = config('aivideo.jimeng.models.' . $modelCode) ?? [];
+        $reqKey = $jimengConfig['req_key'] ?? 'jimeng_t2i_v40';
+        
+        $body = [
+            'req_key' => $reqKey,
+        ];
+        
+        // 提示词（必选）
+        $prompt = $inputParams['prompt'] ?? $inputParams['text'] ?? '';
+        if (!empty($prompt)) {
+            $body['prompt'] = $prompt;
+        }
+        
+        // 输入图片URL数组（可选，0-10张）
+        $imageUrls = [];
+        // 支持多种输入方式
+        if (!empty($inputParams['image_urls'])) {
+            $imgs = $inputParams['image_urls'];
+            if (is_string($imgs)) {
+                $imageUrls = array_filter(array_map('trim', explode(',', $imgs)));
+            } elseif (is_array($imgs)) {
+                $imageUrls = $imgs;
+            }
+        } elseif (!empty($inputParams['image'])) {
+            $img = $inputParams['image'];
+            if (is_string($img) && strpos($img, ',') !== false) {
+                $imageUrls = array_filter(array_map('trim', explode(',', $img)));
+            } elseif (is_string($img)) {
+                $imageUrls = [$img];
+            } elseif (is_array($img)) {
+                $imageUrls = $img;
+            }
+        } elseif (!empty($inputParams['reference_images'])) {
+            $imgs = $inputParams['reference_images'];
+            if (is_string($imgs)) {
+                $imageUrls = array_filter(array_map('trim', explode(',', $imgs)));
+            } elseif (is_array($imgs)) {
+                $imageUrls = $imgs;
+            }
+        }
+        
+        if (!empty($imageUrls)) {
+            $body['image_urls'] = array_values(array_slice($imageUrls, 0, 10));
+        }
+        
+        // 尺寸参数：优先使用width+height，其次用size面积
+        if (!empty($inputParams['width']) && !empty($inputParams['height'])) {
+            $body['width'] = intval($inputParams['width']);
+            $body['height'] = intval($inputParams['height']);
+        } elseif (!empty($inputParams['size'])) {
+            // size可能是 "2048x2048" 或 "2048*2048" 格式，或直接是数字面积
+            $sizeVal = $inputParams['size'];
+            if (is_string($sizeVal) && (strpos($sizeVal, 'x') !== false || strpos($sizeVal, '*') !== false)) {
+                $parts = preg_split('/[x*]/', $sizeVal);
+                if (count($parts) == 2) {
+                    $body['width'] = intval(trim($parts[0]));
+                    $body['height'] = intval(trim($parts[1]));
+                }
+            } elseif (is_numeric($sizeVal)) {
+                $body['size'] = intval($sizeVal);
+            }
+        }
+        
+        // 文本描述影响程度 scale (0-1)
+        if (isset($inputParams['scale']) && $inputParams['scale'] !== '' && $inputParams['scale'] !== null) {
+            $body['scale'] = floatval($inputParams['scale']);
+        }
+        
+        // 是否强制单图
+        if (isset($inputParams['force_single'])) {
+            $body['force_single'] = filter_var($inputParams['force_single'], FILTER_VALIDATE_BOOLEAN);
+        }
+        
+        \think\facade\Log::info('buildJimengRequestBody: 构建即梦请求体', [
+            'model_code' => $modelCode,
+            'req_key' => $reqKey,
+            'has_prompt' => !empty($prompt),
+            'image_count' => count($imageUrls),
+            'body_keys' => array_keys($body)
+        ]);
+        
+        return $body;
+    }
+    
+    /**
+     * 调用即梦AI API（火山引擎CV平台）
+     * 即梦模型使用火山引擎V4签名认证，endpoint需拼接query参数
+     * 
+     * @param array $model 模型信息
+     * @param array $apiKeyConfig API Key配置
+     * @param array $inputParams 输入参数
+     * @return array 响应结果
+     */
+    protected function callJimengApi($model, $apiKeyConfig, $inputParams)
+    {
+        $jimengConfig = config('aivideo.jimeng') ?? [];
+        $apiUrl = $jimengConfig['api_url'] ?? 'https://visual.volcengineapi.com';
+        $submitAction = $jimengConfig['submit_action'] ?? 'CVSync2AsyncSubmitTask';
+        $apiVersion = $jimengConfig['api_version'] ?? '2022-08-31';
+        $region = $jimengConfig['region'] ?? 'cn-north-1';
+        $service = $jimengConfig['service'] ?? 'cv';
+        
+        $accessKey = $apiKeyConfig['api_key_decrypted'];
+        $secretKey = $apiKeyConfig['api_secret_decrypted'] ?? '';
+        
+        if (empty($accessKey) || empty($secretKey)) {
+            return [
+                'status' => 0,
+                'error_code' => 'JIMENG_KEY_MISSING',
+                'msg' => '即梦AI需要配置火山引擎Access Key和Secret Key'
+            ];
+        }
+        
+        // 构建请求体
+        $requestBody = $this->buildJimengRequestBody($model['model_code'], $inputParams);
+        $bodyJson = json_encode($requestBody, JSON_UNESCAPED_UNICODE);
+        
+        // 拼接URL及query参数
+        $queryParams = [
+            'Action' => $submitAction,
+            'Version' => $apiVersion,
+        ];
+        $queryString = http_build_query($queryParams);
+        $fullUrl = $apiUrl . '?' . $queryString;
+        
+        // 生成火山引擎V4签名头
+        $headers = $this->generateVolcengineV4Headers(
+            $accessKey, $secretKey, $region, $service,
+            'POST', '/', $queryString, $bodyJson
+        );
+        
+        \think\facade\Log::info('即梦API提交任务请求', [
+            'url' => $fullUrl,
+            'model' => $model['model_code'],
+            'body' => $requestBody
+        ]);
+        
+        // 发送HTTP请求
+        $response = $this->sendHttpRequest($fullUrl, 'POST', $headers, $requestBody);
+        
+        \think\facade\Log::info('即梦API提交任务响应', [
+            'http_code' => $response['http_code'],
+            'body' => is_array($response['body']) ? json_encode($response['body'], JSON_UNESCAPED_UNICODE) : substr((string)$response['body'], 0, 2000)
+        ]);
+        
+        $body = $response['body'];
+        
+        // 即梦API成功状态码为 10000
+        if (is_array($body) && isset($body['code']) && $body['code'] == 10000) {
+            $taskId = $body['data']['task_id'] ?? '';
+            if (!empty($taskId)) {
+                return [
+                    'status' => 1,
+                    'async' => true,
+                    'async_type' => 'jimeng',
+                    'external_task_id' => $taskId,
+                    'outputs' => [],
+                    'tokens' => 0,
+                    'cost' => 0
+                ];
+            }
+        }
+        
+        // 错误处理
+        $errorMsg = '';
+        $errorCode = 'JIMENG_API_ERROR';
+        if (is_array($body)) {
+            $errorMsg = $body['message'] ?? 'API请求失败';
+            $errorCode = 'JIMENG_' . ($body['code'] ?? $response['http_code']);
+        } else {
+            $errorMsg = '即梦API请求失败(HTTP ' . $response['http_code'] . ')';
+        }
+        
+        return [
+            'status' => 0,
+            'error_code' => $errorCode,
+            'msg' => $errorMsg
+        ];
+    }
+    
+    /**
+     * 生成火山引擎V4签名认证头
+     * 基于HMAC-SHA256算法，兼容AWS SigV4签名规范
+     * 
+     * @param string $accessKey Access Key ID
+     * @param string $secretKey Secret Access Key
+     * @param string $region 区域（如 cn-north-1）
+     * @param string $service 服务（如 cv）
+     * @param string $method HTTP方法
+     * @param string $uri 请求路径
+     * @param string $queryString 查询字符串
+     * @param string $body 请求体
+     * @return array HTTP请求头数组
+     */
+    protected function generateVolcengineV4Headers($accessKey, $secretKey, $region, $service, $method, $uri, $queryString, $body)
+    {
+        $now = new \DateTime('now', new \DateTimeZone('UTC'));
+        $dateStamp = $now->format('Ymd');
+        $amzDate = $now->format('Ymd\THis\Z');
+        
+        // Step 1: 构建规范请求 (Canonical Request)
+        $host = 'visual.volcengineapi.com';
+        $contentType = 'application/json';
+        
+        // 规范化query string: 按参数名排序
+        $queryParts = [];
+        if (!empty($queryString)) {
+            parse_str($queryString, $params);
+            ksort($params);
+            $sortedQuery = [];
+            foreach ($params as $k => $v) {
+                $sortedQuery[] = rawurlencode($k) . '=' . rawurlencode($v);
+            }
+            $queryString = implode('&', $sortedQuery);
+        }
+        
+        $payloadHash = hash('sha256', $body);
+        
+        $canonicalHeaders = "content-type:{$contentType}\nhost:{$host}\nx-content-sha256:{$payloadHash}\nx-date:{$amzDate}\n";
+        $signedHeaders = 'content-type;host;x-content-sha256;x-date';
+        
+        $canonicalRequest = "{$method}\n{$uri}\n{$queryString}\n{$canonicalHeaders}\n{$signedHeaders}\n{$payloadHash}";
+        
+        // Step 2: 构建待签字符串 (String to Sign)
+        $algorithm = 'HMAC-SHA256';
+        $credentialScope = "{$dateStamp}/{$region}/{$service}/request";
+        $stringToSign = "{$algorithm}\n{$amzDate}\n{$credentialScope}\n" . hash('sha256', $canonicalRequest);
+        
+        // Step 3: 计算签名 (Signing Key)
+        $kDate = hash_hmac('sha256', $dateStamp, $secretKey, true);
+        $kRegion = hash_hmac('sha256', $region, $kDate, true);
+        $kService = hash_hmac('sha256', $service, $kRegion, true);
+        $kSigning = hash_hmac('sha256', 'request', $kService, true);
+        
+        $signature = hash_hmac('sha256', $stringToSign, $kSigning);
+        
+        // Step 4: 构建Authorization头
+        $authorization = "{$algorithm} Credential={$accessKey}/{$credentialScope}, SignedHeaders={$signedHeaders}, Signature={$signature}";
+        
+        return [
+            'Content-Type: ' . $contentType,
+            'Host: ' . $host,
+            'X-Date: ' . $amzDate,
+            'X-Content-Sha256: ' . $payloadHash,
+            'Authorization: ' . $authorization,
+        ];
+    }
+    
+    /**
+     * 轮询即梦AI异步任务状态
+     * 通过 CVSync2AsyncGetResult 接口查询任务结果
+     * 
+     * @param array $record 生成记录
+     * @return array ['progress' => int] 返回进度信息
+     */
+    protected function pollJimengTaskStatus($record)
+    {
+        $externalTaskId = $record['task_id'];
+        $pollResult = ['progress' => 0];
+        
+        $model = $this->getModelDetail($record['model_id']);
+        if (!$model) {
+            \think\facade\Log::warning('pollJimengTaskStatus: 模型不存在 model_id=' . $record['model_id']);
+            return $pollResult;
+        }
+        
+        $apiKeyConfig = $this->apiKeyService->getActiveConfigByProvider($model['provider_code']);
+        if (!$apiKeyConfig) {
+            \think\facade\Log::warning('pollJimengTaskStatus: API Key未配置 provider=' . $model['provider_code']);
+            return $pollResult;
+        }
+        
+        $accessKey = $apiKeyConfig['api_key_decrypted'];
+        $secretKey = $apiKeyConfig['api_secret_decrypted'] ?? '';
+        if (empty($accessKey) || empty($secretKey)) {
+            return $pollResult;
+        }
+        
+        try {
+            $jimengConfig = config('aivideo.jimeng') ?? [];
+            $apiUrl = $jimengConfig['api_url'] ?? 'https://visual.volcengineapi.com';
+            $queryAction = $jimengConfig['query_action'] ?? 'CVSync2AsyncGetResult';
+            $apiVersion = $jimengConfig['api_version'] ?? '2022-08-31';
+            $region = $jimengConfig['region'] ?? 'cn-north-1';
+            $service = $jimengConfig['service'] ?? 'cv';
+            
+            // 即梦查询任务请求体
+            $jimengModels = $jimengConfig['models'] ?? [];
+            $modelCode = $model['model_code'];
+            
+            // 获取req_key: 图片模型直接用req_key字段，视频模型用第一个模式的req_key
+            $modelConfig = $jimengModels[$modelCode] ?? [];
+            if (!empty($modelConfig['req_key'])) {
+                $reqKey = $modelConfig['req_key'];
+            } elseif (!empty($modelConfig['modes'])) {
+                // 视频模型：获取第一个模式的req_key作为查询用
+                $firstMode = reset($modelConfig['modes']);
+                $reqKey = $firstMode['req_key'] ?? $modelCode;
+            } else {
+                $reqKey = $modelCode;
+            }
+            
+            $requestBody = [
+                'req_key' => $reqKey,
+                'task_id' => $externalTaskId,
+                'req_json' => json_encode(['return_url' => true], JSON_UNESCAPED_UNICODE),
+            ];
+            $bodyJson = json_encode($requestBody, JSON_UNESCAPED_UNICODE);
+            
+            $queryString = http_build_query([
+                'Action' => $queryAction,
+                'Version' => $apiVersion,
+            ]);
+            $fullUrl = $apiUrl . '?' . $queryString;
+            
+            // 生成V4签名头
+            $headers = $this->generateVolcengineV4Headers(
+                $accessKey, $secretKey, $region, $service,
+                'POST', '/', $queryString, $bodyJson
+            );
+            
+            // 发送查询请求
+            $response = $this->sendHttpRequest($fullUrl, 'POST', $headers, $requestBody);
+            $body = $response['body'];
+            
+            \think\facade\Log::info('pollJimengTaskStatus 查询结果', [
+                'record_id' => $record['id'],
+                'task_id' => $externalTaskId,
+                'http_code' => $response['http_code'],
+                'code' => $body['code'] ?? 'null',
+                'status' => $body['data']['status'] ?? 'null'
+            ]);
+            
+            if (!is_array($body)) {
+                return $pollResult;
+            }
+            
+            // 先判断code是否为10000
+            if (isset($body['code']) && $body['code'] != 10000) {
+                // 任务失败
+                $recordModel = GenerationRecord::find($record['id']);
+                if ($recordModel) {
+                    $recordModel->markFailed(
+                        'JIMENG_' . ($body['code'] ?? 'ERROR'),
+                        $body['message'] ?? '即梦生成失败'
+                    );
+                }
+                return $pollResult;
+            }
+            
+            $taskStatus = $body['data']['status'] ?? '';
+            
+            if ($taskStatus === 'done') {
+                // 任务完成
+                $outputs = [];
+                
+                // 判断是视频输出还是图片输出
+                $isVideoModel = $this->isJimengVideoModel($model['model_code'] ?? '');
+                
+                if ($isVideoModel) {
+                    // 视频输出：从 data.video_url 获取
+                    $videoUrl = $body['data']['video_url'] ?? '';
+                    if (!empty($videoUrl)) {
+                        $outputs[] = [
+                            'type' => 'video',
+                            'url' => $videoUrl,
+                            'thumbnail' => '',
+                            'width' => 0,
+                            'height' => 0,
+                            'duration' => 0
+                        ];
+                    }
+                    // 也检查 video_urls 数组格式
+                    $videoUrls = $body['data']['video_urls'] ?? [];
+                    foreach ($videoUrls as $vUrl) {
+                        if (!empty($vUrl)) {
+                            $outputs[] = [
+                                'type' => 'video',
+                                'url' => $vUrl,
+                                'thumbnail' => '',
+                                'width' => 0,
+                                'height' => 0,
+                                'duration' => 0
+                            ];
+                        }
+                    }
+                } else {
+                    // 图片输出：从 data.image_urls 获取
+                    $imageUrls = $body['data']['image_urls'] ?? [];
+                    foreach ($imageUrls as $imgUrl) {
+                        if (!empty($imgUrl)) {
+                            $outputs[] = [
+                                'type' => 'image',
+                                'url' => $imgUrl,
+                                'thumbnail' => '',
+                                'width' => 0,
+                                'height' => 0
+                            ];
+                        }
+                    }
+                }
+                
+                if (!empty($outputs)) {
+                    GenerationOutput::createOutputs($record['id'], $outputs);
+                }
+                
+                $costTime = ($record['start_time'] > 0) ? (time() - $record['start_time']) * 1000 : 0;
+                $recordModel = GenerationRecord::find($record['id']);
+                if ($recordModel) {
+                    $recordModel->markSuccess($costTime);
+                }
+                
+                \think\facade\Log::info('即梦生成成功', [
+                    'record_id' => $record['id'],
+                    'output_type' => $isVideoModel ? 'video' : 'image',
+                    'output_count' => count($outputs),
+                    'cost_time' => $costTime
+                ]);
+                
+                $pollResult['progress'] = 100;
+            } elseif ($taskStatus === 'generating') {
+                $pollResult['progress'] = 50;
+            } elseif ($taskStatus === 'in_queue') {
+                $pollResult['progress'] = 10;
+            } elseif (in_array($taskStatus, ['not_found', 'expired'])) {
+                $recordModel = GenerationRecord::find($record['id']);
+                if ($recordModel) {
+                    $recordModel->markFailed('JIMENG_TASK_' . strtoupper($taskStatus), '任务' . ($taskStatus === 'not_found' ? '未找到' : '已过期'));
+                }
+            }
+            // else: 其他状态，继续等待
+        } catch (\Exception $e) {
+            \think\facade\Log::error('pollJimengTaskStatus 异常: ' . $e->getMessage(), [
+                'record_id' => $record['id'],
+                'task_id' => $externalTaskId
+            ]);
+        }
+        
+        return $pollResult;
+    }
+    
+    /**
+     * 检查是否为即梦模型（用于轮询路由）
+     * @param string $providerCode
+     * @return bool
+     */
+    protected function isJimengModel($providerCode)
+    {
+        return $providerCode === 'jimeng';
+    }
+    
+    /**
+     * 为即梦AI视频生成模型构建请求体
+     * 
+     * 视频API请求格式:
+     * {
+     *   "req_key": "jimeng_video_v30_t2v_720p",
+     *   "prompt": "描述文字",
+     *   "image_urls": ["url1"],          // 图生视频时提供
+     *   "aspect_ratio": "16:9",           // 视频比例
+     *   "duration": 5,                     // 视频时长(秒)
+     *   "camera_type": "horizontal_right", // 运镜类型（运镜模式）
+     *   "camera_amplitude": 1.0            // 运镜幅度（运镜模式）
+     * }
+     * 
+     * @param string $modelCode 模型代码
+     * @param array $inputParams 用户输入参数
+     * @return array 符合API格式的请求体
+     */
+    protected function buildJimengVideoRequestBody($modelCode, $inputParams)
+    {
+        $jimengConfig = config('aivideo.jimeng.models.' . $modelCode) ?? [];
+        $modes = $jimengConfig['modes'] ?? [];
+        
+        // 推断视频生成模式
+        $videoMode = $this->inferJimengVideoMode($inputParams);
+        
+        // 获取对应模式的req_key
+        $reqKey = $modes[$videoMode]['req_key'] ?? ($modelCode . '_' . $videoMode);
+        
+        $body = [
+            'req_key' => $reqKey,
+        ];
+        
+        // 提示词
+        $prompt = $inputParams['prompt'] ?? $inputParams['text'] ?? '';
+        if (!empty($prompt)) {
+            $body['prompt'] = $prompt;
+        }
+        
+        // 图片URL数组（首帧图/首尾帧图/运镜模式）
+        $imageUrls = [];
+        if (!empty($inputParams['first_frame_image'])) {
+            $imageUrls[] = $inputParams['first_frame_image'];
+        } elseif (!empty($inputParams['image_url'])) {
+            $imageUrls[] = $inputParams['image_url'];
+        } elseif (!empty($inputParams['image'])) {
+            $img = $inputParams['image'];
+            if (is_array($img)) {
+                $imageUrls = $img;
+            } else {
+                $imageUrls[] = $img;
+            }
+        }
+        
+        // 尾帧图（首尾帧模式）
+        if ($videoMode === 'first_last_frame') {
+            $lastFrame = $inputParams['last_frame_image'] ?? $inputParams['tail_image_url'] ?? $inputParams['last_frame'] ?? '';
+            if (!empty($lastFrame)) {
+                $imageUrls[] = $lastFrame;
+            }
+        }
+        
+        if (!empty($imageUrls)) {
+            $body['image_urls'] = array_values($imageUrls);
+        }
+        
+        // 视频比例
+        $aspectRatio = $inputParams['aspect_ratio'] ?? $inputParams['ratio'] ?? '';
+        if (!empty($aspectRatio)) {
+            $body['aspect_ratio'] = $aspectRatio;
+        }
+        
+        // 视频时长
+        $duration = $inputParams['duration'] ?? '';
+        if (!empty($duration)) {
+            $body['duration'] = intval($duration);
+        }
+        
+        // 运镜参数（仅运镜模式）
+        if ($videoMode === 'camera_motion') {
+            if (!empty($inputParams['camera_type'])) {
+                $body['camera_type'] = $inputParams['camera_type'];
+            }
+            if (isset($inputParams['camera_amplitude']) && $inputParams['camera_amplitude'] !== '') {
+                $body['camera_amplitude'] = floatval($inputParams['camera_amplitude']);
+            }
+        }
+        
+        \think\facade\Log::info('buildJimengVideoRequestBody: 构建即梦视频请求体', [
+            'model_code' => $modelCode,
+            'video_mode' => $videoMode,
+            'req_key' => $reqKey,
+            'has_prompt' => !empty($prompt),
+            'image_count' => count($imageUrls),
+            'body_keys' => array_keys($body)
+        ]);
+        
+        return $body;
+    }
+    
+    /**
+     * 推断即梦视频生成模式
+     * @param array $inputParams 输入参数
+     * @return string 视频模式
+     */
+    protected function inferJimengVideoMode($inputParams)
+    {
+        // 运镜模式：有首帧图 + camera_type
+        $hasFirstFrame = !empty($inputParams['first_frame_image']) || !empty($inputParams['image_url']) || !empty($inputParams['image']);
+        $hasCameraType = !empty($inputParams['camera_type']);
+        
+        if ($hasFirstFrame && $hasCameraType) {
+            return 'camera_motion';
+        }
+        
+        // 首尾帧模式
+        $hasLastFrame = !empty($inputParams['last_frame_image']) || !empty($inputParams['tail_image_url']) || !empty($inputParams['last_frame']);
+        if ($hasFirstFrame && $hasLastFrame) {
+            return 'first_last_frame';
+        }
+        
+        // 首帧模式
+        if ($hasFirstFrame) {
+            return 'first_frame';
+        }
+        
+        // 默认：文生视频
+        return 'text_to_video';
+    }
+    
+    /**
+     * 调用即梦AI视频生成API（火山引擎CV平台）
+     * 复用即梦图片API的V4签名和HTTP发送逻辑，但使用视频特定的请求体
+     * 
+     * @param array $model 模型信息
+     * @param array $apiKeyConfig API Key配置
+     * @param array $inputParams 输入参数
+     * @return array 响应结果
+     */
+    protected function callJimengVideoApi($model, $apiKeyConfig, $inputParams)
+    {
+        $jimengConfig = config('aivideo.jimeng') ?? [];
+        $apiUrl = $jimengConfig['api_url'] ?? 'https://visual.volcengineapi.com';
+        $submitAction = $jimengConfig['submit_action'] ?? 'CVSync2AsyncSubmitTask';
+        $apiVersion = $jimengConfig['api_version'] ?? '2022-08-31';
+        $region = $jimengConfig['region'] ?? 'cn-north-1';
+        $service = $jimengConfig['service'] ?? 'cv';
+        
+        $accessKey = $apiKeyConfig['api_key_decrypted'];
+        $secretKey = $apiKeyConfig['api_secret_decrypted'] ?? '';
+        
+        if (empty($accessKey) || empty($secretKey)) {
+            return [
+                'status' => 0,
+                'error_code' => 'JIMENG_KEY_MISSING',
+                'msg' => '即梦AI需要配置火山引擎Access Key和Secret Key'
+            ];
+        }
+        
+        // 构建视频生成请求体
+        $requestBody = $this->buildJimengVideoRequestBody($model['model_code'], $inputParams);
+        $bodyJson = json_encode($requestBody, JSON_UNESCAPED_UNICODE);
+        
+        // 拼接URL及query参数
+        $queryParams = [
+            'Action' => $submitAction,
+            'Version' => $apiVersion,
+        ];
+        $queryString = http_build_query($queryParams);
+        $fullUrl = $apiUrl . '?' . $queryString;
+        
+        // 生成火山引擎V4签名头
+        $headers = $this->generateVolcengineV4Headers(
+            $accessKey, $secretKey, $region, $service,
+            'POST', '/', $queryString, $bodyJson
+        );
+        
+        \think\facade\Log::info('即梦视频API提交任务请求', [
+            'url' => $fullUrl,
+            'model' => $model['model_code'],
+            'body' => $requestBody
+        ]);
+        
+        // 发送HTTP请求
+        $response = $this->sendHttpRequest($fullUrl, 'POST', $headers, $requestBody);
+        
+        \think\facade\Log::info('即梦视频API提交任务响应', [
+            'http_code' => $response['http_code'],
+            'body' => is_array($response['body']) ? json_encode($response['body'], JSON_UNESCAPED_UNICODE) : substr((string)$response['body'], 0, 2000)
+        ]);
+        
+        $body = $response['body'];
+        
+        // 即梦API成功状态码为 10000
+        if (is_array($body) && isset($body['code']) && $body['code'] == 10000) {
+            $taskId = $body['data']['task_id'] ?? '';
+            if (!empty($taskId)) {
+                return [
+                    'status' => 1,
+                    'async' => true,
+                    'async_type' => 'jimeng',
+                    'external_task_id' => $taskId,
+                    'outputs' => [],
+                    'tokens' => 0,
+                    'cost' => 0
+                ];
+            }
+        }
+        
+        // 错误处理
+        $errorMsg = '';
+        $errorCode = 'JIMENG_VIDEO_API_ERROR';
+        if (is_array($body)) {
+            $errorMsg = $body['message'] ?? 'API请求失败';
+            $errorCode = 'JIMENG_VIDEO_' . ($body['code'] ?? $response['http_code']);
+        } else {
+            $errorMsg = '即梦视频API请求失败(HTTP ' . $response['http_code'] . ')';
+        }
+        
+        return [
+            'status' => 0,
+            'error_code' => $errorCode,
+            'msg' => $errorMsg
+        ];
     }
     
     /**
@@ -1364,7 +2307,17 @@ class GenerationService
             
             if ($taskStatus == 'SUCCEEDED') {
                 // 任务已完成，解析结果
-                if (isset($response['output']['results'])) {
+                // DashScope视频生成响应（如爱诗PixVerse）：通过 output.video_url 返回视频
+                if (isset($response['output']['video_url'])) {
+                    $outputs[] = [
+                        'type' => 'video',
+                        'url' => $response['output']['video_url'],
+                        'thumbnail' => '',
+                        'duration' => 0
+                    ];
+                }
+                // DashScope图片生成响应：通过 output.results 数组返回图片
+                elseif (isset($response['output']['results'])) {
                     foreach ($response['output']['results'] as $result) {
                         $outputs[] = [
                             'type' => 'image',
@@ -1579,6 +2532,9 @@ class GenerationService
                 } elseif ($this->isDashScopeModel($providerCode)) {
                     // DashScope图片生成模型（阿里云通义万象等）
                     $this->pollDashScopeTaskStatus($record);
+                } elseif ($this->isJimengModel($providerCode)) {
+                    // 即梦AI图片生成模型
+                    $this->pollJimengTaskStatus($record);
                 }
                 // 其他模型暂不支持异步轮询，跳过
             }
@@ -1594,7 +2550,7 @@ class GenerationService
      */
     protected function isDashScopeModel($providerCode)
     {
-        return in_array($providerCode, ['aliyun', 'dashscope', 'alibaba']);
+        return in_array($providerCode, ['aliyun', 'dashscope', 'alibaba', 'aishi']);
     }
     
     /**
@@ -1652,6 +2608,10 @@ class GenerationService
             if ($this->isSeedanceVideoModel($modelCode)) {
                 // Seedance视频模型
                 $pollResult = $this->pollSeedanceTaskStatus($record);
+                $progress = $pollResult['progress'] ?? 0;
+            } elseif ($this->isJimengModel($providerCode)) {
+                // 即梦AI图片生成模型
+                $pollResult = $this->pollJimengTaskStatus($record);
                 $progress = $pollResult['progress'] ?? 0;
             } elseif ($this->isDashScopeModel($providerCode)) {
                 // DashScope图片生成模型
@@ -1908,9 +2868,20 @@ class GenerationService
             $taskStatus = $result['output']['task_status'];
             
             if ($taskStatus == 'SUCCEEDED') {
-                // 任务成功，解析图片结果
+                // 任务成功，解析结果（支持图片和视频两种输出）
                 $outputs = [];
-                if (isset($result['output']['results']) && is_array($result['output']['results'])) {
+                
+                // DashScope视频生成响应（如爱诗PixVerse）：通过 output.video_url 返回视频
+                if (isset($result['output']['video_url']) && !empty($result['output']['video_url'])) {
+                    $outputs[] = [
+                        'type' => 'video',
+                        'url' => $result['output']['video_url'],
+                        'thumbnail' => '',
+                        'duration' => 0
+                    ];
+                }
+                // DashScope图片生成响应：通过 output.results 数组返回图片
+                elseif (isset($result['output']['results']) && is_array($result['output']['results'])) {
                     foreach ($result['output']['results'] as $item) {
                         if (!empty($item['url'])) {
                             $outputs[] = [
@@ -1943,7 +2914,7 @@ class GenerationService
                         'outputs_count' => count($outputs)
                     ]);
                 } else {
-                    \think\facade\Log::warning('pollDashScopeTaskStatus: 任务成功但未获取到图片URL', [
+                    \think\facade\Log::warning('pollDashScopeTaskStatus: 任务成功但未获取到输出内容', [
                         'record_id' => $record['id'],
                         'output' => $result['output'] ?? []
                     ]);
@@ -1957,7 +2928,7 @@ class GenerationService
                     $recordModel->markSuccess($costTime);
                 }
                 
-                \think\facade\Log::info('DashScope图片生成成功', [
+                \think\facade\Log::info('DashScope生成成功', [
                     'record_id' => $record['id'],
                     'outputs_count' => count($outputs),
                     'cost_time' => $costTime
@@ -1965,14 +2936,14 @@ class GenerationService
             } elseif ($taskStatus == 'FAILED') {
                 // 任务失败
                 $errorCode = $result['output']['code'] ?? $result['code'] ?? 'DASHSCOPE_FAILED';
-                $errorMsg = $result['output']['message'] ?? $result['message'] ?? '图片生成失败';
+                $errorMsg = $result['output']['message'] ?? $result['message'] ?? '生成失败';
                 
                 $recordModel = GenerationRecord::find($record['id']);
                 if ($recordModel) {
                     $recordModel->markFailed($errorCode, $errorMsg);
                 }
                 
-                \think\facade\Log::warning('DashScope图片生成失败', [
+                \think\facade\Log::warning('DashScope生成失败', [
                     'record_id' => $record['id'],
                     'error_code' => $errorCode,
                     'error_msg' => $errorMsg
@@ -1981,7 +2952,7 @@ class GenerationService
                 // 任务取消
                 $recordModel = GenerationRecord::find($record['id']);
                 if ($recordModel) {
-                    $recordModel->markFailed('TASK_CANCELLED', '图片生成任务已被取消');
+                    $recordModel->markFailed('TASK_CANCELLED', '生成任务已被取消');
                 }
             }
             // else: PENDING 或 RUNNING，继续等待下次轮询
@@ -2404,18 +3375,24 @@ class GenerationService
     
     /**
      * 压缩封面图
-     * 将超过 800px 宽度的图片缩放到 800px 宽，优先输出为 WebP 格式（质量85）
-     * 若PHP不支持WebP则回退为JPEG输出
+     * 将图片压缩并统一转换为 WebP 格式输出（质量82）
+     * 超过 800px 宽度的图片同时缩放到 800px 宽
+     * 所有图片均强制转换为 WebP 格式，不依赖尺寸阈值
      * 
      * @param string $coverUrl 封面图URL（已转存到本地/OSS的URL）
      * @param AttachmentTransferService $transferService 转存服务实例
-     * @return string|false 压缩后的新URL，或 false 表示无需压缩/压缩失败
+     * @return string|false 压缩后的新URL，或 false 表示压缩失败
      */
     protected function compressCoverImage($coverUrl, $transferService)
     {
         $maxWidth = 800;
-        $quality = 85;
-        $useWebp = function_exists('imagewebp');
+        $quality = 82;
+        
+        // 检测 PHP 环境是否支持 webp
+        if (!function_exists('imagewebp')) {
+            Log::warning('compressCoverImage: PHP环境不支持imagewebp，跳过转换');
+            return false;
+        }
         
         // 下载封面图到临时文件
         $tempDir = defined('ROOT_PATH') ? ROOT_PATH . 'runtime/temp/transfer/' : sys_get_temp_dir() . '/transfer/';
@@ -2459,10 +3436,10 @@ class GenerationService
         $srcHeight = $imageInfo[1];
         $mimeType = $imageInfo['mime'];
         
-        // 宽度不超过阈值，无需压缩
-        if ($srcWidth <= $maxWidth) {
+        // 如果已经是 webp 且宽度不超过阈值，无需处理
+        if ($mimeType === 'image/webp' && $srcWidth <= $maxWidth) {
             @unlink($tempFile);
-            Log::info('compressCoverImage: 图片宽度未超过阈值，跳过压缩', ['width' => $srcWidth, 'maxWidth' => $maxWidth]);
+            Log::info('compressCoverImage: 已是WebP且宽度未超阈值，跳过', ['width' => $srcWidth]);
             return false;
         }
         
@@ -2491,49 +3468,51 @@ class GenerationService
             return false;
         }
         
-        // 按比例计算目标尺寸
-        $newWidth = $maxWidth;
-        $newHeight = intval($srcHeight * $maxWidth / $srcWidth);
+        // 判断是否需要缩放
+        $needResize = ($srcWidth > $maxWidth);
+        $newWidth = $needResize ? $maxWidth : $srcWidth;
+        $newHeight = $needResize ? intval($srcHeight * $maxWidth / $srcWidth) : $srcHeight;
         
-        // 创建缩略图
-        $thumbnail = imagecreatetruecolor($newWidth, $newHeight);
-        
-        // 保持透明度（PNG/GIF/WebP）
-        if (in_array($mimeType, ['image/png', 'image/gif', 'image/webp'])) {
-            imagealphablending($thumbnail, false);
-            imagesavealpha($thumbnail, true);
-            $transparent = imagecolorallocatealpha($thumbnail, 0, 0, 0, 127);
-            imagefilledrectangle($thumbnail, 0, 0, $newWidth, $newHeight, $transparent);
-        }
-        
-        imagecopyresampled($thumbnail, $srcImage, 0, 0, 0, 0, $newWidth, $newHeight, $srcWidth, $srcHeight);
-        
-        // 输出为 WebP 或 JPEG
-        $outputExt = $useWebp ? 'webp' : 'jpg';
-        $compressedFile = $tempDir . 'cover_compressed_' . md5($coverUrl . time() . mt_rand()) . '.' . $outputExt;
-        
-        if ($useWebp) {
-            imagewebp($thumbnail, $compressedFile, $quality);
+        if ($needResize) {
+            // 创建缩略图
+            $thumbnail = imagecreatetruecolor($newWidth, $newHeight);
+            
+            // 保持透明度（PNG/GIF/WebP）
+            if (in_array($mimeType, ['image/png', 'image/gif', 'image/webp'])) {
+                imagealphablending($thumbnail, false);
+                imagesavealpha($thumbnail, true);
+                $transparent = imagecolorallocatealpha($thumbnail, 0, 0, 0, 127);
+                imagefilledrectangle($thumbnail, 0, 0, $newWidth, $newHeight, $transparent);
+            }
+            
+            imagecopyresampled($thumbnail, $srcImage, 0, 0, 0, 0, $newWidth, $newHeight, $srcWidth, $srcHeight);
+            imagedestroy($srcImage);
+            $outputImage = $thumbnail;
         } else {
-            imagejpeg($thumbnail, $compressedFile, $quality);
+            // 无需缩放，直接使用源图像转换格式
+            $outputImage = $srcImage;
         }
+        
+        // 统一输出为 WebP
+        $compressedFile = $tempDir . 'cover_compressed_' . md5($coverUrl . time() . mt_rand()) . '.webp';
+        imagewebp($outputImage, $compressedFile, $quality);
         
         // 释放资源
-        imagedestroy($srcImage);
-        imagedestroy($thumbnail);
+        imagedestroy($outputImage);
         @unlink($tempFile);
         
         if (!file_exists($compressedFile) || filesize($compressedFile) === 0) {
-            Log::warning('compressCoverImage: 压缩后文件无效');
+            Log::warning('compressCoverImage: WebP输出后文件无效');
             return false;
         }
         
-        Log::info('compressCoverImage: 压缩完成', [
-            'format' => $outputExt,
+        Log::info('compressCoverImage: 压缩/转换完成', [
+            'format' => 'webp',
             'originalSize' => strlen($content),
             'compressedSize' => filesize($compressedFile),
             'originalDimensions' => $srcWidth . 'x' . $srcHeight,
-            'newDimensions' => $newWidth . 'x' . $newHeight
+            'newDimensions' => $newWidth . 'x' . $newHeight,
+            'resized' => $needResize
         ]);
         
         // 上传压缩后的图片到存储
@@ -2541,7 +3520,7 @@ class GenerationService
             // 使用反射调用 uploadToStorage 方法（protected方法）
             $reflection = new \ReflectionMethod($transferService, 'uploadToStorage');
             $reflection->setAccessible(true);
-            $newUrl = $reflection->invoke($transferService, $compressedFile, '', $outputExt);
+            $newUrl = $reflection->invoke($transferService, $compressedFile, '', 'webp');
             
             @unlink($compressedFile);
             
@@ -2938,9 +3917,9 @@ class GenerationService
     }
     
     /**
-     * 将视频封面转换为动态预览图（Animated WebP优先，GIF回退）并存储
-     * 使用FFmpeg提取视频前30帧，缩放到300px宽，10fps，生成优化的Animated WebP
-     * 若FFmpeg不支持libwebp_anim编码器，则回退为GIF方案
+     * 将视频封面转换为动态预览图（Animated WebP）并存储
+     * 使用FFmpeg截取视频前5秒，缩放到480px宽，10fps，生成优化的Animated WebP
+     * 若FFmpeg不支持libwebp_anim编码器，则跳过生成并记录日志
      * 
      * @param int $templateId 模板ID
      * @param string $videoUrl 视频URL
@@ -2956,7 +3935,12 @@ class GenerationService
         }
         
         // 检测 libwebp_anim 编码器是否可用
-        $useWebp = $this->checkFfmpegWebpSupport($ffmpegPath);
+        $output = [];
+        exec(escapeshellarg($ffmpegPath) . ' -encoders 2>/dev/null | grep libwebp_anim', $output, $retCode);
+        if ($retCode !== 0 || empty($output)) {
+            Log::warning('generateGifCover: FFmpeg不支持libwebp_anim编码器，跳过动态封面生成');
+            return false;
+        }
         
         $tempDir = defined('ROOT_PATH') ? ROOT_PATH . 'runtime/temp/gif/' : sys_get_temp_dir() . '/gif/';
         if (!is_dir($tempDir)) {
@@ -2965,10 +3949,7 @@ class GenerationService
         
         $uniqueId = md5($videoUrl . $templateId . time() . mt_rand());
         $tempVideo = $tempDir . 'src_' . $uniqueId . '.mp4';
-        $tempPalette = $tempDir . 'palette_' . $uniqueId . '.png';
-        // 根据编码器支持选择输出格式
-        $outputExt = $useWebp ? '.webp' : '.gif';
-        $tempOutput = $tempDir . 'cover_' . $uniqueId . $outputExt;
+        $tempOutput = $tempDir . 'cover_' . $uniqueId . '.webp';
         
         try {
             // 1. 下载视频到临时文件
@@ -3000,78 +3981,43 @@ class GenerationService
                 return false;
             }
             
+            // 2. 使用 FFmpeg 截取前5秒生成 Animated WebP
+            $webpCmd = sprintf(
+                '%s -i %s -t 5 -vf "fps=10,scale=480:-1:flags=lanczos" -vcodec libwebp_anim -quality 75 -lossless 0 -loop 0 -an -y %s 2>&1',
+                escapeshellarg($ffmpegPath),
+                escapeshellarg($tempVideo),
+                escapeshellarg($tempOutput)
+            );
             $encodeOutput = [];
-            $encodeRetCode = 1;
+            exec($webpCmd, $encodeOutput, $encodeRetCode);
             
-            if ($useWebp) {
-                // === Animated WebP 方案 ===
-                // 直接使用 libwebp_anim 编码器，无需调色板步骤
-                $webpCmd = sprintf(
-                    '%s -i %s -vf "fps=10,scale=300:-1:flags=lanczos" -vcodec libwebp_anim -quality 75 -lossless 0 -frames:v 30 -loop 0 -an -y %s 2>&1',
+            if ($encodeRetCode !== 0 || !file_exists($tempOutput) || filesize($tempOutput) < 100) {
+                Log::warning('generateGifCover: Animated WebP生成失败', [
+                    'returnCode' => $encodeRetCode,
+                    'output' => implode("\n", array_slice($encodeOutput, -5))
+                ]);
+                @unlink($tempVideo);
+                @unlink($tempOutput);
+                return false;
+            }
+            
+            // 3. 检查文件体积，超过2MB则降低质量重新生成
+            if (filesize($tempOutput) > 2 * 1024 * 1024) {
+                Log::info('generateGifCover: 动态封面超过2MB，降低质量重新生成', ['size' => filesize($tempOutput)]);
+                @unlink($tempOutput);
+                $webpCmdLQ = sprintf(
+                    '%s -i %s -t 5 -vf "fps=10,scale=480:-1:flags=lanczos" -vcodec libwebp_anim -quality 65 -lossless 0 -loop 0 -an -y %s 2>&1',
                     escapeshellarg($ffmpegPath),
                     escapeshellarg($tempVideo),
                     escapeshellarg($tempOutput)
                 );
-                exec($webpCmd, $encodeOutput, $encodeRetCode);
-                
-                // WebP 生成失败时回退到 GIF 方案
-                if ($encodeRetCode !== 0 || !file_exists($tempOutput) || filesize($tempOutput) < 100) {
-                    Log::warning('generateGifCover: WebP生成失败，回退到GIF方案', [
-                        'returnCode' => $encodeRetCode,
-                        'output' => implode("\n", array_slice($encodeOutput, -5))
-                    ]);
+                exec($webpCmdLQ, $lqOutput, $lqRetCode);
+                if ($lqRetCode !== 0 || !file_exists($tempOutput) || filesize($tempOutput) < 100) {
+                    Log::warning('generateGifCover: 低质量Animated WebP生成也失败');
+                    @unlink($tempVideo);
                     @unlink($tempOutput);
-                    $useWebp = false;
-                    $outputExt = '.gif';
-                    $tempOutput = $tempDir . 'cover_' . $uniqueId . $outputExt;
-                    $encodeOutput = [];
-                    $encodeRetCode = 1;
+                    return false;
                 }
-            }
-            
-            if (!$useWebp) {
-                // === GIF 回退方案（原有逻辑） ===
-                // 生成调色板（优化GIF色彩质量）
-                $paletteCmd = sprintf(
-                    '%s -i %s -vf "fps=10,scale=300:-1:flags=lanczos,palettegen=max_colors=128" -frames:v 1 -y %s 2>&1',
-                    escapeshellarg($ffmpegPath),
-                    escapeshellarg($tempVideo),
-                    escapeshellarg($tempPalette)
-                );
-                exec($paletteCmd, $paletteOutput, $paletteRetCode);
-                
-                // 用调色板生成高质量GIF（前30帧，10fps，宽300px）
-                if ($paletteRetCode === 0 && file_exists($tempPalette)) {
-                    $gifCmd = sprintf(
-                        '%s -i %s -i %s -lavfi "fps=10,scale=300:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3" -frames:v 30 -loop 0 -y %s 2>&1',
-                        escapeshellarg($ffmpegPath),
-                        escapeshellarg($tempVideo),
-                        escapeshellarg($tempPalette),
-                        escapeshellarg($tempOutput)
-                    );
-                } else {
-                    // 调色板失败，直接生成GIF（质量稍差）
-                    $gifCmd = sprintf(
-                        '%s -i %s -vf "fps=10,scale=300:-1:flags=lanczos" -frames:v 30 -loop 0 -y %s 2>&1',
-                        escapeshellarg($ffmpegPath),
-                        escapeshellarg($tempVideo),
-                        escapeshellarg($tempOutput)
-                    );
-                }
-                
-                exec($gifCmd, $encodeOutput, $encodeRetCode);
-            }
-            
-            if ($encodeRetCode !== 0 || !file_exists($tempOutput) || filesize($tempOutput) < 100) {
-                Log::warning('generateGifCover: FFmpeg生成动态封面失败', [
-                    'returnCode' => $encodeRetCode,
-                    'format' => $useWebp ? 'webp' : 'gif',
-                    'output' => implode("\n", array_slice($encodeOutput, -5))
-                ]);
-                @unlink($tempVideo);
-                @unlink($tempPalette);
-                @unlink($tempOutput);
-                return false;
             }
             
             // 4. 上传动态封面到云存储
@@ -3084,7 +4030,7 @@ class GenerationService
                 @mkdir($localDir, 0777, true);
             }
             
-            $coverFilename = ($useWebp ? 'webp_cover_' : 'gif_cover_') . $uniqueId . $outputExt;
+            $coverFilename = 'webp_cover_' . $uniqueId . '.webp';
             $localPath = $localDir . $coverFilename;
             @copy($tempOutput, $localPath);
             
@@ -3107,9 +4053,9 @@ class GenerationService
                     'update_time' => time()
                 ]);
                 
-                Log::info('generateGifCover: 动态封面生成成功', [
+                Log::info('generateGifCover: Animated WebP动态封面生成成功', [
                     'template_id' => $templateId,
-                    'format' => $useWebp ? 'webp' : 'gif',
+                    'format' => 'webp',
                     'file_size' => filesize($tempOutput),
                     'cover_url' => substr($coverUrl, 0, 100)
                 ]);
@@ -3117,14 +4063,12 @@ class GenerationService
             
             // 6. 清理临时文件
             @unlink($tempVideo);
-            @unlink($tempPalette);
             @unlink($tempOutput);
             
             return $coverUrl;
             
         } catch (\Exception $e) {
             @unlink($tempVideo);
-            @unlink($tempPalette);
             @unlink($tempOutput);
             Log::error('generateGifCover 异常: ' . $e->getMessage());
             return false;
@@ -3172,87 +4116,6 @@ class GenerationService
         }
         
         return ['processed' => $processed, 'success' => $success, 'failed' => $failed];
-    }
-    
-    /**
-     * 批量将已有GIF动态封面迁移为WebP格式
-     * 查找gif_cover字段以.gif结尾的视频模板记录，逐条重新生成WebP版本
-     * @param int $limit 每批处理数量（默认10条，避免FFmpeg并发过高）
-     * @return array ['processed' => int, 'success' => int, 'failed' => int, 'skipped' => int]
-     */
-    public function batchMigrateToWebpCovers($limit = 10)
-    {
-        // 查找gif_cover以.gif结尾的视频模板
-        $templates = Db::name('generation_scene_template')
-            ->where('generation_type', 2)
-            ->where('status', 1)
-            ->where('gif_cover', 'like', '%.gif')
-            ->where('cover_image', '<>', '')
-            ->limit($limit)
-            ->select()
-            ->toArray();
-        
-        $processed = 0;
-        $success = 0;
-        $failed = 0;
-        $skipped = 0;
-        
-        foreach ($templates as $tpl) {
-            if (!$this->isVideoUrl($tpl['cover_image'])) {
-                $skipped++;
-                continue;
-            }
-            $processed++;
-            try {
-                // 调用优化后的generateGifCover，会自动生成WebP
-                $result = $this->generateGifCover($tpl['id'], $tpl['cover_image']);
-                if ($result) {
-                    $success++;
-                    Log::info('batchMigrateToWebpCovers: 模板' . $tpl['id'] . '迁移成功', [
-                        'old_gif' => substr($tpl['gif_cover'], 0, 80),
-                        'new_url' => substr($result, 0, 80)
-                    ]);
-                } else {
-                    $failed++;
-                    Log::warning('batchMigrateToWebpCovers: 模板' . $tpl['id'] . '生成失败，保留原GIF');
-                }
-            } catch (\Exception $e) {
-                $failed++;
-                Log::warning('batchMigrateToWebpCovers: 模板' . $tpl['id'] . '异常: ' . $e->getMessage());
-            }
-        }
-        
-        Log::info('batchMigrateToWebpCovers: 批量迁移完成', [
-            'processed' => $processed,
-            'success' => $success,
-            'failed' => $failed,
-            'skipped' => $skipped
-        ]);
-        
-        return ['processed' => $processed, 'success' => $success, 'failed' => $failed, 'skipped' => $skipped];
-    }
-    
-    /**
-     * 检测FFmpeg是否支持libwebp_anim编码器
-     * @param string $ffmpegPath FFmpeg可执行文件路径
-     * @return bool
-     */
-    protected function checkFfmpegWebpSupport($ffmpegPath)
-    {
-        static $supported = null;
-        if ($supported !== null) {
-            return $supported;
-        }
-        
-        $output = [];
-        exec(escapeshellarg($ffmpegPath) . ' -encoders 2>/dev/null | grep libwebp_anim', $output, $retCode);
-        $supported = ($retCode === 0 && !empty($output));
-        
-        if (!$supported) {
-            Log::warning('generateGifCover: FFmpeg不支持libwebp_anim编码器，将使用GIF方案');
-        }
-        
-        return $supported;
     }
     
     /**

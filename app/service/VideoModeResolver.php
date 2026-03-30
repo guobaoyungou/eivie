@@ -27,6 +27,7 @@ class VideoModeResolver
     const MODE_FIRST_FRAME = 'first_frame';
     const MODE_FIRST_LAST_FRAME = 'first_last_frame';
     const MODE_REFERENCE_IMAGES = 'reference_images';
+    const MODE_CAMERA_MOTION = 'camera_motion';
     
     /**
      * 模型能力矩阵
@@ -88,6 +89,64 @@ class VideoModeResolver
             'with_audio' => true,
             'max_duration' => 10,
             'resolutions' => ['720p', '1080p']
+        ],
+        // 爱诗科技 PixVerse V5.6 视频生成模型（通过阿里云百炼DashScope接入）
+        // 图生视频-基于首帧：上传1张图片作为首帧，prompt可选
+        'pixverse/pixverse-v5.6-it2v' => [
+            self::MODE_TEXT_TO_VIDEO => false,
+            self::MODE_FIRST_FRAME => true,
+            self::MODE_FIRST_LAST_FRAME => false,
+            self::MODE_REFERENCE_IMAGES => false,
+            'with_audio' => true,
+            'max_duration' => 10,
+            'durations' => [5, 8, 10],
+            'resolutions' => ['360P', '540P', '720P', '1080P']
+        ],
+        // 首尾帧生视频：上传首帧+尾帧图片，prompt必填
+        'pixverse/pixverse-v5.6-kf2v' => [
+            self::MODE_TEXT_TO_VIDEO => false,
+            self::MODE_FIRST_FRAME => true,
+            self::MODE_FIRST_LAST_FRAME => true,
+            self::MODE_REFERENCE_IMAGES => false,
+            'with_audio' => true,
+            'max_duration' => 10,
+            'durations' => [5, 8, 10],
+            'resolutions' => ['360P', '540P', '720P', '1080P']
+        ],
+        // 参考生视频：上传1-7张参考图片，prompt必填
+        'pixverse/pixverse-v5.6-r2v' => [
+            self::MODE_TEXT_TO_VIDEO => false,
+            self::MODE_FIRST_FRAME => false,
+            self::MODE_FIRST_LAST_FRAME => false,
+            self::MODE_REFERENCE_IMAGES => true,
+            self::MODE_CAMERA_MOTION => false,
+            'with_audio' => true,
+            'max_duration' => 10,
+            'max_reference_images' => 7,
+            'durations' => [5, 8, 10],
+            'resolutions' => ['360P', '540P', '720P', '1080P']
+        ],
+        // 即梦AI 视频生成3.0 720P（火山引擎CV API）
+        'jimeng_video_v30_720p' => [
+            self::MODE_TEXT_TO_VIDEO => true,
+            self::MODE_FIRST_FRAME => true,
+            self::MODE_FIRST_LAST_FRAME => true,
+            self::MODE_REFERENCE_IMAGES => false,
+            self::MODE_CAMERA_MOTION => true,
+            'with_audio' => false,
+            'max_duration' => 5,
+            'resolutions' => ['720P']
+        ],
+        // 即梦AI 视频生成3.0 1080P（火山引擎CV API）
+        'jimeng_video_v30_1080p' => [
+            self::MODE_TEXT_TO_VIDEO => true,
+            self::MODE_FIRST_FRAME => true,
+            self::MODE_FIRST_LAST_FRAME => true,
+            self::MODE_REFERENCE_IMAGES => false,
+            self::MODE_CAMERA_MOTION => false,
+            'with_audio' => false,
+            'max_duration' => 5,
+            'resolutions' => ['1080P']
         ]
     ];
     
@@ -186,13 +245,21 @@ class VideoModeResolver
             return self::MODE_REFERENCE_IMAGES;
         }
         
-        // 2. 检查首帧图模式
+        // 2. 检查运镜模式（有首帧图 + camera_type参数）
+        $hasCameraType = !empty($inputParams['camera_type']);
+        
+        // 3. 检查首帧图模式
         $hasFirstFrame = !empty($inputParams['first_frame_image']) || 
                          !empty($inputParams['image_url']) ||
                          !empty($inputParams['image']);
         
         if ($hasFirstFrame) {
-            // 2a. 检查是否有尾帧图
+            // 3a. 检查是否为运镜模式（首帧图 + camera_type）
+            if ($hasCameraType) {
+                return self::MODE_CAMERA_MOTION;
+            }
+            
+            // 3b. 检查是否有尾帧图
             $hasLastFrame = !empty($inputParams['last_frame_image']) ||
                            !empty($inputParams['tail_image_url']) ||
                            !empty($inputParams['last_frame']);
@@ -204,7 +271,7 @@ class VideoModeResolver
             return self::MODE_FIRST_FRAME;
         }
         
-        // 3. 默认为文生视频
+        // 4. 默认为文生视频
         return self::MODE_TEXT_TO_VIDEO;
     }
     
@@ -278,7 +345,8 @@ class VideoModeResolver
             self::MODE_TEXT_TO_VIDEO,
             self::MODE_FIRST_FRAME,
             self::MODE_FIRST_LAST_FRAME,
-            self::MODE_REFERENCE_IMAGES
+            self::MODE_REFERENCE_IMAGES,
+            self::MODE_CAMERA_MOTION
         ];
         
         foreach ($allModes as $mode) {
@@ -416,7 +484,8 @@ class VideoModeResolver
             self::MODE_TEXT_TO_VIDEO => '文生视频（纯文本描述生成视频）',
             self::MODE_FIRST_FRAME => '首帧图生视频（首帧图片驱动生成）',
             self::MODE_FIRST_LAST_FRAME => '首尾帧图生视频（首帧+尾帧过渡视频）',
-            self::MODE_REFERENCE_IMAGES => '参考图生视频（1-4张参考图片驱动生成）'
+            self::MODE_REFERENCE_IMAGES => '参考图生视频（1-4张参考图片驱动生成）',
+            self::MODE_CAMERA_MOTION => '运镜图生视频（首帧图片+运镜控制生成视频）'
         ];
         
         return $descriptions[$videoMode] ?? $videoMode;
@@ -434,7 +503,8 @@ class VideoModeResolver
             self::MODE_TEXT_TO_VIDEO => ['prompt'],
             self::MODE_FIRST_FRAME => ['first_frame_image'],
             self::MODE_FIRST_LAST_FRAME => ['first_frame_image', 'last_frame_image'],
-            self::MODE_REFERENCE_IMAGES => ['reference_images']
+            self::MODE_REFERENCE_IMAGES => ['reference_images'],
+            self::MODE_CAMERA_MOTION => ['first_frame_image', 'camera_type']
         ];
         
         return $required[$videoMode] ?? [];
@@ -492,7 +562,8 @@ class VideoModeResolver
             'first_frame_image' => ['image_url', 'image', 'input_image'],
             'last_frame_image' => ['tail_image_url', 'last_frame', 'end_image'],
             'reference_images' => ['ref_images', 'ref_imgs'],
-            'prompt' => ['text', 'description']
+            'prompt' => ['text', 'description'],
+            'camera_type' => ['camera_motion_type', 'motion_type']
         ];
         
         return $aliases[$param] ?? [];
