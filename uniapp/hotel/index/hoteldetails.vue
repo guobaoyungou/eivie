@@ -42,17 +42,17 @@
 					<view class="content-view" :style="{background: 'linear-gradient(180deg, '+ tColor('color1') +' 0%, #FFFFFF 45px, #FFFFFF 63%, #FFFFFF 100%)'}">
 						<view class="title-view">{{hotel.name}}</view>
 						<view class="hotel-nature">
-							<view class="star-view" v-if="hotel.hotellevel>0">
-								<image class="start"  :src="pre_url+'/static/img/star2native.png'" v-for="(item,index) in hotel.hotellevel+2"></image>
-							</view>
+<view class="star-view" v-if="hotel.hotellevel>0">
+							<image class="start"  :src="pre_url+'/static/img/star2native.png'" v-for="(item,index) in hotel.hotellevel+2" :key="index"></image>
+						</view>
 							<view class="hotspot-nature-text" v-if="nature != null">{{ nature }}</view>
 						</view>
 						<view class="hotspot-view" v-if="hotel.tag.length">
-							<view class="hotspot-view-left">
-								<view class='hotspot-options' v-for="(item,index) in hotel.tag">
-									{{item}}
-								</view>
+<view class="hotspot-view-left">
+							<view class='hotspot-options' v-for="(item,index) in hotel.tag" :key="index">
+								{{item}}
 							</view>
+						</view>
 							<!--<view class="hotspot-more">
 								设施/详情
 								<image :src="`${pre_url}/static/img/hotel/gengduo.png`"></image>
@@ -93,11 +93,11 @@
 					</view>
 					<!--  -->
 					<view class="screen-view">
-						<view class="screen-view-left">
-							<block v-for="(item,index) in grouplist">
-								<view :class="'screen-options '" :style="inArray(item.id,gids) ?'background:rgba('+t('color1rgb')+',0.05);color:'+tColor('color1'):''"  :data-id="item.id"  @tap="groupChange">{{item.name}}</view>
-							</block>
-						</view>
+<view class="screen-view-left">
+						<block v-for="(item,index) in grouplist" :key="index">
+							<view :class="'screen-options '" :style="inArray(item.id,gids) ?'background:rgba('+t('color1rgb')+',0.05);color:'+tColor('color1'):''"  :data-id="item.id"  @tap="groupChange">{{item.name}}</view>
+						</block>
+					</view>
 						<!--<view class="right-screen">
 							筛选<image :src="`${pre_url}/static/img/hotel/screenicon.png`"></image>
 						</view>-->
@@ -113,11 +113,11 @@
 								</view>
 								<view class="hotel-info">
 									<view class="hotel-title">{{item.name}}</view>
-									<view class="hotel-characteristic" v-if="roomstyle ==1">
-										<block v-for="(items,indexs) in item.tag">
-											<view class="characteristic-options" :style="'background:rgba('+t('color1rgb')+',0.05);color:'+tColor('color1')">{{items}}</view>
-										</block>
-									</view> 
+<view class="hotel-characteristic" v-if="roomstyle ==1">
+								<block v-for="(items,indexs) in item.tag" :key="indexs">
+									<view class="characteristic-options" :style="'background:rgba('+t('color1rgb')+',0.05);color:'+tColor('color1')">{{items}}</view>
+								</block>
+							</view>
 									<view class="hotel-characteristic " v-else>
 										<view class="under_title" v-if="item.bedxing!='不显示'">
 											 

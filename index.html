@@ -1,39 +1,54 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-    <meta charset="utf-8">
-    <title>恭喜，站点创建成功！</title>
+    <meta charset="UTF-8">
+    <title>授权管理后台</title>
     <style>
+        body {
+            background-color: #f2f2f2;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
         .container {
-            width: 60%;
-            margin: 10% auto 0;
-            background-color: #f0f0f0;
-            padding: 2% 5%;
-            border-radius: 10px
+            text-align: center;
+            background-color: white;
+            padding: 50px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
         }
-
-        ul {
-            padding-left: 20px;
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
         }
-
-            ul li {
-                line-height: 2.3
-            }
-
-        a {
-            color: #20a53a
+        p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .login-btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background-color: #1E9FFF;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 18px;
+            transition: background-color 0.3s;
+        }
+        .login-btn:hover {
+            background-color: #0C84FF;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>恭喜, 站点创建成功！</h1>
-        <h3>这是默认index.html，本页面由系统自动生成</h3>
-        <ul>
-            <li>本页面在FTP根目录下的index.html</li>
-            <li>您可以修改、删除或覆盖本页面</li>
-            <li>FTP相关信息，请到“面板系统后台 > FTP” 查看</li>
-        </ul>
+        <h1>授权管理后台</h1>
+        <p>欢迎访问点大商城授权管理系统</p>
+        <a href="/lp_login.php" class="login-btn">登录管理后台</a>
     </div>
 </body>
 </html>

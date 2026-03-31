@@ -20,7 +20,11 @@
         </view>
 				<view :style="{color:item.cost_color?item.cost_color:'#999',fontSize:'36rpx'}" v-if="item.show_cost && item.price_type != 1"><text style="font-size: 24rpx;">{{item.cost_tag}}</text>{{item.cost_price}}</view>
 				<view class="p2">
-					<view class="p2-1" v-if="(!item.show_sellprice || (item.show_sellprice && item.show_sellprice==true)) && ( item.price_type != 1 || item.sell_price > 0) && showprice == '1'">
+					<!-- 积分价格 -->
+					<view class="p2-1" v-if="item.score_pay_enabled && showprice == '1'">
+						<text class="t1" :style="{color:item.price_color?item.price_color:t('color1')}">{{item.price_in_score}} 积分</text>
+					</view>
+					<view class="p2-1" v-if="!item.score_pay_enabled && (!item.show_sellprice || (item.show_sellprice && item.show_sellprice==true)) && ( item.price_type != 1 || item.sell_price > 0) && showprice == '1'">
 						<text class="t1" :style="{color:item.price_color?item.price_color:t('color1')}">
 							<block v-if="item.usd_sellprice">
 								<text style="font-size:24rpx">$</text>{{item.usd_sellprice}}

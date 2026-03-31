@@ -1292,7 +1292,21 @@
 									}
 								},{authlogin:res.data.authlogin,ali_appid:res.data.ali_appid});
 							} else {
-								app.goto('/pages/index/login?frompage=' + frompage, opentype);
+								// 优先检测当前页面是否存在 login-popup 组件，若存在则打开弹窗
+								var loginPopupRef = null;
+								try {
+									loginPopupRef = currentPage.$vm.$refs.loginPopup;
+								} catch(e) {}
+								if (loginPopupRef && typeof loginPopupRef.open === 'function') {
+									// 登录成功后重新请求数据
+									loginPopupRef.open(function() {
+										if (currentPage.$vm && typeof currentPage.$vm.getdata === 'function') {
+											currentPage.$vm.getdata();
+										}
+									});
+								} else {
+									app.goto('/pages/index/login?frompage=' + frompage, opentype);
+								}
 								return;
 							}
 						} else if (res.data && res.data.status == -10) { //跳转管理员登录

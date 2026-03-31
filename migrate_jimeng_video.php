@@ -117,26 +117,26 @@ try {
                 'order' => 3
             ],
             'camera_type' => [
-                'label' => '运镜类型',
+                'label' => '运镜模板',
                 'type' => 'enum',
                 'required' => false,
                 'options' => [
-                    'horizontal_right', 'horizontal_left',
-                    'vertical_up', 'vertical_down',
-                    'zoom_in', 'zoom_out',
-                    'pan_right', 'pan_left',
-                    'tilt_up', 'tilt_down',
-                    'hitchcock', 'dynamic_surround', 'mechanical_arm'
+                    'hitchcock_dolly_in', 'hitchcock_dolly_out',
+                    'robo_arm', 'dynamic_orbit', 'central_orbit',
+                    'crane_push', 'quick_pull_back',
+                    'counterclockwise_swivel', 'clockwise_swivel',
+                    'handheld', 'rapid_push_pull'
                 ],
-                'description' => '运镜类型，仅运镜模式使用。需配合首帧图片',
+                'description' => '运镜模板ID，仅运镜模式使用。需配合首帧图片。可选：希区柯克推进/拉远、机械臂、动感环绕、中心环绕、起重机、超级拉远、逆时针回旋、顺时针回旋、手持运镜、快速推拉',
                 'order' => 4
             ],
             'camera_amplitude' => [
-                'label' => '运镜幅度',
-                'type' => 'float',
+                'label' => '运镜强度',
+                'type' => 'enum',
                 'required' => false,
-                'default' => 1.0,
-                'description' => '运镜幅度参数，仅运镜模式使用',
+                'default' => 'medium',
+                'options' => ['weak', 'medium', 'strong'],
+                'description' => '运镜强度，仅运镜模式使用。weak=弱、medium=中、strong=强',
                 'order' => 5
             ]
         ],
@@ -379,14 +379,13 @@ try {
     echo "已创建模型：\n";
     echo "  - jimeng_video_v30_720p  (720P, 支持文生视频/首帧/首尾帧/运镜)\n";
     echo "  - jimeng_video_v30_1080p (1080P, 支持文生视频/首帧/首尾帧)\n\n";
-    echo "⚠️  重要提醒：\n";
-    echo "  config/aivideo.php 中的 req_key 值为 placeholder，\n";
-    echo "  需要从火山引擎文档确认实际的 req_key 后更新配置。\n\n";
+    echo "req_key已确认（来自火山引擎文档）：\n";
+    echo "  720P: jimeng_t2v_v30 / jimeng_i2v_first_v30 / jimeng_i2v_first_tail_v30 / jimeng_i2v_recamera_v30\n";
+    echo "  1080P: jimeng_t2v_v30_1080p / jimeng_i2v_first_v30_1080 / jimeng_i2v_first_tail_v30_1080\n\n";
     echo "后续操作：\n";
     echo "1. 确认火山引擎控制台已开通「即梦AI-视频生成3.0」服务\n";
-    echo "2. 确认 req_key 值并更新 config/aivideo.php\n";
-    echo "3. 在模型广场中确认模型已正确显示\n";
-    echo "4. 测试视频生成功能（文生视频和图生视频）\n\n";
+    echo "2. 在模型广场中确认模型已正确显示\n";
+    echo "3. 测试视频生成功能（文生视频和图生视频）\n\n";
     
     $mysqli->close();
     

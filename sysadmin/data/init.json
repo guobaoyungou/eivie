@@ -1,0 +1,13 @@
+{
+    "licenses": [],
+    "blacklist": [],
+    "settings": {
+        "site_name": "授权管理后台",
+        "admin_email": "",
+        "license_expire_days": 365,
+        "auto_renew": false,
+        "notify_before_expire": 7,
+        "api_key": "",
+        "secret_key": ""
+    }
+}

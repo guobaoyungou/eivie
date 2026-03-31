@@ -134,7 +134,7 @@ class VideoModeResolver
             self::MODE_REFERENCE_IMAGES => false,
             self::MODE_CAMERA_MOTION => true,
             'with_audio' => false,
-            'max_duration' => 5,
+            'max_duration' => 10,
             'resolutions' => ['720P']
         ],
         // 即梦AI 视频生成3.0 1080P（火山引擎CV API）
@@ -145,7 +145,7 @@ class VideoModeResolver
             self::MODE_REFERENCE_IMAGES => false,
             self::MODE_CAMERA_MOTION => false,
             'with_audio' => false,
-            'max_duration' => 5,
+            'max_duration' => 10,
             'resolutions' => ['1080P']
         ]
     ];

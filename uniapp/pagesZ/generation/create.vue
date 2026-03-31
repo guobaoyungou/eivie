@@ -1,36 +1,63 @@
+
 <template>
 <view class="container">
 	<block v-if="isload">
-		<!-- 模板选择区域 -->
-		<view class="section">
-			<view class="section-title">选择模板</view>
-			<view class="search-box">
-				<text class="iconfont icon-search search-icon" style="font-size:28rpx;color:#999;"></text>
-				<input class="search-input" v-model="searchKeyword" placeholder="搜索模板名称" @input="onSearchInput" />
-				<text v-if="searchKeyword" class="search-clear" @tap="searchKeyword = ''">×</text>
-			</view>
-			<scroll-view class="template-scroll" scroll-x :show-scrollbar="false" v-if="filteredTemplateList.length > 0">
-				<view class="template-scroll-inner">
-					<view class="template-card-item" :class="{active: selectedTemplateId == item.id}" v-for="(item, idx) in filteredTemplateList" :key="item.id" @tap="onSelectTemplate(item)">
-						<image :src="item.cover_image || '/static/img/placeholder.png'" class="template-card-cover" mode="aspectFill"></image>
-						<text class="template-card-name">{{item.template_name}}</text>
-						<text class="template-card-price" v-if="scorePayEnabled">{{item.price_in_score || '-'}} 积分</text>
-						<text class="template-card-price" v-else>¥{{item.price}}</text>
+		<!-- 模板原图+效果图对比展示区域 -->
+		<view class="section compare-section" v-if="detail">
+			<view class="compare-container">
+				<!-- 左侧：原始照片 -->
+				<view class="compare-side">
+					<view class="compare-label">原图</view>
+					<swiper class="compare-swiper" v-if="originalImages.length > 1" autoplay circular indicator-dots :indicator-color="'rgba(255,255,255,0.4)'" indicator-active-color="#91C2FF" :interval="3000">
+						<swiper-item v-for="(img, idx) in originalImages" :key="'orig_'+idx">
+							<image :src="img" class="compare-image" mode="aspectFill" @tap="previewImage(originalImages, idx)"></image>
+						</swiper-item>
+					</swiper>
+					<view class="compare-single" v-else>
+						<image :src="originalImages[0] || '/static/img/placeholder.png'" class="compare-image" mode="aspectFill" @tap="previewImage(originalImages, 0)"></image>
 					</view>
 				</view>
-			</scroll-view>
-			<view class="empty-template" v-else>
-				<text class="empty-text">{{searchKeyword ? '未找到匹配模板' : '暂无可用模板'}}</text>
+				<!-- 中间分隔 -->
+				<view class="compare-divider">
+					<text class="compare-vs">VS</text>
+				</view>
+				<!-- 右侧：效果图 -->
+				<view class="compare-side">
+					<view class="compare-label effect-label">效果图 ✨</view>
+					<swiper class="compare-swiper" v-if="effectImages.length > 1" autoplay circular indicator-dots :indicator-color="'rgba(255,255,255,0.4)'" indicator-active-color="#91C2FF" :interval="3000">
+						<swiper-item v-for="(img, idx) in effectImages" :key="'eff_'+idx">
+							<image :src="img" class="compare-image" mode="aspectFill" @tap="previewImage(effectImages, idx)"></image>
+						</swiper-item>
+					</swiper>
+					<view class="compare-single" v-else>
+						<image :src="effectImages[0] || '/static/img/placeholder.png'" class="compare-image" mode="aspectFill" @tap="previewImage(effectImages, 0)"></image>
+					</view>
+				</view>
+			</view>
+			<!-- 模板名称和价格 -->
+			<view class="compare-info">
+				<text class="compare-tpl-name">{{detail.template_name}}</text>
+				<text class="compare-tpl-price" v-if="scorePayEnabled">{{priceInScore}} {{scoreUnitName}}</text>
+				<text class="compare-tpl-price" v-else>¥{{detail.price}}</text>
 			</view>
 		</view>
-		
-		<!-- 提示词输入（仅当 prompt_visible=1 时显示） -->
-		<view class="section" v-if="promptVisible">
-			<view class="section-title">
-				<text class="required">*</text> 提示词
+
+		<!-- 提示词编辑区域（折叠/展开） -->
+		<view class="section" v-if="promptVisible && prompt">
+			<view class="prompt-header" @tap="togglePrompt">
+				<text class="section-title" style="margin-bottom:0;">创作提示词</text>
+				<text class="prompt-arrow">{{promptExpanded ? '∧' : '∨'}}</text>
 			</view>
-			<textarea class="prompt-input" v-model="prompt" placeholder="请输入图像/视频描述，越详细生成效果越好" :maxlength="2000" auto-height></textarea>
-			<view class="char-count">{{prompt.length}}/2000</view>
+			<!-- 折叠态：预览 -->
+			<view class="prompt-preview" v-if="!promptExpanded" @tap="togglePrompt">{{prompt}}</view>
+			<!-- 展开态：可编辑 -->
+			<view v-if="promptExpanded">
+				<textarea class="prompt-textarea" v-model="prompt" placeholder="请输入描述，越详细效果越好" maxlength="2000" :auto-height="true" :style="{maxHeight:'300rpx'}"></textarea>
+				<view class="prompt-footer">
+					<text class="prompt-char-count">{{prompt.length}}/2000</text>
+					<text class="prompt-optimize-btn" @tap="onOptimizePrompt">✨ 优化提示词</text>
+				</view>
+			</view>
 		</view>
 		
 		<!-- 参考图上传 -->
@@ -42,7 +69,6 @@
 				v-model="refImages"
 				:maxCount="maxImages"
 				:maxSize="10"
-				:uploadUrl="generationUploadUrl"
 				:columns="4"
 				:enableCamera="true"
 				:enableAlbum="true"
@@ -53,7 +79,7 @@
 		
 		<!-- 生成数量（图片生成） -->
 		<view class="section" v-if="generationType == 1">
-			<view class="section-title">生成张数</view>
+			<view class="section-title">治愈画面数量</view>
 			<scroll-view class="option-scroll" scroll-x :show-scrollbar="false">
 				<view class="option-scroll-inner">
 					<view class="count-chip" :class="{active: quantity == item}" v-for="(item, idx) in countOptions" :key="idx" @tap="selectCount(item)">
@@ -65,7 +91,7 @@
 		
 		<!-- 输出比例选择（图片生成） -->
 		<view class="section" v-if="generationType == 1 && ratioOptions.length > 0">
-			<view class="section-title">输出比例</view>
+			<view class="section-title">画面比例</view>
 			<scroll-view class="option-scroll" scroll-x :show-scrollbar="false">
 				<view class="option-scroll-inner">
 					<view class="count-chip" :class="{active: ratio == item}" v-for="(item, idx) in ratioOptions" :key="idx" @tap="selectRatio(item)">
@@ -77,7 +103,7 @@
 		
 		<!-- 输出质量选择（图片生成） -->
 		<view class="section" v-if="generationType == 1">
-			<view class="section-title">输出质量选择</view>
+			<view class="section-title">画面清晰度</view>
 			<scroll-view class="option-scroll" scroll-x :show-scrollbar="false">
 				<view class="option-scroll-inner">
 					<view class="count-chip" :class="{active: quality == item.value}" v-for="(item, idx) in qualityOptions" :key="idx" @tap="selectQuality(item.value)">
@@ -110,18 +136,70 @@
 			</view>
 		</view>
 		
+		<!-- 佣金提示条 -->
+		<view class="commission-bar" v-if="detail && detail.share_show_commission && detail.commission_enabled && parseFloat(detail.share_commission_amount) > 0" @tap="openSharePopup">
+			<view class="commission-bar-left">
+				<text class="commission-bar-icon">💰</text>
+				<text class="commission-bar-text">{{detail.share_commission_desc}}</text>
+			</view>
+			<view class="commission-bar-btn">立即分享</view>
+		</view>
+		
 		<!-- 底部操作栏 -->
 		<view class="bottom-bar">
 			<view class="price-display">
 				<text class="total-label">合计：</text>
-				<text class="total-price score-price" v-if="scorePayEnabled">{{totalPriceInScore}} 积分</text>
+				<text class="total-price score-price" v-if="scorePayEnabled">{{totalPriceInScore}} {{scoreUnitName}}</text>
 				<text class="total-price" v-else>¥{{totalPrice}}</text>
 			</view>
 			<view class="btn-primary" :class="{disabled: submitting || !selectedTemplateId}" @tap="submitGeneration">
-				{{submitting ? '提交中...' : '立即生成'}}
+				{{submitting ? '正在为你绘制温柔画面…' : '开始生成 ✨'}}
 			</view>
 		</view>
 		<view style="height: 120rpx;"></view>
+		
+		<!-- 分享弹窗 -->
+		<view v-if="sharetypevisible" class="popup__container">
+			<view class="popup__overlay" @tap.stop="closeSharePopup"></view>
+			<view class="popup__modal" style="height:320rpx;min-height:320rpx">
+				<view class="popup__content">
+					<view class="sharetypecontent">
+						<!-- #ifdef APP-PLUS -->
+						<view class="f1" @tap="shareApp">
+							<image class="img" :src="pre_url+'/static/img/sharefriends.png'"/>
+							<text class="t1">分享给好友</text>
+						</view>
+						<!-- #endif -->
+						<!-- #ifdef MP-WEIXIN -->
+						<button class="f1" open-type="share">
+							<image class="img" :src="pre_url+'/static/img/sharefriends.png'"/>
+							<text class="t1">分享给好友</text>
+						</button>
+						<!-- #endif -->
+						<!-- #ifdef H5 -->
+						<view class="f1" @tap="shareH5">
+							<image class="img" :src="pre_url+'/static/img/sharefriends.png'"/>
+							<text class="t1">分享给好友</text>
+						</view>
+						<!-- #endif -->
+						<view class="f2" @tap="showPoster">
+							<image class="img" :src="pre_url+'/static/img/sharepic.png'"/>
+							<text class="t1">生成分享海报</text>
+						</view>
+					</view>
+				</view>
+			</view>
+		</view>
+		
+		<!-- 海报预览弹窗 -->
+		<view class="posterDialog" v-if="showposter">
+			<view class="main">
+				<view class="close" @tap="posterDialogClose">✕</view>
+				<view class="content">
+					<image class="img" :src="posterpic" mode="widthFix" @tap="previewImage([posterpic], 0)"></image>
+				</view>
+			</view>
+		</view>
 	</block>
 	
 	<!-- 余额/积分不足弹窗 -->
@@ -134,6 +212,9 @@
 			<view class="insufficient-close" @tap="closeInsufficientPopup">关闭</view>
 		</view>
 	</view>
+
+	<!-- 登录弹窗 -->
+	<login-popup ref="loginPopup" @login-success="onLoginSuccess"></login-popup>
 
 	<loading v-if="loading"></loading>
 	<!-- #ifdef MP-WEIXIN -->
@@ -160,18 +241,17 @@ export default {
 			needRefImage: false,
 			maxImages: 1, // 默认1张，由模板 max_ref_images 控制
 			countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-			templateList: [],
-			searchKeyword: '',
 			selectedTemplateId: 0,
 			ratio: '1:1',
 			quality: 'hd',
 			ratioOptions: [],
 			qualityOptions: [
-				{ label: '标准画质', value: 'standard' },
-				{ label: '高清画质', value: 'hd' },
-				{ label: '超清画质', value: 'ultra' }
+				{ label: '温柔清晰', value: 'standard' },
+				{ label: '高清细腻', value: 'hd' },
+				{ label: '超清极致', value: 'ultra' }
 			],
 			promptVisible: true,
+			promptExpanded: false,
 			showIdPhotoGuide: false,
 			idPhotoGuideShownMap: {},
 			// 余额/积分不足弹窗
@@ -183,7 +263,14 @@ export default {
 			insufficientExtra: {},
 			// 积分支付模式
 			scorePayEnabled: false,
-			priceInScore: 0
+			priceInScore: 0,
+			scoreUnitName: '词元',
+			// 分享赚佣金
+			pid: 0,
+			sharetypevisible: false,
+			showposter: false,
+			posterpic: '',
+			pre_url: app.globalData.pre_url
 		};
 	},
 	
@@ -203,19 +290,47 @@ export default {
 			}
 			return this.priceInScore;
 		},
-		filteredTemplateList() {
-			if (!this.searchKeyword) return this.templateList;
-			var kw = this.searchKeyword.toLowerCase();
-			return this.templateList.filter(function(item) {
-				return (item.template_name || '').toLowerCase().indexOf(kw) !== -1;
-			});
+
+		originalImages() {
+			if (!this.detail) return [];
+			if (this.detail.original_images && this.detail.original_images.length > 0) {
+				var filtered = this.detail.original_images.filter(function(img) { return img && img !== ''; });
+				if (filtered.length > 0) return filtered;
+			}
+			if (this.detail.original_image && this.detail.original_image !== '') {
+				return [this.detail.original_image];
+			}
+			if (this.detail.ref_image && this.detail.ref_image !== '') {
+				return [this.detail.ref_image];
+			}
+			if (this.detail.ref_images && this.detail.ref_images.length > 0) {
+				var filteredRef = this.detail.ref_images.filter(function(img) { return img && img !== ''; });
+				if (filteredRef.length > 0) return filteredRef;
+			}
+			return [this.detail.cover_image || '/static/img/placeholder.png'];
+		},
+		effectImages() {
+			if (!this.detail) return [];
+			if (this.detail.effect_images && this.detail.effect_images.length > 0) {
+				var filtered = this.detail.effect_images.filter(function(img) { return img && img !== ''; });
+				if (filtered.length > 0) return filtered;
+			}
+			if (this.detail.effect_image && this.detail.effect_image !== '') {
+				return [this.detail.effect_image];
+			}
+			if (this.detail.sample_images && this.detail.sample_images.length > 0) {
+				var filteredSample = this.detail.sample_images.filter(function(img) { return img && img !== ''; });
+				if (filteredSample.length > 0) return filteredSample;
+			}
+			return [this.detail.cover_image || '/static/img/placeholder.png'];
 		},
 		idPhotoTypeName() {
 			if (!this.detail || !this.detail.is_id_photo) return '';
 			return this.detail.id_photo_type_name || '';
 		},
-		generationUploadUrl() {
-			return app.globalData.pre_url + '/Upload/upload';
+		generationUploadUrlUnused() {
+			// 已废弃，使用组件默认上传地址
+			return '';
 		},
 		idPhotoCorrectTips() {
 			var typeMap = {
@@ -244,8 +359,40 @@ export default {
 	onLoad(opt) {
 		this.opt = app.getopts(opt);
 		this.generationType = parseInt(this.opt.type) || 1;
-		this.selectedTemplateId = parseInt(this.opt.id) || 0;
+		// 支持 id 和 template_id 两种参数名
+		this.selectedTemplateId = parseInt(this.opt.template_id || this.opt.id) || 0;
+		
+		// 解析 pid 参数（来自分享链接）
+		var pid = parseInt(this.opt.pid) || 0;
+		if (!pid && this.opt.scene) {
+			// 解析 scene 格式：id_{id}-pid_{mid}
+			var sceneStr = decodeURIComponent(this.opt.scene);
+			var pidMatch = sceneStr.match(/pid_(\d+)/);
+			if (pidMatch) {
+				pid = parseInt(pidMatch[1]) || 0;
+			}
+			// 同时从 scene 中解析 template_id
+			if (!this.selectedTemplateId) {
+				var idMatch = sceneStr.match(/id_(\d+)/);
+				if (idMatch) {
+					this.selectedTemplateId = parseInt(idMatch[1]) || 0;
+				}
+			}
+		}
+		this.pid = pid;
+		
 		this.getdata();
+	},
+	
+	onShareAppMessage: function() {
+		var that = this;
+		if (!that.detail) return {};
+		var mid = app.globalData.mid || 0;
+		return {
+			title: that.detail.template_name || '来看看这个神奇的AI创作',
+			imageUrl: that.detail.cover_image || '',
+			path: '/pagesZ/generation/create?id=' + that.selectedTemplateId + '&type=' + that.generationType + '&pid=' + mid
+		};
 	},
 	
 	methods: {
@@ -253,55 +400,30 @@ export default {
 			var that = this;
 			that.loading = true;
 			
-			var loadedCount = 0;
-			var totalLoads = 2;
-			var checkDone = function() {
-				loadedCount++;
-				if (loadedCount >= totalLoads) {
-					that.loading = false;
-					that.isload = true;
-				}
-			};
-			
-			// 并行请求：加载模板列表
-			app.get('ApiAivideo/scene_template_list', {
-				bid: that.opt.bid || 0,
-				generation_type: that.generationType
-			}, function(res) {
-				if (res.status == 1 && res.data && res.data.list) {
-					that.templateList = res.data.list;
-					// 若URL未传入template_id，默认选中第一项
-					if (!that.selectedTemplateId && that.templateList.length > 0) {
-						that.selectedTemplateId = that.templateList[0].id;
-					}
-				}
-				checkDone();
-			});
-			
-			// 并行请求：加载当前模板详情
-			if (that.selectedTemplateId) {
-				app.get('ApiAivideo/scene_template_detail', {
-					template_id: that.selectedTemplateId
-				}, function(res) {
-					if (res.status == 1) {
-						that.applyTemplateDetail(res.data);
-					} else {
-						app.alert(res.msg);
-					}
-					checkDone();
-				});
-			} else {
-				// 没有指定模板ID，等待列表加载后自动选中第一个并加载详情
-				checkDone();
-				// 在列表加载完后触发详情加载
-				var checkList = setInterval(function() {
-					if (that.templateList.length > 0 && that.selectedTemplateId > 0) {
-						clearInterval(checkList);
-						that.loadTemplateDetail(that.selectedTemplateId);
-					}
-				}, 100);
-				setTimeout(function() { clearInterval(checkList); }, 5000);
+			if (!that.selectedTemplateId) {
+				app.alert('模板参数异常');
+				setTimeout(function() { uni.navigateBack(); }, 1500);
+				return;
 			}
+			
+			// 加载模板详情
+			app.get('ApiAivideo/scene_template_detail', {
+				template_id: that.selectedTemplateId
+			}, function(res) {
+				that.loading = false;
+				// 数据安全校验：确保res存在
+				if (!res) {
+					app.alert('网络异常，请稍后重试');
+					return;
+				}
+				if (res.status == 1 && res.data) {
+					that.applyTemplateDetail(res.data);
+					that.isload = true;
+				} else {
+					var msg = res.msg || '获取模板详情失败';
+					app.alert(msg);
+				}
+			});
 		},
 		
 		applyTemplateDetail(detail) {
@@ -356,6 +478,7 @@ export default {
 			// 积分支付信息
 			that.scorePayEnabled = detail.score_pay_enabled || false;
 			that.priceInScore = detail.price_in_score || 0;
+			that.scoreUnitName = detail.score_unit_name || '词元';
 			
 			// 设置标题
 			var title = that.generationType == 1 ? '图片生成' : '视频生成';
@@ -364,27 +487,39 @@ export default {
 		
 		loadTemplateDetail(templateId) {
 			var that = this;
-			app.showLoading('加载中');
+			app.showLoading('温柔加载中…');
 			app.get('ApiAivideo/scene_template_detail', {
 				template_id: templateId
 			}, function(res) {
 				app.showLoading(false);
-				if (res.status == 1) {
+				// 数据安全校验
+				if (!res) {
+					app.alert('网络异常，请稍后重试');
+					return;
+				}
+				if (res.status == 1 && res.data) {
 					that.applyTemplateDetail(res.data);
 				} else {
-					app.alert(res.msg);
+					var msg = res.msg || '获取模板详情失败';
+					app.alert(msg);
 				}
 			});
 		},
 		
-		onSelectTemplate(item) {
-			if (this.selectedTemplateId == item.id) return;
-			this.selectedTemplateId = item.id;
-			this.loadTemplateDetail(item.id);
+		togglePrompt() {
+			this.promptExpanded = !this.promptExpanded;
 		},
 		
-		onSearchInput() {
-			// 前端筛选由 computed filteredTemplateList 自动处理
+		onOptimizePrompt() {
+			uni.showToast({ title: '功能即将上线', icon: 'none' });
+		},
+		
+		previewImage(images, index) {
+			if (!images || images.length === 0) return;
+			uni.previewImage({
+				urls: images,
+				current: images[index] || images[0]
+			});
 		},
 		
 		selectCount(count) {
@@ -422,27 +557,69 @@ export default {
 			}
 		},
 		
+		/**
+		 * 登录检查并执行操作
+		 * @param {Function} callback - 登录成功后执行的回调函数
+		 */
+		checkLoginAndDo(callback) {
+			var that = this;
+			// 检查是否已登录
+			if (!app.globalData.mid || app.globalData.mid == 0) {
+				// 未登录，打开登录弹窗
+				if (that.$refs.loginPopup) {
+					that.$refs.loginPopup.open(callback);
+				} else {
+					// 降级处理：跳转到登录页
+					var frompage = encodeURIComponent(app._fullurl());
+					app.goto('/pages/index/login?frompage=' + frompage, 'navigate');
+				}
+				return false;
+			}
+			// 已登录，直接执行回调
+			if (typeof callback === 'function') {
+				callback();
+			}
+			return true;
+		},
+		
+		/**
+		 * 登录成功回调
+		 */
+		onLoginSuccess(res) {
+			var that = this;
+			// 更新全局用户信息
+			if (res && res.data && res.data.mid) {
+				app.globalData.mid = res.data.mid;
+			}
+			// 登录成功后会自动执行之前传入的callback，这里不需要额外处理
+		},
+		
 		submitGeneration() {
 			var that = this;
 			
 			if (that.submitting) return;
 			if (!that.selectedTemplateId) return app.alert('请选择场景模板');
 			
-			// 验证（当提示词可见时才校验）
-			if (that.promptVisible) {
-				if (!that.prompt || that.prompt.trim().length < 2) {
-					return app.alert('请填写提示词（至少2个字符）');
-				}
-			}
-			
 			if (that.needRefImage && that.refImages.length == 0) {
 				return app.alert('请上传参考图片');
 			}
 			
-			that.submitting = true;
-			app.showLoading('提交中');
+			// 检查登录状态，未登录则弹出登录弹窗
+			that.checkLoginAndDo(function() {
+				that.doSubmitGeneration();
+			});
+		},
+		
+		/**
+		 * 执行创建订单操作（已确认登录）
+		 */
+		doSubmitGeneration() {
+			var that = this;
 			
-			var postData = {
+			that.submitting = true;
+			app.showLoading('正在为你绘制温柔画面…');
+			
+		var postData = {
 				template_id: that.selectedTemplateId,
 				generation_type: that.generationType,
 				prompt: that.promptVisible ? that.prompt : (that.detail.prompt || ''),
@@ -450,14 +627,21 @@ export default {
 				quantity: that.quantity,
 				ratio: that.ratio,
 				quality: that.quality,
-				bid: that.opt.bid || 0
+				bid: that.opt.bid || 0,
+				pid: that.pid || 0
 			};
 			
 			app.post('ApiAivideo/create_generation_order', postData, function(res) {
 				app.showLoading(false);
 				that.submitting = false;
 				
-				if (res.status == 1) {
+				// 数据安全校验
+				if (!res) {
+					app.alert('网络异常，请稍后重试');
+					return;
+				}
+				
+				if (res.status == 1 && res.data) {
 					var data = res.data;
 					
 					if (data.need_pay) {
@@ -478,8 +662,8 @@ export default {
 						var extra = res.extra || {};
 						that.showInsufficientPopup = true;
 						that.insufficientType = 'score_insufficient';
-						that.insufficientTitle = '积分不足';
-						that.insufficientMsg = '当前可用积分 ' + (extra.current_score || 0) + '，本次需要 ' + (extra.required_score || 0) + ' 积分';
+						that.insufficientTitle = that.scoreUnitName + '不足';
+						that.insufficientMsg = '当前可用' + that.scoreUnitName + ' ' + (extra.current_score || 0) + '，本次需要 ' + (extra.required_score || 0) + ' ' + that.scoreUnitName;
 						that.insufficientBtnText = '购买创作会员';
 						that.insufficientExtra = extra;
 					} else if (errorType == 'balance_insufficient') {
@@ -491,43 +675,107 @@ export default {
 						that.insufficientBtnText = '去充值';
 						that.insufficientExtra = extra;
 					} else {
-						app.alert(res.msg);
+						var msg = res.msg || '创建订单失败';
+						app.alert(msg);
 					}
 				}
 			});
+		},
+		
+		// ===== 分享功能 =====
+		openSharePopup() {
+			this.sharetypevisible = true;
+		},
+		closeSharePopup() {
+			this.sharetypevisible = false;
+		},
+		shareH5() {
+			app.error('点击右上角发送给好友或分享到朋友圈');
+			this.sharetypevisible = false;
+		},
+		shareApp() {
+			var that = this;
+			var mid = app.globalData.mid || 0;
+			uni.showActionSheet({
+				itemList: ['发送给微信好友', '分享到微信朋友圈'],
+				success: function(res) {
+					if (res.tapIndex >= 0) {
+						var scene = res.tapIndex == 0 ? 'WXSceneSession' : 'WXSenceTimeline';
+						uni.share({
+							provider: 'weixin',
+							type: 0,
+							scene: scene,
+							title: that.detail.template_name || 'AI创作模板',
+							href: app.globalData.pre_url + '/h5/' + app.globalData.aid + '.html#/pagesZ/generation/create?id=' + that.selectedTemplateId + '&type=' + that.generationType + '&pid=' + mid,
+							imageUrl: that.detail.cover_image || ''
+						});
+					}
+				}
+			});
+			that.sharetypevisible = false;
+		},
+		showPoster() {
+			var that = this;
+			that.showposter = true;
+			that.sharetypevisible = false;
+			app.showLoading('努力生成中');
+			app.post('ApiAivideo/getposter', { template_id: that.selectedTemplateId }, function(data) {
+				app.showLoading(false);
+				// 数据安全校验
+				if (!data) {
+					app.alert('网络异常，请稍后重试');
+					that.showposter = false;
+					return;
+				}
+				if (data.status == 0) {
+					var msg = data.msg || '生成海报失败';
+					app.alert(msg);
+					that.showposter = false;
+				} else if (data.poster) {
+					that.posterpic = data.poster;
+				} else {
+					app.alert('生成海报失败');
+					that.showposter = false;
+				}
+			});
+		},
+		posterDialogClose() {
+			this.showposter = false;
 		}
 	}
 };
 </script>
 
 <style>
-.container { background: #f5f5f5; min-height: 100vh; }
+.container { background: #FDFBFF; min-height: 100vh; }
 
-/* 模板选择器 - 搜索框 */
-.search-box { display: flex; align-items: center; background: #f5f5f5; border-radius: 40rpx; padding: 12rpx 24rpx; margin-bottom: 20rpx; }
-.search-icon { margin-right: 12rpx; }
-.search-input { flex: 1; font-size: 26rpx; color: #333; height: 48rpx; }
-.search-clear { font-size: 36rpx; color: #999; padding: 0 8rpx; }
+/* 对比展示区域 */
+.compare-section { padding: 30rpx 20rpx; }
+.compare-container { display: flex; align-items: stretch; gap: 0; }
+.compare-side { flex: 1; display: flex; flex-direction: column; }
+.compare-label { font-size: 24rpx; color: #666666; text-align: center; margin-bottom: 12rpx; font-weight: bold; }
+.compare-label.effect-label { color: #91C2FF; }
+.compare-swiper { width: 100%; height: 400rpx; border-radius: 16rpx; overflow: hidden; }
+.compare-single { width: 100%; height: 400rpx; border-radius: 16rpx; overflow: hidden; }
+.compare-image { width: 100%; height: 400rpx; border-radius: 16rpx; background: #F5F0FA; }
+.compare-divider { display: flex; align-items: center; justify-content: center; width: 60rpx; flex-shrink: 0; }
+.compare-vs { font-size: 24rpx; color: #ccc; font-weight: bold; background: #FDFBFF; border-radius: 50%; width: 48rpx; height: 48rpx; line-height: 48rpx; text-align: center; }
+.compare-info { display: flex; align-items: center; justify-content: space-between; margin-top: 20rpx; padding: 0 8rpx; }
+.compare-tpl-name { font-size: 30rpx; color: #555555; font-weight: bold; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.compare-tpl-price { font-size: 30rpx; color: #91C2FF; font-weight: bold; flex-shrink: 0; margin-left: 16rpx; }
 
-/* 模板选择器 - 横向滚动卡片 */
-.template-scroll { width: 100%; }
-.template-scroll-inner { display: inline-flex; gap: 20rpx; padding: 4rpx 4rpx; }
-.template-card-item { display: flex; flex-direction: column; align-items: center; width: 180rpx; flex-shrink: 0; border-radius: 16rpx; border: 2rpx solid #eee; background: #fafafa; padding: 12rpx; transition: all 0.2s; }
-.template-card-item.active { border-color: #FF6B00; background: #FFF8F2; }
-.template-card-cover { width: 156rpx; height: 156rpx; border-radius: 12rpx; background: #f0f0f0; }
-.template-card-name { font-size: 22rpx; color: #333; margin-top: 10rpx; width: 156rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
-.template-card-item.active .template-card-name { color: #FF6B00; font-weight: bold; }
-.template-card-price { font-size: 24rpx; color: #FF6B00; font-weight: bold; margin-top: 4rpx; }
-.empty-template { padding: 40rpx 0; text-align: center; }
-.empty-text { font-size: 26rpx; color: #999; }
+/* 提示词编辑区域 */
+.prompt-header { display: flex; align-items: center; justify-content: space-between; }
+.prompt-arrow { font-size: 28rpx; color: #999; padding: 10rpx; }
+.prompt-preview { font-size: 26rpx; color: #666666; line-height: 1.6; margin-top: 16rpx; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+.prompt-textarea { width: 100%; min-height: 120rpx; max-height: 300rpx; font-size: 28rpx; line-height: 1.6; color: #555555; padding: 20rpx; background: #F5F0FA; border-radius: 16rpx; margin-top: 16rpx; box-sizing: border-box; }
+.prompt-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 12rpx; }
+.prompt-char-count { font-size: 24rpx; color: #999; }
+.prompt-optimize-btn { font-size: 24rpx; color: #91C2FF; border: 1rpx solid #91C2FF; border-radius: 30rpx; padding: 8rpx 20rpx; }
 
-.section { background: #fff; margin: 20rpx; border-radius: 16rpx; padding: 30rpx; }
-.section-title { font-size: 30rpx; font-weight: bold; color: #333; margin-bottom: 20rpx; }
-.required { color: #FF4D4F; margin-right: 4rpx; }
-
-.prompt-input { width: 100%; min-height: 200rpx; font-size: 28rpx; line-height: 1.6; color: #333; padding: 0; background: none; }
-.char-count { text-align: right; font-size: 24rpx; color: #999; margin-top: 12rpx; }
-
+.section { background: #fff; margin: 20rpx; border-radius: 24rpx; padding: 30rpx; box-shadow: 0 6rpx 20rpx rgba(0,0,0,0.05); }
+.section-title { font-size: 30rpx; font-weight: bold; color: #555555; margin-bottom: 20rpx; }
+.required { color: #FFA0B8; margin-right: 4rpx; }
 
 
 /* 横向滚动选择 - 通用 */
@@ -535,43 +783,68 @@ export default {
 .option-scroll-inner { display: inline-flex; gap: 20rpx; padding: 4rpx 4rpx; }
 
 /* 生成张数/比例/质量 - 横向滑动 chip */
-.count-chip { display: inline-flex; align-items: center; justify-content: center; padding: 14rpx 36rpx; border-radius: 40rpx; border: 2rpx solid #eee; background: #fafafa; flex-shrink: 0; transition: all 0.2s; }
-.count-chip.active { border-color: #FF6B00; background: #FFF8F2; }
+.count-chip { display: inline-flex; align-items: center; justify-content: center; padding: 14rpx 36rpx; border-radius: 40rpx; border: 2rpx solid #F0EDF5; background: #fafafa; flex-shrink: 0; transition: all 0.2s; }
+.count-chip.active { border-color: #91C2FF; background: rgba(181,216,254,0.1); }
 
 /* chip 文字 */
 .chip-label { font-size: 26rpx; color: #666; white-space: nowrap; }
-.count-chip.active .chip-label { color: #FF6B00; font-weight: bold; }
+.count-chip.active .chip-label { color: #91C2FF; font-weight: bold; }
 
-.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; align-items: center; padding: 20rpx 30rpx; box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05); padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); }
+.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; align-items: center; padding: 20rpx 30rpx; box-shadow: 0 -4rpx 20rpx rgba(0,0,0,0.05); padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); }
 .price-display { flex: 1; }
 .total-label { font-size: 28rpx; color: #666; }
-.total-price { font-size: 40rpx; color: #FF6B00; font-weight: bold; }
-.btn-primary { background: linear-gradient(135deg, #FF6B00, #FF9500); color: #fff; font-size: 32rpx; font-weight: bold; padding: 24rpx 60rpx; border-radius: 44rpx; }
-.btn-primary.disabled { opacity: 0.6; }
+.total-price { font-size: 40rpx; color: #91C2FF; font-weight: bold; }
+.btn-primary { background: linear-gradient(135deg, #91C2FF, #B5D8FE); color: #fff; font-size: 32rpx; font-weight: bold; padding: 24rpx 60rpx; border-radius: 40rpx; box-shadow: 0 8rpx 24rpx rgba(145,194,255,0.3); }
+.btn-primary.disabled { opacity: 0.5; box-shadow: none; }
 
 /* 积分价格 */
-.score-price { color: #FF6B00; }
+.score-price { color: #91C2FF; }
 
 /* 余额/积分不足弹窗 */
-.insufficient-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+.insufficient-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 9999; display: flex; align-items: center; justify-content: center; }
 .insufficient-popup { width: 560rpx; background: #fff; border-radius: 24rpx; padding: 50rpx 40rpx; text-align: center; }
 .insufficient-icon { font-size: 80rpx; margin-bottom: 20rpx; }
-.insufficient-title { font-size: 36rpx; font-weight: bold; color: #333; margin-bottom: 16rpx; }
+.insufficient-title { font-size: 36rpx; font-weight: bold; color: #555555; margin-bottom: 16rpx; }
 .insufficient-msg { font-size: 28rpx; color: #666; line-height: 1.6; margin-bottom: 40rpx; }
-.insufficient-btn { background: linear-gradient(135deg, #FF6B00, #FF9500); color: #fff; font-size: 32rpx; font-weight: bold; padding: 24rpx 0; border-radius: 44rpx; margin-bottom: 20rpx; }
+.insufficient-btn { background: linear-gradient(135deg, #91C2FF, #B5D8FE); color: #fff; font-size: 32rpx; font-weight: bold; padding: 24rpx 0; border-radius: 40rpx; margin-bottom: 20rpx; box-shadow: 0 8rpx 24rpx rgba(145,194,255,0.3); }
 .insufficient-close { font-size: 28rpx; color: #999; padding: 10rpx 0; }
 
 /* 证件照拍照指引弹窗 */
-.guide-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 999; display: flex; align-items: center; justify-content: center; }
+.guide-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 999; display: flex; align-items: center; justify-content: center; }
+
+/* 佣金提示条 */
+.commission-bar { display: flex; align-items: center; justify-content: space-between; margin: 20rpx; padding: 20rpx 24rpx; background: linear-gradient(135deg, #FFF8E1, #FFF3CD); border-radius: 16rpx; }
+.commission-bar-left { display: flex; align-items: center; flex: 1; }
+.commission-bar-icon { font-size: 32rpx; margin-right: 12rpx; }
+.commission-bar-text { font-size: 26rpx; color: #F59E0B; font-weight: bold; }
+.commission-bar-btn { font-size: 24rpx; color: #fff; background: linear-gradient(135deg, #F59E0B, #F97316); padding: 10rpx 24rpx; border-radius: 30rpx; flex-shrink: 0; margin-left: 16rpx; }
+
+/* 分享弹窗 */
+.popup__container { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9998; }
+.popup__overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); }
+.popup__modal { position: absolute; bottom: 0; left: 0; right: 0; background: #fff; border-radius: 24rpx 24rpx 0 0; padding: 30rpx; padding-bottom: calc(30rpx + env(safe-area-inset-bottom)); z-index: 9999; }
+.popup__content { }
+.sharetypecontent { display: flex; justify-content: center; gap: 80rpx; padding: 30rpx 0; }
+.sharetypecontent .f1, .sharetypecontent .f2 { display: flex; flex-direction: column; align-items: center; background: none; border: none; padding: 0; line-height: normal; }
+.sharetypecontent .f1::after, .sharetypecontent .f2::after { border: none; }
+.sharetypecontent .img { width: 96rpx; height: 96rpx; margin-bottom: 16rpx; }
+.sharetypecontent .t1 { font-size: 24rpx; color: #666; }
+
+/* 海报弹窗 */
+.posterDialog { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+.posterDialog .main { width: 580rpx; position: relative; }
+.posterDialog .close { position: absolute; top: -60rpx; right: 0; color: #fff; font-size: 40rpx; padding: 10rpx; z-index: 10; }
+.posterDialog .content { border-radius: 16rpx; overflow: hidden; }
+.posterDialog .content .img { width: 100%; }
 .guide-popup { width: 620rpx; background: #fff; border-radius: 24rpx; padding: 40rpx 36rpx; }
-.guide-title { font-size: 34rpx; font-weight: bold; color: #333; text-align: center; margin-bottom: 10rpx; }
+.guide-title { font-size: 34rpx; font-weight: bold; color: #555555; text-align: center; margin-bottom: 10rpx; }
 .guide-subtitle { font-size: 26rpx; color: #999; text-align: center; margin-bottom: 30rpx; }
 .guide-content { display: flex; gap: 20rpx; margin-bottom: 30rpx; }
 .guide-col { flex: 1; }
 .guide-label { font-size: 26rpx; font-weight: bold; margin-bottom: 12rpx; padding: 8rpx 0; text-align: center; border-radius: 8rpx; }
 .guide-label.correct { color: #52c41a; background: #f6ffed; }
-.guide-label.wrong { color: #ff4d4f; background: #fff2f0; }
+.guide-label.wrong { color: #FFA0B8; background: #fff2f0; }
 .guide-tips { }
 .guide-tip-item { display: block; font-size: 24rpx; color: #666; line-height: 1.8; }
-.guide-btn { background: linear-gradient(135deg, #FF6B00, #FF9500); color: #fff; font-size: 30rpx; font-weight: bold; text-align: center; padding: 22rpx 0; border-radius: 44rpx; }
+.guide-btn { background: linear-gradient(135deg, #91C2FF, #B5D8FE); color: #fff; font-size: 30rpx; font-weight: bold; text-align: center; padding: 22rpx 0; border-radius: 40rpx; box-shadow: 0 8rpx 24rpx rgba(145,194,255,0.3); }
 </style>

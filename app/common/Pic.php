@@ -18,6 +18,104 @@ use think\facade\Db;
 use app\common\File;
 class Pic
 {
+	/**
+	 * 将图片文件转换为 WebP 格式
+	 * 支持 JPEG、PNG、GIF、BMP 来源格式，保留透明通道
+	 * 
+	 * @param string $filePath 本地图片文件绝对路径
+	 * @param int $quality 输出质量（1-100），默认82
+	 * @return string|false 成功返回新的 .webp 文件路径，失败返回 false
+	 */
+	public static function convertToWebp($filePath, $quality = 82)
+	{
+		// 检测 PHP 环境是否支持 webp 输出
+		if (!function_exists('imagewebp')) {
+			\think\facade\Log::warning('convertToWebp: PHP环境不支持imagewebp函数，跳过转换');
+			return false;
+		}
+
+		if (!file_exists($filePath) || filesize($filePath) === 0) {
+			\think\facade\Log::warning('convertToWebp: 文件不存在或为空', ['path' => $filePath]);
+			return false;
+		}
+
+		// 获取图片信息
+		$imageInfo = @getimagesize($filePath);
+		if (!$imageInfo) {
+			\think\facade\Log::warning('convertToWebp: 无法读取图片信息', ['path' => $filePath]);
+			return false;
+		}
+
+		$mimeType = $imageInfo['mime'];
+
+		// 已经是 webp 格式，无需转换
+		if ($mimeType === 'image/webp') {
+			return $filePath;
+		}
+
+		// 根据来源格式创建图像资源
+		$srcImage = null;
+		switch ($mimeType) {
+			case 'image/jpeg':
+				$srcImage = @imagecreatefromjpeg($filePath);
+				break;
+			case 'image/png':
+				$srcImage = @imagecreatefrompng($filePath);
+				break;
+			case 'image/gif':
+				$srcImage = @imagecreatefromgif($filePath);
+				break;
+			case 'image/bmp':
+			case 'image/x-ms-bmp':
+				if (function_exists('imagecreatefrombmp')) {
+					$srcImage = @imagecreatefrombmp($filePath);
+				}
+				break;
+			default:
+				\think\facade\Log::info('convertToWebp: 不支持的图片格式', ['mime' => $mimeType]);
+				return false;
+		}
+
+		if (!$srcImage) {
+			\think\facade\Log::warning('convertToWebp: 无法创建图像资源', ['mime' => $mimeType, 'path' => $filePath]);
+			return false;
+		}
+
+		// 处理透明通道（PNG/GIF 含透明时）
+		if (in_array($mimeType, ['image/png', 'image/gif'])) {
+			imagealphablending($srcImage, true);
+			imagesavealpha($srcImage, true);
+		}
+
+		// 生成 webp 文件路径：替换原扩展名为 .webp
+		$pathInfo = pathinfo($filePath);
+		$webpPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '.webp';
+
+		// 输出为 webp
+		$result = @imagewebp($srcImage, $webpPath, $quality);
+		imagedestroy($srcImage);
+
+		if (!$result || !file_exists($webpPath) || filesize($webpPath) === 0) {
+			\think\facade\Log::warning('convertToWebp: WebP输出失败', ['path' => $filePath]);
+			@unlink($webpPath);
+			return false;
+		}
+
+		// 转换成功后删除原文件（仅在路径不同时）
+		if ($webpPath !== $filePath) {
+			@unlink($filePath);
+		}
+
+		\think\facade\Log::info('convertToWebp: 转换成功', [
+			'original' => basename($filePath),
+			'webp' => basename($webpPath),
+			'originalSize' => filesize($filePath) ?: 'deleted',
+			'webpSize' => filesize($webpPath)
+		]);
+
+		return $webpPath;
+	}
+
 	//远程图片保存到本地
     /**
      * @param $picurl 图片路径 http://xxx.com/1.png

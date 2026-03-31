@@ -48,3 +48,15 @@ node_modules/
 # 文档目录（中文）
 文档/
 *.tar.gz
+*.zip
+
+# Docker数据文件
+docker/milvus/
+
+# Qoder/CodeBuddy IDE配置
+.qoder/
+.codebuddy/
+
+# Python缓存
+__pycache__/
+*.pyc

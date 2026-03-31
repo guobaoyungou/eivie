@@ -1,0 +1,55 @@
+# 艺为微信大屏互动 - robots.txt
+# https://wxhd.eivie.cn
+
+User-agent: *
+Allow: /
+Allow: /static/
+
+# 禁止爬取管理后台和API
+Disallow: /admin/
+Disallow: /api/
+
+# 站点地图
+Sitemap: https://wxhd.eivie.cn/sitemap.xml
+
+# 百度蜘蛛
+User-agent: Baiduspider
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# 360蜘蛛
+User-agent: 360Spider
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# 搜狗蜘蛛
+User-agent: Sogou web spider
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# 必应蜘蛛
+User-agent: bingbot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# 谷歌蜘蛛
+User-agent: Googlebot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# 神马蜘蛛
+User-agent: YisouSpider
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# 头条蜘蛛
+User-agent: Bytespider
+Allow: /
+Disallow: /admin/
+Disallow: /api/

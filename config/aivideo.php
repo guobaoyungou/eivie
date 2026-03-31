@@ -206,23 +206,23 @@ return [
                 'name' => '即梦AI-视频生成3.0 720P',
                 'type' => 'video',
                 'resolution' => '720P',
-                // 不同模式使用不同的req_key（TODO: 从火山引擎文档确认实际值）
+                // 不同模式使用不同的req_key（已从火山引擎文档确认）
                 'modes' => [
                     'text_to_video' => [
-                        'req_key' => 'jimeng_video_v30_t2v_720p',  // TODO: 确认
+                        'req_key' => 'jimeng_t2v_v30',
                         'description' => '输入文本提示词，生成720P视频',
                     ],
                     'first_frame' => [
-                        'req_key' => 'jimeng_video_v30_i2v_720p',  // TODO: 确认
+                        'req_key' => 'jimeng_i2v_first_v30',
                         'description' => '输入首帧图片和文本提示词，生成720P视频',
                     ],
                     'first_last_frame' => [
-                        'req_key' => 'jimeng_video_v30_kf2v_720p',  // TODO: 确认
+                        'req_key' => 'jimeng_i2v_first_tail_v30',
                         'description' => '输入首尾帧图片和文本提示词，生成720P视频',
                     ],
                     'camera_motion' => [
-                        'req_key' => 'jimeng_video_v30_cam2v_720p',  // TODO: 确认
-                        'description' => '输入首帧图片、运镜类型和幅度，生成720P运镜视频',
+                        'req_key' => 'jimeng_i2v_recamera_v30',
+                        'description' => '输入首帧图片、运镜模板和强度，生成720P运镜视频',
                     ],
                 ],
                 'text_to_video' => true,
@@ -230,18 +230,24 @@ return [
                 'first_last_frame' => true,
                 'camera_motion' => true,
                 'with_audio' => false,
-                'max_duration' => 5,
+                'max_duration' => 10,
                 'aspect_ratios' => ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '9:21'],
+                // 运镜模板ID（template_id），来自火山引擎API文档
                 'camera_types' => [
-                    'horizontal_right', 'horizontal_left',     // 水平右移/左移
-                    'vertical_up', 'vertical_down',             // 垂直上移/下移
-                    'zoom_in', 'zoom_out',                       // 推近/拉远
-                    'pan_right', 'pan_left',                     // 右摇/左摇
-                    'tilt_up', 'tilt_down',                      // 仰拍/俯拍
-                    'hitchcock',                                  // 希区柯克
-                    'dynamic_surround',                          // 动感环绕
-                    'mechanical_arm',                            // 机械臂
+                    'hitchcock_dolly_in',        // 希区柯克推进
+                    'hitchcock_dolly_out',       // 希区柯克拉远
+                    'robo_arm',                  // 机械臂
+                    'dynamic_orbit',             // 动感环绕
+                    'central_orbit',             // 中心环绕
+                    'crane_push',                // 起重机
+                    'quick_pull_back',           // 超级拉远
+                    'counterclockwise_swivel',   // 逆时针回旋
+                    'clockwise_swivel',          // 顺时针回旋
+                    'handheld',                  // 手持运镜
+                    'rapid_push_pull',           // 快速推拉
                 ],
+                // 运镜强度（camera_strength）
+                'camera_strengths' => ['weak', 'medium', 'strong'],
                 'price_per_video' => 0.40,  // 每条视频0.40元
             ],
             
@@ -250,18 +256,18 @@ return [
                 'name' => '即梦AI-视频生成3.0 1080P',
                 'type' => 'video',
                 'resolution' => '1080P',
-                // 不同模式使用不同的req_key（TODO: 从火山引擎文档确认实际值）
+                // 不同模式使用不同的req_key（已从火山引擎文档确认）
                 'modes' => [
                     'text_to_video' => [
-                        'req_key' => 'jimeng_video_v30_t2v_1080p',  // TODO: 确认
+                        'req_key' => 'jimeng_t2v_v30_1080p',
                         'description' => '输入文本提示词，生成1080P视频',
                     ],
                     'first_frame' => [
-                        'req_key' => 'jimeng_video_v30_i2v_1080p',  // TODO: 确认
+                        'req_key' => 'jimeng_i2v_first_v30_1080',
                         'description' => '输入首帧图片和文本提示词，生成1080P视频',
                     ],
                     'first_last_frame' => [
-                        'req_key' => 'jimeng_video_v30_kf2v_1080p',  // TODO: 确认
+                        'req_key' => 'jimeng_i2v_first_tail_v30_1080',
                         'description' => '输入首尾帧图片和文本提示词，生成1080P视频',
                     ],
                 ],
@@ -270,7 +276,7 @@ return [
                 'first_last_frame' => true,
                 'camera_motion' => false,  // 1080P不支持运镜
                 'with_audio' => false,
-                'max_duration' => 5,
+                'max_duration' => 10,
                 'aspect_ratios' => ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '9:21'],
                 'price_per_video' => 0.80,  // 每条视频0.80元
             ],

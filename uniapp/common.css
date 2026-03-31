@@ -36,11 +36,11 @@ button::after {border: none;}
 .flex-y-center{display: flex;align-items: center;}
 .flex-y-bottom{display: flex;align-items: flex-end;}
 
-.flex-bt{display: -moz-box;display: -ms-flexbox;display: -webkit-box;display: -webkit-flex;display: box;display: flexbox;display: flex;flex-direction: row;justify-content: space-between;}
-.flex-aw{display: -moz-box;display: -ms-flexbox;display: -webkit-box;display: -webkit-flex;display: box;display: flexbox;display: flex;flex-direction: row;justify-content: space-around;}
+.flex-bt{display: -moz-box;display: -ms-flexbox;display: -webkit-box;display: -webkit-flex;display: flex;flex-direction: row;justify-content: space-between;}
+.flex-aw{display: -moz-box;display: -ms-flexbox;display: -webkit-box;display: -webkit-flex;display: flex;flex-direction: row;justify-content: space-around;}
 .flex-xy-center{display: flex;align-items: center;justify-content: center;}
 .flex-x-bottom{display: flex;justify-content: flex-end;}
-.flex-wp{display: -moz-box;display: -ms-flexbox;display: -webkit-box;display: -webkit-flex;display: box;display: flexbox;display: flex;flex-wrap: wrap;}
+.flex-wp{display: -moz-box;display: -ms-flexbox;display: -webkit-box;display: -webkit-flex;display: flex;flex-wrap: wrap;}
 
 .popup__container{position: fixed;bottom: 0;left: 0;right: 0;width:100%;height:auto;z-index:10;background:#fff}
 .popup__overlay{position: fixed;bottom: 0;left: 0;right: 0;width:100%;height: 100%;z-index: 11;opacity:0.3;background:#000}

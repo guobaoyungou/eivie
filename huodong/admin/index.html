@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>现场活动管理系统</title>
+    <!-- Layui CSS -->
+    <link rel="stylesheet" href="/static/admin/layui/css/layui.css">
+    <!-- Font Awesome 5 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css">
+    <!-- Admin CSS -->
+    <link rel="stylesheet" href="assets/css/admin.css?v=20260331d">
+</head>
+<body>
+    <!-- ========== 登录页面（默认隐藏） ========== -->
+    <div id="login-container" class="login-container" style="display:none;">
+        <div class="login-box">
+            <div class="login-header">
+                <i class="fas fa-tv"></i>
+                <h2>现场活动管理系统</h2>
+                <p>扫码关注公众号登录</p>
+            </div>
+
+            <!-- 登录方式 Tab -->
+            <div class="login-tabs" id="login-tabs">
+                <div class="login-tab active" data-tab="qrcode"><i class="fas fa-qrcode"></i> 扫码登录</div>
+                <div class="login-tab" data-tab="password"><i class="fas fa-key"></i> 密码登录</div>
+            </div>
+
+            <!-- 扫码登录面板 -->
+            <div class="login-panel active" id="panel-qrcode">
+                <div class="qr-wrapper">
+                    <div class="qr-image-box" id="qr-image-box">
+                        <div class="qr-loading" id="qr-loading">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>二维码加载中...</p>
+                        </div>
+                        <img id="qr-image" src="" alt="登录二维码" style="display:none;">
+                        <div class="qr-expired" id="qr-expired" style="display:none;">
+                            <i class="fas fa-redo"></i>
+                            <p>二维码已过期</p>
+                            <button class="qr-refresh-btn" id="qr-refresh-btn">点击刷新</button>
+                        </div>
+                    </div>
+                    <div class="qr-tips">
+                        <p><i class="fab fa-weixin"></i> 打开微信扫一扫，关注公众号即可登录</p>
+                        <p class="qr-tip-sub">新用户扫码后需绑定手机号</p>
+                    </div>
+                </div>
+                <div id="qr-status-msg" class="qr-status-msg" style="display:none;"></div>
+            </div>
+
+            <!-- 密码登录面板 -->
+            <div class="login-panel" id="panel-password">
+                <form id="login-form" class="login-form" onsubmit="return false;">
+                    <div class="login-field">
+                        <label>手机号 / 用户名</label>
+                        <input type="text" id="login-username" placeholder="请输入手机号或用户名" autocomplete="username" required>
+                    </div>
+                    <div class="login-field">
+                        <label>密码</label>
+                        <input type="password" id="login-password" placeholder="请输入密码" autocomplete="current-password" required>
+                    </div>
+                    <div id="login-error" class="login-error" style="display:none;"></div>
+                    <button type="submit" id="login-btn" class="login-btn">
+                        <span>登 录</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- 手机绑定面板（扫码后新用户需要绑定） -->
+            <div class="login-panel" id="panel-bind">
+                <div class="bind-header">
+                    <img id="bind-avatar" class="bind-avatar" src="" alt="">
+                    <span id="bind-nickname" class="bind-nickname"></span>
+                    <p class="bind-desc">请绑定手机号完成注册</p>
+                </div>
+                <form id="bind-form" class="login-form" onsubmit="return false;">
+                    <div class="login-field">
+                        <label>手机号</label>
+                        <input type="tel" id="bind-phone" placeholder="请输入手机号" maxlength="11" required>
+                    </div>
+                    <div class="login-field sms-field">
+                        <label>验证码</label>
+                        <div class="sms-input-group">
+                            <input type="text" id="bind-code" placeholder="请输入6位验证码" maxlength="6" required>
+                            <button type="button" id="send-code-btn" class="send-code-btn">发送验证码</button>
+                        </div>
+                    </div>
+                    <div class="login-field">
+                        <label>公司名称 <span class="optional">(可选)</span></label>
+                        <input type="text" id="bind-company" placeholder="填写公司名称，不填则自动生成">
+                    </div>
+                    <div id="bind-error" class="login-error" style="display:none;"></div>
+                    <button type="submit" id="bind-btn" class="login-btn">
+                        <span>完成注册</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 主应用布局 ========== -->
+    <div id="app-container" class="app-container" style="display:none;">
+        <!-- 顶部导航栏 -->
+        <header class="app-header" id="app-header">
+            <div class="header-left">
+                <button class="sidebar-toggle" id="sidebar-toggle" title="折叠菜单">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="header-title">现场活动管理系统</h1>
+            </div>
+            <div class="header-right">
+                <div class="activity-switch" id="activity-switch">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span id="current-activity-name">选择活动</span>
+                    <i class="fas fa-caret-down"></i>
+                </div>
+                <div class="activity-dropdown" id="activity-dropdown" style="display:none;">
+                    <div class="dropdown-search">
+                        <input type="text" id="activity-search" placeholder="搜索活动...">
+                    </div>
+                    <ul class="dropdown-list" id="activity-list"></ul>
+                </div>
+                <div class="user-menu" id="user-menu">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="user-name">用户</span>
+                    <i class="fas fa-caret-down"></i>
+                </div>
+                <div class="user-dropdown" id="user-dropdown" style="display:none;">
+                    <a href="javascript:;" id="btn-profile"><i class="fas fa-id-card"></i> 个人信息</a>
+                    <a href="javascript:;" id="btn-old-admin"><i class="fas fa-external-link-alt"></i> 旧版后台</a>
+                    <div class="dropdown-divider"></div>
+                    <a href="javascript:;" id="btn-logout"><i class="fas fa-sign-out-alt"></i> 退出登录</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主体区域 -->
+        <div class="app-body">
+            <!-- 左侧菜单 -->
+            <aside class="app-sidebar" id="app-sidebar">
+                <nav class="sidebar-menu" id="sidebar-menu">
+                    <!-- 由 menu.js 动态渲染 -->
+                </nav>
+            </aside>
+
+            <!-- 右侧内容区 -->
+            <main class="app-main" id="app-main">
+                <!-- 面包屑导航 -->
+                <div class="breadcrumb-bar" id="breadcrumb-bar">
+                    <i class="fas fa-home"></i>
+                    <span id="breadcrumb-text">首页</span>
+                </div>
+                <!-- 内容容器 -->
+                <div class="content-area" id="content-area">
+                    <!-- 由路由动态加载页面内容 -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 移动端遮罩 -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- ========== 第三方库 ========== -->
+    <script src="/static/admin/layui/layui.all.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+
+    <!-- ========== 应用脚本 ========== -->
+    <script src="assets/js/router.js?v=20260331"></script>
+    <script src="assets/js/api.js?v=20260331e"></script>
+    <script src="assets/js/menu.js?v=20260331"></script>
+    <script src="assets/js/layout.js?v=20260331"></script>
+    <script src="assets/js/pages/dashboard.js?v=20260331b"></script>
+    <script src="assets/js/pages/sign.js?v=20260331e"></script>
+    <script src="assets/js/pages/lottery.js?v=20260331"></script>
+    <script src="assets/js/pages/game.js?v=20260331"></script>
+    <script src="assets/js/pages/wall.js?v=20260331"></script>
+    <script src="assets/js/pages/content.js?v=20260331"></script>
+    <script src="assets/js/pages/redpacket.js?v=20260331"></script>
+    <script src="assets/js/pages/system.js?v=20260331"></script>
+    <script src="assets/js/app.js?v=20260331"></script>
+</body>
+</html>

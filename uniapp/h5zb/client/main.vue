@@ -297,9 +297,9 @@
 </view>
 </template>
 <script>
-var app = getApp();
-import TCPlayer from '@/h5zb/client/tcplayer.v5.1.0.min.js';
+import TCPlayer from './tcplayer.v5.1.0.min.js';
 import './tcplayer.min.css';
+var app = getApp();
 
 var player;
 export default {

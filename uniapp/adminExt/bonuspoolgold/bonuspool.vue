@@ -109,8 +109,13 @@
 var app = getApp();
 var interval = null;
 
-import lEchart from '@/echarts/l-echart/l-echart.vue';
-import * as echarts from '@/echarts/static/echarts.min.js';
+import lEchart from '../../echarts/l-echart/l-echart.vue';
+// H5平台需要动态加载echarts
+// import * as echarts from '../../echarts/static/echarts.min.js';
+let echarts = null;
+if (typeof window !== 'undefined') {
+    echarts = window.echarts;
+}
 
 export default {
   components: {

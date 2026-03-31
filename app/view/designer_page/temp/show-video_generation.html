@@ -1,5 +1,5 @@
 <div class="dsn-mod dp-product" ng-class="{'dsn-mod-select':Item.id == focus}" ng-style="{'background-color':Item.params.bgcolor,'margin':Item.params.margin_y+'px '+Item.params.margin_x+'px 0','padding':Item.params.padding_y+'px '+Item.params.padding_x+'px'}">
-	<div style="line-height: 170px; text-align: center; color: #999; font-size: 16px;width:100%" ng-show="Item.data == ''">暂无视频生成模板...</div>
+	<div style="line-height: 170px; text-align: center; color: #999; font-size: 16px;width:100%" ng-show="Item.data == '' && Item.params.style!='fresh'">暂无视频生成模板...</div>
 	<!--123排-->
 	<div class="dp-product-item" ng-show="Item.params.style=='1' || Item.params.style=='2' || Item.params.style=='3' || Item.params.style=='waterfall'" ng-style="{gap: (Item.params.card_gap||12)+'px'}">
 		<div class="item" ng-repeat="item in Item.data" ng-init="index = $index" ng-style="{'width': Item.params.style==2 || Item.params.style=='waterfall' ? 'calc(50% - '+(Item.params.card_gap||12)/2+'px)' : (Item.params.style==3 ? 'calc(33.33% - '+(Item.params.card_gap||12)*2/3+'px)' : '100%'), 'background-color':Item.params.probgcolor, 'border-radius': (Item.params.card_radius||8)+'px'}">
@@ -49,6 +49,57 @@
 				</div>
 			</div>
 		</div>
+	</div>
+	<!-- fresh 创意瀑布流预览 -->
+	<div class="dp-fresh-preview" ng-show="Item.params.style=='fresh'" ng-style="{'background-color': Item.params.theme=='cream'?'#FBF8F4':(Item.params.theme=='macaron'?'#F8F5FB':'#F6FBF8'), 'padding':'8px'}">
+		<!-- 搜索栏占位 -->
+		<div ng-show="Item.params.showSearch != '0'" style="margin-bottom:8px;">
+			<div style="display:flex;align-items:center;height:36px;border-radius:20px;padding:0 12px;" ng-style="{'background-color': Item.params.theme=='cream'?'#F5EDE4':(Item.params.theme=='macaron'?'#F0EBF5':'#EDF7F1')}">
+				<span style="font-size:14px;margin-right:6px;">&#128269;</span>
+				<span style="font-size:12px;" ng-style="{'color': Item.params.theme=='cream'?'#A89580':(Item.params.theme=='macaron'?'#998DB3':'#8FA99A')}">搜索模板</span>
+			</div>
+		</div>
+		<!-- 筛选标签占位 -->
+		<div ng-show="Item.params.showFilter != '0'" style="display:flex;gap:6px;margin-bottom:10px;overflow:hidden;">
+			<span style="display:inline-block;padding:4px 14px;border-radius:15px;font-size:12px;color:#fff;flex-shrink:0;" ng-style="{'background-color': Item.params.theme=='cream'?'#C8A882':(Item.params.theme=='macaron'?'#B5A3D1':'#7BC4A0')}">全部</span>
+			<span style="display:inline-block;padding:4px 14px;border-radius:15px;font-size:12px;flex-shrink:0;" ng-style="{'background-color': Item.params.theme=='cream'?'#F5EDE4':(Item.params.theme=='macaron'?'#F0EBF5':'#EDF7F1'), 'color': Item.params.theme=='cream'?'#A89580':(Item.params.theme=='macaron'?'#998DB3':'#8FA99A')}">热门</span>
+			<span style="display:inline-block;padding:4px 14px;border-radius:15px;font-size:12px;flex-shrink:0;" ng-style="{'background-color': Item.params.theme=='cream'?'#F5EDE4':(Item.params.theme=='macaron'?'#F0EBF5':'#EDF7F1'), 'color': Item.params.theme=='cream'?'#A89580':(Item.params.theme=='macaron'?'#998DB3':'#8FA99A')}">最新</span>
+			<span style="display:inline-block;padding:4px 14px;border-radius:15px;font-size:12px;flex-shrink:0;" ng-style="{'background-color': Item.params.theme=='cream'?'#F5EDE4':(Item.params.theme=='macaron'?'#F0EBF5':'#EDF7F1'), 'color': Item.params.theme=='cream'?'#A89580':(Item.params.theme=='macaron'?'#998DB3':'#8FA99A')}">免费</span>
+		</div>
+		<!-- 双列卡片预览 -->
+		<div style="display:flex;gap:8px;">
+			<div style="flex:1;">
+				<div ng-repeat="item in Item.data" ng-if="$index % 2 == 0" style="margin-bottom:8px;border-radius:8px;overflow:hidden;" ng-style="{'background-color':'#fff', 'box-shadow':'0 2px 8px rgba(0,0,0,0.06)'}">
+					<div style="position:relative;">
+						<img ng-src="{{item.pic}}" style="width:100%;display:block;border-radius:8px 8px 0 0;" />
+						<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;background:rgba(0,0,0,0.4);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+							<span style="color:#fff;font-size:14px;margin-left:2px;">&#9654;</span>
+						</div>
+					</div>
+					<div style="padding:8px;">
+						<div style="font-size:13px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" ng-style="{'color': Item.params.theme=='cream'?'#3E322A':(Item.params.theme=='macaron'?'#352D42':'#2D3A32')}">{{item.name}}</div>
+						<div style="font-size:11px;margin-top:4px;" ng-style="{'color': Item.params.theme=='cream'?'#A89580':(Item.params.theme=='macaron'?'#998DB3':'#8FA99A')}">&#128293; 已用{{item.sales||0}}次</div>
+						<div style="margin-top:6px;text-align:center;padding:4px 0;border-radius:12px;font-size:11px;color:#fff;" ng-style="{'background': 'linear-gradient(135deg,'+(Item.params.theme=='cream'?'#C8A882,#E0C9A8':(Item.params.theme=='macaron'?'#B5A3D1,#D1C4E9':'#7BC4A0,#A8DFC4'))+')'}">立即使用</div>
+					</div>
+				</div>
+			</div>
+			<div style="flex:1;">
+				<div ng-repeat="item in Item.data" ng-if="$index % 2 == 1" style="margin-bottom:8px;border-radius:8px;overflow:hidden;" ng-style="{'background-color':'#fff', 'box-shadow':'0 2px 8px rgba(0,0,0,0.06)'}">
+					<div style="position:relative;">
+						<img ng-src="{{item.pic}}" style="width:100%;display:block;border-radius:8px 8px 0 0;" />
+						<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;background:rgba(0,0,0,0.4);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+							<span style="color:#fff;font-size:14px;margin-left:2px;">&#9654;</span>
+						</div>
+					</div>
+					<div style="padding:8px;">
+						<div style="font-size:13px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" ng-style="{'color': Item.params.theme=='cream'?'#3E322A':(Item.params.theme=='macaron'?'#352D42':'#2D3A32')}">{{item.name}}</div>
+						<div style="font-size:11px;margin-top:4px;" ng-style="{'color': Item.params.theme=='cream'?'#A89580':(Item.params.theme=='macaron'?'#998DB3':'#8FA99A')}">&#128293; 已用{{item.sales||0}}次</div>
+						<div style="margin-top:6px;text-align:center;padding:4px 0;border-radius:12px;font-size:11px;color:#fff;" ng-style="{'background': 'linear-gradient(135deg,'+(Item.params.theme=='cream'?'#C8A882,#E0C9A8':(Item.params.theme=='macaron'?'#B5A3D1,#D1C4E9':'#7BC4A0,#A8DFC4'))+')'}">立即使用</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div ng-show="Item.data.length == 0" style="text-align:center;padding:30px 0;font-size:13px;" ng-style="{'color': Item.params.theme=='cream'?'#A89580':(Item.params.theme=='macaron'?'#998DB3':'#8FA99A')}">暂无模板数据</div>
 	</div>
 	<div class="dp-product-itemline" ng-show="Item.params.style=='line'">
 		<div class="item" ng-repeat="item in Item.data" ng-style="{'background-color':Item.params.probgcolor, 'border-radius': (Item.params.card_radius||8)+'px', 'margin-right': (Item.params.card_gap||12)+'px'}" >

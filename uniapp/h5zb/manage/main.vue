@@ -169,9 +169,9 @@
 </view>
 </template>
 <script>
+import TXLivePusher211Min from './txlive/TXLivePusher-2.1.1.min.js';
+// import TXLive from './txlive/TXLivePusher-2.1.1.min.js';
 var app = getApp();
-import TXLivePusher211Min from '@/h5zb/manage/txlive/TXLivePusher-2.1.1.min.js';
-// import TXLive from '@/h5zb/manage/txlive/TXLivePusher-2.1.1.min.js';
 const livePusher = new TXLivePusher211Min;
 const deviceManager = livePusher.getDeviceManager();
 let cameraDeviceId = null;

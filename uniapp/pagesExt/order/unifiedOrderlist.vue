@@ -16,7 +16,7 @@
 		<!-- 订单列表 -->
 		<view class="order-content">
 			<block v-for="(item, index) in datalist" :key="index">
-				<unified-order-card :item="item"></unified-order-card>
+				<unified-order-card :item="item" @refresh="getdata"></unified-order-card>
 			</block>
 		</view>
 		<nomore v-if="nomore"></nomore>
@@ -46,7 +46,8 @@ export default {
 			nodata: false,
 			enabledTypes: [
 				'shop', 'collage', 'seckill', 'tuangou', 'kanjia',
-				'lucky_collage', 'scoreshop', 'yuyue', 'kecheng', 'cycle', 'ai_pick'
+				'lucky_collage', 'scoreshop', 'yuyue', 'kecheng', 'cycle', 'ai_pick',
+				'ai_image', 'ai_video'
 			]
 		};
 	},

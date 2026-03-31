@@ -71,7 +71,11 @@
         </view>
         <view v-if="(showstyle=='2' || showstyle=='3') && item.price_type != 1 && item.show_cost == '1'" :style="{color:item.cost_color?item.cost_color:'#999',fontSize:'36rpx'}"><text style="font-size: 24rpx;">{{item.cost_tag}}</text>{{item.cost_price}}</view>      
 				<view class="p2">
-					<view class="p2-1" :class="params.style=='1'?'flex-bt flex-y-center':''" v-if="showprice != '0' && ( item.price_type != 1 || item.sell_price > 0)">
+					<!-- 积分价格 -->
+					<view class="p2-1" v-if="showprice != '0' && item.score_pay_enabled">
+						<text class="t1" :style="{color:item.price_color?item.price_color:t('color1')}">{{item.price_in_score}} 积分</text>
+					</view>
+					<view class="p2-1" :class="params.style=='1'?'flex-bt flex-y-center':''" v-if="showprice != '0' && !item.score_pay_enabled && ( item.price_type != 1 || item.sell_price > 0)">
 						<view v-if="showstyle=='1' && item.price_type != 1 && item.show_cost=='1'" :style="{color:item.cost_color?item.cost_color:'#999',fontSize:'36rpx'}"><text style="font-size: 24rpx;">{{item.cost_tag}}</text>{{item.cost_price}}</view>
 						<view class="flex-y-center" v-if="(!item.show_sellprice || (item.show_sellprice && item.show_sellprice==true)) || item.usd_sellprice">
 							<view class="t1" :style="{color:item.price_color?item.price_color:t('color1')}">
@@ -247,7 +251,7 @@ var app = getApp();
 			// 新增样式参数
 			cover_ratio: {
 				type: String,
-				default: '1:1'
+				default: '3:4'
 			},
 			cover_radius: {
 				type: [Number, String],

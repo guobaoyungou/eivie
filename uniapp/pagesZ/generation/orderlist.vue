@@ -30,7 +30,7 @@
 				<image :src="item.cover_image || '/static/img/placeholder.png'" class="scene-cover" mode="aspectFill"></image>
 				<view class="order-info">
 					<text class="scene-name">{{item.scene_name || item.template_name || '场景模板'}}</text>
-					<text class="type-label">{{item.generation_type == 1 ? '照片生成' : '视频生成'}}</text>
+					<text class="type-label">{{item.generation_type == 1 ? '图片创作' : '视频创作'}}</text>
 					<text class="price">¥{{item.pay_price}}</text>
 				</view>
 			</view>
@@ -47,7 +47,7 @@
 		<!-- 空状态 -->
 		<view v-if="isload && list.length == 0" class="empty-state">
 			<image src="/static/img/empty.png" class="empty-icon"></image>
-			<text class="empty-text">暂无订单</text>
+			<text class="empty-text">还没有作品哦，快去创作第一张治愈画面吧</text>
 		</view>
 	</view>
 	
@@ -85,6 +85,7 @@ export default {
 	
 	onLoad(opt) {
 		this.opt = app.getopts(opt);
+		uni.setNavigationBarTitle({ title: '我的创作' });
 		if (opt.tab) {
 			this.currentTab = parseInt(opt.tab);
 		}
@@ -232,42 +233,42 @@ export default {
 </script>
 
 <style>
-.container { background: #f5f5f5; min-height: 100vh; padding-bottom: 120rpx; }
+.container { background: #FDFBFF; min-height: 100vh; padding-bottom: 120rpx; }
 
-.tab-bar { display: flex; background: #fff; padding: 20rpx 0; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 100; }
+.tab-bar { display: flex; background: #fff; padding: 20rpx 0; border-bottom: 1px solid #F0EDF5; position: sticky; top: 0; z-index: 100; }
 .tab-item { flex: 1; text-align: center; font-size: 28rpx; color: #666; padding: 10rpx 0; position: relative; }
-.tab-item.active { color: #FF6B00; font-weight: bold; }
-.tab-item.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 40rpx; height: 4rpx; background: #FF6B00; border-radius: 2rpx; }
+.tab-item.active { color: #91C2FF; font-weight: bold; }
+.tab-item.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 40rpx; height: 4rpx; background: #91C2FF; border-radius: 2rpx; }
 
 .type-filter { display: flex; background: #fff; padding: 16rpx 30rpx; gap: 20rpx; margin-bottom: 20rpx; }
-.filter-item { padding: 10rpx 30rpx; font-size: 26rpx; color: #666; background: #f5f5f5; border-radius: 30rpx; }
-.filter-item.active { background: #FFF0E5; color: #FF6B00; }
+.filter-item { padding: 10rpx 30rpx; font-size: 26rpx; color: #666; background: #F5F0FA; border-radius: 30rpx; }
+.filter-item.active { background: rgba(181,216,254,0.15); color: #91C2FF; }
 
 .order-list { padding: 0 20rpx; }
-.order-card { background: #fff; border-radius: 16rpx; margin-bottom: 20rpx; overflow: hidden; }
+.order-card { background: #fff; border-radius: 24rpx; margin-bottom: 20rpx; overflow: hidden; box-shadow: 0 6rpx 20rpx rgba(0,0,0,0.05); }
 
-.order-header { display: flex; justify-content: space-between; align-items: center; padding: 20rpx; border-bottom: 1px solid #f5f5f5; }
+.order-header { display: flex; justify-content: space-between; align-items: center; padding: 20rpx; border-bottom: 1px solid #F0EDF5; }
 .ordernum { font-size: 24rpx; color: #999; }
 .status-tag { font-size: 24rpx; padding: 4rpx 16rpx; border-radius: 20rpx; }
 .status-tag.success { background: #E8F5E9; color: #4CAF50; }
-.status-tag.danger { background: #FFEBEE; color: #F44336; }
-.status-tag.warning { background: #FFF3E0; color: #FF9800; }
-.status-tag.info { background: #E3F2FD; color: #2196F3; }
+.status-tag.danger { background: #FFF0F3; color: #FFA0B8; }
+.status-tag.warning { background: #FFF0F3; color: #FFC3D8; }
+.status-tag.info { background: rgba(181,216,254,0.15); color: #91C2FF; }
 .status-tag.default { background: #F5F5F5; color: #9E9E9E; }
 
 .order-body { display: flex; padding: 20rpx; }
-.scene-cover { width: 160rpx; height: 160rpx; border-radius: 12rpx; flex-shrink: 0; background: #f5f5f5; }
+.scene-cover { width: 160rpx; height: 160rpx; border-radius: 16rpx; flex-shrink: 0; background: #F5F0FA; }
 .order-info { flex: 1; margin-left: 20rpx; display: flex; flex-direction: column; justify-content: space-between; }
-.scene-name { font-size: 28rpx; color: #333; line-height: 1.4; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.scene-name { font-size: 28rpx; color: #555555; line-height: 1.4; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .type-label { font-size: 24rpx; color: #999; }
-.price { font-size: 32rpx; color: #FF6B00; font-weight: bold; }
+.price { font-size: 32rpx; color: #91C2FF; font-weight: bold; }
 
-.order-footer { display: flex; justify-content: space-between; align-items: center; padding: 20rpx; border-top: 1px solid #f5f5f5; }
+.order-footer { display: flex; justify-content: space-between; align-items: center; padding: 20rpx; border-top: 1px solid #F0EDF5; }
 .time { font-size: 24rpx; color: #999; }
 .actions { display: flex; gap: 16rpx; }
 .btn { padding: 10rpx 30rpx; font-size: 26rpx; border-radius: 30rpx; }
-.btn-primary { background: #FF6B00; color: #fff; }
-.btn-outline { background: #fff; color: #FF6B00; border: 1px solid #FF6B00; }
+.btn-primary { background: linear-gradient(135deg, #91C2FF, #B5D8FE); color: #fff; }
+.btn-outline { background: #fff; color: #FFA0B8; border: 1px solid #FFA0B8; }
 
 .empty-state { display: flex; flex-direction: column; align-items: center; padding: 100rpx 0; }
 .empty-icon { width: 200rpx; height: 200rpx; opacity: 0.5; }

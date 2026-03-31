@@ -163,6 +163,34 @@
                   </div>
                   
                   <div class="form-section">
+                    <div class="form-section-title">详情页展示设置</div>
+                    
+                    <div class="layui-form-item">
+                      <label class="layui-form-label">显示门店信息：</label>
+                      <div class="layui-input-inline">
+                        <input type="checkbox" name="ai_show_store_info" value="1" lay-skin="switch" lay-text="开启|关闭" {if $business.ai_show_store_info==1}checked{/if}>
+                      </div>
+                      <div class="layui-form-mid layui-word-aux">开启后图生图/图生视频详情页显示门店信息</div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                      <label class="layui-form-label">显示佣金：</label>
+                      <div class="layui-input-inline">
+                        <input type="checkbox" name="ai_show_commission" value="1" lay-skin="switch" lay-text="开启|关闭" {if $business.ai_show_commission==1}checked{/if}>
+                      </div>
+                      <div class="layui-form-mid layui-word-aux">开启后详情页显示分销佣金（根据动态积分单位转换）</div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                      <label class="layui-form-label">显示升级优惠：</label>
+                      <div class="layui-input-inline">
+                        <input type="checkbox" name="ai_show_upgrade_discount" value="1" lay-skin="switch" lay-text="开启|关闭" {if $business.ai_show_upgrade_discount==1}checked{/if}>
+                      </div>
+                      <div class="layui-form-mid layui-word-aux">开启后详情页显示升级到下一级可节省金额（根据动态积分单位转换）</div>
+                    </div>
+                  </div>
+                  
+                  <div class="form-section">
                     <div class="form-section-title">视频设置</div>
                     
                     <div class="layui-form-item">

@@ -3335,6 +3335,9 @@ class AiTravelPhoto extends Common
                 'ai_pick_article_title' => mb_substr(trim($data['ai_pick_article_title'] ?? ''), 0, 100),
                 'ai_pick_article_desc' => mb_substr(trim($data['ai_pick_article_desc'] ?? ''), 0, 255),
                 'ai_pick_face_watermark_enabled' => isset($data['ai_pick_face_watermark_enabled']) ? 1 : 0,
+                'ai_show_store_info' => isset($data['ai_show_store_info']) ? 1 : 0,
+                'ai_show_commission' => isset($data['ai_show_commission']) ? 1 : 0,
+                'ai_show_upgrade_discount' => isset($data['ai_show_upgrade_discount']) ? 1 : 0,
             ];
             
             // 数据验证

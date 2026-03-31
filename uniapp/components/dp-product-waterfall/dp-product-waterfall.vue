@@ -34,7 +34,11 @@
           </view>
 					<view  v-if="item.show_cost && item.price_type != 1" :style="{color:item.cost_color?item.cost_color:'#999',fontSize:'36rpx'}"><text style="font-size: 24rpx;">{{item.cost_tag}}</text>{{item.cost_price}}</view>      
 					<view class="p2">
-						<view class="p2-1 flex-y-center" v-if="(!item.show_sellprice || (item.show_sellprice && item.show_sellprice==true)) && ( item.price_type != 1 || item.sell_price > 0) && showprice == '1'">
+						<!-- 积分价格 -->
+						<view class="p2-1" v-if="item.score_pay_enabled && showprice == '1'">
+							<text class="t1" :style="{color:item.price_color?item.price_color:t('color1')}">{{item.price_in_score}} 积分</text>
+						</view>
+						<view class="p2-1 flex-y-center" v-if="!item.score_pay_enabled && (!item.show_sellprice || (item.show_sellprice && item.show_sellprice==true)) && ( item.price_type != 1 || item.sell_price > 0) && showprice == '1'">
 							<view class="t1" :style="{color:item.price_color?item.price_color:t('color1')}">
 								<text style="font-size:24rpx">{{item.price_tag?item.price_tag:'￥'}}</text>{{item.sell_price}}<text style="font-size:24rpx" v-if="item.product_unit">/{{item.product_unit}}</text>
                 <text v-if="item.price_show && item.price_show_text" style="margin: 0 15rpx;font-size: 22rpx;font-weight: 400;">{{item.price_show_text}}</text>

@@ -709,23 +709,28 @@
 
 			// ========== 权限检查 ==========
 
-
-				var msgs = {
-					'scope.camera': '需要相机权限才能拍照，请前往设置页开启'
-				};
-				wx.showModal({
-					title: '权限提示',
-					content: msgs[scope] || '需要授权才能使用此功能，请前往设置页开启',
-					showCancel: true,
-					confirmText: '去设置',
-					success: function(modalRes) {
-						if (modalRes.confirm) {
-							wx.openSetting();
-						}
+_guideToSettingWx: function(scope) {
+			// #ifdef MP-WEIXIN
+			var msgs = {
+				'scope.camera': '需要相机权限才能拍照，请前往设置页开启'
+			};
+			wx.showModal({
+				title: '权限提示',
+				content: msgs[scope] || '需要授权才能使用此功能，请前往设置页开启',
+				showCancel: true,
+				confirmText: '去设置',
+				success: function(modalRes) {
+					if (modalRes.confirm) {
+						wx.openSetting();
 					}
-				});
-			},
+				}
+			});
 			// #endif
+			// #ifndef MP-WEIXIN
+			// H5和其他平台不处理权限引导
+			return;
+			// #endif
+		},
 
 			// #ifdef APP-PLUS
 			_checkAppCameraPermission: function(successCb) {

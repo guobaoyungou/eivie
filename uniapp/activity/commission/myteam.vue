@@ -87,9 +87,9 @@
 			</view>
 			<view class="levelup-num" v-if="levelup_uesnum && levelup_uesnum.length > 0">
 				<text class="t1">可升级数量</text>
-				<view class="flex list">
-					<view class="num" v-for="(item,index) in levelup_uesnum">{{item.name}}：{{item.num}} 个</view>
-				</view>	
+<view class="flex list">
+						<view class="num" v-for="(item,index) in levelup_uesnum" :key="index">{{item.name}}：{{item.num}} 个</view>
+					</view>
 			</view>
 			
 			<!-- 给下级升级 人数 -->

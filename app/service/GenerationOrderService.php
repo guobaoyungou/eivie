@@ -207,6 +207,12 @@ class GenerationOrderService
             // 触发生成任务
             $this->triggerGenerationTask($order['id']);
             
+            // 触发分销佣金计算（传统支付回调）
+            $template = Db::name('generation_scene_template')->where('id', $order['scene_id'])->find();
+            if ($template) {
+                $this->processCommission($order['id'], $order['aid'], $order['mid'], intval($order['pid'] ?? 0), $template, floatval($order['pay_price']));
+            }
+            
             return ['status' => 1, 'msg' => '支付成功'];
         } catch (\Exception $e) {
             Db::rollback();
@@ -814,6 +820,7 @@ class GenerationOrderService
         $quantity = $data['quantity'] ?? 0;
         $ratio = $data['ratio'] ?? '';
         $quality = $data['quality'] ?? '';
+        $pid = intval($data['pid'] ?? 0);
         
         if (!$sceneId) {
             return ['status' => 0, 'msg' => '请选择场景模板'];
@@ -850,6 +857,7 @@ class GenerationOrderService
         $scorePayConfig = $creativeMemberService->getScorePayConfig($aid);
         $useScorePay = false;
         $requiredScore = 0;
+        $scoreUnitName = $scorePayConfig['unit_name'] ?? '词元';
         
         if ($payPrice > 0 && $scorePayConfig['enabled']) {
             $useScorePay = true;
@@ -862,7 +870,7 @@ class GenerationOrderService
             if ($totalScore < $requiredScore) {
                 return [
                     'status' => 0,
-                    'msg' => '积分不足，当前可用积分' . $totalScore . '，本次需要' . $requiredScore . '积分',
+                    'msg' => $scoreUnitName . '不足，当前可用' . $scoreUnitName . $totalScore . '，本次需要' . $requiredScore . $scoreUnitName,
                     'error_type' => 'score_insufficient',
                     'extra' => [
                         'current_score' => intval($member['score'] ?? 0),
@@ -870,6 +878,7 @@ class GenerationOrderService
                         'need_amount' => $requiredScore - $totalScore,
                         'current_balance' => floatval($member['money'] ?? 0),
                         'price_in_score' => $requiredScore,
+                        'score_unit_name' => $scoreUnitName,
                     ]
                 ];
             }
@@ -918,6 +927,11 @@ class GenerationOrderService
                 'updatetime' => time()
             ];
             
+            // 分销推荐人信息
+            if ($pid > 0 && $pid != $mid) {
+                $orderData['pid'] = $pid;
+            }
+            
             $orderId = Db::name('generation_order')->insertGetId($orderData);
             
             // 免费模板直接标记已支付
@@ -931,6 +945,9 @@ class GenerationOrderService
                 ]);
                 
                 Db::commit();
+                
+                // 触发分销佣金计算（免费模板）
+                $this->processCommission($orderId, $aid, $mid, $pid, $template, 0);
                 
                 // 触发生成任务（带用户参数）
                 $this->triggerGenerationTaskWithParams($orderId, $userPrompt, $refImages, $quantity, $ratio, $quality);
@@ -955,7 +972,7 @@ class GenerationOrderService
                     $member = Db::name('member')->where('id', $mid)->where('aid', $aid)->field('id,money,score')->find();
                     return [
                         'status' => 0,
-                        'msg' => '积分不足',
+                        'msg' => $scoreUnitName . '不足',
                         'error_type' => 'score_insufficient',
                         'extra' => [
                             'current_score' => intval($member['score'] ?? 0),
@@ -963,6 +980,7 @@ class GenerationOrderService
                             'need_amount' => $requiredScore - $creativeMemberService->getTotalAvailableScore($aid, $mid),
                             'current_balance' => floatval($member['money'] ?? 0),
                             'price_in_score' => $requiredScore,
+                            'score_unit_name' => $scoreUnitName,
                         ]
                     ];
                 }
@@ -980,6 +998,9 @@ class GenerationOrderService
                 ]);
                 
                 Db::commit();
+                
+                // 触发分销佣金计算（积分支付）
+                $this->processCommission($orderId, $aid, $mid, $pid, $template, $scorePayMoney);
                 
                 // 触发生成任务
                 $this->triggerGenerationTaskWithParams($orderId, $userPrompt, $refImages, $quantity, $ratio, $quality);
@@ -1046,6 +1067,178 @@ class GenerationOrderService
                 $errMsg = '订单创建失败：' . $e->getMessage();
             }
             return ['status' => 0, 'msg' => $errMsg, 'error_type' => 'normal'];
+        }
+    }
+    
+    /**
+     * 处理分销佣金计算与发放
+     * @param int $orderId 订单ID
+     * @param int $aid 平台ID
+     * @param int $mid 下单用户ID
+     * @param int $pid 推荐人id
+     * @param array $template 模板信息
+     * @param float $payMoney 支付金额
+     */
+    protected function processCommission($orderId, $aid, $mid, $pid, $template, $payMoney)
+    {
+        try {
+            $commissionset = intval($template['commissionset'] ?? -1);
+            if ($commissionset == -1) {
+                return; // 不参与分销
+            }
+            
+            // 检查系统分销总开关
+            $sysset = Db::name('admin_set')->where('aid', $aid)->find();
+            if (!$sysset || intval($sysset['fenxiao'] ?? 0) != 1) {
+                return;
+            }
+            
+            // 获取下单用户信息
+            $member = Db::name('member')->where('aid', $aid)->where('id', $mid)->find();
+            if (!$member) {
+                return;
+            }
+            
+            // 如果传入了pid，优先使用pid作为上级
+            if ($pid > 0 && $pid != $mid) {
+                $member['pid'] = $pid;
+                // 重新构建 path
+                $parentPath = Db::name('member')->where('id', $pid)->where('aid', $aid)->value('path');
+                if ($parentPath) {
+                    $member['path'] = $parentPath . ',' . $pid;
+                } else {
+                    $member['path'] = (string)$pid;
+                }
+            }
+            
+            // 调用 Fenxiao 计算佣金
+            $product = [
+                'commissionset' => $template['commissionset'],
+                'commissiondata1' => $template['commissiondata1'] ?? '',
+                'commissiondata2' => $template['commissiondata2'] ?? '',
+                'commissiondata3' => $template['commissiondata3'] ?? '',
+                'fx_differential' => -1
+            ];
+            
+            $commissionPrice = $payMoney > 0 ? $payMoney : floatval($template['base_price'] ?? 0);
+            
+            $memberData = [
+                'id' => $member['id'] ?? 0,
+                'pid' => $member['pid'] ?? 0,
+                'path' => $member['path'] ?? '',
+                'levelid' => $member['levelid'] ?? 0,
+                'pid_origin' => $member['pid_origin'] ?? 0
+            ];
+            
+            $commissionData = \app\common\Fenxiao::fenxiao($sysset, $memberData, $product, 1, $commissionPrice);
+            
+            // 更新订单分销字段
+            $updateData = [
+                'parent1' => intval($commissionData['parent1'] ?? 0),
+                'parent2' => intval($commissionData['parent2'] ?? 0),
+                'parent3' => intval($commissionData['parent3'] ?? 0),
+                'parent1commission' => floatval($commissionData['parent1commission'] ?? 0),
+                'parent2commission' => floatval($commissionData['parent2commission'] ?? 0),
+                'parent3commission' => floatval($commissionData['parent3commission'] ?? 0),
+                'updatetime' => time()
+            ];
+            
+            Db::name('generation_order')->where('id', $orderId)->update($updateData);
+            
+            // 根据系统设置决定是否立即发放佣金
+            $fxjiesuantype = intval($sysset['fxjiesuantype'] ?? 0);
+            if ($fxjiesuantype == 0) {
+                // 付款即结算
+                $this->settleCommission($orderId, $aid, $mid, $commissionData, 'generation');
+            }
+            // 否则等待任务完成后结算（在 syncTaskStatus 中触发）
+            
+        } catch (\Exception $e) {
+            Log::error('分销佣金处理失败[order_id=' . $orderId . ']: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * 结算佣金（发放到用户钱包）
+     * @param int $orderId
+     * @param int $aid
+     * @param int $mid 下单用户ID
+     * @param array $commissionData 佣金数据
+     * @param string $type 订单类型
+     */
+    protected function settleCommission($orderId, $aid, $mid, $commissionData, $type = 'generation')
+    {
+        try {
+            $parent1 = intval($commissionData['parent1'] ?? 0);
+            $parent2 = intval($commissionData['parent2'] ?? 0);
+            $parent3 = intval($commissionData['parent3'] ?? 0);
+            $parent1commission = floatval($commissionData['parent1commission'] ?? 0);
+            $parent2commission = floatval($commissionData['parent2commission'] ?? 0);
+            $parent3commission = floatval($commissionData['parent3commission'] ?? 0);
+            
+            // 一级佣金
+            if ($parent1 > 0 && $parent1commission > 0) {
+                $remark = '生成订单一级分销佣金';
+                \app\common\Member::addcommission($aid, $parent1, $mid, $parent1commission, $remark, 1, 'fenxiao');
+                Db::name('member_commission_record')->insert([
+                    'aid' => $aid,
+                    'mid' => $parent1,
+                    'frommid' => $mid,
+                    'orderid' => $orderId,
+                    'type' => $type,
+                    'commission' => $parent1commission,
+                    'remark' => $remark,
+                    'createtime' => time(),
+                    'status' => 1,
+                    'endtime' => time()
+                ]);
+            }
+            
+            // 二级佣金
+            if ($parent2 > 0 && $parent2commission > 0) {
+                $remark = '生成订单二级分销佣金';
+                \app\common\Member::addcommission($aid, $parent2, $mid, $parent2commission, $remark, 1, 'fenxiao');
+                Db::name('member_commission_record')->insert([
+                    'aid' => $aid,
+                    'mid' => $parent2,
+                    'frommid' => $mid,
+                    'orderid' => $orderId,
+                    'type' => $type,
+                    'commission' => $parent2commission,
+                    'remark' => $remark,
+                    'createtime' => time(),
+                    'status' => 1,
+                    'endtime' => time()
+                ]);
+            }
+            
+            // 三级佣金
+            if ($parent3 > 0 && $parent3commission > 0) {
+                $remark = '生成订单三级分销佣金';
+                \app\common\Member::addcommission($aid, $parent3, $mid, $parent3commission, $remark, 1, 'fenxiao');
+                Db::name('member_commission_record')->insert([
+                    'aid' => $aid,
+                    'mid' => $parent3,
+                    'frommid' => $mid,
+                    'orderid' => $orderId,
+                    'type' => $type,
+                    'commission' => $parent3commission,
+                    'remark' => $remark,
+                    'createtime' => time(),
+                    'status' => 1,
+                    'endtime' => time()
+                ]);
+            }
+            
+            // 标记订单佣金已结算
+            if ($parent1commission > 0 || $parent2commission > 0 || $parent3commission > 0) {
+                Db::name('generation_order')->where('id', $orderId)->update([
+                    'iscommission' => 1,
+                    'updatetime' => time()
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('佣金结算失败[order_id=' . $orderId . ']: ' . $e->getMessage());
         }
     }
     

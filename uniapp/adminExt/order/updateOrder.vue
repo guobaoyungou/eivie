@@ -106,7 +106,7 @@
 </template>
 
 <script>
-	import order from "@/adminExt/huodongbaoming/order.vue";
+	import order from "../huodongbaoming/order.vue";
 
   const app = getApp();
 	export default {

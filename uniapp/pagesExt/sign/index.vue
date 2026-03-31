@@ -110,6 +110,62 @@
 				</view>
 			</view>
 		</view>
+
+		<!-- 扩展字段采集弹窗 -->
+		<view class="modal" v-if="showExtForm">
+			<view class="signbox ext-form-box">
+				<view class="title">信息采集</view>
+				<scroll-view scroll-y style="max-height:60vh;padding:20rpx 30rpx;">
+					<!-- 员工号 -->
+					<view class="ext-field-item" v-if="extConfig.show_employee_no==1">
+						<view class="ext-field-label">员工号<text v-if="extConfig.require_employee_no==1" class="required">*</text></view>
+						<input type="text" v-model="extFormData.employee_no" placeholder="请输入员工号" class="ext-field-input" />
+					</view>
+					<!-- 上传照片 -->
+					<view class="ext-field-item" v-if="extConfig.show_photo==1">
+						<view class="ext-field-label">上传照片<text v-if="extConfig.require_photo==1" class="required">*</text></view>
+						<view class="ext-photo-area">
+							<image v-if="extFormData.sign_photo_url" :src="extFormData.sign_photo_url" mode="aspectFill" class="ext-photo-preview" @tap="chooseExtPhoto"></image>
+							<view v-else class="ext-photo-btn" @tap="chooseExtPhoto">
+								<text class="ext-photo-plus">+</text>
+								<text class="ext-photo-txt">选择图片</text>
+							</view>
+						</view>
+					</view>
+					<!-- 自定义字段 -->
+					<block v-if="extConfig.show_custom_fields==1">
+						<view class="ext-field-item" v-for="(cf,ci) in extConfig.custom_fields" :key="cf.id">
+							<view class="ext-field-label">{{cf.field_name}}<text v-if="cf.is_required==1" class="required">*</text></view>
+							<!-- 文本 -->
+							<input v-if="cf.field_type=='text'" type="text" v-model="extFormData.custom_fields['field_'+cf.id]" :placeholder="'请输入'+cf.field_name" class="ext-field-input" />
+							<!-- 单选 -->
+							<picker v-if="cf.field_type=='select'" :range="cf.field_options" @change="onPickerChange($event,cf.id)">
+								<view class="ext-field-input ext-picker">{{extFormData.custom_fields['field_'+cf.id] || '请选择'}}</view>
+							</picker>
+							<!-- 多选 -->
+							<view v-if="cf.field_type=='checkbox'" class="ext-checkbox-group">
+								<label v-for="(opt,oi) in cf.field_options" :key="oi" class="ext-checkbox-item">
+									<checkbox :value="opt" :checked="isChecked(cf.id,opt)" @tap="toggleCheck(cf.id,opt)" />
+									<text>{{opt}}</text>
+								</label>
+							</view>
+							<!-- 图片 -->
+							<view v-if="cf.field_type=='image'" class="ext-photo-area">
+								<image v-if="extFormData.custom_fields['field_'+cf.id]" :src="extFormData.custom_fields['field_'+cf.id]" mode="aspectFill" class="ext-photo-preview" @tap="chooseCustomImage(cf.id)"></image>
+								<view v-else class="ext-photo-btn" @tap="chooseCustomImage(cf.id)">
+									<text class="ext-photo-plus">+</text>
+									<text class="ext-photo-txt">选择图片</text>
+								</view>
+							</view>
+						</view>
+					</block>
+				</scroll-view>
+				<view class="btn" style="padding:20rpx 30rpx;">
+					<button class="btn-cancel" @tap="cancelExtForm">取消</button>
+					<button class="confirm" :style="'background:linear-gradient(90deg,'+t('color1')+' 0%,rgba('+t('color1rgb')+',0.8) 100%)'" @tap="submitExtForm">确认提交</button>
+				</view>
+			</view>
+		</view>
 		
 		<!-- #ifdef APP-PLUS -->
 			<ad-rewarded-video ref="adRewardedVideo" :adpid="signset.adset_adpid" :preload="false" :loadnext="false" :disabled="true" 
@@ -163,7 +219,22 @@ export default {
 			signvio:false,
 			is_forget:false,
 			endDate:'',
-			adsetError:''
+			adsetError:'',
+			// 扩展字段
+			showExtForm:false,
+			extConfig:{
+				show_employee_no:0,
+				require_employee_no:0,
+				show_photo:0,
+				require_photo:0,
+				show_custom_fields:0,
+				custom_fields:[]
+			},
+			extFormData:{
+				employee_no:'',
+				sign_photo_url:'',
+				custom_fields:{}
+			}
     };
   },
 	onReady() {
@@ -255,6 +326,13 @@ export default {
 				that.signvio = res.signvio;
 				that.is_forget = res.is_forget;
 				that.endDate = res.endDate;
+				// 扩展字段配置
+				that.extConfig.show_employee_no = res.show_employee_no || 0;
+				that.extConfig.require_employee_no = res.require_employee_no || 0;
+				that.extConfig.show_photo = res.show_photo || 0;
+				that.extConfig.require_photo = res.require_photo || 0;
+				that.extConfig.show_custom_fields = res.show_custom_fields || 0;
+				that.extConfig.custom_fields = res.custom_fields || [];
 				//   #ifdef H5  
 				that.signvio = false;
 				//   #endif  
@@ -287,6 +365,20 @@ export default {
 			// 1.判断是否开启 签到观看广告
 			if(this.signset.adset_st == 1) return this.showAd(); //打开广告
 			// #endif
+
+			// 检查是否需要弹出扩展字段采集表单
+			var hasExtFields = this.extConfig.show_employee_no == 1 || this.extConfig.show_photo == 1 || (this.extConfig.show_custom_fields == 1 && this.extConfig.custom_fields.length > 0);
+			if(hasExtFields){
+				// 重置表单数据
+				this.extFormData = {
+					employee_no:'',
+					sign_photo_url:'',
+					custom_fields:{}
+				};
+				this.showExtForm = true;
+				return;
+			}
+
 			 //签到是否需要拍照
 			var signImg = this.signImg;
 			//签到是否需要拍视频
@@ -457,7 +549,15 @@ export default {
 				url = 'ApiSign/signForget';
 
 			}
-      app.post(url, {'sign_img':imgurl,'sign_video': video_url,"time":time,'forget':forget}, function (data) {
+      app.post(url, {
+				'sign_img':imgurl,
+				'sign_video': video_url,
+				"time":time,
+				'forget':forget,
+				'employee_no': that.extFormData.employee_no || '',
+				'sign_photo_url': that.extFormData.sign_photo_url || '',
+				'custom_fields_data': JSON.stringify(that.extFormData.custom_fields || {})
+			}, function (data) {
         if (data.status == 1) {
 			if(that.signset.is_check == 1){
 	    	 app.success(data.msg);
@@ -471,6 +571,138 @@ export default {
         }
 		 that.isdoing = false;
       });
+		},
+		// 扩展表单相关方法
+		cancelExtForm:function(){
+			this.showExtForm = false;
+		},
+		submitExtForm:function(){
+			var that = this;
+			// 前端校验必填项
+			if(this.extConfig.show_employee_no == 1 && this.extConfig.require_employee_no == 1){
+				if(!this.extFormData.employee_no || this.extFormData.employee_no.trim() === ''){
+					app.alert('请填写员工号');
+					return;
+				}
+			}
+			if(this.extConfig.show_photo == 1 && this.extConfig.require_photo == 1){
+				if(!this.extFormData.sign_photo_url){
+					app.alert('请上传照片');
+					return;
+				}
+			}
+			if(this.extConfig.show_custom_fields == 1 && this.extConfig.custom_fields){
+				for(var i=0; i<this.extConfig.custom_fields.length; i++){
+					var cf = this.extConfig.custom_fields[i];
+					if(cf.is_required == 1){
+						var fkey = 'field_'+cf.id;
+						var val = this.extFormData.custom_fields[fkey];
+						if(!val || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0)){
+							app.alert('请填写'+cf.field_name);
+							return;
+						}
+					}
+				}
+			}
+			this.showExtForm = false;
+			// 继续原有签到流程
+			var signImg = this.signImg;
+			var signvio = this.signvio;
+			var signpay = this.signset.ispay;
+			if(!signImg && !signvio && !signpay){
+				this.signin();
+			}else if(!signImg && !signvio && signpay){
+				this.showpay = true;
+			}else if(signImg && !signvio){
+				this.uploadImg();
+			}else if(!signImg && signvio){
+				this.uploadvid();
+			}
+		},
+		chooseExtPhoto:function(){
+			var that = this;
+			uni.chooseImage({
+				count:1,
+				sourceType:['album','camera'],
+				success:function(res){
+					var tempFilePath = res.tempFilePaths[0];
+					app.showLoading('上传中');
+					uni.uploadFile({
+						url: app.globalData.baseurl + 'ApiImageupload/uploadImg/aid/' + app.globalData.aid + '/platform/' + app.globalData.platform +'/session_id/' +app.globalData.session_id,
+						filePath: tempFilePath,
+						name: 'file',
+						success:function(res){
+							var data = typeof res.data == 'string' ? JSON.parse(res.data) : res.data;
+							app.showLoading(false);
+							if(data.status == 1){
+								that.extFormData.sign_photo_url = data.url;
+								that.$forceUpdate();
+							}else{
+								app.alert(data.msg);
+							}
+						},
+						fail:function(){
+							app.showLoading(false);
+							app.alert('上传失败');
+						}
+					});
+				}
+			});
+		},
+		chooseCustomImage:function(fieldId){
+			var that = this;
+			uni.chooseImage({
+				count:1,
+				sourceType:['album','camera'],
+				success:function(res){
+					var tempFilePath = res.tempFilePaths[0];
+					app.showLoading('上传中');
+					uni.uploadFile({
+						url: app.globalData.baseurl + 'ApiImageupload/uploadImg/aid/' + app.globalData.aid + '/platform/' + app.globalData.platform +'/session_id/' +app.globalData.session_id,
+						filePath: tempFilePath,
+						name: 'file',
+						success:function(res){
+							var data = typeof res.data == 'string' ? JSON.parse(res.data) : res.data;
+							app.showLoading(false);
+							if(data.status == 1){
+								that.$set(that.extFormData.custom_fields, 'field_'+fieldId, data.url);
+							}else{
+								app.alert(data.msg);
+							}
+						},
+						fail:function(){
+							app.showLoading(false);
+							app.alert('上传失败');
+						}
+					});
+				}
+			});
+		},
+		onPickerChange:function(e, fieldId){
+			var idx = e.detail.value;
+			var cf = this.extConfig.custom_fields.find(function(c){ return c.id == fieldId; });
+			if(cf && cf.field_options && cf.field_options[idx]){
+				this.$set(this.extFormData.custom_fields, 'field_'+fieldId, cf.field_options[idx]);
+			}
+		},
+		isChecked:function(fieldId, opt){
+			var val = this.extFormData.custom_fields['field_'+fieldId];
+			if(!val || !Array.isArray(val)) return false;
+			return val.indexOf(opt) >= 0;
+		},
+		toggleCheck:function(fieldId, opt){
+			var fkey = 'field_'+fieldId;
+			var val = this.extFormData.custom_fields[fkey];
+			if(!val || !Array.isArray(val)){
+				val = [];
+			}
+			var idx = val.indexOf(opt);
+			if(idx >= 0){
+				val.splice(idx, 1);
+			}else{
+				val.push(opt);
+			}
+			this.$set(this.extFormData.custom_fields, fkey, val);
 		},
 		getPaiming: function () {
 			var that = this;
@@ -585,4 +817,19 @@ page{background:#f4f4f4}
 .itembox .item .t2{ margin-right: 20rpx; font-size: 36rpx; color: #F21A2E;font-weight: bold; }
  
 .form-uploadbtn{position:relative;height:180rpx;width:180rpx;margin-right: 16rpx;margin-bottom:10rpx;}
+
+/* 扩展表单样式 */
+.ext-form-box{border-radius:16rpx;overflow:hidden;}
+.ext-field-item{margin-bottom:24rpx;}
+.ext-field-label{font-size:28rpx;color:#333;margin-bottom:10rpx;font-weight:bold;}
+.ext-field-label .required{color:#F21A2E;margin-left:4rpx;}
+.ext-field-input{height:70rpx;line-height:70rpx;border:1rpx solid #ddd;border-radius:8rpx;padding:0 20rpx;font-size:28rpx;background:#fff;box-sizing:border-box;width:100%;}
+.ext-picker{color:#999;}
+.ext-photo-area{display:flex;}
+.ext-photo-btn{width:160rpx;height:160rpx;border:2rpx dashed #ccc;border-radius:8rpx;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.ext-photo-plus{font-size:56rpx;color:#ccc;line-height:60rpx;}
+.ext-photo-txt{font-size:22rpx;color:#999;}
+.ext-photo-preview{width:160rpx;height:160rpx;border-radius:8rpx;}
+.ext-checkbox-group{display:flex;flex-wrap:wrap;}
+.ext-checkbox-item{display:flex;align-items:center;margin-right:20rpx;margin-bottom:10rpx;font-size:28rpx;}
 </style>

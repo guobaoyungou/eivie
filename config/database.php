@@ -94,6 +94,27 @@ return [
         ],
 
         // 更多的数据库配置信息
+
+        // 授权管控系统独立数据库
+        'sysadmin' => [
+            'type'            => 'mysql',
+            'hostname'        => $config['hostname'],
+            'database'        => 'guobaosysadmin',
+            'username'        => 'guobaosysadmin',
+            'password'        => isset($config['sysadmin_db_password']) ? $config['sysadmin_db_password'] : 'SysAdmin@2026!Secure',
+            'hostport'        => $config['hostport'],
+            'params'          => [],
+            'charset'         => 'utf8mb4',
+            'prefix'          => 'sa_',
+            'deploy'          => 0,
+            'rw_separate'     => false,
+            'master_num'      => 1,
+            'slave_no'        => '',
+            'fields_strict'   => true,
+            'break_reconnect' => true,
+            'trigger_sql'     => env('app_debug', true),
+            'fields_cache'    => false,
+        ],
     ],
 
 	'custom'=> $config['custom']

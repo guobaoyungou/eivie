@@ -4,7 +4,10 @@
 		<view class="card-head">
 			<view class="head-left">
 				<text class="type-tag" :style="{background: tagColor}">{{item.order_type_name}}</text>
-				<text class="ordernum">{{item.ordernum}}</text>
+				<view class="order-info">
+					<text class="ordernum">{{item.ordernum}}</text>
+					<text class="create-time" v-if="item.create_time">{{item.create_time}}</text>
+				</view>
 			</view>
 			<text class="status-text" :class="'st' + item.status">{{item.status_text}}</text>
 		</view>
@@ -44,12 +47,19 @@
 		</view>
 		<!-- 操作区 -->
 		<view class="card-op">
-			<!-- 待付款状态显示去付款按钮 -->
-			<view v-if="item.status == 0 && item.payorderid" class="btn-pay" :style="{background: themeColor}" @tap.stop="goPay">去付款</view>
+			<!-- 待付款状态显示关闭订单和去付款按钮 -->
+			<block v-if="item.status == 0">
+				<view class="btn-cancel" @tap.stop="closeOrder">关闭订单</view>
+				<view class="btn-pay" :style="{background: themeColor}" @tap.stop="goPay">去付款</view>
+			</block>
 			<!-- 已完成状态且是AI选片订单，根据成片状态显示按钮 -->
 			<block v-if="item.status == 1 && item.order_type === 'ai_pick'">
 				<view v-if="item.result_status === 'expired'" class="btn-expired">已过期</view>
 				<view v-else class="btn-download" :style="{background: themeColor}" @tap.stop="goDownload">去下载</view>
+			</block>
+			<!-- AI生成订单已完成状态，显示查看结果按钮 -->
+			<block v-if="item.status == 3 && (item.order_type === 'ai_image' || item.order_type === 'ai_video')">
+				<view class="btn-download" :style="{background: themeColor}" @tap.stop="goDetail">查看结果</view>
 			</block>
 			<view class="btn-detail" :style="{background: themeColor}" @tap.stop="goDetail">详情</view>
 		</view>
@@ -85,7 +95,9 @@ export default {
 				'yuyue': '#00bcd4',
 				'kecheng': '#2196f3',
 				'cycle': '#009688',
-				'ai_pick': '#607d8b'
+				'ai_pick': '#607d8b',
+				'ai_image': '#e91e63',
+				'ai_video': '#3f51b5'
 			};
 			return map[this.item.order_type] || '#999';
 		},
@@ -105,14 +117,36 @@ export default {
 			this.showGoodsList = !this.showGoodsList;
 		},
 		goDetail: function() {
+			// AI选片订单：前端覆盖路径，跳转到新详情页
+			if (this.item.order_type === 'ai_pick') {
+				app.goto('/pagesExt/ailvpai/detail?id=' + this.item.id);
+				return;
+			}
+			// AI生成订单：跳转到生成订单详情页
+			if (this.item.order_type === 'ai_image' || this.item.order_type === 'ai_video') {
+				app.goto('/pagesZ/generation/orderdetail?id=' + this.item.id);
+				return;
+			}
 			if (this.item.detail_url) {
 				app.goto(this.item.detail_url);
 			}
 		},
 		goPay: function() {
+			// AI选片订单：跳转到新详情页并携带auto_pay参数
+			if (this.item.order_type === 'ai_pick') {
+				app.goto('/pagesExt/ailvpai/detail?id=' + this.item.id + '&auto_pay=1');
+				return;
+			}
+			// AI生成订单：跳转到生成订单详情页并携带auto_pay参数
+			if (this.item.order_type === 'ai_image' || this.item.order_type === 'ai_video') {
+				app.goto('/pagesZ/generation/orderdetail?id=' + this.item.id + '&auto_pay=1');
+				return;
+			}
+			
+			// 其他类型订单：直接使用payorderid
 			if (!this.item.payorderid || this.item.payorderid == 0) {
 				uni.showToast({
-					title: '支付信息异常，请重新下单',
+					title: '支付订单不存在',
 					icon: 'none',
 					duration: 2000
 				});
@@ -121,11 +155,51 @@ export default {
 			app.goto('/pagesExt/pay/pay?id=' + this.item.payorderid);
 		},
 		goDownload: function() {
+			if (this.item.order_type === 'ai_pick') {
+				// AI选片订单优先跳转到专属下载页
+				app.goto('/pagesExt/ailvpai/download?id=' + this.item.id);
+				return;
+			}
 			if (this.item.download_url) {
 				app.goto(this.item.download_url);
 			} else if (this.item.detail_url) {
 				app.goto(this.item.detail_url);
 			}
+		},
+		// 关闭订单
+		closeOrder: function() {
+			var that = this;
+			uni.showModal({
+				title: '提示',
+				content: '确定要关闭订单吗？',
+				success: function(res) {
+					if (res.confirm) {
+						app.post('ApiUnifiedOrder/closeOrder', {
+							id: that.item.id
+						}, function(res) {
+							if (res.status == 1) {
+								uni.showToast({
+									title: '订单已关闭',
+									icon: 'success',
+									duration: 2000,
+									success: function() {
+										// 触发父组件刷新列表
+										setTimeout(function() {
+											that.$emit('refresh');
+										}, 1500);
+									}
+								});
+							} else {
+								uni.showToast({
+									title: res.msg || '关闭失败',
+									icon: 'none',
+									duration: 2000
+								});
+							}
+						});
+					}
+				}
+			});
 		}
 	}
 };
@@ -164,12 +238,27 @@ export default {
 	margin-right: 12rpx;
 	flex-shrink: 0;
 }
+.order-info {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	overflow: hidden;
+}
 .ordernum {
 	font-size: 24rpx;
+	color: #333;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	line-height: 32rpx;
+}
+.create-time {
+	font-size: 20rpx;
 	color: #999;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	line-height: 28rpx;
 }
 .status-text {
 	font-size: 28rpx;
@@ -310,6 +399,7 @@ export default {
 	padding: 10rpx 0;
 	border-top: 1px #f4f4f4 solid;
 }
+.btn-cancel,
 .btn-pay,
 .btn-download,
 .btn-detail {
@@ -317,11 +407,20 @@ export default {
 	max-width: 160rpx;
 	height: 60rpx;
 	line-height: 60rpx;
-	color: #fff;
 	border-radius: 3px;
 	text-align: center;
 	padding: 0 20rpx;
 	font-size: 26rpx;
+}
+.btn-cancel {
+	color: #666;
+	background: #fff;
+	border: 1px solid #ddd;
+}
+.btn-pay,
+.btn-download,
+.btn-detail {
+	color: #fff;
 }
 .btn-expired {
 	margin-left: 20rpx;

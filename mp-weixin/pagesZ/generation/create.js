@@ -60,7 +60,8 @@ Page({
     insufficientExtra: {},
     // 积分模式
     scorePayEnabled: false,
-    priceInScore: 0
+    priceInScore: 0,
+    scoreUnitName: '词元'
   },
 
   onLoad: function(opt) {
@@ -151,7 +152,8 @@ Page({
           idPhotoWrongTips: idPhotoTips.wrong,
           totalPrice: that.data.generationType == 1 ? (price * defaultQuantity).toFixed(2) : price.toFixed(2),
           scorePayEnabled: detail.score_pay_enabled || false,
-          priceInScore: detail.price_in_score || 0
+          priceInScore: detail.price_in_score || 0,
+          scoreUnitName: detail.score_unit_name || '词元'
         });
       } else {
         app.alert(res.msg);
@@ -165,6 +167,10 @@ Page({
 
   onPromptInput: function(e) {
     this.setData({ prompt: e.detail.value });
+  },
+
+  onOptimizePrompt: function() {
+    wx.showToast({ title: '功能即将上线', icon: 'none' });
   },
 
   selectRatio: function(e) {
@@ -369,7 +375,7 @@ Page({
     that.setData({ uploadingFiles: uploadingFiles });
 
     var uploadTask = wx.uploadFile({
-      url: app.globalData.pre_url + '/Upload/upload',
+      url: app.globalData.baseurl + 'ApiImageupload/uploadImg/aid/' + (that.data.opt.aid || '') + '/platform/mp/session_id/' + (app.globalData.session_id || ''),
       filePath: filePath,
       name: 'file',
       formData: { aid: that.data.opt.aid || '' },
@@ -469,10 +475,12 @@ Page({
   previewCompare: function(e) {
     var type = e.currentTarget.dataset.type;
     var detail = this.data.detail;
+    var origImg = detail.original_image || detail.ref_image || detail.cover_image;
+    var effImg = (detail.effect_images && detail.effect_images.length > 0) ? detail.effect_images[0] : ((detail.sample_images && detail.sample_images.length > 0) ? detail.sample_images[0] : detail.cover_image);
     var urls = [];
-    if (detail.ref_image) urls.push(detail.ref_image);
-    if (detail.cover_image) urls.push(detail.cover_image);
-    var current = type == 'ref' ? (detail.ref_image || detail.cover_image) : detail.cover_image;
+    if (origImg) urls.push(origImg);
+    if (effImg && urls.indexOf(effImg) === -1) urls.push(effImg);
+    var current = type == 'ref' ? origImg : effImg;
     wx.previewImage({ current: current, urls: urls });
   },
 
@@ -523,8 +531,8 @@ Page({
           that.setData({
             showInsufficientPopup: true,
             insufficientType: 'score_insufficient',
-            insufficientTitle: '积分不足',
-            insufficientMsg: '当前可用积分 ' + (extra.current_score || 0) + '，本次需要 ' + (extra.required_score || 0) + ' 积分',
+            insufficientTitle: that.data.scoreUnitName + '不足',
+            insufficientMsg: '当前可用' + that.data.scoreUnitName + ' ' + (extra.current_score || 0) + '，本次需要 ' + (extra.required_score || 0) + ' ' + that.data.scoreUnitName,
             insufficientBtnText: '购买创作会员',
             insufficientExtra: extra
           });

@@ -81,7 +81,7 @@
 </template>
 
 <script>
-import tkiTree from '@/adminExt/adminuser/tki-tree/tki-tree.vue'
+import tkiTree from './tki-tree/tki-tree.vue'
 var app = getApp();
 export default {
 	components: {

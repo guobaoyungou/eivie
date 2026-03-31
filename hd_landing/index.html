@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>艺为微信大屏互动 - 一站式微信活动大屏互动平台 | 签到墙·抽奖·上墙·摇一摇·红包雨</title>
+    <meta name="description" content="艺为微信大屏互动，专业的微信大屏互动SaaS平台。提供签到墙、3D签到、微信上墙、大屏抽奖、摇一摇竞技、红包雨、弹幕互动、现场投票等功能，微信扫码即用，5分钟创建专属活动，适用于年会、婚礼、发布会、校园活动等各类场景。">
+    <meta name="keywords" content="微信大屏互动,大屏互动,签到墙,微信上墙,大屏抽奖,摇一摇,红包雨,活动互动,年会互动,婚礼互动,微信签到,微信抽奖,活动大屏,互动大屏,微信墙,弹幕上墙,现场投票,3D签到,微信扫码签到,会议签到,年会抽奖,活动策划,互动营销,SaaS平台">
+    <meta name="author" content="艺为微信大屏互动">
+    <meta name="robots" content="index, follow">
+    <meta name="googlebot" content="index, follow">
+    <link rel="canonical" href="https://wxhd.eivie.cn/">
+    <!-- Open Graph / 社交分享 -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://wxhd.eivie.cn/">
+    <meta property="og:title" content="艺为微信大屏互动 - 一站式微信活动大屏互动平台">
+    <meta property="og:description" content="专业的微信大屏互动SaaS平台，签到墙、大屏抽奖、微信上墙、摇一摇、红包雨等丰富互动功能，5分钟创建专属活动。">
+    <meta property="og:site_name" content="艺为微信大屏互动">
+    <meta property="og:locale" content="zh_CN">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="艺为微信大屏互动 - 一站式微信活动大屏互动平台">
+    <meta name="twitter:description" content="专业的微信大屏互动SaaS平台，签到墙、大屏抽奖、微信上墙、摇一摇、红包雨等丰富互动功能。">
+    <!-- 搜索引擎验证（如有需要请替换为实际验证码） -->
+    <!-- <meta name="baidu-site-verification" content="YOUR_BAIDU_CODE"> -->
+    <!-- <meta name="google-site-verification" content="YOUR_GOOGLE_CODE"> -->
+    <!-- <meta name="360-site-verification" content="YOUR_360_CODE"> -->
+    <!-- <meta name="sogou_site_verification" content="YOUR_SOGOU_CODE"> -->
+    <!-- <meta name="msvalidate.01" content="YOUR_BING_CODE"> -->
+    <link rel="stylesheet" href="/static/css/landing.css">
+    <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+    <style>
+        /* ===== 登录弹窗样式 ===== */
+        .modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+        .modal-overlay.active { display:flex; }
+        .modal-card { background:#fff; border-radius:16px; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.4); position:relative; animation:modalSlideIn 0.3s ease; overflow:hidden; }
+        @keyframes modalSlideIn { from { opacity:0; transform:translateY(-30px); } to { opacity:1; transform:translateY(0); } }
+        .modal-close { position:absolute; top:14px; right:16px; width:32px; height:32px; border:none; background:rgba(0,0,0,0.06); border-radius:50%; font-size:18px; cursor:pointer; color:#6b7280; display:flex; align-items:center; justify-content:center; z-index:2; transition:all 0.2s; }
+        .modal-close:hover { background:rgba(0,0,0,0.12); color:#1f2937; }
+        .modal-body { padding:40px 36px 32px; }
+        .modal-logo { text-align:center; margin-bottom:28px; }
+        .modal-logo .brand-icon { font-size:32px; }
+        .modal-logo h2 { font-size:20px; color:#1e1b4b; margin-top:8px; font-weight:700; }
+        .modal-logo p { font-size:13px; color:#9ca3af; margin-top:4px; }
+        .modal-tabs { display:flex; border-bottom:2px solid #f3f4f6; margin-bottom:24px; }
+        .modal-tab { flex:1; padding:12px 0; text-align:center; font-size:14px; font-weight:600; color:#9ca3af; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.3s; }
+        .modal-tab.active { color:#6366f1; border-bottom-color:#6366f1; }
+        .modal-tab:hover { color:#6366f1; }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; }
+        .qr-container { text-align:center; padding:10px 0; }
+        .qr-wrapper { display:inline-block; padding:12px; border:2px solid #f3f4f6; border-radius:12px; position:relative; }
+        .qr-wrapper img { width:200px; height:200px; display:block; }
+        .qr-wrapper.loading img { opacity:0.1; }
+        .qr-wrapper .qr-loading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#6366f1; font-size:14px; }
+        .qr-expired-overlay { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.92); display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:10px; cursor:pointer; }
+        .qr-expired-overlay .refresh-icon { font-size:36px; color:#6366f1; margin-bottom:8px; }
+        .qr-expired-overlay p { font-size:13px; color:#6b7280; }
+        .qr-tip { font-size:13px; color:#9ca3af; margin-top:16px; }
+        .qr-tip strong { color:#07C160; }
+        .qr-status-text { font-size:14px; color:#6366f1; margin-top:12px; font-weight:500; }
+        /* 弹窗内表单样式 */
+        .m-form-group { margin-bottom:20px; }
+        .m-form-label { display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:6px; }
+        .m-form-input { width:100%; padding:12px 14px; border:2px solid #e5e7eb; border-radius:8px; font-size:14px; color:#1f2937; outline:none; transition:border-color 0.3s; box-sizing:border-box; }
+        .m-form-input:focus { border-color:#6366f1; }
+        .m-form-input::placeholder { color:#d1d5db; }
+        .m-form-options { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+        .m-form-check { display:flex; align-items:center; gap:6px; }
+        .m-form-check label { font-size:12px; color:#6b7280; }
+        .m-forgot-link { font-size:12px; color:#6366f1; cursor:pointer; }
+        .m-forgot-link:hover { text-decoration:underline; }
+        .m-btn-submit { width:100%; padding:13px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; border:none; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; transition:all 0.3s; }
+        .m-btn-submit:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(99,102,241,0.3); }
+        .m-btn-submit:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+        .m-msg-tip { text-align:center; padding:8px; border-radius:6px; font-size:13px; margin-bottom:14px; display:none; }
+        .m-msg-tip.success { display:block; background:#ecfdf5; color:#059669; }
+        .m-msg-tip.error { display:block; background:#fef2f2; color:#dc2626; }
+        .m-auth-footer { text-align:center; margin-top:20px; font-size:13px; color:#6b7280; }
+        .m-auth-footer a { color:#6366f1; font-weight:600; cursor:pointer; }
+        .m-auth-footer a:hover { text-decoration:underline; }
+        .m-wx-hint { text-align:center; font-size:12px; color:#9ca3af; margin-top:14px; }
+        .m-input-icon-wrap { position:relative; }
+        .m-input-icon-wrap .m-form-input { padding-left:38px; }
+        .m-input-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:16px; color:#9ca3af; }
+        /* 微信环境按钮 */
+        .m-btn-wx { width:100%; padding:13px; background:#07C160; color:#fff; border:none; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; transition:all 0.3s; display:flex; align-items:center; justify-content:center; gap:8px; }
+        .m-btn-wx:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(7,193,96,0.3); }
+        .m-btn-wx:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+        .m-btn-wx svg { width:20px; height:20px; fill:#fff; }
+        /* 密码重置 */
+        .m-reset-form { display:none; }
+        .m-reset-form.active { display:block; }
+        .m-login-inner.hidden { display:none; }
+        .m-sms-group { display:flex; gap:8px; }
+        .m-sms-group .m-form-input { flex:1; }
+        .m-btn-sms { padding:12px 14px; background:#eef2ff; color:#6366f1; border:none; border-radius:8px; font-size:13px; cursor:pointer; white-space:nowrap; font-weight:600; }
+        .m-btn-sms:disabled { background:#f3f4f6; color:#9ca3af; cursor:not-allowed; }
+        .m-back-to-login { text-align:center; margin-top:14px; font-size:12px; color:#6b7280; cursor:pointer; }
+        .m-back-to-login:hover { color:#6366f1; }
+    </style>
+    <!-- JSON-LD 结构化数据 -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "艺为微信大屏互动",
+        "url": "https://wxhd.eivie.cn",
+        "description": "专业的微信大屏互动SaaS平台，提供签到墙、大屏抽奖、微信上墙、摇一摇、红包雨、弹幕互动、现场投票等功能。",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "CNY",
+            "description": "免费试用"
+        },
+        "creator": {
+            "@type": "Organization",
+            "name": "艺为微信大屏互动",
+            "url": "https://wxhd.eivie.cn"
+        },
+        "featureList": ["签到墙", "3D签到", "微信上墙", "大屏抽奖", "摇一摇竞技", "红包雨", "弹幕互动", "现场投票", "互动游戏"]
+    }
+    </script>
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <nav class="navbar" id="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <span class="brand-icon">🎬</span>
+                <span class="brand-text">艺为微信大屏互动</span>
+            </div>
+            <div class="nav-menu" id="navMenu">
+                <a href="#home" class="nav-link active">首页</a>
+                <a href="#features" class="nav-link">产品功能</a>
+                <a href="#scenes" class="nav-link">应用场景</a>
+                <a href="#pricing" class="nav-link">套餐价格</a>
+                <a href="#cases" class="nav-link">客户案例</a>
+                <a href="#help" class="nav-link">帮助中心</a>
+            </div>
+            <div class="nav-actions">
+                <a href="javascript:;" class="btn btn-outline" onclick="openLoginModal()">登录</a>
+                <a href="javascript:;" class="btn btn-primary" onclick="openLoginModal()">免费注册</a>
+            </div>
+            <button class="nav-toggle" id="navToggle">☰</button>
+        </div>
+    </nav>
+
+    <!-- Hero 主视觉区 -->
+    <section class="hero" id="home">
+        <div class="hero-bg">
+            <div class="hero-particles" id="particles"></div>
+        </div>
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">一站式微信大屏互动平台</h1>
+                <p class="hero-subtitle">微信扫码签到 · 上墙互动 · 大屏抽奖 · 摇一摇竞技 · 红包雨<br>5分钟创建专属活动，微信扫码即用，让每场活动精彩纷呈</p>
+                <div class="hero-cta">
+                    <a href="javascript:;" class="btn btn-primary btn-lg" onclick="openLoginModal()">免费试用</a>
+                    <a href="#features" class="btn btn-outline btn-lg">了解更多</a>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat-item"><span class="stat-num">10,000+</span><span class="stat-label">场活动</span></div>
+                    <div class="stat-item"><span class="stat-num">500,000+</span><span class="stat-label">参与人次</span></div>
+                    <div class="stat-item"><span class="stat-num">2,000+</span><span class="stat-label">合作商家</span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 核心功能展示 -->
+    <section class="section features" id="features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">丰富互动功能</h2>
+                <p class="section-desc">一站式覆盖活动全流程互动需求，每个功能均可独立开关、独立配置</p>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📋</div>
+                    <h3>签到墙</h3>
+                    <p>微信扫码签到，头像汇聚动画，实时展示参会嘉宾</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>3D签到</h3>
+                    <p>3D立体签到特效，头像飞入大屏，视觉效果震撼</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💬</div>
+                    <h3>微信上墙</h3>
+                    <p>实时消息上墙，图文并茂，支持审核过滤</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎰</div>
+                    <h3>大屏抽奖</h3>
+                    <p>多轮次滚动抽奖，自定义奖品，气氛爆棚</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3>摇一摇竞技</h3>
+                    <p>手机摇一摇PK，实时排行榜，竞技感十足</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🧧</div>
+                    <h3>红包雨</h3>
+                    <p>定时红包雨下发，限时抢红包，参与感爆棚</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💭</div>
+                    <h3>弹幕互动</h3>
+                    <p>实时弹幕飘屏，畅所欲言，增强现场氛围</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🗳️</div>
+                    <h3>现场投票</h3>
+                    <p>实时投票统计，结果大屏展示，决策更透明</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎮</div>
+                    <h3>互动游戏</h3>
+                    <p>猴子爬树、数钱挑战等多款游戏，寓教于乐</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 产品优势 -->
+    <section class="section advantages">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">为什么选择我们</h2>
+                <p class="section-desc">专为活动场景打造的大屏互动平台</p>
+            </div>
+            <div class="advantage-grid">
+                <div class="advantage-card">
+                    <div class="advantage-icon">🏢</div>
+                    <h3>多租户独立管理</h3>
+                    <p>每个商家独立账户、独立数据、独立配置，安全隔离互不干扰</p>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">📲</div>
+                    <h3>微信扫码即用</h3>
+                    <p>无需下载APP，微信扫码即可参与互动，零门槛全民参与</p>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">⚡</div>
+                    <h3>数据实时同步</h3>
+                    <p>手机端操作实时同步大屏展示，毫秒级响应，互动零延迟</p>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">🧩</div>
+                    <h3>功能自由组合</h3>
+                    <p>17+互动功能自由搭配，每个活动独立配置，满足各类场景</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 应用场景 -->
+    <section class="section scenes" id="scenes">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">适用场景</h2>
+                <p class="section-desc">覆盖企业年会、婚礼、商业活动等多种场景</p>
+            </div>
+            <div class="scene-grid">
+                <div class="scene-card">
+                    <div class="scene-img">🏢</div>
+                    <div class="scene-info">
+                        <h3>企业年会</h3>
+                        <p>签到入场 → 微信上墙 → 大屏抽奖 → 摇一摇 → 红包雨</p>
+                        <div class="scene-tags">
+                            <span class="tag">签到墙</span><span class="tag">抽奖</span><span class="tag">摇一摇</span><span class="tag">红包雨</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="scene-card">
+                    <div class="scene-img">💒</div>
+                    <div class="scene-info">
+                        <h3>婚礼庆典</h3>
+                        <p>嘉宾签到 → 弹幕祝福 → 相册回顾 → 趣味投票</p>
+                        <div class="scene-tags">
+                            <span class="tag">签到墙</span><span class="tag">弹幕</span><span class="tag">相册</span><span class="tag">投票</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="scene-card">
+                    <div class="scene-img">🛍️</div>
+                    <div class="scene-info">
+                        <h3>商业活动</h3>
+                        <p>3D签到 → 摇一摇竞技 → 红包雨 → 抽奖互动</p>
+                        <div class="scene-tags">
+                            <span class="tag">3D签到</span><span class="tag">摇一摇</span><span class="tag">红包雨</span><span class="tag">抽奖</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="scene-card">
+                    <div class="scene-img">🎤</div>
+                    <div class="scene-info">
+                        <h3>展会论坛</h3>
+                        <p>嘉宾签到 → 实时提问 → 议题投票 → 弹幕互动</p>
+                        <div class="scene-tags">
+                            <span class="tag">签到墙</span><span class="tag">上墙</span><span class="tag">投票</span><span class="tag">弹幕</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="scene-card">
+                    <div class="scene-img">🎓</div>
+                    <div class="scene-info">
+                        <h3>教育培训</h3>
+                        <p>考勤签到 → 课堂互动 → 随机提问 → 弹幕互动</p>
+                        <div class="scene-tags">
+                            <span class="tag">签到墙</span><span class="tag">投票</span><span class="tag">弹幕</span><span class="tag">幸运号码</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 套餐价格 -->
+    <section class="section pricing" id="pricing">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">套餐价格</h2>
+                <p class="section-desc">灵活套餐，按需选择，注册即享7天免费试用</p>
+            </div>
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>试用版</h3>
+                        <div class="pricing-price"><span class="price-amount">免费</span><span class="price-period">/ 7天</span></div>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>✅ 1 个门店</li>
+                        <li>✅ 1 个活动</li>
+                        <li>✅ 50人/活动</li>
+                        <li>✅ 签到墙 + 上墙 + 抽奖 + 投票</li>
+                        <li>❌ 摇一摇 / 红包雨</li>
+                    </ul>
+                    <a href="javascript:;" class="btn btn-outline btn-block" onclick="openLoginModal()">免费试用</a>
+                </div>
+                <div class="pricing-card popular">
+                    <div class="popular-badge">推荐</div>
+                    <div class="pricing-header">
+                        <h3>基础版</h3>
+                        <div class="pricing-price"><span class="price-currency">¥</span><span class="price-amount">299</span><span class="price-period">/ 年</span></div>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>✅ 3 个门店</li>
+                        <li>✅ 5 个活动</li>
+                        <li>✅ 200人/活动</li>
+                        <li>✅ 签到墙 + 3D签到 + 上墙 + 弹幕 + 投票</li>
+                        <li>✅ 大屏抽奖 + 手机抽奖</li>
+                    </ul>
+                    <a href="javascript:;" class="btn btn-primary btn-block" onclick="openLoginModal()">立即购买</a>
+                </div>
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>专业版</h3>
+                        <div class="pricing-price"><span class="price-currency">¥</span><span class="price-amount">599</span><span class="price-period">/ 年</span></div>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>✅ 10 个门店</li>
+                        <li>✅ 20 个活动</li>
+                        <li>✅ 500人/活动</li>
+                        <li>✅ 全部 17+ 互动功能</li>
+                        <li>✅ 摇一摇 + 红包雨 + 游戏</li>
+                    </ul>
+                    <a href="javascript:;" class="btn btn-outline btn-block" onclick="openLoginModal()">立即购买</a>
+                </div>
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>企业版</h3>
+                        <div class="pricing-price"><span class="price-currency">¥</span><span class="price-amount">1299</span><span class="price-period">/ 年</span></div>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>✅ 50 个门店</li>
+                        <li>✅ 100 个活动</li>
+                        <li>✅ 2000人/活动</li>
+                        <li>✅ 全部 17+ 互动功能</li>
+                        <li>✅ 专属客服 + 优先支持</li>
+                    </ul>
+                    <a href="javascript:;" class="btn btn-outline btn-block" onclick="openLoginModal()">联系我们</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 快速开始 -->
+    <section class="section quickstart">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">三步开始</h2>
+                <p class="section-desc">简单三步，即刻开启互动之旅</p>
+            </div>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num">1</div>
+                    <div class="step-icon">📝</div>
+                    <h3>注册账号</h3>
+                    <p>填写商家信息，1分钟完成注册</p>
+                </div>
+                <div class="step-arrow">→</div>
+                <div class="step">
+                    <div class="step-num">2</div>
+                    <div class="step-icon">⚙️</div>
+                    <h3>创建活动</h3>
+                    <p>选择互动功能，5分钟配置完成</p>
+                </div>
+                <div class="step-arrow">→</div>
+                <div class="step">
+                    <div class="step-num">3</div>
+                    <div class="step-icon">🚀</div>
+                    <h3>扫码互动</h3>
+                    <p>生成二维码，嘉宾扫码即参与</p>
+                </div>
+            </div>
+            <div class="steps-cta">
+                <a href="javascript:;" class="btn btn-primary btn-lg" onclick="openLoginModal()">立即免费试用</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 客户案例 -->
+    <section class="section cases" id="cases">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">客户案例</h2>
+                <p class="section-desc">累计服务 2000+ 商家，覆盖各行各业</p>
+            </div>
+            <div class="case-grid">
+                <div class="case-card">
+                    <div class="case-type">企业年会</div>
+                    <h3>某科技公司2025年会</h3>
+                    <p>500人年会，使用签到墙+抽奖+摇一摇+红包雨，互动率达95%</p>
+                    <div class="case-stats">
+                        <span>👥 500人参与</span><span>⭐ 满意度98%</span>
+                    </div>
+                </div>
+                <div class="case-card">
+                    <div class="case-type">婚礼庆典</div>
+                    <h3>浪漫花海婚礼</h3>
+                    <p>200位嘉宾，弹幕送祝福+相册回顾，现场气氛温馨感人</p>
+                    <div class="case-stats">
+                        <span>👥 200人参与</span><span>⭐ 满意度99%</span>
+                    </div>
+                </div>
+                <div class="case-card">
+                    <div class="case-type">商业活动</div>
+                    <h3>某品牌新品发布会</h3>
+                    <p>1000人发布会，3D签到+互动游戏+红包雨，品牌曝光量提升300%</p>
+                    <div class="case-stats">
+                        <span>👥 1000人参与</span><span>⭐ 满意度97%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 帮助中心简介 -->
+    <section class="section help" id="help">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">常见问题</h2>
+            </div>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+                        <span>如何创建第一个活动？</span><span class="faq-arrow">▸</span>
+                    </div>
+                    <div class="faq-a">注册登录后，进入管理后台，点击"新建活动"，填写活动信息并选择互动功能即可。系统会自动生成活动二维码。</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+                        <span>参与者需要下载APP吗？</span><span class="faq-arrow">▸</span>
+                    </div>
+                    <div class="faq-a">不需要。参与者只需微信扫描活动二维码即可参与所有互动，无需下载任何软件。</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+                        <span>大屏端有什么要求？</span><span class="faq-arrow">▸</span>
+                    </div>
+                    <div class="faq-a">大屏端在PC浏览器中全屏打开活动页面即可，建议使用Chrome浏览器，支持投影仪、LED大屏等设备。</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+                        <span>可以使用自己的公众号吗？</span><span class="faq-arrow">▸</span>
+                    </div>
+                    <div class="faq-a">可以。专业版及以上套餐支持配置自有公众号，实现品牌定制化体验。默认使用平台公众号即可正常使用。</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 底部 -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <div class="brand-logo"><span class="brand-icon">🎬</span> 艺为微信大屏互动</div>
+                    <p>专业的大屏互动SaaS平台<br>让每场活动精彩纷呈</p>
+                </div>
+                <div class="footer-links">
+                    <h4>产品</h4>
+                    <a href="#features">产品功能</a>
+                    <a href="#pricing">套餐价格</a>
+                    <a href="#scenes">应用场景</a>
+                    <a href="#cases">客户案例</a>
+                </div>
+                <div class="footer-links">
+                    <h4>支持</h4>
+                    <a href="#help">帮助中心</a>
+                    <a href="javascript:;" onclick="openLoginModal()">免费注册</a>
+                    <a href="javascript:;" onclick="openLoginModal()">商家登录</a>
+                </div>
+                <div class="footer-contact">
+                    <h4>联系我们</h4>
+                    <p>📧 support@eivie.cn</p>
+                    <p>📱 微信客服：eivie_hd</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025-2026 艺为微信大屏互动 wxhd.eivie.cn | All Rights Reserved</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ===== 登录弹窗 ===== -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal-card">
+            <button class="modal-close" onclick="closeLoginModal()">&times;</button>
+            <div class="modal-body">
+                <div class="modal-logo">
+                    <span class="brand-icon">🎬</span>
+                    <h2>商家登录</h2>
+                    <p>登录您的大屏互动管理后台</p>
+                </div>
+
+                <div class="m-msg-tip" id="modalMsgTip"></div>
+
+                <!-- 微信环境：直接显示微信授权按钮 -->
+                <div id="modalWxSection" style="display:none">
+                    <button type="button" class="m-btn-wx" id="btnModalWxLogin" onclick="handleModalWxLogin()">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 01.213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 00.167-.054l1.903-1.114a.864.864 0 01.717-.098 10.16 10.16 0 002.837.403c.276 0 .543-.027.811-.05a6.53 6.53 0 01-.312-2.014c0-3.63 3.478-6.575 7.767-6.575.259 0 .514.013.768.035C16.758 4.59 13.065 2.188 8.691 2.188z"/></svg>
+                        微信授权登录
+                    </button>
+                    <div class="m-wx-hint">💡 微信环境下可一键授权登录</div>
+                    <div class="m-auth-footer">
+                        还没有账号？<a href="/register">前往注册</a>
+                    </div>
+                </div>
+
+                <!-- 非微信环境：Tab切换（二维码 / 密码） -->
+                <div id="modalPcSection" style="display:none">
+                    <div class="modal-tabs">
+                        <div class="modal-tab active" id="tabQr" onclick="switchTab('qr')">📱 微信扫码登录</div>
+                        <div class="modal-tab" id="tabPwd" onclick="switchTab('pwd')">🔒 账号密码登录</div>
+                    </div>
+
+                    <!-- Tab: 二维码扫码 -->
+                    <div class="tab-content active" id="tabQrContent">
+                        <div class="qr-container">
+                            <div class="qr-wrapper loading" id="qrWrapper">
+                                <img id="qrImage" src="" alt="登录二维码">
+                                <div class="qr-loading" id="qrLoading">加载中...</div>
+                            </div>
+                            <div class="qr-tip">请使用<strong>微信</strong>扫描二维码登录</div>
+                            <div class="qr-status-text" id="qrStatusText"></div>
+                        </div>
+                        <div class="m-auth-footer">
+                            还没有账号？扫码即可注册
+                        </div>
+                    </div>
+
+                    <!-- Tab: 账号密码 -->
+                    <div class="tab-content" id="tabPwdContent">
+                        <div id="modalLoginInner" class="m-login-inner">
+                            <div class="m-form-group">
+                                <label class="m-form-label">用户名 / 手机号</label>
+                                <div class="m-input-icon-wrap">
+                                    <span class="m-input-icon">👤</span>
+                                    <input type="text" class="m-form-input" id="modalUsername" placeholder="请输入用户名或手机号" autocomplete="username">
+                                </div>
+                            </div>
+                            <div class="m-form-group">
+                                <label class="m-form-label">密码</label>
+                                <div class="m-input-icon-wrap">
+                                    <span class="m-input-icon">🔒</span>
+                                    <input type="password" class="m-form-input" id="modalPassword" placeholder="请输入密码" autocomplete="current-password">
+                                </div>
+                            </div>
+                            <div class="m-form-options">
+                                <div class="m-form-check">
+                                    <input type="checkbox" id="modalRemember" checked>
+                                    <label for="modalRemember">记住登录</label>
+                                </div>
+                                <a href="javascript:;" class="m-forgot-link" onclick="showModalReset()">忘记密码？</a>
+                            </div>
+                            <button type="button" class="m-btn-submit" id="btnModalLogin" onclick="handleModalLogin()">登 录</button>
+                        </div>
+                        <!-- 密码重置 -->
+                        <div id="modalResetForm" class="m-reset-form">
+                            <div class="m-form-group">
+                                <label class="m-form-label">手机号</label>
+                                <div class="m-input-icon-wrap">
+                                    <span class="m-input-icon">📱</span>
+                                    <input type="tel" class="m-form-input" id="modalResetPhone" placeholder="请输入注册手机号" maxlength="11">
+                                </div>
+                            </div>
+                            <div class="m-form-group">
+                                <label class="m-form-label">验证码</label>
+                                <div class="m-sms-group">
+                                    <input type="text" class="m-form-input" id="modalResetCode" placeholder="请输入验证码" maxlength="6">
+                                    <button type="button" class="m-btn-sms" id="btnModalSms" onclick="sendModalResetCode()">发送验证码</button>
+                                </div>
+                            </div>
+                            <div class="m-form-group">
+                                <label class="m-form-label">新密码</label>
+                                <div class="m-input-icon-wrap">
+                                    <span class="m-input-icon">🔒</span>
+                                    <input type="password" class="m-form-input" id="modalResetPwd" placeholder="请输入新密码（至少6位）" minlength="6">
+                                </div>
+                            </div>
+                            <button type="button" class="m-btn-submit" id="btnModalReset" onclick="handleModalReset()">重置密码</button>
+                            <div class="m-back-to-login" onclick="showModalLogin()">← 返回登录</div>
+                        </div>
+                        <div class="m-auth-footer">
+                            还没有账号？<a href="/register">前往注册</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/landing.js"></script>
+    <script>
+    // ============================================================
+    // 登录弹窗逻辑
+    // ============================================================
+    var isWechat = /micromessenger/i.test(navigator.userAgent);
+    var qrPollTimer = null;
+    var qrSceneId = null;
+    var qrExpireTimer = null;
+
+    // ------ 弹窗开关 ------
+    function openLoginModal() {
+        // 已登录则直接跳转
+        if (localStorage.getItem('hd_token')) {
+            window.location.href = '/admin';
+            return;
+        }
+        document.getElementById('loginModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+        clearModalMsg();
+        if (isWechat) {
+            document.getElementById('modalWxSection').style.display = 'block';
+            document.getElementById('modalPcSection').style.display = 'none';
+        } else {
+            document.getElementById('modalWxSection').style.display = 'none';
+            document.getElementById('modalPcSection').style.display = 'block';
+            switchTab('qr');
+            loadQrCode();
+        }
+    }
+
+    function closeLoginModal() {
+        document.getElementById('loginModal').classList.remove('active');
+        document.body.style.overflow = '';
+        stopQrPoll();
+    }
+
+    // 点击遮罩层关闭
+    document.getElementById('loginModal').addEventListener('click', function(e) {
+        if (e.target === this) closeLoginModal();
+    });
+
+    // ESC关闭
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeLoginModal();
+    });
+
+    // ------ Tab切换 ------
+    function switchTab(tab) {
+        document.getElementById('tabQr').className = 'modal-tab' + (tab === 'qr' ? ' active' : '');
+        document.getElementById('tabPwd').className = 'modal-tab' + (tab === 'pwd' ? ' active' : '');
+        document.getElementById('tabQrContent').className = 'tab-content' + (tab === 'qr' ? ' active' : '');
+        document.getElementById('tabPwdContent').className = 'tab-content' + (tab === 'pwd' ? ' active' : '');
+        clearModalMsg();
+        if (tab === 'qr') {
+            loadQrCode();
+        } else {
+            stopQrPoll();
+        }
+    }
+
+    // ------ 消息提示 ------
+    function showModalMsg(text, type) {
+        var tip = document.getElementById('modalMsgTip');
+        tip.textContent = text;
+        tip.className = 'm-msg-tip ' + type;
+    }
+    function clearModalMsg() {
+        var tip = document.getElementById('modalMsgTip');
+        tip.className = 'm-msg-tip';
+        tip.textContent = '';
+    }
+
+    function saveLoginData(data) {
+        if (data.token) localStorage.setItem('hd_token', data.token);
+        if (data.bid) localStorage.setItem('hd_bid', data.bid);
+        if (data.user_id) localStorage.setItem('hd_user_id', data.user_id);
+        if (data.name) localStorage.setItem('hd_name', data.name);
+    }
+
+    // ============================================================
+    // 二维码扫码登录
+    // ============================================================
+    function loadQrCode() {
+        stopQrPoll();
+        var wrapper = document.getElementById('qrWrapper');
+        var img = document.getElementById('qrImage');
+        var loading = document.getElementById('qrLoading');
+        var statusText = document.getElementById('qrStatusText');
+
+        wrapper.className = 'qr-wrapper loading';
+        loading.textContent = '加载中...';
+        loading.style.display = 'block';
+        statusText.textContent = '';
+        // 移除过期遮罩
+        var expired = wrapper.querySelector('.qr-expired-overlay');
+        if (expired) expired.remove();
+
+        fetch('/api/hd/auth/qr-code')
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.code === 0 && res.data) {
+                img.src = res.data.qr_url;
+                img.onload = function() {
+                    wrapper.className = 'qr-wrapper';
+                    loading.style.display = 'none';
+                };
+                qrSceneId = res.data.scene_id;
+                startQrPoll();
+                // 设置过期倒计时
+                if (qrExpireTimer) clearTimeout(qrExpireTimer);
+                qrExpireTimer = setTimeout(function() {
+                    showQrExpired();
+                }, (res.data.expire || 300) * 1000);
+            } else {
+                loading.textContent = res.msg || '加载失败';
+            }
+        })
+        .catch(function() {
+            loading.textContent = '网络错误';
+        });
+    }
+
+    function showQrExpired() {
+        stopQrPoll();
+        var wrapper = document.getElementById('qrWrapper');
+        var overlay = document.createElement('div');
+        overlay.className = 'qr-expired-overlay';
+        overlay.innerHTML = '<div class="refresh-icon">🔄</div><p>二维码已过期，点击刷新</p>';
+        overlay.onclick = function() { loadQrCode(); };
+        wrapper.appendChild(overlay);
+    }
+
+    function startQrPoll() {
+        stopQrPoll();
+        qrPollTimer = setInterval(function() {
+            if (!qrSceneId) return;
+            fetch('/api/hd/auth/qr-check?scene_id=' + encodeURIComponent(qrSceneId))
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res.code !== 0 || !res.data) return;
+                var status = res.data.status;
+                if (status === 'confirmed') {
+                    stopQrPoll();
+                    showModalMsg('登录成功！正在跳转...', 'success');
+                    document.getElementById('qrStatusText').textContent = '✅ 登录成功';
+                    saveLoginData(res.data);
+                    setTimeout(function() { window.location.href = '/admin'; }, 800);
+                } else if (status === 'need_bind') {
+                    stopQrPoll();
+                    showModalMsg('请完善公司信息以完成注册', 'success');
+                    document.getElementById('qrStatusText').textContent = '✅ 扫码成功，跳转注册...';
+                    if (res.data.bind_token) localStorage.setItem('hd_bind_token', res.data.bind_token);
+                    if (res.data.wx_nickname) localStorage.setItem('hd_wx_nickname', res.data.wx_nickname);
+                    if (res.data.wx_avatar) localStorage.setItem('hd_wx_avatar', res.data.wx_avatar);
+                    setTimeout(function() { window.location.href = '/register'; }, 1200);
+                } else if (status === 'expired') {
+                    showQrExpired();
+                }
+            })
+            .catch(function() {});
+        }, 2000);
+    }
+
+    function stopQrPoll() {
+        if (qrPollTimer) { clearInterval(qrPollTimer); qrPollTimer = null; }
+        if (qrExpireTimer) { clearTimeout(qrExpireTimer); qrExpireTimer = null; }
+    }
+
+    // ============================================================
+    // 微信环境 OAuth 登录
+    // ============================================================
+    function handleModalWxLogin() {
+        var btn = document.getElementById('btnModalWxLogin');
+        btn.disabled = true;
+        btn.innerHTML = '跳转授权中...';
+        fetch('/api/hd/auth/wx-oauth-url?redirect_uri=' + encodeURIComponent(window.location.origin + '/login'))
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.code === 0 && res.data && res.data.oauth_url) {
+                window.location.href = res.data.oauth_url;
+            } else {
+                showModalMsg(res.msg || '获取授权地址失败', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '微信授权登录';
+            }
+        })
+        .catch(function() {
+            showModalMsg('网络错误', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '微信授权登录';
+        });
+    }
+
+    // ============================================================
+    // 账号密码登录
+    // ============================================================
+    function handleModalLogin() {
+        var username = document.getElementById('modalUsername').value.trim();
+        var password = document.getElementById('modalPassword').value;
+        if (!username) { showModalMsg('请输入用户名或手机号', 'error'); return; }
+        if (!password) { showModalMsg('请输入密码', 'error'); return; }
+
+        var btn = document.getElementById('btnModalLogin');
+        btn.disabled = true;
+        btn.textContent = '登录中...';
+
+        fetch('/api/hd/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username, password: password })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.code === 0) {
+                showModalMsg('登录成功！正在跳转...', 'success');
+                if (res.data) saveLoginData(res.data);
+                setTimeout(function() { window.location.href = '/admin'; }, 800);
+            } else {
+                showModalMsg(res.msg || '登录失败', 'error');
+                btn.disabled = false;
+                btn.textContent = '登 录';
+            }
+        })
+        .catch(function() {
+            showModalMsg('网络错误', 'error');
+            btn.disabled = false;
+            btn.textContent = '登 录';
+        });
+    }
+
+    // Enter键登录
+    document.getElementById('modalPassword').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') handleModalLogin();
+    });
+
+    // ============================================================
+    // 密码重置
+    // ============================================================
+    function showModalReset() {
+        clearModalMsg();
+        document.getElementById('modalLoginInner').classList.add('hidden');
+        document.getElementById('modalResetForm').classList.add('active');
+    }
+    function showModalLogin() {
+        clearModalMsg();
+        document.getElementById('modalLoginInner').classList.remove('hidden');
+        document.getElementById('modalResetForm').classList.remove('active');
+    }
+
+    var modalSmsCountdown = 0;
+    function sendModalResetCode() {
+        var phone = document.getElementById('modalResetPhone').value.trim();
+        if (!phone || !/^1[3-9]\d{9}$/.test(phone)) { showModalMsg('请输入正确的手机号', 'error'); return; }
+        var btn = document.getElementById('btnModalSms');
+        btn.disabled = true;
+        fetch('/api/hd/password/send-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: phone })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.code === 0) {
+                showModalMsg('验证码已发送', 'success');
+                modalSmsCountdown = 60;
+                var timer = setInterval(function() {
+                    modalSmsCountdown--;
+                    if (modalSmsCountdown <= 0) { clearInterval(timer); btn.textContent = '发送验证码'; btn.disabled = false; }
+                    else { btn.textContent = modalSmsCountdown + 's'; }
+                }, 1000);
+            } else { showModalMsg(res.msg || '发送失败', 'error'); btn.disabled = false; }
+        })
+        .catch(function() { showModalMsg('网络错误', 'error'); btn.disabled = false; });
+    }
+
+    function handleModalReset() {
+        var phone = document.getElementById('modalResetPhone').value.trim();
+        var code = document.getElementById('modalResetCode').value.trim();
+        var password = document.getElementById('modalResetPwd').value;
+        if (!phone || !/^1[3-9]\d{9}$/.test(phone)) { showModalMsg('请输入正确的手机号', 'error'); return; }
+        if (!code) { showModalMsg('请输入验证码', 'error'); return; }
+        if (!password || password.length < 6) { showModalMsg('密码至少6位', 'error'); return; }
+
+        var btn = document.getElementById('btnModalReset');
+        btn.disabled = true;
+        btn.textContent = '重置中...';
+        fetch('/api/hd/password/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: phone, code: code, password: password })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.code === 0) {
+                showModalMsg('密码重置成功', 'success');
+                setTimeout(showModalLogin, 1500);
+            } else { showModalMsg(res.msg || '重置失败', 'error'); }
+            btn.disabled = false; btn.textContent = '重置密码';
+        })
+        .catch(function() { showModalMsg('网络错误', 'error'); btn.disabled = false; btn.textContent = '重置密码'; });
+    }
+
+    // ============================================================
+    // 页面初始化：已登录则跳转
+    // ============================================================
+    (function() {
+        if (localStorage.getItem('hd_token')) {
+            // 已登录用户无需弹窗
+        }
+    })();
+    </script>
+</body>
+</html>

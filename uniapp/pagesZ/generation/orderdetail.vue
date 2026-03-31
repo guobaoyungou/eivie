@@ -38,6 +38,14 @@
 				<text class="label">支付方式</text>
 				<text class="value">{{detail.paytype}}</text>
 			</view>
+			<!-- 门店信息 -->
+			<view class="info-item store-info-row" v-if="detail.show_store_info == 1 && detail.store_info">
+				<text class="label">门店</text>
+				<view class="value store-value">
+					<text>{{detail.store_info.name}}</text>
+					<text class="store-tel" v-if="detail.store_info.tel" @tap="callStore">{{detail.store_info.tel}}</text>
+				</view>
+			</view>
 		</view>
 		
 		<!-- 金额信息 -->
@@ -50,6 +58,11 @@
 			<view class="info-item">
 				<text class="label">实付金额</text>
 				<text class="value price">¥{{detail.pay_price}}</text>
+			</view>
+			<!-- 佣金信息 -->
+			<view class="info-item" v-if="detail.show_commission == 1 && detail.commission_in_score > 0">
+				<text class="label">预估佣金</text>
+				<text class="value commission-value">{{detail.commission_in_score}} {{detail.score_unit_name || '词元'}}</text>
 			</view>
 		</view>
 		
@@ -216,6 +229,12 @@ export default {
 			});
 		},
 		
+		callStore() {
+			if (this.detail && this.detail.store_info && this.detail.store_info.tel) {
+				uni.makePhoneCall({ phoneNumber: this.detail.store_info.tel });
+			}
+		},
+		
 		previewImage(url) {
 			var urls = [];
 			if (this.detail.record && this.detail.record.outputs) {
@@ -263,42 +282,49 @@ export default {
 </script>
 
 <style>
-.container { background: #f5f5f5; min-height: 100vh; }
+.container { background: #FDFBFF; min-height: 100vh; }
 
 .status-header { padding: 60rpx 30rpx; text-align: center; color: #fff; }
-.status-header.pending { background: linear-gradient(135deg, #FF9800, #FFB74D); }
-.status-header.processing { background: linear-gradient(135deg, #2196F3, #64B5F6); }
-.status-header.success { background: linear-gradient(135deg, #4CAF50, #81C784); }
-.status-header.failed { background: linear-gradient(135deg, #F44336, #E57373); }
+.status-header.pending { background: linear-gradient(135deg, #FFC3D8, #FFD6E5); }
+.status-header.processing { background: linear-gradient(135deg, #91C2FF, #B5D8FE); }
+.status-header.success { background: linear-gradient(135deg, #91C2FF, #B5D8FE); }
+.status-header.failed { background: linear-gradient(135deg, #FFC3D8, #FFA0B8); }
 .status-header.refunded { background: linear-gradient(135deg, #9E9E9E, #BDBDBD); }
 
 .status-icon { font-size: 80rpx; margin-bottom: 20rpx; }
 .status-text { font-size: 36rpx; font-weight: bold; margin-bottom: 10rpx; }
 .status-desc { font-size: 26rpx; opacity: 0.9; }
 
-.section { background: #fff; margin: 20rpx; border-radius: 16rpx; padding: 30rpx; }
-.section-title { font-size: 30rpx; font-weight: bold; color: #333; margin-bottom: 20rpx; padding-bottom: 20rpx; border-bottom: 1px solid #f5f5f5; }
+.section { background: #fff; margin: 20rpx; border-radius: 24rpx; padding: 30rpx; box-shadow: 0 6rpx 20rpx rgba(0,0,0,0.05); }
+.section-title { font-size: 30rpx; font-weight: bold; color: #555555; margin-bottom: 20rpx; padding-bottom: 20rpx; border-bottom: 1px solid #F0EDF5; }
 
 .scene-section { display: flex; align-items: center; }
-.scene-cover { width: 160rpx; height: 160rpx; border-radius: 12rpx; flex-shrink: 0; background: #f5f5f5; }
+.scene-cover { width: 160rpx; height: 160rpx; border-radius: 16rpx; flex-shrink: 0; background: #F5F0FA; }
 .scene-info { flex: 1; margin-left: 24rpx; }
-.scene-name { font-size: 32rpx; color: #333; font-weight: bold; display: block; margin-bottom: 12rpx; }
+.scene-name { font-size: 32rpx; color: #555555; font-weight: bold; display: block; margin-bottom: 12rpx; }
 .scene-type { font-size: 26rpx; color: #999; }
 
 .info-item { display: flex; justify-content: space-between; padding: 16rpx 0; }
 .info-item .label { font-size: 28rpx; color: #666; }
-.info-item .value { font-size: 28rpx; color: #333; text-align: right; flex: 1; margin-left: 30rpx; }
-.info-item .value.price { color: #FF6B00; font-weight: bold; }
+.info-item .value { font-size: 28rpx; color: #555555; text-align: right; flex: 1; margin-left: 30rpx; }
+.info-item .value.price { color: #91C2FF; font-weight: bold; }
 .info-item .value.success { color: #4CAF50; }
-.info-item .value.warning { color: #FF9800; }
-.info-item .value.danger { color: #F44336; }
+.info-item .value.warning { color: #FFC3D8; }
+.info-item .value.danger { color: #FFA0B8; }
 
 .result-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.result-image { width: calc(33.33% - 12rpx); aspect-ratio: 1; border-radius: 8rpx; background: #f5f5f5; }
-.result-video { width: 100%; border-radius: 8rpx; }
+.result-image { width: calc(33.33% - 12rpx); aspect-ratio: 1; border-radius: 16rpx; background: #F5F0FA; }
+.result-video { width: 100%; border-radius: 16rpx; }
 
-.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 20rpx 30rpx; display: flex; gap: 20rpx; box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05); padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); }
-.btn { flex: 1; height: 88rpx; line-height: 88rpx; text-align: center; font-size: 30rpx; border-radius: 44rpx; }
-.btn-primary { background: #FF6B00; color: #fff; }
-.btn-outline { background: #fff; color: #FF6B00; border: 1px solid #FF6B00; }
+.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 20rpx 30rpx; display: flex; gap: 20rpx; box-shadow: 0 -4rpx 20rpx rgba(0,0,0,0.05); padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); }
+.btn { flex: 1; height: 88rpx; line-height: 88rpx; text-align: center; font-size: 30rpx; border-radius: 40rpx; }
+.btn-primary { background: linear-gradient(135deg, #91C2FF, #B5D8FE); color: #fff; box-shadow: 0 8rpx 24rpx rgba(145,194,255,0.3); }
+.btn-outline { background: #fff; color: #FFC3D8; border: 1px solid #FFC3D8; }
+
+/* 门店信息行 */
+.store-value { display: flex; flex-direction: column; align-items: flex-end; }
+.store-tel { font-size: 24rpx; color: #91C2FF; margin-top: 4rpx; }
+
+/* 佣金信息 */
+.commission-value { color: #F59E0B; font-weight: bold; }
 </style>

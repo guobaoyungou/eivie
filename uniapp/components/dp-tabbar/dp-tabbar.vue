@@ -1,8 +1,8 @@
 <template>
-<view v-if="currentIndex>-1">
-	<view class="dp-tabbar" v-if="menudata.menustyle==1 && ((menudata.list).length==3 || (menudata.list).length==5)">
+<view v-if="currentIndex>-1 && menudata && menudata.list">
+	<view class="dp-tabbar" v-if="menudata.menustyle==1 && (menudata.list.length==3 || menudata.list.length==5)">
 		<view class="dp-tabbar-bot"></view>
-		<view v-if="(menudata.list).length==5" class="dp-tabbar-module">
+		<view v-if="menudata.list.length==5" class="dp-tabbar-module">
 			<view class="dp-tabbar-cut" :style="{backgroundColor:menudata.backgroundColor}"></view>
 			<view class="dp-tabbar-sideL dp-tabbar-sideLP" :style="{backgroundColor:menudata.backgroundColor}">
 				<view @click="goto" :data-url="item.pagePath" :data-index="index" :data-opentype="index!=0 && getplatform()=='baidu'?'':opentype" class="dp-tabbar-item" v-for="(item,index) in menudata.list" :key="item.id" v-if="index<2">
@@ -27,7 +27,7 @@
 				</view>
 			</view>
 		</view>
-		<view v-if="(menudata.list).length==3" class="dp-tabbar-module">
+		<view v-if="menudata.list.length==3" class="dp-tabbar-module">
 			<view class="dp-tabbar-cut" :style="{backgroundColor:menudata.backgroundColor}"></view>
 			<view class="dp-tabbar-sideL" :style="{backgroundColor:menudata.backgroundColor}">
 				<view @click="goto" :data-url="item.pagePath" :data-index="index" :data-opentype="index!=0 && getplatform()=='baidu'?'':opentype" class="dp-tabbar-item" v-for="(item,index) in menudata.list" :key="item.id" v-if="index<1">
@@ -138,7 +138,13 @@
 					}
 					
 					var hastabbar = false;
+					if (!app.globalData.initdata || !app.globalData.initdata.menudata) {
+						return;
+					}
 					var menudata = JSON.parse(JSON.stringify(app.globalData.initdata.menudata));
+					if (!menudata || !menudata['list']) {
+						return;
+					}
 					var tablist = menudata['list'];
 					var bindBusiness = 0; //绑定商户 商户默认导航
 					if(app.globalData && app.globalData.initdata && app.globalData.initdata.bind_business){
@@ -154,7 +160,7 @@
 						}
 					}
 					if (hastabbar == false) {
-						var menu2data = JSON.parse(JSON.stringify(app.globalData.initdata.menu2data))
+						var menu2data = app.globalData.initdata.menu2data ? JSON.parse(JSON.stringify(app.globalData.initdata.menu2data)) : []
 						if (menu2data.length > 0) {
 							//首消界面 商户导航
 							if(opts && opts.type == 'firstbuy' && opts.typebid){

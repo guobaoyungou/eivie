@@ -22,6 +22,8 @@ class ApiUnifiedOrder extends ApiCommon
         'kecheng'       => ['课程', 'kecheng_order', 'createtime'],
         'cycle'         => ['周期购', 'cycle_order', 'createtime'],
         'ai_pick'       => ['选片', 'ai_travel_photo_order', 'create_time'],
+        'ai_image'      => ['AI写真', 'generation_order', 'createtime'],
+        'ai_video'      => ['AI视频', 'generation_order', 'createtime'],
     ];
 
     // 详情页路由映射
@@ -36,7 +38,9 @@ class ApiUnifiedOrder extends ApiCommon
         'yuyue'         => '/activity/yuyue/orderdetail?id=',
         'kecheng'       => '/activity/kecheng/product?id=',
         'cycle'         => '/pagesExt/cycle/orderDetail?id=',
-        'ai_pick'       => '/pagesExt/order/detail?id=',
+        'ai_pick'       => '/pagesExt/order/ai_pick_detail?id=',  // 选片订单专用详情页
+        'ai_image'      => '/pagesZ/generation/orderdetail?id=',
+        'ai_video'      => '/pagesZ/generation/orderdetail?id=',
     ];
 
     public function initialize()
@@ -126,10 +130,32 @@ class ApiUnifiedOrder extends ApiCommon
         }
 
         // 先尝试从选片订单表查询
-        $order = Db::name('ai_travel_photo_order')
+        // 选片订单用 uid 标识用户，且支持 openid 匹配
+        $member = Db::name('member')->where('id', mid)->find();
+        $openid = $member['wxopenid'] ?? $member['mpopenid'] ?? '';
+        
+        $query = Db::name('ai_travel_photo_order')
             ->where('id', $orderId)
-            ->where('aid', aid)
-            ->find();
+            ->where('aid', aid);
+        
+        // 添加用户匹配条件（uid 或 openid）
+        if ($openid && mid > 0) {
+            // 注册用户：uid=mid OR openid=xxx
+            $query->where(function($q) use ($openid) {
+                $q->whereOr([
+                    ['uid', '=', mid],
+                    ['openid', '=', $openid]
+                ]);
+            });
+        } else if (mid > 0) {
+            // 只有 uid
+            $query->where('uid', mid);
+        } else if ($openid) {
+            // 只有 openid
+            $query->where('openid', $openid);
+        }
+        
+        $order = $query->find();
 
         if ($order) {
             // 是选片订单，返回选片订单详情
@@ -151,6 +177,80 @@ class ApiUnifiedOrder extends ApiCommon
         // 调用商城订单详情方法
         $apiOrder = new \app\controller\ApiOrder($this->app);
         return $apiOrder->detail();
+    }
+
+    /**
+     * 关闭订单
+     */
+    public function closeOrder()
+    {
+        $orderId = input('param.id', 0);
+
+        if (!$orderId) {
+            return $this->json(['status' => 0, 'msg' => '订单ID不能为空']);
+        }
+
+        // 先尝试从选片订单表查询
+        // 选片订单用 uid 标识用户，且支持 openid 匹配
+        $member = Db::name('member')->where('id', mid)->find();
+        $openid = $member['wxopenid'] ?? $member['mpopenid'] ?? '';
+        
+        $query = Db::name('ai_travel_photo_order')
+            ->where('id', $orderId)
+            ->where('aid', aid);
+        
+        // 添加用户匹配条件（uid 或 openid）
+        if ($openid && mid > 0) {
+            // 注册用户：uid=mid OR openid=xxx
+            $query->where(function($q) use ($openid) {
+                $q->whereOr([
+                    ['uid', '=', mid],
+                    ['openid', '=', $openid]
+                ]);
+            });
+        } else if (mid > 0) {
+            // 只有 uid
+            $query->where('uid', mid);
+        } else if ($openid) {
+            // 只有 openid
+            $query->where('openid', $openid);
+        }
+        
+        $order = $query->find();
+
+        if ($order) {
+            // 是选片订单
+            if ($order['status'] != 0) {
+                return $this->json(['status' => 0, 'msg' => '只有待付款订单才能关闭']);
+            }
+
+            // 关闭订单
+            $result = Db::name('ai_travel_photo_order')
+                ->where('id', $orderId)
+                ->update([
+                    'status' => 3,  // 3=已关闭
+                    'close_time' => time(),
+                    'update_time' => time()
+                ]);
+
+            if ($result) {
+                // 关闭对应的支付订单
+                Db::name('payorder')
+                    ->where('aid', aid)
+                    ->where('type', 'ai_pick')
+                    ->where('orderid', $orderId)
+                    ->where('status', 0)
+                    ->update(['status' => -1]);
+
+                return $this->json(['status' => 1, 'msg' => '订单已关闭']);
+            } else {
+                return $this->json(['status' => 0, 'msg' => '关闭失败']);
+            }
+        }
+
+        // 其他订单类型，调用对应的关闭方法
+        // 这里可以添加其他订单类型的关闭逻辑
+        return $this->json(['status' => 0, 'msg' => '该订单类型不支持关闭操作']);
     }
 
     /**
@@ -210,6 +310,7 @@ class ApiUnifiedOrder extends ApiCommon
             'binfo' => ['name' => '选片', 'logo' => ''],
             'bid' => 0,
             'order_type' => 'ai_pick',
+            'payorderid' => $this->getPayOrderId($order['id'], $order['status'] ?? 0),  // 支付订单ID
             'freight_type' => 0,
             'address' => '',
             'linkman' => '',
@@ -221,6 +322,25 @@ class ApiUnifiedOrder extends ApiCommon
         ];
 
         return $detail;
+    }
+
+    /**
+     * 获取支付订单ID
+     */
+    protected function getPayOrderId($orderId, $status)
+    {
+        if ($status != 0) {
+            return 0;
+        }
+
+        $payorder = Db::name('payorder')
+            ->where('aid', aid)
+            ->where('type', 'ai_pick')
+            ->where('orderid', $orderId)
+            ->where('status', 0)
+            ->value('id');
+
+        return $payorder ? (int)$payorder : 0;
     }
 
     /**
@@ -308,11 +428,10 @@ class ApiUnifiedOrder extends ApiCommon
             // 不过滤
         } elseif ($st == '10') {
             // 退款/售后
-            if ($type === 'ai_pick') {
-                $where[] = ['refund_status', '>', 0];
-            } else {
-                $where[] = ['refund_status', '>', 0];
-            }
+            $where[] = ['refund_status', '>', 0];
+        } elseif (in_array($type, ['ai_image', 'ai_video'])) {
+            // 生成订单使用 pay_status + task_status 组合状态
+            $this->applyGenerationStatusFilter($where, (int)$st);
         } else {
             // 统一状态码映射
             $mappedStatus = $this->mapStatus($type, (int)$st);
@@ -330,7 +449,9 @@ class ApiUnifiedOrder extends ApiCommon
 
         // 关键字搜索
         if ($keyword !== '') {
-            if ($type === 'ai_pick') {
+            if (in_array($type, ['ai_image', 'ai_video'])) {
+                $where[] = ['ordernum|scene_name', 'like', '%' . $keyword . '%'];
+            } elseif ($type === 'ai_pick') {
                 $where[] = ['order_no', 'like', '%' . $keyword . '%'];
             } elseif ($type === 'kecheng') {
                 $where[] = ['title', 'like', '%' . $keyword . '%'];
@@ -361,8 +482,13 @@ class ApiUnifiedOrder extends ApiCommon
         $where = [];
         $where[] = ['aid', '=', aid];
 
-        // ai_pick 表用 uid 标识用户，其他表用 mid
-        if ($type === 'ai_pick') {
+        // 生成订单表用 mid 标识用户，并添加 generation_type 条件
+        if (in_array($type, ['ai_image', 'ai_video'])) {
+            $where[] = ['mid', '=', mid];
+            $where[] = ['generation_type', '=', $type === 'ai_image' ? 1 : 2];
+            $where[] = ['status', '=', 1]; // 只查询有效订单
+        } elseif ($type === 'ai_pick') {
+            // ai_pick 表用 uid 标识用户
             $where[] = ['uid', '=', mid];
             // H5扫码用户 uid 可能为0，通过 openid 兜底匹配
             $member = Db::name('member')->where('id', mid)->find();
@@ -379,8 +505,8 @@ class ApiUnifiedOrder extends ApiCommon
             $where[] = ['mid', '=', mid];
         }
 
-        // 有 delete 字段的表
-        if ($type !== 'ai_pick' && $type !== 'kecheng') {
+        // 有 delete 字段的表（选片、课程、生成订单表没有 delete 字段）
+        if (!in_array($type, ['ai_pick', 'kecheng', 'ai_image', 'ai_video'])) {
             $where[] = ['delete', '=', 0];
         }
 
@@ -436,14 +562,14 @@ class ApiUnifiedOrder extends ApiCommon
                     // 分支1: aid=1 AND uid=mid AND (其他条件)
                     $q->where('aid', $aidVal)->where('uid', $uidVal);
                     foreach ($otherConditions as $cond) {
-                        $q->where($cond[0], $cond[1], $cond[2]);
+                        $q->where($cond[0], $cond[2]);
                     }
 
                     // 分支2: aid=1 AND openid=xxx AND (其他条件)
                     $q->whereOr(function($q2) use ($aidVal, $openid, $otherConditions) {
                         $q2->where('aid', $aidVal)->where('openid', $openid);
                         foreach ($otherConditions as $cond) {
-                            $q2->where($cond[0], $cond[1], $cond[2]);
+                            $q2->where($cond[0], $cond[2]);
                         }
                     });
                 });
@@ -451,13 +577,13 @@ class ApiUnifiedOrder extends ApiCommon
                 // 只有 uid
                 $query->where('aid', $aidVal)->where('uid', $uidVal);
                 foreach ($otherConditions as $cond) {
-                    $query->where($cond[0], $cond[1], $cond[2]);
+                    $query->where($cond[0], $cond[2]);
                 }
             } elseif ($openid) {
                 // 只有 openid
                 $query->where('aid', $aidVal)->where('openid', $openid);
                 foreach ($otherConditions as $cond) {
-                    $query->where($cond[0], $cond[1], $cond[2]);
+                    $query->where($cond[0], $cond[2]);
                 }
             } else {
                 // 都没有，回退到普通查询
@@ -516,6 +642,8 @@ class ApiUnifiedOrder extends ApiCommon
         $data = null;
         if ($type === 'ai_pick') {
             $data = $this->normalizeAiPickOrder($row, $type, $name, $timestamp);
+        } elseif (in_array($type, ['ai_image', 'ai_video'])) {
+            $data = $this->normalizeGenerationOrder($row, $type, $name, $timestamp);
         } elseif ($type === 'kecheng') {
             $data = $this->normalizeKechengOrder($row, $type, $name, $timestamp);
         } elseif ($type === 'shop') {
@@ -546,10 +674,12 @@ class ApiUnifiedOrder extends ApiCommon
     {
         if ($type === 'ai_pick') {
             // 选片: 0→0(待付款), 1→3(已完成), 其他→3(已完成)
-            // 优化1：已付款的选片订单放在已完成
             if ($actualStatus == 0) return 0;
             if ($actualStatus == 1) return 3;
             return 3;
+        } elseif (in_array($type, ['ai_image', 'ai_video'])) {
+            // 生成订单的 status 已经在 normalizeGenerationOrder 中计算好了
+            return $actualStatus;
         } elseif ($type === 'kecheng') {
             // 课程: status=1(已支付) → 3(已完成)
             return 3;
@@ -886,57 +1016,27 @@ class ApiUnifiedOrder extends ApiCommon
         $title = 'AI旅拍选片';
 
         // 标题从 package_snapshot 解析套餐名称
-        $snapshot = null;
         if (!empty($row['package_snapshot'])) {
             $snapshot = json_decode($row['package_snapshot'], true);
             if ($snapshot) {
                 $title = $snapshot['name'] ?? $title;
+                // 如果有商品数据，使用第一个商品的图片
+                if (!empty($snapshot['products'])) {
+                    $coverImage = $snapshot['products'][0]['goods_image'] ?? '';
+                }
             }
         }
 
-        // 多级图片回退策略
-        // 优先级一：从 order_goods 表获取 goods_image
+        // 如果没有封面图，从数据库查询
         if (!$coverImage && !empty($goodsList)) {
             $coverImage = $goodsList[0]['goods_image'] ?? '';
         }
 
-        // 优先级二：从 package_snapshot JSON 解析获取
-        if (!$coverImage && $snapshot && !empty($snapshot['products'])) {
-            $coverImage = $snapshot['products'][0]['goods_image'] ?? '';
-        }
-
-        // 优先级三：通过 result_id 关联查询 ai_travel_photo_result 表的封面图
-        if (!$coverImage && !empty($goodsList)) {
-            $resultIds = array_filter(array_column($goodsList, 'result_id'));
-            if (!empty($resultIds)) {
-                $resultImage = Db::name('ai_travel_photo_result')
-                    ->where('id', 'in', $resultIds)
-                    ->where('status', 1)
-                    ->order('id asc')
-                    ->value('thumbnail_url');
-                // thumbnail_url 为空时回退到 url
-                if (!$resultImage) {
-                    $resultImage = Db::name('ai_travel_photo_result')
-                        ->where('id', 'in', $resultIds)
-                        ->where('status', 1)
-                        ->order('id asc')
-                        ->value('url');
-                }
-                if ($resultImage) {
-                    $coverImage = $resultImage;
-                }
-            }
-        }
-
-        // 兆底：设置默认占位图
-        if (!$coverImage) {
-            $coverImage = '/static/img/placeholder.png';
-        }
-
-        // 处理缩略图：如果图片URL存在且为远程图片，添加缩略图参数
+        // 处理缩略图：如果图片URL存在，添加缩略图参数
         if ($coverImage && strpos($coverImage, 'http') === 0) {
+            // 添加50x50缩略图参数（适配阿里云OSS、腾讯云COS等）
             if (strpos($coverImage, '?') === false) {
-                $coverImage = $coverImage . '?x-oss-process=image/resize,w_100,h_100';
+                $coverImage = $coverImage . '?x-oss-process=image/resize,w_50,h_50';
             }
         }
 
@@ -990,36 +1090,11 @@ class ApiUnifiedOrder extends ApiCommon
         // 构造商品列表（兼容格式）
         $prolist = [];
         foreach ($goodsList as $goods) {
-            // 处理商品图片：多级回退策略
-            $goodsPic = $goods['goods_image'] ?? '';
-            // 回退到封面图
-            if (!$goodsPic) {
-                $goodsPic = $coverImage;
-            }
-            // 回退到成片结果表
-            if (!$goodsPic && !empty($goods['result_id'])) {
-                $resultPic = Db::name('ai_travel_photo_result')
-                    ->where('id', $goods['result_id'])
-                    ->where('status', 1)
-                    ->value('thumbnail_url');
-                // thumbnail_url 为空时回退到 url
-                if (!$resultPic) {
-                    $resultPic = Db::name('ai_travel_photo_result')
-                        ->where('id', $goods['result_id'])
-                        ->where('status', 1)
-                        ->value('url');
-                }
-                if ($resultPic) {
-                    $goodsPic = $resultPic;
-                }
-            }
-            // 兆底占位图
-            if (!$goodsPic) {
-                $goodsPic = '/static/img/placeholder.png';
-            }
+            // 处理商品图片缩略图
+            $goodsPic = $goods['goods_image'] ?? $coverImage;
             if ($goodsPic && strpos($goodsPic, 'http') === 0) {
                 if (strpos($goodsPic, '?') === false) {
-                    $goodsPic = $goodsPic . '?x-oss-process=image/resize,w_100,h_100';
+                    $goodsPic = $goodsPic . '?x-oss-process=image/resize,w_50,h_50';
                 }
             }
 
@@ -1122,6 +1197,189 @@ class ApiUnifiedOrder extends ApiCommon
     }
 
     /**
+     * 生成订单状态筛选条件
+     * 生成订单使用 pay_status + task_status 组合而非单一 status 字段
+     */
+    protected function applyGenerationStatusFilter(&$where, $unifiedStatus)
+    {
+        switch ($unifiedStatus) {
+            case 0: // 待付款
+                $where[] = ['pay_status', '=', 0];
+                break;
+            case 1: // 生成中 (映射自待发货)
+                $where[] = ['pay_status', '=', 1];
+                $where[] = ['task_status', 'in', [0, 1]];
+                break;
+            case 3: // 已完成
+                $where[] = ['pay_status', '=', 1];
+                $where[] = ['task_status', 'in', [2, 3]];
+                break;
+            default: // 待收货/已关闭 不适用
+                $where[] = ['id', '=', -1];
+                break;
+        }
+    }
+
+    /**
+     * 标准化生成订单（AI写真/AI视频）
+     */
+    protected function normalizeGenerationOrder($row, $type, $typeName, $timestamp)
+    {
+        $title = $row['scene_name'] ?: ($type === 'ai_image' ? 'AI写真' : 'AI视频');
+
+        // 获取封面图
+        $coverImage = '';
+
+        // 优先从 template_snapshot 解析
+        if (!empty($row['template_snapshot'])) {
+            $snapshot = json_decode($row['template_snapshot'], true);
+            if ($snapshot) {
+                $coverImage = $snapshot['cover_url'] ?? $snapshot['thumbnail'] ?? $snapshot['cover'] ?? '';
+            }
+        }
+
+        // 从 ref_images 获取
+        if (!$coverImage && !empty($row['ref_images'])) {
+            $refImages = json_decode($row['ref_images'], true);
+            if ($refImages && is_array($refImages) && !empty($refImages[0])) {
+                $coverImage = is_string($refImages[0]) ? $refImages[0] : ($refImages[0]['url'] ?? '');
+            }
+        }
+
+        // 从 generation_output 获取生成结果图
+        if (!$coverImage && $row['record_id']) {
+            $output = Db::name('generation_output')
+                ->where('record_id', $row['record_id'])
+                ->order('id asc')
+                ->find();
+            if ($output) {
+                $coverImage = $output['thumbnail_url'] ?: $output['output_url'];
+            }
+        }
+
+        // 处理缩略图
+        if ($coverImage && strpos($coverImage, 'http') === 0 && strpos($coverImage, '?') === false) {
+            $coverImage = $coverImage . '?x-oss-process=image/resize,w_100,h_100';
+        }
+
+        // 计算显示状态
+        $payStatus = (int)($row['pay_status'] ?? 0);
+        $taskStatus = (int)($row['task_status'] ?? 0);
+        $displayStatus = 0;
+        $statusText = '待付款';
+
+        if ($payStatus == 0) {
+            $displayStatus = 0;
+            $statusText = '待付款';
+        } elseif ($payStatus == 1) {
+            if ($taskStatus == 0) {
+                $displayStatus = 1;
+                $statusText = '待生成';
+            } elseif ($taskStatus == 1) {
+                $displayStatus = 1;
+                $statusText = '生成中';
+            } elseif ($taskStatus == 2) {
+                $displayStatus = 3;
+                $statusText = '已完成';
+            } elseif ($taskStatus == 3) {
+                $displayStatus = 3;
+                $statusText = '生成失败';
+            }
+        }
+
+        // 退款状态覆盖
+        $refundStatus = (int)($row['refund_status'] ?? 0);
+        if ($refundStatus == 1) {
+            $statusText = '退款审核中';
+        } elseif ($refundStatus == 2) {
+            $statusText = '已退款';
+        } elseif ($refundStatus == 3) {
+            $statusText = '退款已驳回';
+        }
+
+        $detailUrl = $this->detailRoutes[$type] . $row['id'];
+
+        // 查询支付订单ID
+        $payorderid = (int)($row['payorderid'] ?? 0);
+
+        // 构造商品列表
+        $prolist = [[
+            'id' => $row['id'],
+            'orderid' => $row['id'],
+            'proid' => $row['id'],
+            'name' => $title,
+            'pic' => $coverImage,
+            'ggname' => '',
+            'gg_group_title' => '',
+            'num' => 1,
+            'sell_price' => $row['pay_price'] ?? $row['total_price'] ?? 0,
+            'real_sell_price' => $row['pay_price'] ?? $row['total_price'] ?? 0,
+            'hexiao_code' => '',
+            'hexiao_num' => 0,
+            'hexiao_num_total' => 0,
+            'hexiao_num_used' => 0,
+            'is_hx' => 0,
+            'is_quanyi' => 0,
+        ]];
+
+        return [
+            'id'               => $row['id'],
+            'order_type'       => $type,
+            'order_type_name'  => $typeName,
+            'ordernum'         => $row['ordernum'] ?? '',
+            'title'            => $title,
+            'cover_image'      => $coverImage ?: '',
+            'totalprice'       => dd_money_format($row['pay_price'] ?? $row['total_price'] ?? 0),
+            'total_price'      => dd_money_format($row['pay_price'] ?? $row['total_price'] ?? 0),
+            'status'           => $displayStatus,
+            'status_text'      => $statusText,
+            'item_count'       => 1,
+            'procount'         => 1,
+            'create_time'      => $timestamp ? date('Y-m-d H:i', $timestamp) : '',
+            'create_timestamp' => $timestamp,
+            'detail_url'       => $detailUrl,
+            'refund_status'    => $refundStatus,
+            'prolist'          => $prolist,
+            'binfo'            => ['name' => $typeName, 'logo' => $coverImage],
+            'bid'              => 0,
+            'payorderid'       => $payorderid,
+            'generation_type'  => (int)($row['generation_type'] ?? 1),
+            'pay_status'       => $payStatus,
+            'task_status'      => $taskStatus,
+            // 兼容字段
+            'refundnum'        => 0,
+            'can_collect'      => false,
+            'procanrefund'     => 0,
+            'paytypeid'        => (int)($row['paytypeid'] ?? 0),
+            'transfer_check'   => 0,
+            'is_fenqi'         => 0,
+            'isdygroupbuy'     => 0,
+            'freight_type'     => 0,
+            'hexiao_qr'        => '',
+            'is_pingce'        => 0,
+            'pingce_status'    => 0,
+            'invoice'          => 0,
+            'order_can_refund' => 0,
+            'transfer_order_parent_check' => false,
+            'cancodpay'        => false,
+            'crk_givenum'      => 0,
+            'yuding_type'      => '',
+            'wxtc'             => false,
+            'wxtc_status_name' => '',
+            'tips'             => '',
+            'exchange_card_take_date' => '',
+            'balance_price'    => 0,
+            'balance_pay_status' => 0,
+            'total_freezemoney_price' => 0,
+            'refund_money'     => 0,
+            'extra_info'       => [
+                'generation_type' => (int)($row['generation_type'] ?? 1),
+                'task_status'     => $taskStatus,
+            ],
+        ];
+    }
+
+    /**
      * 标准化通用订单（预约/周期购等）
      */
     protected function normalizeGenericOrder($row, $type, $typeName, $timestamp)
@@ -1184,13 +1442,24 @@ class ApiUnifiedOrder extends ApiCommon
     {
         $where = $baseWhere;
         if ($type === 'ai_pick') {
-            // 统一状态: 0=待付款, 1=待发货, 2=待收货, 3=已完成
-            // 选片实际状态: 0=待支付, 1=已付款（归到已完成）
-            // 映射: 0→0, 3→1
+            // 选片: 0→0(待付款), 3→1(已完成)
             if ($st == '0') {
                 $where[] = ['status', '=', 0];
             } elseif ($st == '3') {
                 $where[] = ['status', '=', 1];
+            } else {
+                return 0;
+            }
+        } elseif (in_array($type, ['ai_image', 'ai_video'])) {
+            // 生成订单使用 pay_status + task_status 组合
+            if ($st == '0') {
+                $where[] = ['pay_status', '=', 0];
+            } elseif ($st == '1') {
+                $where[] = ['pay_status', '=', 1];
+                $where[] = ['task_status', 'in', [0, 1]];
+            } elseif ($st == '3') {
+                $where[] = ['pay_status', '=', 1];
+                $where[] = ['task_status', 'in', [2, 3]];
             } else {
                 return 0;
             }
@@ -1225,8 +1494,9 @@ class ApiUnifiedOrder extends ApiCommon
      */
     protected function isModuleEnabled($type)
     {
-        // 选片模块始终可用
+        // 选片模块和生成订单模块始终可用
         if ($type === 'ai_pick') return true;
+        if (in_array($type, ['ai_image', 'ai_video'])) return true;
 
         // 通过 getcustom 检查模块是否开通
         $customMap = [

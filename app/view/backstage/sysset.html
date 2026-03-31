@@ -2383,6 +2383,13 @@
 									</div>
 									<div id="ai_score_pay_div" {if $info['ai_score_pay_status']!=1}style="display:none"{/if}>
 										<div class="layui-form-item">
+											<label class="layui-form-label">计量单位名称：</label>
+											<div class="layui-input-inline" style="width:200px">
+												<input type="text" name="info[ai_score_unit_name]" class="layui-input" value="{$info.ai_score_unit_name|default='词元'}" placeholder="如：词元、积分、Token" maxlength="20">
+											</div>
+											<div class="layui-form-mid layui-word-aux">用户端展示的积分单位名称，默认为“词元”</div>
+										</div>
+										<div class="layui-form-item">
 											<label class="layui-form-label">积分兑换比例：</label>
 											<div class="layui-input-inline layui-module-itemL">
 												<div>1积分可抵扣</div>

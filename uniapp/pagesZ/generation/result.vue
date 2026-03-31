@@ -32,7 +32,7 @@
 				</view>
 			</block>
 		</view>
-		<view class="save-tip">长按图片可保存到相册</view>
+		<view class="save-tip">长按图片保存到相册 📷</view>
 	</view>
 	
 	<!-- 加载中 -->
@@ -40,8 +40,8 @@
 		<view class="loading-animation">
 			<view class="loading-circle"></view>
 		</view>
-		<view class="loading-text">正在生成中，请稍候...</view>
-		<view class="loading-tip">{{generationType == 1 ? '图片生成通常需要10-30秒' : '视频生成通常需要1-3分钟'}}</view>
+		<view class="loading-text">正在为你绘制温柔画面…</view>
+		<view class="loading-tip">{{generationType == 1 ? '图片创作大约需要10-30秒，请耐心等待 ☕' : '视频创作大约需要1-3分钟，请勿退出页面 🎬'}}</view>
 	</view>
 	
 	<!-- 底部操作 -->
@@ -90,20 +90,20 @@ export default {
 		},
 		
 		statusText() {
-			if (!this.result) return '生成中...';
+			if (!this.result) return '温柔画面生成中…';
 			var status = this.result.status;
-			if (status == 2) return '生成完成';
-			if (status == 3) return '生成失败';
-			if (status == 1) return '生成中...';
+			if (status == 2) return '你的治愈作品完成啦 ✨';
+			if (status == 3) return '生成遇到小问题了';
+			if (status == 1) return '温柔画面生成中…';
 			return '等待处理';
 		},
 		
 		statusDesc() {
-			if (!this.result) return '正在为您生成中，请稍候...';
+			if (!this.result) return '正在为你绘制温柔画面…';
 			var status = this.result.status;
-			if (status == 2) return '长按图片可保存到相册';
-			if (status == 3) return '生成失败，您可以申请退款';
-			if (status == 1) return '正在为您生成中，请稍候...';
+			if (status == 2) return '长按图片保存到相册 📷';
+			if (status == 3) return '生成遇到小问题了，您可以申请退款';
+			if (status == 1) return '正在为你绘制温柔画面…';
 			return '任务已提交，即将开始处理';
 		}
 	},
@@ -208,10 +208,10 @@ export default {
 								uni.saveImageToPhotosAlbum({
 									filePath: downloadRes.tempFilePath,
 									success: function() {
-										uni.showToast({ title: '保存成功', icon: 'success' });
+										uni.showToast({ title: '已保存到相册 ✅', icon: 'success' });
 									},
 									fail: function() {
-										uni.showToast({ title: '保存失败', icon: 'none' });
+										uni.showToast({ title: '保存失败，请开启相册权限', icon: 'none' });
 									}
 								});
 							}
@@ -238,32 +238,32 @@ export default {
 </script>
 
 <style>
-.container { background: #f5f5f5; min-height: 100vh; }
+.container { background: #FDFBFF; min-height: 100vh; }
 
 .status-header { padding: 60rpx 30rpx; text-align: center; color: #fff; }
-.status-header.processing { background: linear-gradient(135deg, #2196F3, #64B5F6); }
-.status-header.success { background: linear-gradient(135deg, #4CAF50, #81C784); }
-.status-header.failed { background: linear-gradient(135deg, #F44336, #E57373); }
+.status-header.processing { background: linear-gradient(135deg, #91C2FF, #B5D8FE); }
+.status-header.success { background: linear-gradient(135deg, #91C2FF, #B5D8FE); }
+.status-header.failed { background: linear-gradient(135deg, #FFC3D8, #FFA0B8); }
 .status-icon { font-size: 80rpx; margin-bottom: 20rpx; }
 .status-text { font-size: 36rpx; font-weight: bold; margin-bottom: 10rpx; }
 .status-desc { font-size: 26rpx; opacity: 0.9; }
 
-.result-section { background: #fff; margin: 20rpx; border-radius: 16rpx; padding: 30rpx; }
-.section-title { font-size: 30rpx; font-weight: bold; color: #333; margin-bottom: 20rpx; }
+.result-section { background: #fff; margin: 20rpx; border-radius: 24rpx; padding: 30rpx; box-shadow: 0 6rpx 20rpx rgba(0,0,0,0.05); }
+.section-title { font-size: 30rpx; font-weight: bold; color: #555555; margin-bottom: 20rpx; }
 .result-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.result-image { width: calc(33.33% - 12rpx); aspect-ratio: 1; border-radius: 8rpx; background: #f5f5f5; }
+.result-image { width: calc(33.33% - 12rpx); aspect-ratio: 1; border-radius: 16rpx; background: #F5F0FA; }
 .video-item { width: 100%; }
-.result-video { width: 100%; border-radius: 8rpx; }
+.result-video { width: 100%; border-radius: 16rpx; }
 .save-tip { text-align: center; font-size: 24rpx; color: #999; margin-top: 20rpx; }
 
-.loading-section { background: #fff; margin: 20rpx; border-radius: 16rpx; padding: 60rpx 30rpx; text-align: center; }
+.loading-section { background: #fff; margin: 20rpx; border-radius: 24rpx; padding: 60rpx 30rpx; text-align: center; box-shadow: 0 6rpx 20rpx rgba(0,0,0,0.05); }
 .loading-animation { width: 100rpx; height: 100rpx; margin: 0 auto 30rpx; }
-.loading-circle { width: 100%; height: 100%; border: 6rpx solid #f0f0f0; border-top-color: #FF6B00; border-radius: 50%; animation: spin 1s linear infinite; }
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-.loading-text { font-size: 30rpx; color: #333; margin-bottom: 12rpx; }
+.loading-circle { width: 100%; height: 100%; border: 6rpx solid #F0EDF5; border-top-color: #91C2FF; border-radius: 50%; animation: breathe 2s ease-in-out infinite; }
+@keyframes breathe { 0% { transform: rotate(0deg) scale(1); opacity: 1; } 50% { transform: rotate(180deg) scale(1.05); opacity: 0.7; } 100% { transform: rotate(360deg) scale(1); opacity: 1; } }
+.loading-text { font-size: 30rpx; color: #555555; margin-bottom: 12rpx; }
 .loading-tip { font-size: 24rpx; color: #999; }
 
-.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; gap: 20rpx; padding: 20rpx 30rpx; box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05); padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); }
-.btn-secondary { flex: 1; height: 88rpx; line-height: 88rpx; text-align: center; font-size: 30rpx; border-radius: 44rpx; background: #fff; color: #FF6B00; border: 1px solid #FF6B00; }
-.btn-primary { flex: 1; height: 88rpx; line-height: 88rpx; text-align: center; font-size: 30rpx; border-radius: 44rpx; background: linear-gradient(135deg, #FF6B00, #FF9500); color: #fff; font-weight: bold; }
+.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; gap: 20rpx; padding: 20rpx 30rpx; box-shadow: 0 -4rpx 20rpx rgba(0,0,0,0.05); padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); }
+.btn-secondary { flex: 1; height: 88rpx; line-height: 88rpx; text-align: center; font-size: 30rpx; border-radius: 40rpx; background: #fff; color: #FFC3D8; border: 1px solid #FFC3D8; }
+.btn-primary { flex: 1; height: 88rpx; line-height: 88rpx; text-align: center; font-size: 30rpx; border-radius: 40rpx; background: linear-gradient(135deg, #91C2FF, #B5D8FE); color: #fff; font-weight: bold; box-shadow: 0 8rpx 24rpx rgba(145,194,255,0.3); }
 </style>

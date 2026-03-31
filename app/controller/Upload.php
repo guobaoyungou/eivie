@@ -103,6 +103,22 @@ class Upload extends Common
 						}
 					}else{
                         }
+					// 自动转换为 WebP 格式（非 webp 图片统一转换）
+					if ($rinfo['extension'] !== 'webp' && $rinfo['extension'] !== 'ico') {
+						$webpResult = \app\common\Pic::convertToWebp(ROOT_PATH.$filepath);
+						if ($webpResult !== false) {
+							// 更新文件路径和扩展名为 webp
+							$oldFilepath = $filepath;
+							$pathParts = pathinfo($filepath);
+							$filepath = $pathParts['dirname'] . '/' . $pathParts['filename'] . '.webp';
+							$rinfo['extension'] = 'webp';
+							$rinfo['bsize'] = filesize(ROOT_PATH.$filepath);
+							// 更新原始上传路径以便后续压缩清理
+							if ($is_yasuo == 0) {
+								$file_remote = $filepath;
+							}
+						}
+					}
 				}
 
                 $insert = array(

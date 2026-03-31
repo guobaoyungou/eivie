@@ -206,6 +206,90 @@
 							</div>
 						</div>
 
+						<!-- 员工号设置 -->
+						<div class="layui-form-item">
+							<label class="layui-form-label">员工号：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[show_employee_no]" value="1" title="开启" {if $info['show_employee_no']==1}checked{/if} lay-filter="show_employee_no">
+								<input type="radio" name="info[show_employee_no]" value="0" title="关闭" {if !$info['show_employee_no'] || $info['show_employee_no']==0}checked{/if} lay-filter="show_employee_no">
+							</div>
+							<div class="layui-form-mid layui-word-aux">开启后签到时要求填写员工编号</div>
+						</div>
+						<div class="layui-form-item employee_no_box" {if !$info['show_employee_no'] || $info['show_employee_no']==0}style="display:none"{/if}>
+							<label class="layui-form-label">员工号必填：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[require_employee_no]" value="1" title="必填" {if $info['require_employee_no']==1}checked{/if}>
+								<input type="radio" name="info[require_employee_no]" value="0" title="非必填" {if !$info['require_employee_no'] || $info['require_employee_no']==0}checked{/if}>
+							</div>
+						</div>
+
+						<!-- 上传照片设置 -->
+						<div class="layui-form-item">
+							<label class="layui-form-label">上传照片：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[show_photo]" value="1" title="开启" {if $info['show_photo']==1}checked{/if} lay-filter="show_photo">
+								<input type="radio" name="info[show_photo]" value="0" title="关闭" {if !$info['show_photo'] || $info['show_photo']==0}checked{/if} lay-filter="show_photo">
+							</div>
+							<div class="layui-form-mid layui-word-aux">开启后签到时要求上传一张照片（信息采集用途）</div>
+						</div>
+						<div class="layui-form-item photo_box" {if !$info['show_photo'] || $info['show_photo']==0}style="display:none"{/if}>
+							<label class="layui-form-label">照片必填：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[require_photo]" value="1" title="必填" {if $info['require_photo']==1}checked{/if}>
+								<input type="radio" name="info[require_photo]" value="0" title="非必填" {if !$info['require_photo'] || $info['require_photo']==0}checked{/if}>
+							</div>
+						</div>
+
+						<!-- 自定义字段设置 -->
+						<div class="layui-form-item">
+							<label class="layui-form-label">自定义字段：</label>
+							<div class="layui-input-inline">
+								<input type="radio" name="info[show_custom_fields]" value="1" title="开启" {if $info['show_custom_fields']==1}checked{/if} lay-filter="show_custom_fields">
+								<input type="radio" name="info[show_custom_fields]" value="0" title="关闭" {if !$info['show_custom_fields'] || $info['show_custom_fields']==0}checked{/if} lay-filter="show_custom_fields">
+							</div>
+							<div class="layui-form-mid layui-word-aux">开启后可添加自定义信息采集字段</div>
+						</div>
+						<div id="custom_fields_box" {if !$info['show_custom_fields'] || $info['show_custom_fields']==0}style="display:none"{/if}>
+							<div class="layui-form-item">
+								<label class="layui-form-label">字段列表：</label>
+								<div class="layui-input-block">
+									<table class="layui-table" id="customFieldTable">
+										<thead><tr>
+											<th>字段名称</th>
+											<th>字段类型</th>
+											<th>选项值</th>
+											<th>是否必填</th>
+											<th>排序</th>
+											<th>操作</th>
+										</tr></thead>
+										<tbody id="customFieldBody">
+											{if $customFields}
+											{foreach $customFields as $k=>$cf}
+											<tr>
+												<td><input type="hidden" name="custom_fields[{$k}][id]" value="{$cf['id']}"><input type="text" name="custom_fields[{$k}][field_name]" value="{$cf['field_name']}" class="layui-input" style="width:150px"></td>
+												<td><select name="custom_fields[{$k}][field_type]" class="layui-input cf-type-select" style="width:100px" onchange="toggleOptions(this)">
+													<option value="text" {if $cf['field_type']=='text'}selected{/if}>文本</option>
+													<option value="select" {if $cf['field_type']=='select'}selected{/if}>单选</option>
+													<option value="checkbox" {if $cf['field_type']=='checkbox'}selected{/if}>多选</option>
+													<option value="image" {if $cf['field_type']=='image'}selected{/if}>图片</option>
+												</select></td>
+												<td><input type="text" name="custom_fields[{$k}][field_options]" value="{$cf['field_options_text']}" class="layui-input cf-options" style="width:200px" {if !in_array($cf['field_type'],['select','checkbox'])}disabled{/if} placeholder="英文逗号分隔"></td>
+												<td><select name="custom_fields[{$k}][is_required]" class="layui-input" style="width:80px">
+													<option value="0" {if $cf['is_required']==0}selected{/if}>否</option>
+													<option value="1" {if $cf['is_required']==1}selected{/if}>是</option>
+												</select></td>
+												<td><input type="number" name="custom_fields[{$k}][sort]" value="{$cf['sort']}" class="layui-input" style="width:70px"></td>
+												<td><button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removeCustomField(this)"><i class="fa fa-minus"></i></button></td>
+											</tr>
+											{/foreach}
+											{/if}
+										</tbody>
+									</table>
+									<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="addCustomField()"><i class="fa fa-plus"></i> 添加字段</button>
+								</div>
+							</div>
+						</div>
+
 						{if getcustom('sign_pay_bonus')}
 							<div class="layui-form-item">
 								<label class="layui-form-label">是否支付：</label>
@@ -485,6 +569,60 @@
 			$('#paybox').hide();
 		}
 	})
+
+	// 员工号开关
+	layui.form.on('radio(show_employee_no)',function(data){
+		if(data.value==1){
+			$('.employee_no_box').show();
+		}else{
+			$('.employee_no_box').hide();
+		}
+	})
+	// 上传照片开关
+	layui.form.on('radio(show_photo)',function(data){
+		if(data.value==1){
+			$('.photo_box').show();
+		}else{
+			$('.photo_box').hide();
+		}
+	})
+	// 自定义字段开关
+	layui.form.on('radio(show_custom_fields)',function(data){
+		if(data.value==1){
+			$('#custom_fields_box').show();
+		}else{
+			$('#custom_fields_box').hide();
+		}
+	})
+
+	// 自定义字段管理
+	var cfIndex = {if $customFields}{php}echo count($customFields);{/php}{else}0{/if};
+	function addCustomField(){
+		var idx = cfIndex;
+		var html = '<tr>';
+		html += '<td><input type="hidden" name="custom_fields['+idx+'][id]" value=""><input type="text" name="custom_fields['+idx+'][field_name]" value="" class="layui-input" style="width:150px" placeholder="字段名称"></td>';
+		html += '<td><select name="custom_fields['+idx+'][field_type]" class="layui-input cf-type-select" style="width:100px" onchange="toggleOptions(this)">';
+		html += '<option value="text">文本</option><option value="select">单选</option><option value="checkbox">多选</option><option value="image">图片</option></select></td>';
+		html += '<td><input type="text" name="custom_fields['+idx+'][field_options]" value="" class="layui-input cf-options" style="width:200px" disabled placeholder="英文逗号分隔"></td>';
+		html += '<td><select name="custom_fields['+idx+'][is_required]" class="layui-input" style="width:80px"><option value="0">否</option><option value="1">是</option></select></td>';
+		html += '<td><input type="number" name="custom_fields['+idx+'][sort]" value="0" class="layui-input" style="width:70px"></td>';
+		html += '<td><button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="removeCustomField(this)"><i class="fa fa-minus"></i></button></td>';
+		html += '</tr>';
+		$('#customFieldBody').append(html);
+		cfIndex++;
+	}
+	function removeCustomField(obj){
+		$(obj).closest('tr').remove();
+	}
+	function toggleOptions(obj){
+		var val = $(obj).val();
+		var optInput = $(obj).closest('tr').find('.cf-options');
+		if(val == 'select' || val == 'checkbox'){
+			optInput.prop('disabled', false);
+		}else{
+			optInput.prop('disabled', true).val('');
+		}
+	}
   </script>
 	{include file="public/copyright"/}
 </body>

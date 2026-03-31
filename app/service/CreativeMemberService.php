@@ -20,11 +20,16 @@ class CreativeMemberService
      */
     public function getScorePayConfig($aid)
     {
-        $adminSet = Db::name('admin_set')->where('aid', $aid)->field('ai_score_pay_status,ai_score_exchange_rate,ai_score_pay_mode')->find();
+        $adminSet = Db::name('admin_set')->where('aid', $aid)->field('ai_score_pay_status,ai_score_exchange_rate,ai_score_pay_mode,ai_score_unit_name')->find();
+        $unitName = trim($adminSet['ai_score_unit_name'] ?? '');
+        if ($unitName === '') {
+            $unitName = '词元';
+        }
         return [
             'enabled' => intval($adminSet['ai_score_pay_status'] ?? 0) == 1,
             'exchange_rate' => floatval($adminSet['ai_score_exchange_rate'] ?? 0.01),
             'pay_mode' => intval($adminSet['ai_score_pay_mode'] ?? 0), // 0=全额积分 1=积分优先余额补足
+            'unit_name' => $unitName, // 计量单位展示名称，默认"词元"
         ];
     }
     

@@ -4,14 +4,14 @@
   <view class="compare-section">
     <view class="compare-row">
       <view class="compare-item">
-        <image src="{{detail.ref_image || detail.cover_image}}" class="compare-img" mode="aspectFill" bindtap="previewCompare" data-type="ref"></image>
+        <image src="{{detail.original_image || detail.ref_image || detail.cover_image}}" class="compare-img" mode="aspectFill" bindtap="previewCompare" data-type="ref"></image>
         <view class="compare-label">原图</view>
       </view>
       <view class="compare-arrow">
         <text class="arrow-icon">→</text>
       </view>
       <view class="compare-item">
-        <image src="{{detail.cover_image}}" class="compare-img" mode="aspectFill" bindtap="previewCompare" data-type="result"></image>
+        <image src="{{detail.effect_images[0] || detail.sample_images[0] || detail.cover_image}}" class="compare-img" mode="aspectFill" bindtap="previewCompare" data-type="result"></image>
         <view class="compare-label">效果图</view>
       </view>
     </view>
@@ -60,14 +60,22 @@
   <view class="section" wx:if="{{promptVisible}}">
     <view class="section-header" bindtap="togglePrompt">
       <view class="section-title">
-        <text class="title-text">灵感描述</text>
+        <text class="title-text">创作提示词</text>
         <text class="title-hint">可修改提示词优化效果</text>
       </view>
       <text class="toggle-icon">{{promptExpanded ? '∧' : '∨'}}</text>
     </view>
-    <view class="prompt-wrap" wx:if="{{promptExpanded}}">
-      <textarea class="prompt-input" value="{{prompt}}" bindinput="onPromptInput" placeholder="请输入描述，越详细效果越好" maxlength="2000" auto-height></textarea>
-      <view class="char-count">{{prompt.length}}/2000</view>
+    <!-- 折叠态：预览 -->
+    <view class="prompt-preview" wx:if="{{!promptExpanded}}" bindtap="togglePrompt">{{prompt}}</view>
+    <!-- 展开态：可编辑 -->
+    <view wx:if="{{promptExpanded}}">
+      <view class="prompt-wrap">
+        <textarea class="prompt-input" value="{{prompt}}" bindinput="onPromptInput" placeholder="请输入描述，越详细效果越好" maxlength="2000" auto-height></textarea>
+        <view class="prompt-footer">
+          <view class="char-count">{{prompt.length}}/2000</view>
+          <view class="prompt-optimize-btn" bindtap="onOptimizePrompt">✨ 优化提示词</view>
+        </view>
+      </view>
     </view>
   </view>
 
@@ -131,7 +139,7 @@
       <text class="total-label">合计</text>
       <block wx:if="{{scorePayEnabled && priceInScore > 0}}">
         <text class="total-price score-price">{{priceInScore * quantity}}</text>
-        <text class="price-unit">积分</text>
+        <text class="price-unit">{{scoreUnitName}}</text>
       </block>
       <block wx:else>
         <text class="total-price">￥{{totalPrice}}</text>

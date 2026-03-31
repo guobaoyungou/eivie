@@ -28,6 +28,12 @@
 								</div>
 							</div>
 							<div class="layui-inline layuiadmin-input-useradmin">
+								<label class="layui-form-label">员工号</label>
+								<div class="layui-input-inline">
+									<input type="text" name="employee_no" autocomplete="off" class="layui-input" value="">
+								</div>
+							</div>
+							<div class="layui-inline layuiadmin-input-useradmin">
 								<label class="layui-form-label">签到时间</label>
 								<div class="layui-input-inline" style="width: 180px;">
 									<input type="text" id="ctime" name="ctime" autocomplete="off" class="layui-input" value="">
@@ -64,6 +70,7 @@
 			{type:"checkbox"},
       {field: 'id', title: 'ID',sort:true, width:80},
       {field: 'nickname', title: '头像昵称',templet:'<div><img src="{{d.headimg}}" style="width:50px"> {{d.nickname}}</div>'},
+      {field: 'employee_no', title: '员工号',templet:function(d){ return d.employee_no || '-';}},
       {field: 'signdate', title: '签到时间'},
       {field: 'score', title: '获得{:t('积分')}',sort:true},
       {field: 'signtimes', title: '签到总次数',sort:true},
@@ -71,6 +78,7 @@
 	  
       {field: 'lxqd_coupon_name', title: '连续签到{:t('优惠券')}'},
       {field: 'lxzs_coupon_name', title: '连续签到赠送{:t('优惠券')}'},
+      {field: 'sign_photo', title: '签到照片',templet:function(d){ if(d.sign_photo){return '<a href="'+d.sign_photo+'" target="_blank"><img src="'+d.sign_photo+'" style="width:40px;height:40px;object-fit:cover"></a>';}else{return '-';} }},
     
 	  
       {field: 'remark', title: '备注'},

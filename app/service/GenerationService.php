@@ -1370,19 +1370,28 @@ class GenerationService
             $body['aspect_ratio'] = $aspectRatio;
         }
         
-        // 视频时长
-        $duration = $inputParams['duration'] ?? '';
-        if (!empty($duration)) {
-            $body['duration'] = intval($duration);
-        }
-        
-        // 运镜参数（仅运镜模式）
+        // 运镜参数（仅运镜模式 - 使用火山引擎API正确的参数名）
         if ($videoMode === 'camera_motion') {
-            if (!empty($inputParams['camera_type'])) {
-                $body['camera_type'] = $inputParams['camera_type'];
+            // template_id: 运镜模板（前端传camera_type，API接收template_id）
+            $cameraType = $inputParams['camera_type'] ?? $inputParams['template_id'] ?? '';
+            if (!empty($cameraType)) {
+                // 兼容旧值映射到新的template_id
+                $cameraType = $this->mapJimengCameraTemplateId($cameraType);
+                $body['template_id'] = $cameraType;
             }
-            if (isset($inputParams['camera_amplitude']) && $inputParams['camera_amplitude'] !== '') {
-                $body['camera_amplitude'] = floatval($inputParams['camera_amplitude']);
+            // camera_strength: 运镜强度（前端传camera_amplitude，API接收camera_strength）
+            $amplitude = $inputParams['camera_amplitude'] ?? $inputParams['camera_strength'] ?? 'medium';
+            $body['camera_strength'] = $this->mapJimengCameraStrength($amplitude);
+            // seed: 随机种子
+            $body['seed'] = intval($inputParams['seed'] ?? -1);
+            // frames: 帧数（24*秒+1），支持121(5s)和241(10s)
+            $duration = intval($inputParams['duration'] ?? 5);
+            $body['frames'] = ($duration >= 10) ? 241 : 121;
+        } else {
+            // 非运镜模式：使用duration和aspect_ratio
+            $duration = $inputParams['duration'] ?? '';
+            if (!empty($duration)) {
+                $body['duration'] = intval($duration);
             }
         }
         
@@ -1426,6 +1435,69 @@ class GenerationService
         
         // 默认：文生视频
         return 'text_to_video';
+    }
+    
+    /**
+     * 映射运镜类型到火山引擎API的template_id
+     * 兼容旧的camera_type值，映射到新的模板ID
+     * 
+     * @param string $cameraType 前端传入的运镜类型
+     * @return string API接受的template_id
+     */
+    protected function mapJimengCameraTemplateId($cameraType)
+    {
+        // 新版有效的template_id值（直接透传）
+        $validTemplateIds = [
+            'hitchcock_dolly_in', 'hitchcock_dolly_out',
+            'robo_arm', 'dynamic_orbit', 'central_orbit',
+            'crane_push', 'quick_pull_back',
+            'counterclockwise_swivel', 'clockwise_swivel',
+            'handheld', 'rapid_push_pull',
+        ];
+        
+        if (in_array($cameraType, $validTemplateIds)) {
+            return $cameraType;
+        }
+        
+        // 旧值到新值的映射（兼容已有数据）
+        $legacyMapping = [
+            'horizontal_right'  => 'handheld',
+            'horizontal_left'   => 'handheld',
+            'vertical_up'       => 'crane_push',
+            'vertical_down'     => 'crane_push',
+            'zoom_in'           => 'hitchcock_dolly_in',
+            'zoom_out'          => 'hitchcock_dolly_out',
+            'pan_right'         => 'clockwise_swivel',
+            'pan_left'          => 'counterclockwise_swivel',
+            'tilt_up'           => 'crane_push',
+            'tilt_down'         => 'quick_pull_back',
+            'hitchcock'         => 'hitchcock_dolly_in',
+            'dynamic_surround'  => 'dynamic_orbit',
+            'mechanical_arm'    => 'robo_arm',
+        ];
+        
+        return $legacyMapping[$cameraType] ?? 'handheld';
+    }
+    
+    /**
+     * 映射运镜幅度/强度到火山引擎API的camera_strength
+     * 兼容数值型的camera_amplitude和字符串型的camera_strength
+     * 
+     * @param mixed $amplitude 前端传入的幅度值
+     * @return string API接受的强度值 (weak/medium/strong)
+     */
+    protected function mapJimengCameraStrength($amplitude)
+    {
+        // 已经是有效的强度字符串
+        if (in_array($amplitude, ['weak', 'medium', 'strong'])) {
+            return $amplitude;
+        }
+        
+        // 数值映射: 1=weak, 2=medium, 3=strong
+        $val = intval($amplitude);
+        if ($val <= 1) return 'weak';
+        if ($val >= 3) return 'strong';
+        return 'medium';
     }
     
     /**

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>支付中</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f5f5;display:flex;align-items:center;justify-content:center;min-height:100vh;color:#333}
+.card{background:#fff;border-radius:16px;padding:40px 30px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.08);max-width:320px;width:90%}
+.spinner{width:40px;height:40px;border:3px solid #eee;border-top-color:#07c160;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.title{font-size:18px;font-weight:600;margin-bottom:8px}
+.desc{font-size:14px;color:#999;margin-bottom:20px}
+.btn{display:inline-block;background:#07c160;color:#fff;border:none;padding:12px 32px;border-radius:24px;font-size:15px;cursor:pointer;text-decoration:none}
+.btn:active{opacity:.8}
+.btn-ghost{background:#fff;color:#666;border:1px solid #ddd}
+.error{color:#e64340}
+.gap{height:12px}
+</style>
+</head>
+<body>
+<div class="card" id="payCard">
+  <div class="spinner" id="spinner"></div>
+  <div class="title" id="title">正在发起支付...</div>
+  <div class="desc" id="desc">请在弹出的微信支付窗口中完成支付</div>
+  <div style="display:none" id="btnArea">
+    <a class="btn" id="retryBtn" href="javascript:void(0)" onclick="retryPay()">重新支付</a>
+    <div class="gap"></div>
+    <a class="btn btn-ghost" id="backBtn" href="javascript:void(0)">返回选片</a>
+  </div>
+</div>
+<script>
+var API_BASE = '/index.php?s=/api/ai_travel_photo/pick/';
+var params = new URLSearchParams(window.location.search);
+var ORDER_NO = params.get('order_no') || '';
+var QR_CODE = params.get('qr') || '';
+var PICK_URL = window.location.origin + '/public/pick/index.html' + (QR_CODE ? '?qr=' + QR_CODE : '');
+var DOWNLOAD_URL = window.location.origin + '/public/pick/download.html?order_no=' + ORDER_NO;
+
+document.getElementById('backBtn').href = PICK_URL;
+
+if (!ORDER_NO) {
+  showError('缺少订单参数');
+} else {
+  fetchPayParams();
+}
+
+function fetchPayParams() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', API_BASE + 'pay', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+  xhr.onload = function() {
+    try {
+      var res = JSON.parse(xhr.responseText);
+      if (res.code === 200 && res.data && res.data.js_api_params) {
+        invokePay(res.data.js_api_params);
+      } else {
+        showError(res.msg || '获取支付参数失败');
+      }
+    } catch(e) {
+      showError('支付请求异常');
+    }
+  };
+  xhr.onerror = function() { showError('网络错误'); };
+  xhr.send(JSON.stringify({order_no: ORDER_NO}));
+}
+
+function invokePay(payParams) {
+  if (typeof WeixinJSBridge === 'undefined') {
+    if (document.addEventListener) {
+      document.addEventListener('WeixinJSBridgeReady', function(){ invokePay(payParams); }, false);
+    }
+    return;
+  }
+  WeixinJSBridge.invoke('getBrandWCPayRequest', payParams, function(res) {
+    if (res.err_msg === 'get_brand_wcpay_request:ok') {
+      document.getElementById('spinner').style.display = 'block';
+      document.getElementById('title').textContent = '支付成功';
+      document.getElementById('title').className = 'title';
+      document.getElementById('desc').textContent = '正在跳转...';
+      document.getElementById('btnArea').style.display = 'none';
+      pollAndRedirect();
+    } else if (res.err_msg === 'get_brand_wcpay_request:cancel') {
+      showCancelled();
+    } else {
+      showError('支付失败，请重试');
+    }
+  });
+}
+
+function showError(msg) {
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('title').textContent = msg;
+  document.getElementById('title').className = 'title error';
+  document.getElementById('desc').textContent = '';
+  document.getElementById('btnArea').style.display = 'block';
+}
+
+function showCancelled() {
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('title').textContent = '支付已取消';
+  document.getElementById('title').className = 'title';
+  document.getElementById('desc').textContent = '您可以重新发起支付';
+  document.getElementById('btnArea').style.display = 'block';
+}
+
+function retryPay() {
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('title').textContent = '正在发起支付...';
+  document.getElementById('title').className = 'title';
+  document.getElementById('desc').textContent = '请在弹出的微信支付窗口中完成支付';
+  document.getElementById('btnArea').style.display = 'none';
+  setTimeout(function(){ fetchPayParams(); }, 300);
+}
+
+function pollAndRedirect() {
+  var attempts = 0;
+  var maxAttempts = 30; // 60秒轮询
+  document.getElementById('desc').textContent = '正在确认支付结果...';
+  var timer = setInterval(function() {
+    attempts++;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', API_BASE + 'pay_status&order_no=' + encodeURIComponent(ORDER_NO), true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.onload = function() {
+      try {
+        var res = JSON.parse(xhr.responseText);
+        if (res.code === 200 && res.data && res.data.status === 'paid') {
+          clearInterval(timer);
+          document.getElementById('desc').textContent = '支付已确认，正在跳转...';
+          window.location.href = DOWNLOAD_URL;
+          return;
+        }
+        // 显示轮询进度
+        if (attempts <= maxAttempts) {
+          document.getElementById('desc').textContent = '正在确认支付结果...(' + attempts + '/' + maxAttempts + ')';
+        }
+      } catch(e) {}
+    };
+    xhr.onerror = function() {
+      // 网络错误不中断轮询
+    };
+    xhr.send();
+    if (attempts >= maxAttempts) {
+      clearInterval(timer);
+      // 超时后显示操作按钮，让用户选择
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('title').textContent = '支付确认超时';
+      document.getElementById('title').className = 'title';
+      document.getElementById('desc').textContent = '如果您已完成支付，请点击查看下载';
+      document.getElementById('btnArea').style.display = 'block';
+      // 将“重新支付”按钮改为“查看下载”
+      document.getElementById('retryBtn').textContent = '查看下载';
+      document.getElementById('retryBtn').onclick = function() { window.location.href = DOWNLOAD_URL; };
+    }
+  }, 2000);
+}
+</script>
+</body>
+</html>

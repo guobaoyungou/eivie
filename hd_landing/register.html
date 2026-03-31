@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>完善商家信息 - 艺为微信大屏互动</title>
+    <link rel="stylesheet" href="/static/css/landing.css">
+    <style>
+        body { background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%); min-height: 100vh; }
+        .auth-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .auth-card {
+            background: #fff; border-radius: 16px; padding: 48px 40px; width: 100%; max-width: 440px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .auth-logo { text-align: center; margin-bottom: 24px; }
+        .auth-logo .brand-icon { font-size: 36px; }
+        .auth-logo h1 { font-size: 22px; color: #1e1b4b; margin-top: 8px; font-weight: 700; }
+        .auth-logo p { font-size: 14px; color: #9ca3af; margin-top: 4px; }
+        .auth-logo .sub-title { font-size: 13px; color: #6366f1; margin-top: 6px; font-weight: 500; }
+        .wx-user-info { text-align: center; margin-bottom: 24px; padding: 16px; background: #f0fdf4; border-radius: 12px; }
+        .wx-user-info img { width: 64px; height: 64px; border-radius: 50%; border: 3px solid #07C160; }
+        .wx-user-info .wx-name { font-size: 15px; color: #374151; margin-top: 8px; font-weight: 600; }
+        .wx-user-info .wx-hint { font-size: 12px; color: #6b7280; margin-top: 4px; }
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+        .form-input {
+            width: 100%; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 8px;
+            font-size: 15px; color: #1f2937; outline: none; transition: border-color 0.3s; box-sizing: border-box;
+        }
+        .form-input:focus { border-color: #6366f1; }
+        .form-input::placeholder { color: #d1d5db; }
+        .btn-submit {
+            width: 100%; padding: 14px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff;
+            border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer;
+            transition: all 0.3s; margin-top: 8px;
+        }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(99,102,241,0.3); }
+        .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .auth-footer { text-align: center; margin-top: 24px; font-size: 14px; color: #6b7280; }
+        .auth-footer a { color: #6366f1; font-weight: 600; }
+        .auth-footer a:hover { text-decoration: underline; }
+        .form-check { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 20px; }
+        .form-check input { margin-top: 3px; }
+        .form-check label { font-size: 13px; color: #6b7280; line-height: 1.5; }
+        .form-check a { color: #6366f1; }
+        .msg-tip { text-align: center; padding: 10px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; display: none; }
+        .msg-tip.success { display: block; background: #ecfdf5; color: #059669; }
+        .msg-tip.error { display: block; background: #fef2f2; color: #dc2626; }
+        .pw-strength { display: flex; gap: 4px; margin-top: 6px; }
+        .pw-strength .bar { flex: 1; height: 4px; border-radius: 2px; background: #e5e7eb; transition: background 0.3s; }
+        .pw-strength.weak .bar:nth-child(1) { background: #ef4444; }
+        .pw-strength.medium .bar:nth-child(1), .pw-strength.medium .bar:nth-child(2) { background: #f59e0b; }
+        .pw-strength.strong .bar:nth-child(1), .pw-strength.strong .bar:nth-child(2), .pw-strength.strong .bar:nth-child(3) { background: #10b981; }
+        .back-home { position: fixed; top: 20px; left: 20px; color: rgba(255,255,255,0.7); font-size: 14px; display: flex; align-items: center; gap: 6px; z-index: 10; }
+        .back-home:hover { color: #fff; }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-home">← 返回首页</a>
+    <div class="auth-page">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <span class="brand-icon">🎬</span>
+                <h1 id="pageTitle">完善商家信息</h1>
+                <p id="pageSubtitle">绑定公司信息即享7天免费试用</p>
+            </div>
+
+            <!-- 微信用户信息展示 -->
+            <div class="wx-user-info" id="wxUserInfo" style="display:none">
+                <img id="wxAvatar" src="" alt="微信头像">
+                <div class="wx-name" id="wxNickname"></div>
+                <div class="wx-hint">您正在使用微信账号注册</div>
+            </div>
+
+            <div class="msg-tip" id="msgTip"></div>
+
+            <form id="registerForm" onsubmit="return handleBind(event)">
+                <div class="form-group">
+                    <label class="form-label">商家/公司名称 <span style="color:#ef4444">*</span></label>
+                    <input type="text" class="form-input" id="name" placeholder="请输入商家/公司名称" required maxlength="50">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">联系人姓名</label>
+                    <input type="text" class="form-input" id="contactName" placeholder="请输入联系人姓名" maxlength="20">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">手机号 <span style="color:#ef4444">*</span></label>
+                    <input type="tel" class="form-input" id="phone" placeholder="请输入手机号" required maxlength="11" pattern="^1[3-9]\d{9}$">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">登录密码 <span style="color:#ef4444">*</span></label>
+                    <input type="password" class="form-input" id="password" placeholder="请设置密码（至少6位）" required minlength="6" maxlength="32" oninput="checkPwStrength(this.value)">
+                    <div class="pw-strength" id="pwStrength">
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">确认密码 <span style="color:#ef4444">*</span></label>
+                    <input type="password" class="form-input" id="password2" placeholder="请再次输入密码" required minlength="6" maxlength="32">
+                </div>
+
+                <div class="form-check">
+                    <input type="checkbox" id="agree" checked>
+                    <label for="agree">我已阅读并同意 <a href="javascript:;">《服务协议》</a> 和 <a href="javascript:;">《隐私政策》</a></label>
+                </div>
+
+                <button type="submit" class="btn-submit" id="btnSubmit">提交绑定</button>
+            </form>
+
+            <div class="auth-footer">
+                已有账号？<a href="/login">去登录</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    var bindToken = localStorage.getItem('hd_bind_token');
+    var isDirectRegister = false;
+
+    // ============================================================
+    // 页面初始化
+    // ============================================================
+    (function init() {
+        // 1. 已登录 → 跳转后台
+        if (localStorage.getItem('hd_token')) {
+            window.location.href = '/admin';
+            return;
+        }
+
+        // 2. 有 bind_token → 微信授权绑定模式
+        if (bindToken) {
+            // 显示微信用户信息
+            var wxNickname = localStorage.getItem('hd_wx_nickname');
+            var wxAvatar = localStorage.getItem('hd_wx_avatar');
+            if (wxAvatar || wxNickname) {
+                document.getElementById('wxUserInfo').style.display = 'block';
+                if (wxAvatar) document.getElementById('wxAvatar').src = wxAvatar;
+                if (wxNickname) document.getElementById('wxNickname').textContent = wxNickname;
+            }
+            return;
+        }
+
+        // 3. 无 bind_token → 降级为普通注册模式
+        isDirectRegister = true;
+        document.getElementById('pageTitle').textContent = '商家注册';
+        document.getElementById('pageSubtitle').textContent = '注册即享7天免费试用';
+        document.getElementById('btnSubmit').textContent = '免费注册';
+    })();
+
+    // ============================================================
+    // 通用函数
+    // ============================================================
+    function showMsg(text, type) {
+        var tip = document.getElementById('msgTip');
+        tip.textContent = text;
+        tip.className = 'msg-tip ' + type;
+    }
+
+    function checkPwStrength(pw) {
+        var el = document.getElementById('pwStrength');
+        el.className = 'pw-strength';
+        if (pw.length < 6) return;
+        var strength = 0;
+        if (pw.length >= 8) strength++;
+        if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) strength++;
+        if (/\d/.test(pw) && /[^a-zA-Z0-9]/.test(pw)) strength++;
+        if (strength <= 0) el.classList.add('weak');
+        else if (strength === 1) el.classList.add('medium');
+        else el.classList.add('strong');
+    }
+
+    function saveLoginData(data) {
+        if (data.token) localStorage.setItem('hd_token', data.token);
+        if (data.bid) localStorage.setItem('hd_bid', data.bid);
+        if (data.user_id) localStorage.setItem('hd_user_id', data.user_id);
+        if (data.name) localStorage.setItem('hd_name', data.name);
+    }
+
+    function clearBindData() {
+        localStorage.removeItem('hd_bind_token');
+        localStorage.removeItem('hd_wx_nickname');
+        localStorage.removeItem('hd_wx_avatar');
+    }
+
+    // ============================================================
+    // 表单提交
+    // ============================================================
+    function handleBind(e) {
+        e.preventDefault();
+        var name = document.getElementById('name').value.trim();
+        var contactName = document.getElementById('contactName').value.trim();
+        var phone = document.getElementById('phone').value.trim();
+        var password = document.getElementById('password').value;
+        var password2 = document.getElementById('password2').value;
+        var agree = document.getElementById('agree').checked;
+
+        // 前端校验
+        if (!name) { showMsg('请填写商家名称', 'error'); return false; }
+        if (!phone || !/^1[3-9]\d{9}$/.test(phone)) { showMsg('手机号格式不正确', 'error'); return false; }
+        if (!password || password.length < 6) { showMsg('密码至少6位', 'error'); return false; }
+        if (password !== password2) { showMsg('两次密码不一致', 'error'); return false; }
+        if (!agree) { showMsg('请同意服务协议', 'error'); return false; }
+
+        var btn = document.getElementById('btnSubmit');
+        btn.disabled = true;
+        btn.textContent = '提交中...';
+
+        var apiUrl, postBody;
+
+        if (bindToken && !isDirectRegister) {
+            // 微信绑定模式
+            apiUrl = '/api/hd/auth/wx-bind';
+            postBody = {
+                bind_token: bindToken,
+                name: name,
+                contact_name: contactName || name,
+                phone: phone,
+                password: password
+            };
+        } else {
+            // 普通注册模式
+            apiUrl = '/api/hd/auth/register';
+            postBody = {
+                name: name,
+                contact_name: contactName || name,
+                phone: phone,
+                password: password
+            };
+        }
+
+        fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(postBody)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.code === 0) {
+                showMsg('注册成功！正在跳转...', 'success');
+                if (res.data) saveLoginData(res.data);
+                clearBindData();
+                setTimeout(function() { window.location.href = '/admin'; }, 1500);
+            } else {
+                showMsg(res.msg || '注册失败', 'error');
+                btn.disabled = false;
+                btn.textContent = bindToken ? '提交绑定' : '免费注册';
+                // bind_token 过期处理
+                if (res.msg && res.msg.indexOf('过期') !== -1) {
+                    clearBindData();
+                    setTimeout(function() { window.location.href = '/login'; }, 2000);
+                }
+            }
+        })
+        .catch(function() {
+            showMsg('网络错误，请重试', 'error');
+            btn.disabled = false;
+            btn.textContent = bindToken ? '提交绑定' : '免费注册';
+        });
+
+        return false;
+    }
+    </script>
+</body>
+</html>

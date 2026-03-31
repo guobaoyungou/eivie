@@ -18,7 +18,7 @@
     <view class="price-row">
       <view class="price-info">
         <text class="price-label">价格：</text>
-        <text class="price score-price" wx:if="{{detail.score_pay_enabled}}">{{detail.price_in_score}} 积分</text>
+        <text class="price score-price" wx:if="{{detail.score_pay_enabled}}">{{detail.price_in_score}} {{detail.score_unit_name || '词元'}}</text>
         <text class="price" wx:else>¥{{detail.price}}</text>
         <text class="price-unit">{{detail.price_unit_text}}</text>
       </view>
@@ -32,13 +32,37 @@
         <text class="level-price">¥{{item.price}}</text>
       </view>
     </view>
+
+    <!-- 门店信息区块 -->
+    <view class="store-info-block" wx:if="{{detail.show_store_info == 1 && detail.store_info}}">
+      <view class="store-info-row">
+        <image wx:if="{{detail.store_info.logo}}" src="{{detail.store_info.logo}}" class="store-logo" mode="aspectFill"></image>
+        <view class="store-detail">
+          <text class="store-name">{{detail.store_info.name}}</text>
+          <text class="store-address" wx:if="{{detail.store_info.address}}">{{detail.store_info.address}}</text>
+        </view>
+        <view class="store-phone" wx:if="{{detail.store_info.tel}}" bindtap="callStore">
+          <text class="iconfont icon-dianhua"></text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 佣金展示区块 -->
+    <view class="commission-block" wx:if="{{detail.show_commission == 1 && detail.commission_in_score > 0}}">
+      <text class="commission-text">预估佣金：{{detail.commission_in_score}} {{detail.score_unit_name || '词元'}}</text>
+    </view>
+
+    <!-- 升级优惠区块 -->
+    <view class="upgrade-block" wx:if="{{detail.show_upgrade_discount == 1 && detail.upgrade_info}}">
+      <text class="upgrade-text">升级到{{detail.upgrade_info.next_level_name}}，每次可节省 {{detail.upgrade_info.save_in_score || detail.upgrade_info.save_amount}} {{detail.score_unit_name || '词元'}}</text>
+    </view>
   </view>
 
   <!-- 底部操作栏 -->
   <view class="bottom-bar">
     <view class="price-display">
       <text class="total-label">合计：</text>
-      <text class="total-price score-price" wx:if="{{detail.score_pay_enabled}}">{{detail.price_in_score}} 积分</text>
+      <text class="total-price score-price" wx:if="{{detail.score_pay_enabled}}">{{detail.price_in_score}} {{detail.score_unit_name || '词元'}}</text>
       <text class="total-price" wx:else>¥{{detail.price}}</text>
     </view>
     <view class="btn-primary" bindtap="goCreate">立即使用</view>

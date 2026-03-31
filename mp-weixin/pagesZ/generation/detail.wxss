@@ -32,3 +32,21 @@
 
 /* 积分价格 */
 .score-price { color: #FF6B00; }
+
+/* 门店信息 */
+.store-info-block { margin-top: 20rpx; padding-top: 20rpx; border-top: 1px dashed #eee; }
+.store-info-row { display: flex; align-items: center; }
+.store-logo { width: 80rpx; height: 80rpx; border-radius: 12rpx; flex-shrink: 0; background: #f5f5f5; }
+.store-detail { flex: 1; margin-left: 16rpx; }
+.store-name { font-size: 28rpx; color: #333; font-weight: bold; display: block; }
+.store-address { font-size: 24rpx; color: #999; display: block; margin-top: 6rpx; }
+.store-phone { width: 64rpx; height: 64rpx; border-radius: 50%; background: linear-gradient(135deg, #FF6B00, #FF9500); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.store-phone .iconfont { color: #fff; font-size: 32rpx; }
+
+/* 佣金展示 */
+.commission-block { margin-top: 20rpx; padding: 16rpx 20rpx; background: linear-gradient(135deg, #FFF8E1, #FFF3CD); border-radius: 12rpx; }
+.commission-text { font-size: 26rpx; color: #F59E0B; font-weight: bold; }
+
+/* 升级优惠 */
+.upgrade-block { margin-top: 16rpx; padding: 16rpx 20rpx; background: linear-gradient(135deg, #EDE7F6, #E8DEF8); border-radius: 12rpx; }
+.upgrade-text { font-size: 26rpx; color: #7C3AED; }

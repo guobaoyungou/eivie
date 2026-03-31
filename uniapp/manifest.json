@@ -1,6 +1,6 @@
 {
-    "name" : "点大商城",
-    "appid" : "__UNI__9080613",
+    "name" : "果宝AI电商系统",
+    "appid" : "__UNI__8A2A980",
     "description" : "",
     "versionName" : "2.6.9",
     "versionCode" : 2690,
@@ -146,6 +146,9 @@
             "splashscreen" : {
                 "useOriginalMsgbox" : true
             }
+        },
+        "uniStatistics" : {
+            "enable" : true
         }
     },
     "quickapp" : {},
@@ -176,31 +179,46 @@
         "plugins" : {},
         "__usePrivacyCheck__" : true,
         "libVersion" : "latest",
-        "requiredPrivateInfos" : [ "chooseAddress", "getLocation", "chooseLocation" ]
+        "requiredPrivateInfos" : [ "chooseAddress", "getLocation", "chooseLocation" ],
+        "uniStatistics" : {
+            "enable" : true
+        }
     },
     "mp-alipay" : {
         "usingComponents" : true,
-        "appid" : "2021002142648644"
+        "appid" : "2021002142648644",
+        "uniStatistics" : {
+            "enable" : true
+        }
     },
     "mp-baidu" : {
         "usingComponents" : true,
-        "appid" : "23935205"
+        "appid" : "23935205",
+        "uniStatistics" : {
+            "enable" : true
+        }
     },
     "mp-toutiao" : {
         "usingComponents" : true,
-        "appid" : "tt816bf7d61e533eac01"
+        "appid" : "tt816bf7d61e533eac01",
+        "uniStatistics" : {
+            "enable" : true
+        }
     },
     "h5" : {
         "router" : {
-            "base" : "./"
+            "base" : "/h5/"
         },
-        "title" : "点大商城",
+        "title" : "果宝AI电商系统",
         "sdkConfigs" : {
             "maps" : {
                 "qqmap" : {
                     "key" : "ABLBZ-4BIKU-GFTVB-BK7IK-OLQ35-QCBFF"
                 }
             }
+        },
+        "uniStatistics" : {
+            "enable" : false
         }
     },
     "mp-qq" : {
@@ -208,8 +226,55 @@
         "setting" : {
             "es6" : true,
             "minified" : true
+        },
+        "uniStatistics" : {
+            "enable" : false
         }
     },
     "_spaceID" : "de1419c6-c6c9-4817-a01a-f508977ee3df",
-    "vueVersion" : "2"
+    "vueVersion" : "2",
+    "uniStatistics" : {
+        "version" : "2",
+        "enable" : false
+    },
+    "app-harmony" : {
+        "uniStatistics" : {
+            "enable" : false
+        }
+    },
+    "mp-harmony" : {
+        "uniStatistics" : {
+            "enable" : false
+        }
+    },
+    "mp-jd" : {
+        "uniStatistics" : {
+            "enable" : false
+        }
+    },
+    "mp-kuaishou" : {
+        "uniStatistics" : {
+            "enable" : false
+        }
+    },
+    "mp-lark" : {
+        "uniStatistics" : {
+            "enable" : false
+        }
+    },
+    "mp-xhs" : {
+        "uniStatistics" : {
+            "enable" : false
+        }
+    },
+    "quickapp-webview-huawei" : {
+        "uniStatistics" : {
+            "enable" : false
+        }
+    },
+    "quickapp-webview-union" : {
+        "uniStatistics" : {
+            "enable" : false
+        }
+    }
 }

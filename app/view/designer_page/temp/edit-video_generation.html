@@ -14,6 +14,30 @@
 			<input class="radio" type="radio" name="{{Edit.id}}_style" value="list" ng-model="Edit.params.style" ng-change="changeImg(Edit.id, Edit.params.style)" title="横排"/>
 			<input class="radio" type="radio" name="{{Edit.id}}_style" value="line" ng-model="Edit.params.style" ng-change="changeImg(Edit.id, Edit.params.style)" title="左右滑动"/>
 			<input class="radio" type="radio" name="{{Edit.id}}_style" value="waterfall" ng-model="Edit.params.style" ng-change="changeImg(Edit.id, Edit.params.style)" title="瀑布流"/>
+			<input class="radio" type="radio" name="{{Edit.id}}_style" value="fresh" ng-model="Edit.params.style" ng-change="changeImg(Edit.id, Edit.params.style)" title="创意瀑布流"/>
+		</div>
+	</div>
+	<!-- fresh 样式专属配置项 -->
+	<div class="layui-form-item" ng-show="Edit.params.style=='fresh'">
+		<div class="layui-form-label">配色主题</div>
+		<div class="layui-input-inline" style="width:500px">
+			<input class="radio" type="radio" name="{{Edit.id}}_theme" value="fresh" ng-model="Edit.params.theme" title="治愈清新"/>
+			<input class="radio" type="radio" name="{{Edit.id}}_theme" value="cream" ng-model="Edit.params.theme" title="奶油温柔"/>
+			<input class="radio" type="radio" name="{{Edit.id}}_theme" value="macaron" ng-model="Edit.params.theme" title="低饱和马卡龙"/>
+		</div>
+	</div>
+	<div class="layui-form-item" ng-show="Edit.params.style=='fresh'">
+		<div class="layui-form-label">搜索栏</div>
+		<div class="layui-input-inline" style="width:500px">
+			<input class="radio" type="radio" name="{{Edit.id}}_showSearch" value="1" ng-model="Edit.params.showSearch" title="显示"/>
+			<input class="radio" type="radio" name="{{Edit.id}}_showSearch" value="0" ng-model="Edit.params.showSearch" title="隐藏"/>
+		</div>
+	</div>
+	<div class="layui-form-item" ng-show="Edit.params.style=='fresh'">
+		<div class="layui-form-label">筛选标签</div>
+		<div class="layui-input-inline" style="width:500px">
+			<input class="radio" type="radio" name="{{Edit.id}}_showFilter" value="1" ng-model="Edit.params.showFilter" title="显示"/>
+			<input class="radio" type="radio" name="{{Edit.id}}_showFilter" value="0" ng-model="Edit.params.showFilter" title="隐藏"/>
 		</div>
 	</div>
 	<div class="layui-form-item">

@@ -46,5 +46,12 @@ Page({
     wx.navigateTo({
       url: '/pagesZ/generation/create?id=' + detail.id + '&type=' + (that.data.opt.type || detail.generation_type || 1)
     });
+  },
+
+  callStore: function() {
+    var detail = this.data.detail;
+    if (detail && detail.store_info && detail.store_info.tel) {
+      wx.makePhoneCall({ phoneNumber: detail.store_info.tel });
+    }
   }
 });

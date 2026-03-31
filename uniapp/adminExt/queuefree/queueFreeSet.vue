@@ -160,7 +160,6 @@
 
 <script>
 var app = getApp();
-import uniDatetimePicker from '@/pagesB/admin/uni-datetime-picker/uni-datetime-picker.vue'
 export default {
   data() {
     return {

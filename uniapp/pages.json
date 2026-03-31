@@ -221,6 +221,7 @@
 				{"path": "money/rechargeToMember","custom_file":"money_transfer","style": {"enablePullDownRefresh": true}},
 
 				{"path": "order/orderlist","style": {"navigationBarTitleText": "订单列表","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
+				{"path": "order/unifiedOrderlist","style": {"navigationBarTitleText": "我的订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 				{"path": "order/refundlist","style": {"navigationBarTitleText": "售后订单","enablePullDownRefresh": true,"app-plus":{"titleNView":{"searchInput":{"placeholder":"输入关键字搜索","borderRadius":"15px"},"buttons":[{"type":"home"}]}}}},
 
 				{"path": "order/refundDetail","style": {"navigationBarTitleText": "售后详情","enablePullDownRefresh": true}},
@@ -374,7 +375,10 @@
 				{"path": "shop/classify","style": {"navigationBarTitleText": "分类商品","enablePullDownRefresh": false}},
 				{"path": "shop/fastbuy","style": {"navigationBarTitleText": "快速购买","enablePullDownRefresh": false}},
 				{"path": "shop/fastbuy2","style": {"navigationBarTitleText": "","enablePullDownRefresh": false}},
-				{"path": "shop/mendian","style": {"navigationBarTitleText": "门店","enablePullDownRefresh": false}}
+				{"path": "shop/mendian","style": {"navigationBarTitleText": "门店","enablePullDownRefresh": false}},
+
+				{"path": "ailvpai/detail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
+				{"path": "ailvpai/download","style": {"navigationBarTitleText": "成片下载","enablePullDownRefresh": false}}
 			]
 		},
 		{
@@ -400,6 +404,17 @@
 				{"path": "generation/create","style": {"navigationBarTitleText": "创建生成任务","enablePullDownRefresh": false}},
 				{"path": "generation/result","style": {"navigationBarTitleText": "生成结果","enablePullDownRefresh": false}}
 				//此包不可新增文件
+			]
+		},
+		{
+			"root": "ailvpai",
+			"pages": [
+				{"path": "create","style": {"navigationBarTitleText": "创建生成任务","enablePullDownRefresh": false}},
+				{"path": "result","style": {"navigationBarTitleText": "生成结果","enablePullDownRefresh": false}},
+				{"path": "detail","style": {"navigationBarTitleText": "模板详情","enablePullDownRefresh": true}},
+				{"path": "orderlist","style": {"navigationBarTitleText": "生成订单","enablePullDownRefresh": true}},
+				{"path": "orderdetail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
+				{"path": "refundApply","style": {"navigationBarTitleText": "申请退款","enablePullDownRefresh": false}}
 			]
 		},
 		{

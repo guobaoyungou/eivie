@@ -1,0 +1,4 @@
+
+> diandashop-uniapp@2.6.9 build:h5
+> vue-cli-service build
+

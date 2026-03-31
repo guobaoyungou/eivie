@@ -418,10 +418,10 @@ class ApiWechat extends BaseController
 		if($postObj->EventKey && ($postObj->Event == 'subscribe' || $postObj->Event == 'SCAN')){
 			if($postObj->EventKey){
 				if($postObj->Event == 'SCAN'){
-					$eventKey = $postObj->EventKey;
+					$eventKey = strval($postObj->EventKey);
 				}
 				if($postObj->Event == 'subscribe'){
-					$eventKey = str_replace('qrscene_','',$postObj->EventKey);
+					$eventKey = str_replace('qrscene_','',strval($postObj->EventKey));
 				}
 				// PC端扫码登录场景值处理
 				if(strpos($eventKey, 'pclogin_') === 0){
@@ -473,6 +473,11 @@ class ApiWechat extends BaseController
 							], 300);
 						}
 					}
+					die('success');
+				}
+				// HD大屏互动扫码登录场景值处理
+				if(strpos($eventKey, 'hdlogin_') === 0){
+					\app\service\hd\HdWxAuthService::handleScanLogin($eventKey, $openid);
 					die('success');
 				}
 				// AI旅拍选片公众号二维码处理

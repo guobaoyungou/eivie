@@ -1,0 +1,320 @@
+/**
+ * 艺为微信大屏互动 - 大屏端 + 手机端 完整样式
+ * CSS 变量主题系统支持
+ */
+:root {
+    --hd-primary: #6366f1;
+    --hd-secondary: #8b5cf6;
+    --hd-accent: #f59e0b;
+    --hd-bg: #0a0a1a;
+    --hd-primary-rgb: 99,102,241;
+    --hd-secondary-rgb: 139,92,246;
+    --hd-accent-rgb: 245,158,11;
+    --hd-font: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--hd-font); background: var(--hd-bg); color: #fff; }
+
+/* ============================================================
+   基础布局
+   ============================================================ */
+.screen-view { width: 100vw; height: 100vh; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+.mobile-view { width: 100vw; min-height: 100vh; overflow-y: auto; }
+
+/* 大屏 Header */
+.screen-header { text-align: center; padding: 28px 20px 12px; flex-shrink: 0; }
+.screen-header h1 { font-size: 44px; font-weight: 800; background: linear-gradient(135deg, rgba(var(--hd-primary-rgb),1), rgba(var(--hd-secondary-rgb),1)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.screen-header .status { font-size: 15px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+
+/* 功能菜单栏 */
+.feature-bar { display: flex; justify-content: center; gap: 10px; padding: 10px 20px; flex-wrap: wrap; flex-shrink: 0; }
+.feature-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 10px 18px; background: rgba(255,255,255,0.06); border-radius: 10px;
+    cursor: pointer; transition: all 0.3s; border: 2px solid transparent; min-width: 80px;
+}
+.feature-btn:hover, .feature-btn.active { background: rgba(var(--hd-primary-rgb),0.25); border-color: var(--hd-primary); transform: translateY(-2px); }
+.f-icon { font-size: 24px; }
+.f-name { font-size: 12px; color: rgba(255,255,255,0.7); white-space: nowrap; }
+
+/* 内容区 */
+.content-area { flex: 1; display: flex; align-items: stretch; justify-content: center; padding: 10px 24px; overflow: hidden; position: relative; }
+.content-panel { width: 100%; max-width: 1200px; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+/* 二维码区 */
+.qrcode-area { position: absolute; bottom: 20px; right: 24px; text-align: center; z-index: 100; }
+.qrcode-area .qr-box { background: #fff; padding: 6px; border-radius: 8px; display: inline-block; }
+.qrcode-area .label { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 6px; }
+
+/* ============================================================
+   签到 (sign)
+   ============================================================ */
+.sign-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 10px; max-height: 100%; overflow-y: auto; width: 100%; }
+.sign-avatar { width: 56px; height: 56px; border-radius: 50%; border: 3px solid var(--hd-primary); animation: fadeInScale 0.5s ease; }
+.sign-total { width: 100%; text-align: center; color: rgba(255,255,255,0.4); font-size: 14px; margin-top: 10px; }
+@keyframes fadeInScale { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+
+/* ============================================================
+   抽奖 (lottery) - 大屏
+   ============================================================ */
+.lottery-panel { width: 100%; text-align: center; }
+.lottery-round-selector { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.round-btn {
+    padding: 8px 20px; background: rgba(255,255,255,0.08); border: 2px solid transparent;
+    border-radius: 8px; color: #fff; cursor: pointer; font-size: 14px; transition: all 0.3s;
+}
+.round-btn.active, .round-btn:hover { border-color: var(--hd-accent); background: rgba(var(--hd-accent-rgb),0.15); }
+.round-btn.done { opacity: 0.5; color: #9ca3af; }
+.lottery-stage { min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.lottery-prize-name { font-size: 28px; font-weight: 700; color: var(--hd-accent); margin-bottom: 16px; }
+.lottery-draw-btn {
+    padding: 16px 48px; font-size: 22px; font-weight: 700; color: #fff;
+    background: linear-gradient(135deg, var(--hd-accent), #ef4444); border: none; border-radius: 16px;
+    cursor: pointer; animation: pulse 2s infinite; transition: transform 0.2s;
+}
+.lottery-draw-btn:hover { transform: scale(1.05); }
+.lottery-draw-btn:disabled { opacity: 0.5; animation: none; cursor: not-allowed; }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(var(--hd-accent-rgb),0.4); } 50% { box-shadow: 0 0 0 20px rgba(var(--hd-accent-rgb),0); } }
+
+/* 抽奖动画 - 滚动头像 */
+.lottery-rolling { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin: 20px 0; }
+.lottery-rolling .roll-slot {
+    width: 80px; height: 80px; border-radius: 50%; border: 3px solid #f59e0b; overflow: hidden;
+    background: rgba(255,255,255,0.1);
+}
+.lottery-rolling .roll-slot img { width: 100%; height: 100%; object-fit: cover; }
+.lottery-winners { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 20px; }
+.winner-card {
+    display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px;
+    background: rgba(var(--hd-accent-rgb),0.1); border: 2px solid var(--hd-accent); border-radius: 12px;
+    animation: winnerPop 0.5s ease;
+}
+.winner-card img { width: 64px; height: 64px; border-radius: 50%; }
+.winner-card .name { font-size: 14px; color: #fbbf24; }
+@keyframes winnerPop { from { opacity: 0; transform: scale(0.3) rotate(-10deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+
+/* ============================================================
+   投票 (vote) - 大屏柱状图
+   ============================================================ */
+.vote-panel { width: 100%; }
+.vote-chart { display: flex; align-items: flex-end; justify-content: center; gap: 24px; height: 350px; padding: 20px 40px 0; }
+.vote-bar-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 120px; height: 100%; justify-content: flex-end; }
+.vote-bar {
+    width: 60px; background: linear-gradient(to top, var(--hd-primary), var(--hd-secondary)); border-radius: 8px 8px 0 0;
+    transition: height 1s ease; min-height: 4px; position: relative;
+}
+.vote-bar .bar-count { position: absolute; top: -28px; left: 50%; transform: translateX(-50%); font-size: 18px; font-weight: 700; color: #a5b4fc; white-space: nowrap; }
+.vote-bar-label { font-size: 13px; color: rgba(255,255,255,0.7); margin-top: 8px; text-align: center; word-break: break-all; max-width: 100px; }
+.vote-bar-img { width: 48px; height: 48px; border-radius: 6px; margin-top: 6px; object-fit: cover; }
+.vote-total-info { text-align: center; color: rgba(255,255,255,0.5); font-size: 14px; margin-top: 16px; }
+
+/* ============================================================
+   弹幕 (danmu) - 飘屏
+   ============================================================ */
+.danmu-stage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: 50; }
+.danmu-item {
+    position: absolute; white-space: nowrap; font-size: 24px; font-weight: 600;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.5); animation: danmuFly linear forwards; pointer-events: none;
+}
+@keyframes danmuFly { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }
+
+/* ============================================================
+   摇一摇排行 (shake)
+   ============================================================ */
+.shake-panel { width: 100%; text-align: center; }
+.shake-status-text { font-size: 20px; color: rgba(255,255,255,0.6); margin-bottom: 16px; }
+.shake-ranking { width: 100%; max-width: 600px; margin: 0 auto; }
+.rank-row {
+    display: flex; align-items: center; gap: 12px; padding: 10px 16px; margin-bottom: 6px;
+    background: rgba(255,255,255,0.06); border-radius: 8px; transition: all 0.5s;
+}
+.rank-row:first-child { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); }
+.rank-num { width: 32px; font-size: 20px; font-weight: 800; color: #f59e0b; text-align: center; }
+.rank-row:nth-child(n+4) .rank-num { color: rgba(255,255,255,0.4); }
+.rank-avatar { width: 40px; height: 40px; border-radius: 50%; }
+.rank-name { flex: 1; font-size: 15px; color: #e5e7eb; }
+.rank-score { font-size: 18px; font-weight: 700; color: #a5b4fc; }
+
+/* ============================================================
+   红包 (redpacket) - 大屏红包雨
+   ============================================================ */
+.redpacket-panel { width: 100%; text-align: center; }
+.redpacket-rain { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: 40; }
+.redpacket-rain .rp-item {
+    position: absolute; font-size: 40px; animation: rpFall linear forwards; top: -50px;
+}
+@keyframes rpFall { to { top: 110vh; } }
+.redpacket-info { font-size: 18px; color: rgba(255,255,255,0.5); }
+.redpacket-amount { font-size: 48px; font-weight: 800; color: #ef4444; margin: 20px 0; }
+
+/* ============================================================
+   上墙消息 (wall) - 大屏
+   ============================================================ */
+.wall-messages { max-height: 100%; overflow-y: auto; padding: 10px; width: 100%; }
+.wall-msg { display: flex; gap: 12px; margin-bottom: 10px; background: rgba(255,255,255,0.06); padding: 12px; border-radius: 10px; animation: slideInRight 0.4s ease; }
+.wall-msg img { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; }
+.wall-msg .msg-body { flex: 1; }
+.wall-msg .msg-body .nickname { font-size: 13px; color: #a5b4fc; margin-bottom: 2px; }
+.wall-msg .msg-body .text { font-size: 15px; color: #e5e7eb; }
+.wall-msg .msg-body .msg-img { max-width: 200px; max-height: 150px; margin-top: 6px; border-radius: 6px; }
+.wall-msg.topped { border-left: 3px solid #f59e0b; background: rgba(245,158,11,0.08); }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+
+/* ============================================================
+   开幕墙 / 闭幕墙 (kaimu / bimu)
+   ============================================================ */
+.ceremony-panel {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center; flex-direction: column;
+    background-size: cover; background-position: center; z-index: 200;
+}
+.ceremony-panel .ceremony-title { font-size: 56px; font-weight: 900; color: #fff; text-shadow: 2px 4px 12px rgba(0,0,0,0.5); text-align: center; animation: ceremonyFadeIn 2s ease; }
+.ceremony-panel .ceremony-subtitle { font-size: 24px; color: rgba(255,255,255,0.8); margin-top: 16px; text-shadow: 1px 2px 6px rgba(0,0,0,0.4); animation: ceremonyFadeIn 2s ease 0.5s both; }
+.ceremony-close-btn { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.4); border: none; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 201; }
+@keyframes ceremonyFadeIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ============================================================
+   相册PPT (album)
+   ============================================================ */
+.album-panel { width: 100%; height: 100%; position: relative; }
+.album-slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 1s ease; }
+.album-slide.active { opacity: 1; }
+.album-slide img { max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+.album-controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; z-index: 10; }
+.album-controls button {
+    padding: 8px 20px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2);
+    color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; transition: background 0.3s;
+}
+.album-controls button:hover { background: rgba(99,102,241,0.3); }
+.album-indicator { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 10; }
+.album-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); transition: all 0.3s; }
+.album-dot.active { background: var(--hd-primary); width: 24px; border-radius: 4px; }
+
+/* ============================================================
+   手机端样式
+   ============================================================ */
+.mobile-view .m-header { text-align: center; padding: 36px 20px 20px; background: linear-gradient(135deg, #302b63, #24243e); }
+.mobile-view .m-header h1 { font-size: 22px; font-weight: 700; }
+.mobile-view .m-header .status { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+.mobile-view .m-body { padding: 16px; }
+
+/* 手机功能列表 */
+.mobile-view .m-feature-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.mobile-view .feature-btn { padding: 14px 8px; }
+.mobile-view .f-icon { font-size: 28px; }
+.mobile-view .f-name { font-size: 11px; }
+
+/* 手机签到按钮 */
+.m-sign-btn {
+    display: block; width: 100%; padding: 14px; background: linear-gradient(135deg, var(--hd-primary), var(--hd-secondary));
+    color: #fff; border: none; border-radius: 12px; font-size: 17px; font-weight: 700;
+    cursor: pointer; margin-bottom: 16px;
+}
+
+/* 手机互动区 */
+#mobileContent { margin-top: 16px; }
+
+/* 手机发消息面板 */
+.m-send-panel { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 16px; margin-top: 12px; }
+.m-send-panel textarea {
+    width: 100%; height: 80px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; color: #fff; padding: 10px; font-size: 14px; resize: none;
+}
+.m-send-panel textarea::placeholder { color: rgba(255,255,255,0.3); }
+.m-send-btn {
+    display: block; width: 100%; margin-top: 10px; padding: 12px; font-size: 15px; font-weight: 600;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; border: none; border-radius: 8px; cursor: pointer;
+}
+.m-send-btn:disabled { opacity: 0.5; }
+
+/* 手机投票选项 */
+.m-vote-list { list-style: none; }
+.m-vote-item {
+    display: flex; align-items: center; gap: 12px; padding: 14px; margin-bottom: 8px;
+    background: rgba(255,255,255,0.06); border-radius: 10px; cursor: pointer; transition: all 0.3s;
+    border: 2px solid transparent;
+}
+.m-vote-item:active, .m-vote-item.selected { border-color: var(--hd-primary); background: rgba(var(--hd-primary-rgb),0.15); }
+.m-vote-item img { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; }
+.m-vote-item .vi-title { flex: 1; font-size: 15px; }
+.m-vote-item .vi-count { font-size: 14px; color: #a5b4fc; font-weight: 600; }
+.m-vote-submit {
+    display: block; width: 100%; padding: 14px; font-size: 16px; font-weight: 700;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; border: none;
+    border-radius: 10px; cursor: pointer; margin-top: 12px;
+}
+.m-vote-submit:disabled { opacity: 0.5; }
+
+/* 手机摇一摇 */
+.m-shake-area { text-align: center; padding: 30px 20px; }
+.m-shake-icon { font-size: 80px; animation: shakeAnim 0.5s infinite alternate; display: inline-block; }
+@keyframes shakeAnim { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
+.m-shake-score { font-size: 48px; font-weight: 900; color: #f59e0b; margin: 16px 0; }
+.m-shake-hint { font-size: 14px; color: rgba(255,255,255,0.4); }
+
+/* 手机红包 */
+.m-redpacket-area { text-align: center; padding: 30px; }
+.m-rp-icon { font-size: 80px; margin-bottom: 16px; }
+.m-rp-btn {
+    display: inline-block; padding: 16px 48px; font-size: 20px; font-weight: 700;
+    background: linear-gradient(135deg, #ef4444, #f59e0b); color: #fff; border: none;
+    border-radius: 16px; cursor: pointer; animation: pulse 2s infinite;
+}
+.m-rp-btn:disabled { opacity: 0.5; animation: none; }
+.m-rp-result { font-size: 24px; font-weight: 700; color: #ef4444; margin-top: 20px; }
+
+/* 手机弹幕 */
+.m-danmu-input { display: flex; gap: 8px; margin-top: 12px; }
+.m-danmu-input input {
+    flex: 1; padding: 10px 14px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; color: #fff; font-size: 14px;
+}
+.m-danmu-input input::placeholder { color: rgba(255,255,255,0.3); }
+.m-danmu-send {
+    padding: 10px 20px; background: #6366f1; color: #fff; border: none; border-radius: 8px;
+    font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+
+/* 已结束覆盖 */
+.ended-overlay { display: flex; align-items: center; justify-content: center; width: 100%; height: 80vh; }
+.ended-overlay h2 { font-size: 36px; color: rgba(255,255,255,0.3); }
+
+/* 提示 toast */
+.hd-toast {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;
+    background: rgba(0,0,0,0.8); color: #fff; padding: 14px 28px; border-radius: 10px;
+    font-size: 15px; animation: toastAnim 2s ease forwards; pointer-events: none;
+}
+@keyframes toastAnim { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.8); } 10% { opacity: 1; transform: translate(-50%,-50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+/* 全局滚动条 */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+/* ============================================================
+   动画风格预设
+   ============================================================ */
+/* 粒子效果 */
+.anim-particle .particle { position: fixed; background: rgba(var(--hd-primary-rgb),0.3); border-radius: 50%; pointer-events: none; animation: particleFloat linear infinite; }
+@keyframes particleFloat { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(-10vh) scale(1); opacity: 0; } }
+
+/* 星空效果 */
+.anim-starfield .star { position: fixed; width: 2px; height: 2px; background: #fff; border-radius: 50%; pointer-events: none; animation: starTwinkle ease-in-out infinite; }
+@keyframes starTwinkle { 0%,100% { opacity: 0.2; } 50% { opacity: 1; } }
+
+/* 波浪效果 */
+.anim-wave::after { content: ''; position: fixed; bottom: 0; left: 0; width: 200%; height: 100px; background: linear-gradient(transparent, rgba(var(--hd-primary-rgb),0.08)); border-radius: 50% 50% 0 0; animation: waveMove 6s ease-in-out infinite; pointer-events: none; z-index: -1; }
+@keyframes waveMove { 0%,100% { transform: translateX(0); } 50% { transform: translateX(-25%); } }
+
+/* 极光效果 */
+.anim-aurora::before { content: ''; position: fixed; top: 0; left: -50%; width: 200%; height: 100%; background: linear-gradient(135deg, rgba(var(--hd-primary-rgb),0.05), rgba(var(--hd-secondary-rgb),0.08), rgba(var(--hd-accent-rgb),0.05)); animation: auroraShift 10s ease-in-out infinite; pointer-events: none; z-index: -1; }
+@keyframes auroraShift { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(5deg) translateX(5%); } }
+
+/* 飘雪效果 */
+.anim-snow .snowflake { position: fixed; color: #fff; font-size: 14px; pointer-events: none; animation: snowFall linear infinite; opacity: 0.6; }
+@keyframes snowFall { to { transform: translateY(100vh) rotate(360deg); } }
+
+/* 气泡效果 */
+.anim-bubble .bub { position: fixed; border: 1px solid rgba(var(--hd-primary-rgb),0.3); border-radius: 50%; pointer-events: none; animation: bubbleUp linear infinite; }
+@keyframes bubbleUp { 0% { transform: translateY(100vh) scale(0.5); opacity: 0; } 20% { opacity: 0.6; } 100% { transform: translateY(-10vh) scale(1.2); opacity: 0; } }

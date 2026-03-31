@@ -1,1 +1,13 @@
- 
+<IfModule mod_rewrite.c>
+  Options +FollowSymlinks -Multiviews
+  RewriteEngine On
+
+  # 允许直接访问 PHP 文件
+  RewriteCond %{REQUEST_FILENAME} \.php$
+  RewriteRule ^(.*)$ $1 [L]
+
+  # 其他请求通过 ThinkPHP 路由处理
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(.*)$ index.php/$1 [QSA,PT,L]
+</IfModule>

@@ -43,8 +43,15 @@ class ApiAivideo extends ApiCommon
 
         $this->aid = $aid;
 
-        // 获取游客ID
-        $this->mid = input('param.mid/d');
+        // 获取游客ID（如果请求中有mid参数，则使用请求参数的mid，否则使用session中的mid）
+        $requestMid = input('param.mid/d', 0);
+        if ($requestMid > 0) {
+            $this->mid = $requestMid;
+        }
+        // 如果没有传递mid且父类也没有设置mid，则设为0
+        if (!isset($this->mid)) {
+            $this->mid = 0;
+        }
     }
 
     /**
@@ -839,20 +846,21 @@ class ApiAivideo extends ApiCommon
      */
     public function scene_template_detail()
     {
-        $templateId = input('param.template_id/d', 0);
-        
-        if (!$templateId) {
-            return jsonEncode(['status' => 0, 'msg' => '缺少模板ID']);
-        }
-        
-        $template = Db::name('generation_scene_template')
-            ->where('id', $templateId)
-            ->where('status', 1)
-            ->find();
-        
-        if (!$template) {
-            return jsonEncode(['status' => 0, 'msg' => '模板不存在或已下架']);
-        }
+        try {
+            $templateId = input('param.template_id/d', 0);
+            
+            if (!$templateId) {
+                return jsonEncode(['status' => 0, 'msg' => '缺少模板ID']);
+            }
+            
+            $template = Db::name('generation_scene_template')
+                ->where('id', $templateId)
+                ->where('status', 1)
+                ->find();
+            
+            if (!$template) {
+                return jsonEncode(['status' => 0, 'msg' => '模板不存在或已下架']);
+            }
         
         // 获取用户会员等级
         $memberLevelId = 0;
@@ -986,6 +994,8 @@ class ApiAivideo extends ApiCommon
             'id_photo_type_name' => $this->getIdPhotoTypeName(intval($template['id_photo_type'] ?? 0), intval($template['is_id_photo'] ?? 0)),
             'all_prices' => $allPrices,
             'sample_images' => $sampleImages,
+            'original_image' => $refImage ?: $template['cover_image'],
+            'effect_images' => !empty($sampleImages) ? $sampleImages : [$template['cover_image']],
             'model_capability' => $modelCapability,
             'default_params' => $defaultParams
         ];
@@ -995,10 +1005,23 @@ class ApiAivideo extends ApiCommon
         $scorePayConfig = $creativeMemberService->getScorePayConfig($this->aid);
         $result['score_pay_enabled'] = $scorePayConfig['enabled'];
         $result['score_exchange_rate'] = $scorePayConfig['exchange_rate'];
+        $result['score_unit_name'] = $scorePayConfig['unit_name'];
         if ($scorePayConfig['enabled'] && floatval($priceInfo['price']) > 0) {
             $result['price_in_score'] = $creativeMemberService->moneyToScore(floatval($priceInfo['price']), $scorePayConfig['exchange_rate']);
         } else {
             $result['price_in_score'] = 0;
+        }
+        
+        // ===== 详情页扩展信息（门店/佣金/升级优惠） =====
+        $this->appendDetailPageExtras($result, $template, $priceInfo, $memberLevelId, $scorePayConfig, $creativeMemberService);
+        
+        // ===== 分享赚佣金信息 =====
+        $this->appendShareCommissionInfo($result, $template, $priceInfo, $memberLevelId, $scorePayConfig, $creativeMemberService);
+        
+        // ===== AI评分单位名称透传 =====
+        $adminSet = Db::name('admin_set')->where('aid', $this->aid)->field('ai_score_unit_name')->find();
+        if ($adminSet && !empty($adminSet['ai_score_unit_name'])) {
+            $result['ai_score_unit_name'] = $adminSet['ai_score_unit_name'];
         }
         
         return jsonEncode([
@@ -1006,6 +1029,14 @@ class ApiAivideo extends ApiCommon
             'msg' => '获取成功',
             'data' => $result
         ]);
+        } catch (\Exception $e) {
+            // 记录异常日志
+            \think\facade\Log::error('scene_template_detail异常: ' . $e->getMessage());
+            return jsonEncode([
+                'status' => 0,
+                'msg' => '获取模板详情失败，请稍后重试'
+            ]);
+        }
     }
 
     // =====================================================
@@ -1143,6 +1174,9 @@ class ApiAivideo extends ApiCommon
             }
             $order['record'] = $record;
         }
+
+        // ===== 详情页扩展信息（门店/佣金，订单页不展示升级优惠） =====
+        $this->appendOrderDetailExtras($order);
 
         return jsonEncode([
             'status' => 1,
@@ -1286,6 +1320,7 @@ class ApiAivideo extends ApiCommon
         $ratio = input('post.ratio', '');
         $quality = input('post.quality', '');
         $bid = input('post.bid/d', 0);
+        $pid = input('post.pid/d', 0);
 
         if (!$templateId) {
             return jsonEncode(['status' => 0, 'msg' => '请选择场景模板']);
@@ -1323,7 +1358,8 @@ class ApiAivideo extends ApiCommon
             'ref_images' => $refImages,
             'quantity' => $quantity,
             'ratio' => $ratio,
-            'quality' => $quality
+            'quality' => $quality,
+            'pid' => $pid
         ]);
 
         return jsonEncode($result);
@@ -1513,6 +1549,9 @@ class ApiAivideo extends ApiCommon
 
         $service = new \app\service\CreativeMemberService();
         $info = $service->getUserBalanceInfo($this->mid, $this->aid);
+        // 追加计量单位名称
+        $scorePayConfig = $service->getScorePayConfig($this->aid);
+        $info['score_unit_name'] = $scorePayConfig['unit_name'];
         return jsonEncode(['status' => 1, 'data' => $info]);
     }
 
@@ -1623,5 +1662,390 @@ class ApiAivideo extends ApiCommon
         } catch (\Exception $e) {
             return jsonEncode(['status' => 0, 'msg' => '配额检查失败']);
         }
+    }
+
+    // =====================================================
+    // 详情页扩展信息（门店/佣金/升级优惠）
+    // =====================================================
+
+    /**
+     * 为场景模板详情追加门店/佣金/升级优惠信息
+     */
+    private function appendDetailPageExtras(&$result, $template, $priceInfo, $memberLevelId, $scorePayConfig, $creativeMemberService)
+    {
+        // 获取商家开关配置
+        $bid = intval($template['bid'] ?? 0);
+        $business = null;
+        if ($bid > 0) {
+            $business = Db::name('business')->where('id', $bid)->field('id,ai_show_store_info,ai_show_commission,ai_show_upgrade_discount')->find();
+        }
+        if (!$business) {
+            $business = Db::name('business')->where('aid', $this->aid)->field('id,ai_show_store_info,ai_show_commission,ai_show_upgrade_discount')->find();
+            $bid = $business ? intval($business['id']) : 0;
+        }
+
+        $showStoreInfo = intval($business['ai_show_store_info'] ?? 0);
+        $showCommission = intval($business['ai_show_commission'] ?? 0);
+        $showUpgradeDiscount = intval($business['ai_show_upgrade_discount'] ?? 0);
+
+        $result['show_store_info'] = $showStoreInfo;
+        $result['store_info'] = null;
+        $result['show_commission'] = $showCommission;
+        $result['commission_amount'] = 0;
+        $result['commission_in_score'] = 0;
+        $result['show_upgrade_discount'] = $showUpgradeDiscount;
+        $result['upgrade_info'] = null;
+
+        // 门店信息
+        if ($showStoreInfo) {
+            $result['store_info'] = $this->getStoreInfo($bid, $template);
+        }
+
+        // 佣金信息
+        if ($showCommission && $this->mid > 0) {
+            $commissionData = $this->getCommissionInfo($priceInfo, $memberLevelId, $scorePayConfig, $creativeMemberService);
+            $result['commission_amount'] = $commissionData['amount'];
+            $result['commission_in_score'] = $commissionData['in_score'];
+        }
+
+        // 升级优惠信息
+        if ($showUpgradeDiscount && $this->mid > 0) {
+            $result['upgrade_info'] = $this->getUpgradeDiscountInfo($template, $memberLevelId, $scorePayConfig, $creativeMemberService);
+        }
+    }
+
+    /**
+     * 为订单详情追加门店/佣金信息（不包含升级优惠）
+     */
+    private function appendOrderDetailExtras(&$order)
+    {
+        $bid = intval($order['bid'] ?? 0);
+        $business = null;
+        if ($bid > 0) {
+            $business = Db::name('business')->where('id', $bid)->field('id,ai_show_store_info,ai_show_commission')->find();
+        }
+        if (!$business) {
+            $business = Db::name('business')->where('aid', $this->aid)->field('id,ai_show_store_info,ai_show_commission')->find();
+            $bid = $business ? intval($business['id']) : 0;
+        }
+
+        $showStoreInfo = intval($business['ai_show_store_info'] ?? 0);
+        $showCommission = intval($business['ai_show_commission'] ?? 0);
+
+        $order['show_store_info'] = $showStoreInfo;
+        $order['store_info'] = null;
+        $order['show_commission'] = $showCommission;
+        $order['commission_amount'] = 0;
+        $order['commission_in_score'] = 0;
+
+        if ($showStoreInfo) {
+            // 查询订单关联的场景模板（注意：generation_scene_template表中没有mdid字段）
+            $template = null;
+            if (!empty($order['scene_id'])) {
+                $template = Db::name('generation_scene_template')->where('id', $order['scene_id'])->field('id,bid')->find();
+            }
+            $order['store_info'] = $this->getStoreInfo($bid, $template);
+        }
+
+        if ($showCommission && $this->mid > 0) {
+            $creativeMemberService = new \app\service\CreativeMemberService();
+            $scorePayConfig = $creativeMemberService->getScorePayConfig($this->aid);
+
+            // 获取会员等级
+            $memberLevelId = 0;
+            $member = Db::name('member')->where('aid', $this->aid)->where('id', $this->mid)->field('id,levelid')->find();
+            if ($member) $memberLevelId = intval($member['levelid']);
+
+            $priceInfo = ['price' => floatval($order['total_price'] ?? 0)];
+            $commissionData = $this->getCommissionInfo($priceInfo, $memberLevelId, $scorePayConfig, $creativeMemberService);
+            $order['commission_amount'] = $commissionData['amount'];
+            $order['commission_in_score'] = $commissionData['in_score'];
+            $order['score_unit_name'] = $scorePayConfig['unit_name'];
+        }
+    }
+
+    /**
+     * 获取门店信息
+     */
+    private function getStoreInfo($bid, $template = null)
+    {
+        // 注意：member表和generation_scene_template表中都没有mdid字段
+        // 直接返回商户信息作为门店
+        if ($bid > 0) {
+            $biz = Db::name('business')->where('id', $bid)->field('id,name,tel,address,logo')->find();
+            if ($biz) {
+                return [
+                    'id' => $biz['id'],
+                    'name' => $biz['name'] ?? '',
+                    'tel' => $biz['tel'] ?? '',
+                    'address' => $biz['address'] ?? '',
+                    'logo' => $biz['logo'] ?? '',
+                    'latitude' => '',
+                    'longitude' => ''
+                ];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 为场景模板详情追加分享赚佣金信息
+     * 基于模板的 commissionset 字段判断是否开启分销
+     */
+    private function appendShareCommissionInfo(&$result, $template, $priceInfo, $memberLevelId, $scorePayConfig, $creativeMemberService)
+    {
+        $commissionset = intval($template['commissionset'] ?? -1);
+        $commissionEnabled = ($commissionset != -1);
+        
+        // 检查 showcommission 设置（商城系统设置）
+        $shopset = Db::name('shop_sysset')->where('aid', $this->aid)->field('showcommission')->find();
+        $showCommissionSetting = intval($shopset['showcommission'] ?? 0);
+        
+        $result['commission_enabled'] = $commissionEnabled;
+        $result['share_commission_amount'] = '0.00';
+        $result['share_commission_desc'] = '';
+        $result['share_show_commission'] = ($showCommissionSetting == 1 && $commissionEnabled);
+        
+        if (!$commissionEnabled || !$this->mid) {
+            return;
+        }
+        
+        // 计算预估佣金
+        $estimatedCommission = $this->calculateShareCommission($template, $priceInfo, $memberLevelId);
+        
+        if ($estimatedCommission > 0) {
+            $result['share_commission_amount'] = number_format($estimatedCommission, 2, '.', '');
+            
+            // 如果开启积分模式，也计算积分佣金
+            if ($scorePayConfig['enabled'] && $scorePayConfig['exchange_rate'] > 0) {
+                $commissionInScore = $creativeMemberService->moneyToScore($estimatedCommission, $scorePayConfig['exchange_rate']);
+                $result['share_commission_in_score'] = $commissionInScore;
+                $result['share_commission_desc'] = '分享好友使用预计可得佣金：' . $commissionInScore . ' ' . $scorePayConfig['unit_name'];
+            } else {
+                $result['share_commission_in_score'] = 0;
+                $result['share_commission_desc'] = '分享好友使用预计可得佣金：¥' . number_format($estimatedCommission, 2);
+            }
+        }
+    }
+    
+    /**
+     * 根据模板分销设置计算预估佣金
+     */
+    private function calculateShareCommission($template, $priceInfo, $memberLevelId)
+    {
+        $commissionset = intval($template['commissionset'] ?? -1);
+        $price = floatval($priceInfo['price'] ?? 0);
+        
+        if ($commissionset == -1 || $price <= 0) {
+            return 0;
+        }
+        
+        $commission = 0;
+        
+        if ($commissionset == 0) {
+            // 按会员等级佣金比例
+            if ($memberLevelId > 0) {
+                $userlevel = Db::name('member_level')->where('aid', $this->aid)->where('id', $memberLevelId)->find();
+                if ($userlevel && intval($userlevel['can_agent'] ?? 0) != 0) {
+                    $commission1 = floatval($userlevel['commission1'] ?? 0);
+                    if ($commission1 > 0) {
+                        $commission = $commission1 * $price * 0.01;
+                    }
+                }
+            }
+        } elseif ($commissionset == 1) {
+            // 按价格比例
+            $commissiondata1 = is_string($template['commissiondata1']) 
+                ? json_decode($template['commissiondata1'], true) 
+                : ($template['commissiondata1'] ?: []);
+            if ($memberLevelId > 0 && !empty($commissiondata1[$memberLevelId])) {
+                $ratio = floatval($commissiondata1[$memberLevelId]['commission1'] ?? 0);
+                $commission = $ratio * $price * 0.01;
+            }
+        } elseif ($commissionset == 2) {
+            // 按固定金额
+            $commissiondata2 = is_string($template['commissiondata2']) 
+                ? json_decode($template['commissiondata2'], true) 
+                : ($template['commissiondata2'] ?: []);
+            if ($memberLevelId > 0 && !empty($commissiondata2[$memberLevelId])) {
+                $commission = floatval($commissiondata2[$memberLevelId]['commission1'] ?? 0);
+            }
+        } elseif ($commissionset == 3) {
+            // 送积分模式，佣金金额为0，但积分另算
+            $commission = 0;
+        }
+        
+        return round($commission * 100) / 100;
+    }
+
+    /**
+     * 生成分享海报
+     * POST: template_id
+     */
+    public function getposter()
+    {
+        if (!$this->mid) {
+            return jsonEncode(['status' => 0, 'msg' => '请先登录']);
+        }
+        
+        $templateId = input('post.template_id/d', 0);
+        if (!$templateId) {
+            return jsonEncode(['status' => 0, 'msg' => '缺少模板ID']);
+        }
+        
+        $template = Db::name('generation_scene_template')
+            ->where('id', $templateId)
+            ->where('status', 1)
+            ->find();
+        
+        if (!$template) {
+            return jsonEncode(['status' => 0, 'msg' => '模板不存在或已下架']);
+        }
+        
+        $member = Db::name('member')
+            ->where('aid', $this->aid)
+            ->where('id', $this->mid)
+            ->field('id,nickname,headimg,realname,mobile,levelid')
+            ->find();
+        
+        if (!$member) {
+            $member = [
+                'id' => 0,
+                'headimg' => PRE_URL.'/static/img/touxiang.png',
+                'nickname' => '游客',
+                'realname' => '',
+                'mobile' => '',
+            ];
+        }
+        
+        $platform = platform;
+        $generationType = intval($template['generation_type'] ?? 1);
+        $page = '/pagesZ/generation/create';
+        $scene = 'id_'.$templateId.'-pid_'.$member['id'];
+        
+        // 查找海报模板配置
+        $posterset = Db::name('admin_set_poster')
+            ->where('aid', $this->aid)
+            ->where('type', 'generation')
+            ->where('platform', $platform)
+            ->order('id')
+            ->find();
+        
+        // 如果没有专用的 generation 海报模板，使用 product 类型的
+        if (!$posterset) {
+            $posterset = Db::name('admin_set_poster')
+                ->where('aid', $this->aid)
+                ->where('type', 'product')
+                ->where('platform', $platform)
+                ->order('id')
+                ->find();
+        }
+        
+        if (!$posterset || empty($posterset['content'])) {
+            return jsonEncode(['status' => 0, 'msg' => '暂未配置分享海报模板']);
+        }
+        
+        // 计算预估佣金用于海报展示
+        $memberLevelId = intval($member['levelid'] ?? 0);
+        $generationService = new \app\service\GenerationService();
+        $priceInfo = $generationService->calculateTemplatePrice($template, $memberLevelId);
+        $estimatedCommission = $this->calculateShareCommission($template, $priceInfo, $memberLevelId);
+        
+        $sysset = Db::name('admin_set')->where('aid', $this->aid)->find();
+        
+        $textReplaceArr = [
+            '[头像]' => $member['headimg'],
+            '[昵称]' => $member['nickname'],
+            '[姓名]' => $member['realname'] ?? '',
+            '[手机号]' => $member['mobile'] ?? '',
+            '[商城名称]' => $sysset['name'] ?? '',
+            '[商品名称]' => $template['template_name'],
+            '[商品销售价]' => $priceInfo['price'],
+            '[商品市场价]' => $priceInfo['base_price'],
+            '[商品图片]' => $template['cover_image'],
+            '[佣金金额]' => number_format($estimatedCommission, 2),
+        ];
+        
+        $poster = $this->_getposter($this->aid, intval($template['bid'] ?? 0), $platform, $posterset['content'], $page, $scene, $textReplaceArr);
+        
+        return jsonEncode(['status' => 1, 'poster' => $poster]);
+    }
+
+    /**
+     * 获取佣金信息
+     */
+    private function getCommissionInfo($priceInfo, $memberLevelId, $scorePayConfig, $creativeMemberService)
+    {
+        $commission = 0;
+        if ($memberLevelId > 0) {
+            $userlevel = Db::name('member_level')->where('aid', $this->aid)->where('id', $memberLevelId)->find();
+            if ($userlevel && intval($userlevel['can_agent'] ?? 0) != 0) {
+                // 默认按等级佣金比例计算
+                $commission1 = floatval($userlevel['commission1'] ?? 0);
+                $price = floatval($priceInfo['price'] ?? 0);
+                if ($commission1 > 0 && $price > 0) {
+                    $commission = $commission1 * $price * 0.01;
+                }
+            }
+        }
+        $commission = round($commission * 100) / 100;
+        $inScore = 0;
+        if ($commission > 0 && $scorePayConfig['enabled'] && $scorePayConfig['exchange_rate'] > 0) {
+            $inScore = $creativeMemberService->moneyToScore($commission, $scorePayConfig['exchange_rate']);
+        }
+        return ['amount' => $commission, 'in_score' => $inScore];
+    }
+
+    /**
+     * 获取升级优惠信息
+     */
+    private function getUpgradeDiscountInfo($template, $memberLevelId, $scorePayConfig, $creativeMemberService)
+    {
+        // 查询当前等级的sort值
+        $currentLevel = null;
+        if ($memberLevelId > 0) {
+            $currentLevel = Db::name('member_level')->where('aid', $this->aid)->where('id', $memberLevelId)->field('id,name,sort')->find();
+        }
+        $currentSort = $currentLevel ? intval($currentLevel['sort']) : 0;
+
+        // 查询下一级等级（sort值大于当前的最近一级）
+        $nextLevel = Db::name('member_level')
+            ->where('aid', $this->aid)
+            ->where('sort', '>', $currentSort)
+            ->order('sort asc')
+            ->field('id,name,sort')
+            ->find();
+
+        if (!$nextLevel) return null;
+
+        // 获取模板的等级价格配置
+        if (intval($template['lvprice'] ?? 0) != 1) return null;
+
+        $lvpriceData = is_string($template['lvprice_data'])
+            ? json_decode($template['lvprice_data'], true)
+            : ($template['lvprice_data'] ?: []);
+
+        if (empty($lvpriceData)) return null;
+
+        $currentPrice = isset($lvpriceData[$memberLevelId]) ? floatval($lvpriceData[$memberLevelId]) : floatval($template['base_price'] ?? 0);
+        $nextLevelPrice = isset($lvpriceData[$nextLevel['id']]) ? floatval($lvpriceData[$nextLevel['id']]) : null;
+
+        if ($nextLevelPrice === null) return null;
+
+        $saveAmount = $currentPrice - $nextLevelPrice;
+        if ($saveAmount <= 0) return null;
+
+        $saveInScore = 0;
+        if ($scorePayConfig['enabled'] && $scorePayConfig['exchange_rate'] > 0) {
+            $saveInScore = $creativeMemberService->moneyToScore($saveAmount, $scorePayConfig['exchange_rate']);
+        }
+
+        return [
+            'next_level_name' => $nextLevel['name'],
+            'current_price' => $currentPrice,
+            'next_level_price' => $nextLevelPrice,
+            'save_amount' => round($saveAmount * 100) / 100,
+            'save_in_score' => $saveInScore
+        ];
     }
 }

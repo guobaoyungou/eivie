@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - 艺为微信大屏互动</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <!-- Loading -->
+    <div class="loading-mask" id="loadingMask"><div class="spinner"></div></div>
+
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <span class="icon">🎬</span>
+                <span class="text">艺为微信大屏互动</span>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+                    <span class="icon">📊</span><span>仪表盘</span>
+                </div>
+                <div class="nav-item" data-page="stores" onclick="switchPage('stores')">
+                    <span class="icon">🏪</span><span>门店管理</span>
+                </div>
+                <div class="nav-item" data-page="activities" onclick="switchPage('activities')">
+                    <span class="icon">🎯</span><span>活动管理</span>
+                </div>
+                <div class="nav-item" data-page="settings" onclick="switchPage('settings')">
+                    <span class="icon">⚙️</span><span>账户设置</span>
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="/" style="color:rgba(255,255,255,0.5)">← 返回官网</a>
+            </div>
+        </aside>
+
+        <!-- Main -->
+        <div class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="btn btn-default btn-sm" id="menuToggle" onclick="toggleSidebar()" style="display:none">☰</button>
+                    <span class="topbar-title" id="pageTitle">仪表盘</span>
+                </div>
+                <div class="topbar-right">
+                    <span class="topbar-user" id="topbarUser">👤 商家</span>
+                    <button class="btn-logout" onclick="doLogout()">退出</button>
+                </div>
+            </header>
+
+            <!-- Pages -->
+            <div class="page-content">
+                <!-- Dashboard -->
+                <div id="page-dashboard">
+                    <div class="stats-grid" id="dashStats"></div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>最近活动</h3>
+                            <button class="btn btn-primary btn-sm" onclick="switchPage('activities')">查看全部</button>
+                        </div>
+                        <div class="card-body no-padding">
+                            <table class="data-table">
+                                <thead><tr><th>活动名称</th><th>访问码</th><th>参与人数</th><th>状态</th><th>创建时间</th></tr></thead>
+                                <tbody id="dashActivities"><tr><td colspan="5" class="empty-state">加载中...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stores -->
+                <div id="page-stores" style="display:none">
+                    <div class="toolbar">
+                        <div class="search-box">
+                            <input type="text" class="form-input" id="storeSearch" placeholder="搜索门店...">
+                            <button class="btn btn-default" onclick="loadStores()">搜索</button>
+                        </div>
+                        <button class="btn btn-primary" onclick="showStoreModal()">+ 新建门店</button>
+                    </div>
+                    <div class="card">
+                        <div class="card-body no-padding">
+                            <table class="data-table">
+                                <thead><tr><th>ID</th><th>门店名称</th><th>地址</th><th>联系电话</th><th>操作</th></tr></thead>
+                                <tbody id="storeList"><tr><td colspan="5" class="empty-state">加载中...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activities -->
+                <div id="page-activities" style="display:none">
+                    <div class="toolbar">
+                        <div class="search-box">
+                            <input type="text" class="form-input" id="actSearch" placeholder="搜索活动...">
+                            <button class="btn btn-default" onclick="loadActivities()">搜索</button>
+                        </div>
+                        <button class="btn btn-primary" onclick="showActivityModal()">+ 新建活动</button>
+                    </div>
+                    <div class="card">
+                        <div class="card-body no-padding">
+                            <table class="data-table">
+                                <thead><tr><th>ID</th><th>活动名称</th><th>访问码</th><th>参与人数</th><th>已签到</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+                                <tbody id="actList"><tr><td colspan="8" class="empty-state">加载中...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Detail Management -->
+                <div id="page-activity-detail" style="display:none">
+                    <div class="act-header">
+                        <button class="btn-back" onclick="switchPage('activities')">← 返回活动列表</button>
+                        <div class="act-title" id="actDetailTitle">活动管理</div>
+                        <span class="act-code" id="actDetailCode"></span>
+                        <button class="btn btn-primary btn-sm" id="actDetailScreenBtn" onclick="openScreen()">📺 打开大屏</button>
+                    </div>
+                    <div class="sub-tabs" id="actSubTabs">
+                        <div class="sub-tab active" data-tab="sign" onclick="switchActTab('sign')"><span class="tab-icon">✅</span>签到管理</div>
+                        <div class="sub-tab" data-tab="lottery" onclick="switchActTab('lottery')"><span class="tab-icon">🎰</span>抽奖管理</div>
+                        <div class="sub-tab" data-tab="speed" onclick="switchActTab('speed')"><span class="tab-icon">🏃</span>拼手速</div>
+                        <div class="sub-tab" data-tab="redpacket" onclick="switchActTab('redpacket')"><span class="tab-icon">🧧</span>红包互动</div>
+                        <div class="sub-tab" data-tab="wall" onclick="switchActTab('wall')"><span class="tab-icon">💬</span>弹幕互动</div>
+                        <div class="sub-tab" data-tab="theme" onclick="switchActTab('theme')"><span class="tab-icon">🎨</span>主题展示</div>
+                        <div class="sub-tab" data-tab="album" onclick="switchActTab('album')"><span class="tab-icon">📷</span>相册PPT</div>
+                        <div class="sub-tab" data-tab="vote" onclick="switchActTab('vote')"><span class="tab-icon">🗳️</span>投票设置</div>
+                        <div class="sub-tab" data-tab="security" onclick="switchActTab('security')"><span class="tab-icon">🛡️</span>内容安全</div>
+                        <div class="sub-tab" data-tab="brand" onclick="switchActTab('brand')"><span class="tab-icon">🎨</span>品牌定制</div>
+                        <div class="sub-tab" data-tab="switch" onclick="switchActTab('switch')"><span class="tab-icon">🔘</span>功能开关</div>
+                    </div>
+                    <div class="tab-content-area" id="actTabContent">
+                        <!-- Tab panes rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                <div id="page-settings" style="display:none">
+                    <div class="card">
+                        <div class="card-header"><h3>基本信息</h3></div>
+                        <div class="card-body" id="settingsForm">
+                            <div class="form-group">
+                                <label class="form-label">商家名称</label>
+                                <input type="text" class="form-input" id="setBizName">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">联系人</label>
+                                <input type="text" class="form-input" id="setContact">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">联系电话</label>
+                                <input type="text" class="form-input" id="setTel">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">修改密码（留空不修改）</label>
+                                <input type="password" class="form-input" id="setPassword" placeholder="输入新密码">
+                            </div>
+                            <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+                        </div>
+                    </div>
+                    <div class="card" style="margin-top:20px">
+                        <div class="card-header"><h3>套餐信息</h3></div>
+                        <div class="card-body" id="planInfo">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Store Modal -->
+    <div class="modal-overlay" id="storeModal">
+        <div class="modal">
+            <div class="modal-header"><h3 id="storeModalTitle">新建门店</h3><button class="modal-close" onclick="closeModal('storeModal')">×</button></div>
+            <div class="modal-body">
+                <input type="hidden" id="storeEditId">
+                <div class="form-group"><label class="form-label">门店名称</label><input type="text" class="form-input" id="storeFormName" required></div>
+                <div class="form-group"><label class="form-label">地址</label><input type="text" class="form-input" id="storeFormAddr"></div>
+                <div class="form-group"><label class="form-label">联系电话</label><input type="text" class="form-input" id="storeFormTel"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-default" onclick="closeModal('storeModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveStore()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Modal -->
+    <div class="modal-overlay" id="activityModal">
+        <div class="modal">
+            <div class="modal-header"><h3 id="actModalTitle">新建活动</h3><button class="modal-close" onclick="closeModal('activityModal')">×</button></div>
+            <div class="modal-body">
+                <input type="hidden" id="actEditId">
+                <div class="form-group"><label class="form-label">活动名称</label><input type="text" class="form-input" id="actFormTitle" required></div>
+                <div class="form-group"><label class="form-label">开始时间</label><input type="datetime-local" class="form-input" id="actFormStart"></div>
+                <div class="form-group"><label class="form-label">结束时间</label><input type="datetime-local" class="form-input" id="actFormEnd"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-default" onclick="closeModal('activityModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveActivity()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Detail Modal -->
+    <div class="modal-overlay" id="actDetailModal">
+        <div class="modal" style="max-width:640px">
+            <div class="modal-header"><h3>活动详情</h3><button class="modal-close" onclick="closeModal('actDetailModal')">×</button></div>
+            <div class="modal-body" id="actDetailContent">加载中...</div>
+        </div>
+    </div>
+
+    <script src="/static/js/admin-api.js"></script>
+    <script src="/static/js/admin-activity.js"></script>
+    <script src="/static/js/admin-app.js"></script>
+</body>
+</html>

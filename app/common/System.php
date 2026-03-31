@@ -5502,7 +5502,39 @@ class System
 				    	}
                         //$count3 = 0 + Db::name('shop_order')->where('aid',$aid)->where('mid',$mid)->where('status',3)->count();
                         $count4 = 0 + Db::name('shop_refund_order')->where('aid',$aid)->where('mid',$mid)->where('refund_status',1)->count();
-                        $orderinfo = ['count0'=>$count0,'count1'=>$count1,'count2'=>$count2,'count4'=>$count4];
+
+                        // 添加选片订单统计（需处理 uid 和 openid 匹配）
+                        $count_ai_pick_0 = 0; // 待付款
+                        $count_ai_pick_1 = 0; // 待服务
+                        $count_ai_pick_3 = 0; // 已完成
+                        $member = Db::name('member')->where('id', $mid)->find();
+                        if ($member) {
+                            $openid = $member['wxopenid'] ?? $member['mpopenid'] ?? '';
+                            if ($openid) {
+                                $count_ai_pick_0 = Db::name('ai_travel_photo_order')
+                                    ->where('aid', $aid)
+                                    ->where(function($q) use ($mid, $openid) {
+                                        $q->where('uid', $mid)->whereOr('openid', $openid);
+                                    })
+                                    ->where('status', 0)
+                                    ->count();
+                                $count_ai_pick_1 = Db::name('ai_travel_photo_order')
+                                    ->where('aid', $aid)
+                                    ->where(function($q) use ($mid, $openid) {
+                                        $q->where('uid', $mid)->whereOr('openid', $openid);
+                                    })
+                                    ->where('status', 1)
+                                    ->count();
+                                // 选片订单没有status=2,3状态，实际只有0和1
+                                $count_ai_pick_2 = 0; // 保留变量名以备将来扩展
+                            }
+                        }
+                        // 将选片订单各状态映射到统一状态码
+                        // 选片: status=0(待支付)→count0(待付款)
+                        // 注意: 选片订单无物流环节, status=1(已付款)即为已完成, 不计入待收货
+                        $count0 += $count_ai_pick_0;
+
+                        $orderinfo = ['count0'=>$count0,'count1'=>$count1,'count2'=>$count2,'count3'=>$count3,'count4'=>$count4];
                         if(getcustom('transfer_order_parent_check')){
                             $shopset = Db::name('shop_sysset')->where('aid',$aid)->find();
                             //查询权限组

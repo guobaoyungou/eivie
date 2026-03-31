@@ -204,10 +204,10 @@ export default {
 </script>
 
 <style>
-.container { background: #f5f5f5; min-height: 100vh; }
+.container { background: #FDFBFF; min-height: 100vh; }
 
 .refund-amount-section { 
-	background: linear-gradient(135deg, #FF6B00, #FF9800); 
+	background: linear-gradient(135deg, #91C2FF, #B5D8FE); 
 	padding: 60rpx 30rpx; 
 	text-align: center; 
 	color: #fff; 
@@ -218,14 +218,14 @@ export default {
 .amount-value .amount { font-size: 72rpx; font-weight: bold; }
 .amount-tip { font-size: 24rpx; opacity: 0.8; }
 
-.section { background: #fff; margin: 20rpx; border-radius: 16rpx; padding: 30rpx; }
-.section-title { font-size: 30rpx; font-weight: bold; color: #333; margin-bottom: 24rpx; }
-.section-title .required { color: #FF6B00; }
+.section { background: #fff; margin: 20rpx; border-radius: 24rpx; padding: 30rpx; box-shadow: 0 6rpx 20rpx rgba(0,0,0,0.05); }
+.section-title { font-size: 30rpx; font-weight: bold; color: #555555; margin-bottom: 24rpx; }
+.section-title .required { color: #FFA0B8; }
 
 .info-item { display: flex; justify-content: space-between; padding: 16rpx 0; }
 .info-item .label { font-size: 28rpx; color: #666; flex-shrink: 0; }
-.info-item .value { font-size: 28rpx; color: #333; text-align: right; flex: 1; margin-left: 30rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.info-item .value.price { color: #FF6B00; font-weight: bold; }
+.info-item .value { font-size: 28rpx; color: #555555; text-align: right; flex: 1; margin-left: 30rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.info-item .value.price { color: #91C2FF; font-weight: bold; }
 
 .reason-list { margin-bottom: 24rpx; }
 .reason-item { 
@@ -233,29 +233,30 @@ export default {
 	justify-content: space-between; 
 	align-items: center;
 	padding: 24rpx 20rpx; 
-	border: 1px solid #eee; 
+	border: 1px solid #F0EDF5; 
 	border-radius: 12rpx; 
 	margin-bottom: 16rpx;
 	font-size: 28rpx;
-	color: #333;
+	color: #555555;
 }
 .reason-item.active { 
-	border-color: #FF6B00; 
-	background: #FFF8F0; 
-	color: #FF6B00; 
+	border-color: #91C2FF; 
+	background: rgba(181,216,254,0.1); 
+	color: #91C2FF; 
 }
-.check-icon { color: #FF6B00; font-size: 32rpx; font-weight: bold; }
+.check-icon { color: #91C2FF; font-size: 32rpx; font-weight: bold; }
 
 .textarea-wrap { position: relative; }
 .reason-textarea { 
 	width: 100%; 
 	height: 200rpx; 
 	padding: 20rpx; 
-	border: 1px solid #eee; 
+	border: 1px solid #F0EDF5; 
 	border-radius: 12rpx; 
 	font-size: 28rpx; 
-	color: #333;
+	color: #555555;
 	box-sizing: border-box;
+	background: #F5F0FA;
 }
 .word-count { 
 	position: absolute; 
@@ -270,11 +271,12 @@ export default {
 	height: 96rpx; 
 	line-height: 96rpx; 
 	text-align: center; 
-	background: #FF6B00; 
+	background: linear-gradient(135deg, #91C2FF, #B5D8FE); 
 	color: #fff; 
 	font-size: 32rpx; 
 	font-weight: bold;
-	border-radius: 48rpx; 
+	border-radius: 40rpx; 
+	box-shadow: 0 8rpx 24rpx rgba(145,194,255,0.3);
 }
-.btn-submit.disabled { opacity: 0.6; }
+.btn-submit.disabled { opacity: 0.5; box-shadow: none; }
 </style>

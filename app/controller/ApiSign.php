@@ -54,6 +54,26 @@ class ApiSign extends ApiCommon
         }
 		// 昨天的年月日
         $rdata['endDate'] = date('Y/m/d',strtotime('-1 day'));
+
+		// 新增扩展字段信息
+		$rdata['show_employee_no'] = intval($signset['show_employee_no'] ?? 0);
+		$rdata['require_employee_no'] = intval($signset['require_employee_no'] ?? 0);
+		$rdata['show_photo'] = intval($signset['show_photo'] ?? 0);
+		$rdata['require_photo'] = intval($signset['require_photo'] ?? 0);
+		$rdata['show_custom_fields'] = intval($signset['show_custom_fields'] ?? 0);
+		$rdata['custom_fields'] = [];
+		if($rdata['show_custom_fields'] == 1){
+			$rdata['custom_fields'] = Db::name('sign_custom_field')->where('aid',aid)->where('status',1)->order('sort asc, id asc')->select()->toArray();
+			foreach($rdata['custom_fields'] as &$cf){
+				if(in_array($cf['field_type'],['select','checkbox']) && $cf['field_options']){
+					$cf['field_options'] = json_decode($cf['field_options'], true);
+					if(!is_array($cf['field_options'])) $cf['field_options'] = [];
+				}else if(!in_array($cf['field_type'],['select','checkbox'])){
+					$cf['field_options'] = [];
+				}
+			}
+			unset($cf);
+		}
         
 		return $this->json($rdata);
 	}
@@ -86,6 +106,42 @@ class ApiSign extends ApiCommon
             if(!$signset || $signset['status']==0) return $this->json(['status'=>0,'msg'=>'签到活动尚未开启']);
             $this->member = Db::name('member')->lock(true)->where('aid',aid)->where('id',mid)->find();
             if($this->member['signdate'] == date('Y-m-d')) return $this->json(['status'=>0,'msg'=>'您今天已经签到过了']);
+
+            // 扩展字段校验
+            $employee_no = input('post.employee_no','');
+            $sign_photo_url = input('post.sign_photo_url','');
+            $custom_fields_data_str = input('post.custom_fields_data','');
+
+            // 员工号校验
+            if(!empty($signset['show_employee_no']) && $signset['show_employee_no'] == 1){
+                if(!empty($signset['require_employee_no']) && $signset['require_employee_no'] == 1 && empty($employee_no)){
+                    return $this->json(['status'=>0,'msg'=>'请填写员工号']);
+                }
+            }
+            // 照片校验
+            if(!empty($signset['show_photo']) && $signset['show_photo'] == 1){
+                if(!empty($signset['require_photo']) && $signset['require_photo'] == 1 && empty($sign_photo_url)){
+                    return $this->json(['status'=>0,'msg'=>'请上传照片']);
+                }
+            }
+            // 自定义字段校验
+            $customData = [];
+            if(!empty($signset['show_custom_fields']) && $signset['show_custom_fields'] == 1){
+                if(!empty($custom_fields_data_str)){
+                    $customData = json_decode($custom_fields_data_str, true);
+                    if(!is_array($customData)) $customData = [];
+                }
+                $customFieldDefs = Db::name('sign_custom_field')->where('aid',aid)->where('status',1)->select()->toArray();
+                foreach($customFieldDefs as $cfd){
+                    if($cfd['is_required'] == 1){
+                        $fkey = 'field_'.$cfd['id'];
+                        if(!isset($customData[$fkey]) || (is_string($customData[$fkey]) && $customData[$fkey] === '') || (is_array($customData[$fkey]) && empty($customData[$fkey]))){
+                            return $this->json(['status'=>0,'msg'=>'请填写'.$cfd['field_name']]);
+                        }
+                    }
+                }
+            }
+
             $score = $signset['score'];
             $signtimes = $this->member['signtimes'] + 1;
             // if($this->member['signdate'] == date('Y-m-d',(time()-86400))){
@@ -156,6 +212,16 @@ class ApiSign extends ApiCommon
                 $sdata['lxqd_coupon_id'] = $lxqd_coupon_id;
                 $sdata['lxzs_coupon_id'] = $lxzs_coupon_id;
                 $sdata['createtime'] = time();
+                // 写入扩展字段
+                if(!empty($signset['show_employee_no']) && $signset['show_employee_no'] == 1){
+                    $sdata['employee_no'] = $employee_no;
+                }
+                if(!empty($signset['show_photo']) && $signset['show_photo'] == 1){
+                    $sdata['sign_photo'] = $sign_photo_url;
+                }
+                if(!empty($signset['show_custom_fields']) && $signset['show_custom_fields'] == 1 && !empty($customData)){
+                    $sdata['custom_data'] = json_encode($customData, JSON_UNESCAPED_UNICODE);
+                }
                 Db::name('sign_record')->insert($sdata);
                 $mdata = array();
                 $mdata['signdate'] = date('Y-m-d');
@@ -197,7 +263,13 @@ class ApiSign extends ApiCommon
         foreach($datalist as $k=>$v){
             $datalist[$k]['createtime'] = date('Y-m-d H:i:s',$v['createtime']);
             $datalist[$k]['score'] = dd_money_format($v['score'],$score_weishu);
+            // 解析自定义字段数据
+            if(!empty($v['custom_data'])){
+                $datalist[$k]['custom_data'] = json_decode($v['custom_data'], true);
+            }else{
+                $datalist[$k]['custom_data'] = null;
             }
+        }
 		if(request()->isPost()){
 			return $this->json(['status'=>1,'data'=>$datalist]);
 		}

@@ -11,7 +11,7 @@
 </template>
 
 <script>
-	import Calendar from '@/pagesExt/cycle/mobile-calendar-simple/Calendar.vue'
+	import Calendar from '../cycle/mobile-calendar-simple/Calendar.vue'
 	var app = getApp();
 	export default {
 		data() {
