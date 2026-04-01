@@ -1,0 +1,378 @@
+/**
+ * 签到墙 - 样式二：矩阵墙
+ * 布局：4行 × 6列 圆形头像矩阵 + 中央大头像 + 角落Toast
+ */
+
+/* ============ 整体布局 ============ */
+.sign-matrix-page {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+/* ============ 中央大头像区域 ============ */
+.sign-center-avatar {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    text-align: center;
+    pointer-events: none;
+}
+
+.sign-center-avatar .center-ring {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    padding: 6px;
+    background: linear-gradient(135deg, #00d2ff, #7b2ff7, #ff0080, #00d2ff);
+    background-size: 400% 400%;
+    animation: glow-border-rotate 4s linear infinite;
+    box-shadow: 0 0 40px rgba(0, 210, 255, 0.4), 0 0 80px rgba(123, 47, 247, 0.2);
+}
+
+.sign-center-avatar .center-img-wrap {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #1a1a2e;
+}
+
+.sign-center-avatar .center-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.sign-center-avatar .center-img-wrap img.switching {
+    opacity: 0;
+    transform: scale(0.8);
+}
+
+.sign-center-avatar .center-name {
+    margin-top: 16px;
+    font-size: 28px;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    font-weight: 600;
+    letter-spacing: 2px;
+    transition: opacity 0.4s ease;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: 300px;
+}
+
+.sign-center-avatar .center-order {
+    margin-top: 6px;
+    font-size: 16px;
+    color: rgba(255,255,255,0.6);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+/* 流光边框旋转动画 */
+@keyframes glow-border-rotate {
+    0%   { background-position: 0% 50%; box-shadow: 0 0 40px rgba(0, 210, 255, 0.4), 0 0 80px rgba(123, 47, 247, 0.2); }
+    25%  { background-position: 100% 50%; box-shadow: 0 0 40px rgba(123, 47, 247, 0.4), 0 0 80px rgba(255, 0, 128, 0.2); }
+    50%  { background-position: 100% 100%; box-shadow: 0 0 40px rgba(255, 0, 128, 0.4), 0 0 80px rgba(0, 210, 255, 0.2); }
+    75%  { background-position: 0% 100%; box-shadow: 0 0 40px rgba(0, 210, 255, 0.4), 0 0 80px rgba(123, 47, 247, 0.2); }
+    100% { background-position: 0% 50%; box-shadow: 0 0 40px rgba(0, 210, 255, 0.4), 0 0 80px rgba(123, 47, 247, 0.2); }
+}
+
+/* ============ 矩阵网格区域 ============ */
+.sign-matrix-grid {
+    position: absolute;
+    top: 5%;
+    left: 3%;
+    width: 94%;
+    height: 90%;
+    overflow: hidden;
+}
+
+.sign-matrix-grid .grid-scroll-wrap {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    padding: 10px;
+    transition: transform 0.05s linear;
+}
+
+.sign-matrix-grid .grid-scroll-wrap.scrolling {
+    /* transform controlled by JS for smooth scroll */
+}
+
+/* 头像格子 */
+.sign-matrix-grid .avatar-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    transform: scale(0);
+    transition: none;
+}
+
+.sign-matrix-grid .avatar-cell.shown {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* 新入场动画：模糊淡入 + 弹性放大 */
+.sign-matrix-grid .avatar-cell.entering {
+    animation: avatar-enter 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes avatar-enter {
+    0% {
+        opacity: 0;
+        transform: scale(0.3);
+        filter: blur(8px);
+    }
+    60% {
+        opacity: 1;
+        transform: scale(1.1);
+        filter: blur(1px);
+    }
+    80% {
+        transform: scale(0.95);
+        filter: blur(0);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+        filter: blur(0);
+    }
+}
+
+/* 头像圆形 */
+.sign-matrix-grid .avatar-img-wrap {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+    background: #2a2a3e;
+}
+
+.sign-matrix-grid .avatar-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* 头像下方昵称 */
+.sign-matrix-grid .avatar-nick {
+    margin-top: 6px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: 100px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* ============ Toast 提示（左下角 / 右下角交替） ============ */
+.sign-toast {
+    position: absolute;
+    bottom: 60px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 60px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    opacity: 0;
+    transform: scale(0.6);
+    pointer-events: none;
+    transition: none;
+}
+
+.sign-toast.toast-left {
+    left: 40px;
+}
+
+.sign-toast.toast-right {
+    right: 40px;
+}
+
+/* Toast 弹入动画 */
+.sign-toast.toast-show {
+    animation: toast-bounce-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Toast 淡出动画 */
+.sign-toast.toast-hide {
+    animation: toast-fade-out 0.3s ease forwards;
+}
+
+@keyframes toast-bounce-in {
+    0% {
+        opacity: 0;
+        transform: scale(0.6) translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes toast-fade-out {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.9) translateY(10px);
+    }
+}
+
+.sign-toast .toast-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    flex-shrink: 0;
+}
+
+.sign-toast .toast-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.sign-toast .toast-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.sign-toast .toast-nick {
+    font-size: 18px;
+    color: #fff;
+    font-weight: 500;
+    margin-bottom: 2px;
+    max-width: 200px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.sign-toast .toast-label {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* ============ 签到计数器（左上角） ============ */
+.sign-counter {
+    position: absolute;
+    top: 20px;
+    left: 30px;
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    padding: 8px 20px;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sign-counter .counter-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+    background: linear-gradient(135deg, #00d2ff, #7b2ff7);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #fff;
+}
+
+.sign-counter .counter-num {
+    font-size: 22px;
+    color: #fff;
+    font-weight: 700;
+    margin-right: 4px;
+    min-width: 30px;
+    text-align: center;
+}
+
+.sign-counter .counter-label {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* ============ 等待签到提示 ============ */
+.sign-waiting {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    z-index: 3;
+}
+
+.sign-waiting .waiting-icon {
+    font-size: 60px;
+    margin-bottom: 16px;
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.sign-waiting .waiting-text {
+    font-size: 24px;
+    letter-spacing: 4px;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+/* ============ 响应式适配 ============ */
+@media (min-width: 1920px) {
+    .sign-matrix-grid .avatar-img-wrap {
+        width: 110px;
+        height: 110px;
+    }
+    .sign-center-avatar .center-ring {
+        width: 340px;
+        height: 340px;
+    }
+    .sign-center-avatar .center-name {
+        font-size: 32px;
+    }
+}
+
+@media (max-width: 1280px) {
+    .sign-matrix-grid .avatar-img-wrap {
+        width: 70px;
+        height: 70px;
+    }
+    .sign-center-avatar .center-ring {
+        width: 220px;
+        height: 220px;
+    }
+    .sign-center-avatar .center-name {
+        font-size: 22px;
+    }
+    .sign-matrix-grid .avatar-nick {
+        font-size: 11px;
+    }
+}

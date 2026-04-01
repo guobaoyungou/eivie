@@ -1,0 +1,79 @@
+<link rel="stylesheet" type="text/css" href="themes/meepo/assets/css/screen_lottory_free.css">
+<link rel="stylesheet" type="text/css" href="themes/meepo/assets/css/sign_matrix.css">
+<style>
+::-webkit-scrollbar { display: none; }
+</style>
+<script src="themes/meepo/assets/js/qdbase.js?20154223" type="text/javascript" charset="utf-8"></script>
+<script src="themes/meepo/assets/js/sign_matrix.js" type="text/javascript" charset="utf-8"></script>
+<script src="themes/meepo/assets/plugs/hotkeys-master/dist/hotkeys.min.js"></script>
+<script src="themes/meepo/assets/js/bindhotkeys.js"></script>
+</head>
+<body class="FUN WALL">
+{include file="themes/meepo/top_panel.html"}
+<div class="Panel Lottery" style="display: block; opacity: 1;">
+
+    <!-- 签到计数 -->
+    <div class="sign-counter">
+        <div class="counter-icon">✓</div>
+        <span class="counter-num" id="signCounterNum">0</span>
+        <span class="counter-label">人已签到</span>
+    </div>
+
+    <!-- 签到矩阵墙 -->
+    <div class="sign-matrix-page">
+
+        <!-- 等待签到提示 -->
+        <div class="sign-waiting" id="signWaiting">
+            <div class="waiting-icon">📱</div>
+            <div class="waiting-text">等待签到中...</div>
+        </div>
+
+        <!-- 中央大头像 -->
+        <div class="sign-center-avatar" id="signCenterAvatar" style="display:none;">
+            <div class="center-ring">
+                <div class="center-img-wrap">
+                    <img id="centerAvatarImg" src="" alt="">
+                </div>
+            </div>
+            <div class="center-name" id="centerAvatarName"></div>
+            <div class="center-order" id="centerAvatarOrder"></div>
+        </div>
+
+        <!-- 矩阵网格 -->
+        <div class="sign-matrix-grid" id="signMatrixGrid">
+            <div class="grid-scroll-wrap" id="gridScrollWrap">
+                <!-- JS 动态添加 avatar-cell -->
+            </div>
+        </div>
+
+        <!-- Toast 左下角 -->
+        <div class="sign-toast toast-left" id="toastLeft">
+            <div class="toast-avatar"><img src="" alt=""></div>
+            <div class="toast-info">
+                <div class="toast-nick"></div>
+                <div class="toast-label">签到成功</div>
+            </div>
+        </div>
+
+        <!-- Toast 右下角 -->
+        <div class="sign-toast toast-right" id="toastRight">
+            <div class="toast-avatar"><img src="" alt=""></div>
+            <div class="toast-info">
+                <div class="toast-nick"></div>
+                <div class="toast-label">签到成功</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+    // 签到人数
+    var qiandaonum = {$qiandaonum};
+
+    {literal}
+    $(function() {
+        SignMatrix.init(qiandaonum);
+    });
+    {/literal}
+    </script>
+</div>

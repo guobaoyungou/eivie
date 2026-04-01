@@ -548,10 +548,15 @@ class HdFrameDataProvider
             ->where('flag', HdParticipant::FLAG_SIGNED)
             ->count();
 
+        // 读取签到主题配置
+        $sc = $activity->screen_config ?: [];
+        $signThemeStyle = $sc['sign_theme_style'] ?? 'classic';
+
         return [
-            'qiandaonum' => $count,
-            'lastid'     => 0,
-            'style'      => 'meepo',
+            'qiandaonum'       => $count,
+            'lastid'           => 0,
+            'style'            => 'meepo',
+            'sign_theme_style' => $signThemeStyle,
         ];
     }
 

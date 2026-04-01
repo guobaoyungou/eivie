@@ -8,7 +8,6 @@ use think\facade\Log;
 use app\model\hd\HdActivity;
 use app\model\hd\HdKaimuConfig;
 use app\model\hd\HdBimuConfig;
-use app\model\hd\HdBackground;
 use app\model\hd\HdMusic;
 
 /**
@@ -93,84 +92,124 @@ class HdThemeService
     }
 
     // ========================================================
-    // 背景设置
+    // 背景设置（复用旧版 weixin_background 表）
     // ========================================================
 
+    /** 需要过滤掉的 plugname */
+    private static $excludePlugnames = ['shuqian', 'pashu'];
+
+    /** 无素材时返回空字符串，前端用纯色展示 */
+    private static $defaultBgPath = '';
+
     /**
-     * 获取背景列表（按功能模块）
+     * 获取背景列表（按功能模块，读取 weixin_background 表）
      */
     public function getBackgrounds(int $aid, int $bid, int $activityId, string $featureCode = ''): array
     {
-        $where = [['aid', '=', $aid], ['bid', '=', $bid], ['activity_id', '=', $activityId]];
-        if ($featureCode) {
-            $where[] = ['feature_code', '=', $featureCode];
-        }
-
-        $list = HdBackground::where($where)->order('sort asc, id asc')->select()->toArray();
-        return ['code' => 0, 'data' => ['list' => $list]];
-    }
-
-    /**
-     * 更新背景
-     */
-    public function updateBackground(int $aid, int $bid, int $activityId, int $id, array $data): array
-    {
-        $bg = HdBackground::where('aid', $aid)->where('bid', $bid)
-            ->where('activity_id', $activityId)->where('id', $id)->find();
-        if (!$bg) {
-            return ['code' => 1, 'msg' => '背景不存在'];
-        }
-
-        if (isset($data['image_url'])) $bg->image_url = $data['image_url'];
-        if (isset($data['is_default'])) {
-            if ((int)$data['is_default'] === 1) {
-                HdBackground::where('activity_id', $activityId)
-                    ->where('feature_code', $bg->feature_code)
-                    ->where('id', '<>', $id)
-                    ->update(['is_default' => 0]);
+        try {
+            $query = Db::connect('huodong')->table('weixin_background');
+            if ($featureCode) {
+                $query->where('plugname', $featureCode);
             }
-            $bg->is_default = (int)$data['is_default'];
-        }
-        $bg->save();
+            $list = $query->select()->toArray();
 
-        return ['code' => 0, 'msg' => '更新成功'];
+            // 过滤掉不需要的功能模块
+            $list = array_values(array_filter($list, function ($item) {
+                return !in_array($item['plugname'], self::$excludePlugnames);
+            }));
+
+            // 关联查询附件路径
+            foreach ($list as &$item) {
+                $attachmentId = intval($item['attachmentid'] ?? 0);
+                if ($attachmentId > 0) {
+                    $attachment = Db::connect('huodong')->table('weixin_attachments')
+                        ->where('id', $attachmentId)->find();
+                    $item['attachmentpath'] = ($attachment && !empty($attachment['filepath'])) ? $attachment['filepath'] : '';
+                } else {
+                    $item['attachmentpath'] = '';
+                }
+                $item['bgtype'] = intval($item['bgtype'] ?? 1);
+                // 标记是否有素材
+                $item['has_material'] = ($attachmentId > 0 && !empty($item['attachmentpath'])) ? 1 : 0;
+            }
+            unset($item);
+
+            return ['code' => 0, 'data' => $list];
+        } catch (\Exception $e) {
+            Log::error('获取背景列表失败: ' . $e->getMessage());
+            return ['code' => 1, 'msg' => '获取背景列表失败: ' . $e->getMessage()];
+        }
     }
 
     /**
-     * 添加背景
+     * 删除背景素材（将 attachmentid 置为0，前端显示纯色背景）
+     * 注意：不删除功能模块行，仅清除关联的素材
      */
-    public function addBackground(int $aid, int $bid, int $activityId, array $data): array
+    public function resetBackground(int $aid, int $bid, int $activityId, string $plugname): array
     {
-        $bg = new HdBackground();
-        $bg->aid = $aid;
-        $bg->bid = $bid;
-        $bg->activity_id = $activityId;
-        $bg->feature_code = $data['feature_code'] ?? '';
-        $bg->image_url = $data['image_url'] ?? '';
-        $bg->is_default = (int)($data['is_default'] ?? 0);
-        $bg->sort = (int)($data['sort'] ?? 0);
-        $bg->createtime = time();
-        $bg->save();
+        if (empty($plugname)) {
+            return ['code' => 1, 'msg' => '请指定功能模块'];
+        }
 
-        return ['code' => 0, 'msg' => '添加成功', 'data' => $bg->toArray()];
+        try {
+            $affected = Db::connect('huodong')->table('weixin_background')
+                ->where('plugname', $plugname)
+                ->update(['attachmentid' => 0, 'bgtype' => 1]);
+
+            return ['code' => 0, 'msg' => '重置成功'];
+        } catch (\Exception $e) {
+            Log::error('重置背景失败: ' . $e->getMessage());
+            return ['code' => 1, 'msg' => '重置失败: ' . $e->getMessage()];
+        }
     }
 
     /**
-     * 删除背景
+     * 上传并更新背景（更新 weixin_background 表中对应 plugname 的记录）
      */
-    public function deleteBackground(int $aid, int $bid, int $activityId, int $id): array
+    public function updateBackgroundByPlugname(string $plugname, int $attachmentId, int $bgtype): array
     {
-        $bg = HdBackground::where('aid', $aid)->where('bid', $bid)
-            ->where('activity_id', $activityId)->where('id', $id)->find();
-        if (!$bg) {
-            return ['code' => 1, 'msg' => '背景不存在'];
+        if (empty($plugname)) {
+            return ['code' => 1, 'msg' => '请指定功能模块'];
         }
-        $bg->delete();
-        return ['code' => 0, 'msg' => '删除成功'];
+
+        try {
+            Db::connect('huodong')->table('weixin_background')
+                ->where('plugname', $plugname)
+                ->update(['attachmentid' => $attachmentId, 'bgtype' => $bgtype]);
+
+            return ['code' => 0, 'msg' => '更新成功'];
+        } catch (\Exception $e) {
+            Log::error('更新背景失败: ' . $e->getMessage());
+            return ['code' => 1, 'msg' => '更新失败: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * 保存附件到 weixin_attachments 表
+     */
+    public function saveAttachment(string $filepath, string $extension, int $type = 1, string $filemd5 = ''): int
+    {
+        // 先按md5查找是否已存在
+        if ($filemd5) {
+            $existing = Db::connect('huodong')->table('weixin_attachments')
+                ->where('filemd5', $filemd5)->find();
+            if ($existing) {
+                return intval($existing['id']);
+            }
+        }
+
+        $id = Db::connect('huodong')->table('weixin_attachments')->insertGetId([
+            'filepath'  => $filepath,
+            'extension' => $extension,
+            'type'      => $type,
+            'filemd5'   => $filemd5,
+        ]);
+
+        return intval($id);
     }
 
     // ========================================================
-    // 音乐设置
+    // 音乐设置（hd_music 表，保留不动）
     // ========================================================
 
     /**
@@ -246,6 +285,112 @@ class HdThemeService
     }
 
     // ========================================================
+    // 背景音乐管理（weixin_music 表，按功能模块分卡片管理）
+    // ========================================================
+
+    /** 默认音乐路径 */
+    private static $defaultMusicPath = '/wall/themes/meepo/assets/music/Radetzky_Marsch.mp3';
+
+    /**
+     * 获取全部功能模块的背景音乐配置列表
+     * 查询 weixin_music 全部记录，关联 weixin_attachments 获取文件路径
+     */
+    public function getBgMusics(): array
+    {
+        try {
+            $list = Db::connect('huodong')->table('weixin_music')
+                ->select()->toArray();
+
+            foreach ($list as &$item) {
+                $bgmusicId = intval($item['bgmusic'] ?? 0);
+                if ($bgmusicId > 0) {
+                    $attachment = Db::connect('huodong')->table('weixin_attachments')
+                        ->where('id', $bgmusicId)->find();
+                    $item['bgmusicpath'] = ($attachment && !empty($attachment['filepath']))
+                        ? $attachment['filepath']
+                        : self::$defaultMusicPath;
+                } else {
+                    $item['bgmusicpath'] = self::$defaultMusicPath;
+                }
+                $item['bgmusicstatus'] = intval($item['bgmusicstatus'] ?? 2);
+            }
+            unset($item);
+
+            return ['code' => 0, 'data' => $list];
+        } catch (\Exception $e) {
+            Log::error('获取背景音乐列表失败: ' . $e->getMessage());
+            return ['code' => 1, 'msg' => '获取背景音乐列表失败: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * 切换指定 plugname 的背景音乐开/关
+     */
+    public function toggleBgMusic(string $plugname, int $status): array
+    {
+        if (empty($plugname)) {
+            return ['code' => 1, 'msg' => '请指定功能模块'];
+        }
+        if (!in_array($status, [1, 2])) {
+            return ['code' => 1, 'msg' => '状态值无效，1=开，2=关'];
+        }
+
+        try {
+            $record = Db::connect('huodong')->table('weixin_music')
+                ->where('plugname', $plugname)->find();
+            if (!$record) {
+                return ['code' => 1, 'msg' => '功能模块不存在: ' . $plugname];
+            }
+
+            Db::connect('huodong')->table('weixin_music')
+                ->where('plugname', $plugname)
+                ->update(['bgmusicstatus' => $status]);
+
+            return ['code' => 0, 'msg' => ($status === 1 ? '已开启' : '已关闭') . '背景音乐'];
+        } catch (\Exception $e) {
+            Log::error('切换背景音乐失败: ' . $e->getMessage());
+            return ['code' => 1, 'msg' => '操作失败: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * 更新指定 plugname 的背景音乐附件，并自动开启
+     */
+    public function updateBgMusic(string $plugname, int $attachmentId): array
+    {
+        if (empty($plugname)) {
+            return ['code' => 1, 'msg' => '请指定功能模块'];
+        }
+
+        try {
+            $record = Db::connect('huodong')->table('weixin_music')
+                ->where('plugname', $plugname)->find();
+            if (!$record) {
+                return ['code' => 1, 'msg' => '功能模块不存在: ' . $plugname];
+            }
+
+            Db::connect('huodong')->table('weixin_music')
+                ->where('plugname', $plugname)
+                ->update([
+                    'bgmusic'       => $attachmentId,
+                    'bgmusicstatus' => 1, // 上传后自动开启
+                ]);
+
+            // 获取新的音乐路径
+            $attachment = Db::connect('huodong')->table('weixin_attachments')
+                ->where('id', $attachmentId)->find();
+            $bgmusicpath = ($attachment && !empty($attachment['filepath']))
+                ? $attachment['filepath']
+                : self::$defaultMusicPath;
+
+            return ['code' => 0, 'msg' => '上传成功', 'data' => ['bgmusicpath' => $bgmusicpath]];
+        } catch (\Exception $e) {
+            Log::error('更新背景音乐失败: ' . $e->getMessage());
+            return ['code' => 1, 'msg' => '更新失败: ' . $e->getMessage()];
+        }
+    }
+
+    // ========================================================
     // 自定义二维码
     // ========================================================
 
@@ -289,5 +434,68 @@ class HdThemeService
         $activity->save();
 
         return ['code' => 0, 'msg' => '二维码配置已更新'];
+    }
+
+    // ========================================================
+    // 签到主题配置
+    // ========================================================
+
+    /** 签到主题配置键前缀 */
+    private static $signThemePrefix = 'sign_theme_';
+
+    /** 签到主题配置默认值 */
+    private static $signThemeDefaults = [
+        'sign_theme_style'          => 'classic',   // classic=样式一(经典), matrix=样式二(矩阵墙)
+        'sign_theme_entrance'       => 'bounce',    // bounce=弹入缩放, fade=淡入, none=无
+        'sign_theme_scroll'         => 'smooth',    // smooth=平滑滚动, none=不滚动
+        'sign_theme_toast_enabled'  => '1',          // 1=开启Toast通知, 0=关闭
+        'sign_theme_center_avatar'  => '1',          // 1=显示中央大头像, 0=隐藏
+        'sign_theme_glow_border'    => '1',          // 1=流光边框, 0=普通边框
+        'sign_theme_matrix_cols'    => '6',           // 矩阵列数
+        'sign_theme_matrix_rows'    => '4',           // 矩阵可见行数
+    ];
+
+    /**
+     * 获取签到主题配置
+     */
+    public function getSignThemeConfig(int $aid, int $bid, int $activityId): array
+    {
+        $activity = HdActivity::where('aid', $aid)->where('bid', $bid)->where('id', $activityId)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
+
+        $screenConfig = $activity->screen_config ?: [];
+        $result = [];
+        foreach (self::$signThemeDefaults as $key => $default) {
+            $result[$key] = $screenConfig[$key] ?? $default;
+        }
+
+        return ['code' => 0, 'data' => $result];
+    }
+
+    /**
+     * 更新签到主题配置
+     */
+    public function updateSignThemeConfig(int $aid, int $bid, int $activityId, array $data): array
+    {
+        $activity = HdActivity::where('aid', $aid)->where('bid', $bid)->where('id', $activityId)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
+
+        $screenConfig = $activity->screen_config ?: [];
+
+        // 只允许 sign_theme_ 前缀的键
+        foreach ($data as $key => $value) {
+            if (strpos($key, self::$signThemePrefix) === 0 && array_key_exists($key, self::$signThemeDefaults)) {
+                $screenConfig[$key] = $value;
+            }
+        }
+
+        $activity->screen_config = $screenConfig;
+        $activity->save();
+
+        return ['code' => 0, 'msg' => '签到主题配置已更新'];
     }
 }

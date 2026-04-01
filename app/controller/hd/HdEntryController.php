@@ -95,10 +95,16 @@ class HdEntryController extends HdBaseController
         // 构建功能页 Smarty 变量
         $vars = $this->dataProvider->buildWallPageVars($activity, $feature);
 
+        // 签到墙：根据 sign_theme_style 选择模板
+        $signTemplate = 'login'; // 默认样式一（经典）
+        if (in_array($feature, ['index', 'qdq']) && ($vars['sign_theme_style'] ?? 'classic') === 'matrix') {
+            $signTemplate = 'login_v2'; // 样式二（矩阵墙）
+        }
+
         // 确定模板文件
         $templateMap = [
-            'index'  => ['header', 'login', 'footer'],
-            'qdq'    => ['header', 'login', 'footer'],
+            'index'  => ['header', $signTemplate, 'footer'],
+            'qdq'    => ['header', $signTemplate, 'footer'],
             'wall'   => ['header', 'wall', 'footer'],
             '3dsign' => ['header', '3dsign', 'footer'],
             'threedimensionalsign' => ['header', '3dsign', 'footer'],
