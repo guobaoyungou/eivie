@@ -34,7 +34,18 @@
     <script type="text/javascript">
     // AJAX路径桥接：覆盖Path_url，将老AJAX文件名映射到新系统路由
     var HD_BASE_URL = window.parent.HD_BASE_URL || "{$base_url}";
-    var HD_AJAX_MAP = window.parent.HD_AJAX_MAP || {literal}{}{/literal};
+    var HD_AJAX_MAP_DEFAULT = {literal}{
+        'ajax_act_get_new_sign.php': '/ajax/get_new_sign',
+        'ajax_act_frame.php': '/ajax/frame',
+        'ajax_act_set_bgmusic.php': '/ajax/set_bgmusic',
+        'get_new_qd.php': '/ajax/get_new_qd',
+        'ajax_act_screen_qd.php': '/ajax/screen_qd',
+        'ajax_act_new_msg.php': '/ajax/new_msg'
+    }{/literal};
+    var HD_AJAX_MAP_PARENT = window.parent.HD_AJAX_MAP || {literal}{}{/literal};
+    var HD_AJAX_MAP = {};
+    for (var k in HD_AJAX_MAP_DEFAULT) HD_AJAX_MAP[k] = HD_AJAX_MAP_DEFAULT[k];
+    for (var k in HD_AJAX_MAP_PARENT) HD_AJAX_MAP[k] = HD_AJAX_MAP_PARENT[k];
     var PATH_ACTIVITY = "";
     function Path_url(filename) {literal}{
         // 去掉查询参数来查找映射

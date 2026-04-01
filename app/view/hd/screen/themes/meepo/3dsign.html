@@ -123,6 +123,7 @@ function resetTable(){
 }
 /* 动画墙显示 屏 列表 */
 var signwall_show_str = "{/literal}{$threedimensional_config['datastr']}{literal}"; 
+var signwall_play_mode = "{/literal}{$threedimensional_play_mode}{literal}";
 // var signwall_show_str = "#earth";
 /* 动画墙 切换时间？做什么用？ */
 var show_interval = "0"; // 间隔时间
@@ -154,7 +155,7 @@ getArrayItems(personArray,window.AvatarNum);
 
 window.onload = function(){ 
 	S.init();
-	S.UI.simulate(signwall_show_str);
+	S.UI.simulate(signwall_show_str, signwall_play_mode);
 }
 var signBox = $('.signBox'),
 imgShow = $('.imgShow'),

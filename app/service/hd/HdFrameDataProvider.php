@@ -573,17 +573,50 @@ class HdFrameDataProvider
         $maxId = $count > 0 ? $participants[$count - 1]['signorder'] : 0;
 
         $sc = $activity->screen_config ?: [];
+
+        // 读取datastr：优先screen_config中的threed_datastr，否则从hd_3d_effects表动态生成
+        $datastr = '';
+        if (!empty($sc['threed_datastr'])) {
+            $datastr = $sc['threed_datastr'];
+        } else {
+            // 从效果表动态生成datastr
+            $effects = Db::name('hd_3d_effects')
+                ->where('activity_id', $activity->id)
+                ->order('sort asc, id asc')
+                ->select()
+                ->toArray();
+            $parts = [];
+            foreach ($effects as $eff) {
+                switch ($eff['type']) {
+                    case 'preset_shape': $parts[] = '#' . $eff['content']; break;
+                    case 'image_logo':   $parts[] = '#icon ' . $eff['content']; break;
+                    case 'text_logo':    $parts[] = $eff['content']; break;
+                    case 'countdown':    $parts[] = '#countdown ' . $eff['content']; break;
+                }
+            }
+            if (!empty($parts)) {
+                $datastr = implode('|', $parts);
+            }
+        }
+        // 如果仍然为空，使用默认6种预设效果
+        if (empty($datastr)) {
+            $datastr = '#sphere|#torus|#grid|#helix|#cylinder|#gene';
+        }
+
         $threedimensionalConfig = [
-            'avatargap'  => $sc['3d_avatargap'] ?? 10,
-            'avatarsize' => $sc['3d_avatarsize'] ?? 80,
-            'avatarnum'  => $sc['3d_avatarnum'] ?? 160,
-            'datastr'    => $sc['3d_datastr'] ?? '#earth',
+            'avatargap'  => (int)($sc['threed_avatargap'] ?? 15),
+            'avatarsize' => (int)($sc['threed_avatarsize'] ?? 7),
+            'avatarnum'  => (int)($sc['threed_avatarnum'] ?? 30),
+            'datastr'    => $datastr,
         ];
 
+        $playMode = $sc['threed_play_mode'] ?? 'sequential';
+
         return [
-            'qd_maxid'                => $maxId,
-            'personJson'              => json_encode($participants, JSON_UNESCAPED_UNICODE),
-            'threedimensional_config' => $threedimensionalConfig,
+            'qd_maxid'                  => $maxId,
+            'personJson'                => json_encode($participants, JSON_UNESCAPED_UNICODE),
+            'threedimensional_config'   => $threedimensionalConfig,
+            'threedimensional_play_mode'=> $playMode,
         ];
     }
 
