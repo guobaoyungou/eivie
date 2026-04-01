@@ -8,7 +8,6 @@ use app\model\hd\HdActivity;
 use app\model\hd\HdActivityFeature;
 use app\model\hd\HdBusinessConfig;
 use app\model\hd\HdMusic;
-use app\model\hd\HdBackground;
 use app\model\hd\HdDanmuConfig;
 use app\model\hd\HdKaimuConfig;
 use app\model\hd\HdBimuConfig;
@@ -154,6 +153,200 @@ class HdFrameDataProvider
     }
 
     // ============================================================
+    // 模块功能页变量构建（Lottery/Game）
+    // ============================================================
+
+    /**
+     * 构建模块页面变量（抽奖/游戏）
+     * 从新系统 ddwx_hd_* 表读取数据，转换为老系统 Smarty 模板所需格式
+     */
+    public function buildModulePageVars(HdActivity $activity, string $feature): array
+    {
+        switch ($feature) {
+            case 'lottery':
+            case 'importlottery':
+                return $this->buildLotteryModuleVars($activity, $feature);
+            case 'game':
+                return $this->buildGameModuleVars($activity);
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * 抽奖模块变量
+     * 老模板需要: $prizes(JSON), $config(array), $configs(JSON)
+     */
+    private function buildLotteryModuleVars(HdActivity $activity, string $feature): array
+    {
+        // 获取抽奖配置列表
+        $lotteryConfigs = Db::name('hd_lottery_config')
+            ->where('activity_id', $activity->id)
+            ->order('id asc')
+            ->select()
+            ->toArray();
+
+        // 获取当前抽奖配置
+        $id = (int)input('get.id', 0);
+        $currentConfig = null;
+        if ($id > 0 && !empty($lotteryConfigs)) {
+            foreach ($lotteryConfigs as $cfg) {
+                if ($cfg['id'] == $id) {
+                    $currentConfig = $cfg;
+                    break;
+                }
+            }
+        }
+        if (!$currentConfig && !empty($lotteryConfigs)) {
+            $currentConfig = $lotteryConfigs[0];
+        }
+
+        // 获取抽奖主题
+        $theme = null;
+        if ($currentConfig) {
+            $theme = Db::name('hd_lottery_theme')
+                ->where('activity_id', $activity->id)
+                ->order('is_default desc, id asc')
+                ->find();
+        }
+
+        // 确定模板路径
+        $themePath = 'zjd'; // 默认抽奖箱
+        $type = (int)input('get.type', 0);
+        if ($feature === 'importlottery' || $type === 1) {
+            $themePath = 'threedimensional'; // 3D抽奖
+        } elseif ($theme && !empty($theme['name'])) {
+            $themeMap = ['zjd' => 'zjd', 'cjx' => 'cjx', 'threedimensional' => 'threedimensional', '3dlottery' => 'threedimensional'];
+            $themePath = $themeMap[strtolower($theme['name'])] ?? 'zjd';
+        }
+
+        // 获取奖品列表
+        $prizes = Db::name('hd_prize')
+            ->where('activity_id', $activity->id)
+            ->order('sort asc, id asc')
+            ->select()
+            ->toArray();
+
+        // 转换奖品为老系统格式
+        $prizesFormatted = [];
+        foreach ($prizes as $p) {
+            $prizesFormatted[] = [
+                'id'          => $p['id'],
+                'prizename'   => $p['name'],
+                'num'         => $p['total_num'],
+                'leftnum'     => max(0, $p['total_num'] - $p['used_num']),
+                'freezenum'   => 0,
+                'formatedtext'=> ['text' => $p['image'] ?: '/static/hd/themes/meepo/assets/images/defaultaward.jpg'],
+                'totalleft'   => max(0, $p['total_num'] - $p['used_num']),
+            ];
+        }
+
+        // 构建配置对象
+        $configForTemplate = [
+            'id'          => $currentConfig ? $currentConfig['id'] : 0,
+            'title'       => $currentConfig ? $currentConfig['round_name'] : '抽奖',
+            'themepath'   => $themePath,
+            'showtype'    => 'nickname',
+            'winagain'    => 0,
+            'themeconfig' => [
+                'bg_path'       => '/static/hd/themes/meepo/assets/images/defaultbg.jpg',
+                'bgmusic_path'  => '/static/hd/themes/meepo/assets/music/Radetzky_Marsch.mp3',
+                'bgmusic_switch'=> 2,
+                'fontcolor'     => '#fff',
+                'prizefontcolor'=> '#ffde00',
+                'winnerfontcolor'=> '#fff',
+                'leftcolor'     => 'rgba(0,0,0,0.6)',
+                'winnercolor'   => 'rgba(0,0,0,0.3)',
+            ],
+        ];
+
+        // 配置列表（用于轮次切换）
+        $configsList = [];
+        foreach ($lotteryConfigs as $cfg) {
+            $configsList[] = [
+                'id'      => $cfg['id'],
+                'title'   => $cfg['round_name'],
+                'themeid' => $themePath === 'threedimensional' ? 1 : ($themePath === 'cjx' ? 3 : 2),
+            ];
+        }
+
+        return [
+            'prizes'      => json_encode($prizesFormatted, JSON_UNESCAPED_UNICODE),
+            'config'      => $configForTemplate,
+            'configs'     => json_encode($configsList, JSON_UNESCAPED_UNICODE),
+            '_theme_path' => $themePath,
+        ];
+    }
+
+    /**
+     * 游戏模块变量
+     * 老模板需要: $config(array), $configs(JSON)
+     */
+    private function buildGameModuleVars(HdActivity $activity): array
+    {
+        // 获取游戏配置列表
+        $gameConfigs = Db::name('hd_game_config')
+            ->where('activity_id', $activity->id)
+            ->order('id asc')
+            ->select()
+            ->toArray();
+
+        $id = (int)input('get.id', 0);
+        $currentConfig = null;
+        if ($id > 0 && !empty($gameConfigs)) {
+            foreach ($gameConfigs as $cfg) {
+                if ($cfg['id'] == $id) {
+                    $currentConfig = $cfg;
+                    break;
+                }
+            }
+        }
+        if (!$currentConfig && !empty($gameConfigs)) {
+            $currentConfig = $gameConfigs[0];
+        }
+
+        // 确定游戏主题路径
+        $themePath = 'car';
+        if ($currentConfig && !empty($currentConfig['game_type'])) {
+            $themePath = strtolower($currentConfig['game_type']);
+        }
+
+        // 构建配置
+        $extraConfig = $currentConfig && !empty($currentConfig['config'])
+            ? (is_string($currentConfig['config']) ? json_decode($currentConfig['config'], true) : $currentConfig['config'])
+            : [];
+
+        $configForTemplate = [
+            'id'        => $currentConfig ? $currentConfig['id'] : 0,
+            'title'     => $currentConfig ? ($currentConfig['game_type'] ?? '游戏') : '游戏',
+            'themepath'  => $themePath,
+            'status'    => $currentConfig ? $currentConfig['status'] : 1,
+            'duration'  => $currentConfig ? $currentConfig['duration'] : 30,
+            'toprank'   => $currentConfig ? $currentConfig['max_winners'] : 10,
+            'showtype'  => 'nickname',
+            'themeconfig' => array_merge([
+                'bg_path'       => '/static/hd/themes/meepo/assets/images/defaultbg.jpg',
+                'bgmusic_path'  => '/static/hd/themes/meepo/assets/music/Radetzky_Marsch.mp3',
+                'bgmusic_switch'=> 2,
+            ], $extraConfig),
+        ];
+
+        $configsList = [];
+        foreach ($gameConfigs as $cfg) {
+            $configsList[] = [
+                'id'      => $cfg['id'],
+                'themeid' => strtolower($cfg['game_type'] ?? 'car'),
+            ];
+        }
+
+        return [
+            'config'      => $configForTemplate,
+            'configs'     => json_encode($configsList, JSON_UNESCAPED_UNICODE),
+            '_theme_path' => $themePath,
+        ];
+    }
+
+    // ============================================================
     // 数据转换方法
     // ============================================================
 
@@ -269,15 +462,32 @@ class HdFrameDataProvider
     }
 
     /**
-     * 背景图 JSON
+     * 背景图 JSON（读取 weixin_background 表，输出 plugname 为 key 的格式）
+     * 格式：{"qdq":{"path":"/static/hd/themes/meepo/assets/images/defaultbg.jpg","bgtype":1}, ...}
      */
     private function convertBackgroundJson(int $activityId): string
     {
-        $list = HdBackground::where('activity_id', $activityId)
-            ->order('id asc')
-            ->select()
-            ->toArray();
-        return json_encode($list, JSON_UNESCAPED_UNICODE) ?: '[]';
+        $defaultBgPath = '/static/hd/themes/meepo/assets/images/defaultbg.jpg';
+        try {
+            $list = Db::connect('huodong')->table('weixin_background')->select()->toArray();
+            $image_arr = [];
+            foreach ($list as $val) {
+                $attachmentId = intval($val['attachmentid'] ?? 0);
+                $bgtype = intval($val['bgtype'] ?? 1);
+                $path = $defaultBgPath;
+                if ($attachmentId > 0) {
+                    $attachment = Db::connect('huodong')->table('weixin_attachments')
+                        ->where('id', $attachmentId)->find();
+                    if ($attachment && !empty($attachment['filepath'])) {
+                        $path = $attachment['filepath'];
+                    }
+                }
+                $image_arr[$val['plugname']] = ['path' => $path, 'bgtype' => $bgtype];
+            }
+            return json_encode($image_arr, JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            return '{}';
+        }
     }
 
     /**

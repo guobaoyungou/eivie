@@ -5,8 +5,11 @@ namespace app\controller\hd;
 
 use app\service\hd\HdScreenService;
 use think\facade\Db;
+use think\facade\Cache;
+use think\facade\Log;
 use app\model\hd\HdActivity;
 use app\model\hd\HdParticipant;
+use app\model\hd\HdBusinessConfig;
 
 /**
  * 大屏互动 - AJAX 桥接控制器
@@ -472,11 +475,55 @@ class HdAjaxBridgeController extends HdBaseController
 
     /**
      * 抽奖操作（通用）
-     * POST /s/{code}/ajax/lottery
+     * GET|POST /s/{code}/ajax/lottery
+     * 支持老前端 action=ready|ok 格式
      */
     public function lotteryAction(string $access_code)
     {
-        $roundId = (int)input('post.round_id', input('get.round_id', 0));
+        $action = input('get.action', input('post.action', ''));
+
+        switch ($action) {
+            case 'ready':
+                // 准备抽奖：返回参与人员头像列表
+                return $this->lotteryReady($access_code);
+            case 'ok':
+                // 执行抽奖：抽取中奖用户
+                return $this->lotteryOk($access_code);
+            default:
+                // 通用抽奖（新API格式）
+                $roundId = (int)input('post.round_id', input('get.round_id', 0));
+                $result = $this->screenService->lotteryDraw($access_code, $roundId);
+                return json($result);
+        }
+    }
+
+    /**
+     * 抽奖准备：获取参与用户头像列表
+     */
+    private function lotteryReady(string $access_code)
+    {
+        $activity = HdActivity::where('access_code', $access_code)->find();
+        if (!$activity) {
+            return json(['code' => -1, 'data' => []]);
+        }
+
+        $users = HdParticipant::where('activity_id', $activity->id)
+            ->where('flag', HdParticipant::FLAG_SIGNED)
+            ->field('id,nickname,avatar')
+            ->order('id desc')
+            ->limit(30)
+            ->select()
+            ->toArray();
+
+        return json(['code' => 1, 'data' => $users]);
+    }
+
+    /**
+     * 执行抽奖（简单版，支持老前端直接URL调用）
+     */
+    private function lotteryOk(string $access_code)
+    {
+        $roundId = (int)input('post.round_id', input('get.round_id', input('get.roundno', 0)));
         $result = $this->screenService->lotteryDraw($access_code, $roundId);
         return json($result);
     }
@@ -516,18 +563,181 @@ class HdAjaxBridgeController extends HdBaseController
     /**
      * 摇一摇操作
      * GET/POST /s/{code}/ajax/shake
+     * 支持老前端 action=joinuser|start|working|result|reset 格式
      */
     public function shakeAction(string $access_code)
     {
         $action = input('get.action', input('post.action', ''));
 
         switch ($action) {
+            case 'joinuser':
+                return $this->shakeJoinUser($access_code);
             case 'start':
-                return json($this->screenService->getShakeStatus($access_code));
+                return $this->shakeStart($access_code);
+            case 'working':
+                return $this->shakeWorking($access_code);
+            case 'result':
+                return $this->shakeResult($access_code);
             case 'reset':
-                return json(['errno' => 0, 'msg' => 'ok']);
+                return $this->shakeReset($access_code);
             default:
                 return json($this->screenService->getShakeStatus($access_code));
+        }
+    }
+
+    /**
+     * 摇一摇 - 加入用户列表
+     */
+    private function shakeJoinUser(string $access_code)
+    {
+        $activity = HdActivity::where('access_code', $access_code)->find();
+        if (!$activity) {
+            return json(['code' => -1, 'users' => []]);
+        }
+
+        // 获取已签到用户列表（作为可参与游戏的用户）
+        $users = HdParticipant::where('activity_id', $activity->id)
+            ->where('flag', HdParticipant::FLAG_SIGNED)
+            ->field('id,nickname,avatar,signorder')
+            ->order('signorder desc')
+            ->limit(50)
+            ->select()
+            ->toArray();
+
+        return json(['code' => 1, 'users' => $users, 'num' => count($users)]);
+    }
+
+    /**
+     * 摇一摇 - 开始
+     */
+    private function shakeStart(string $access_code)
+    {
+        $roundno = (int)input('get.roundno', input('post.roundno', 0));
+        $result = $this->screenService->getShakeStatus($access_code);
+        $result['roundno'] = $roundno;
+        return json($result);
+    }
+
+    /**
+     * 摇一摇 - 进行中（轮询获取排行榜）
+     */
+    private function shakeWorking(string $access_code)
+    {
+        $result = $this->screenService->getShakeStatus($access_code);
+        return json($result);
+    }
+
+    /**
+     * 摇一摇 - 结果
+     */
+    private function shakeResult(string $access_code)
+    {
+        $result = $this->screenService->getShakeStatus($access_code);
+        return json($result);
+    }
+
+    /**
+     * 摇一摇 - 重置
+     */
+    private function shakeReset(string $access_code)
+    {
+        return json(['errno' => 0, 'code' => 1, 'msg' => 'ok']);
+    }
+
+    /**
+     * 摇一摇结果页面（用于iframe跳转）
+     * GET /s/{code}/ajax/shake_result
+     */
+    public function shakeResultPage(string $access_code)
+    {
+        $result = $this->screenService->getShakeStatus($access_code);
+        return json($result);
+    }
+
+    /**
+     * 设置背景音乐开关
+     * GET /s/{code}/ajax/set_bgmusic
+     * 老格式请求: ?bgmusicstatus=1&plugname=qdq
+     */
+    public function setBgmusic(string $access_code)
+    {
+        $bgmusicstatus = (int)input('get.bgmusicstatus', 1);
+        $plugname = input('get.plugname', '');
+
+        $activity = HdActivity::where('access_code', $access_code)->find();
+        if (!$activity) {
+            return json(['ret' => -1]);
+        }
+
+        // 更新老系统的 weixin_music 表
+        try {
+            Db::connect('huodong')->table('weixin_music')
+                ->where('plugname', $plugname)
+                ->update(['bgmusicstatus' => $bgmusicstatus == 1 ? 1 : 2]);
+            return json(['ret' => 1]);
+        } catch (\Exception $e) {
+            // 降级：更新新系统的 screen_config
+            $sc = $activity->screen_config ?: [];
+            $sc['bgmusicstatus'] = $bgmusicstatus;
+            $activity->screen_config = $sc;
+            $activity->save();
+            return json(['ret' => 1]);
+        }
+    }
+
+    /**
+     * 获取新签到（签到动画用）
+     * GET /s/{code}/ajax/get_new_qd
+     * 老格式请求: ?mid=
+     * 老格式响应: {omid, mid, avatar, qdnums, nick_name}
+     */
+    public function getNewQd(string $access_code)
+    {
+        $mid = (int)input('get.mid', 0);
+
+        $activity = HdActivity::where('access_code', $access_code)->find();
+        if (!$activity) {
+            return json(['omid' => $mid, 'mid' => $mid, 'avatar' => '', 'qdnums' => '', 'nick_name' => '']);
+        }
+
+        $participant = HdParticipant::where('activity_id', $activity->id)
+            ->where('flag', HdParticipant::FLAG_SIGNED)
+            ->where('signorder', '>', $mid)
+            ->order('signorder asc')
+            ->field('id,nickname,avatar,signorder')
+            ->find();
+
+        if ($participant) {
+            return json([
+                'omid'      => $mid,
+                'mid'       => $participant->signorder,
+                'avatar'    => $participant->avatar,
+                'qdnums'    => $participant->signorder,
+                'nick_name' => $participant->nickname,
+            ]);
+        }
+
+        return json(['omid' => $mid, 'mid' => $mid, 'avatar' => '', 'qdnums' => '', 'nick_name' => '']);
+    }
+
+    /**
+     * 删除抽奖记录
+     * POST /s/{code}/ajax/lottory_remove_user
+     */
+    public function lotteryRemoveUser(string $access_code)
+    {
+        $recordId = (int)input('post.record_id', 0);
+        if ($recordId <= 0) {
+            return json(['code' => -1, 'msg' => '参数错误']);
+        }
+
+        try {
+            Db::name('hd_lottery_winner')
+                ->where('id', $recordId)
+                ->delete();
+            return json(['code' => 1, 'msg' => 'ok']);
+        } catch (\Exception $e) {
+            return json(['code' => -1, 'msg' => $e->getMessage()]);
         }
     }
 
@@ -535,6 +745,9 @@ class HdAjaxBridgeController extends HdBaseController
      * 默认二维码（生成PNG图片）
      * GET /s/{code}/ajax/defaultqrcode?from=wall
      * 根据功能名生成对应手机端页面的二维码图片
+     *
+     * 当启用「强制关注公众号授权登录」时，生成微信带参数二维码（用户扫码关注后自动推送签到页）
+     * 否则生成普通URL二维码
      */
     public function defaultQrcode(string $access_code)
     {
@@ -552,7 +765,24 @@ class HdAjaxBridgeController extends HdBaseController
             exit;
         }
 
-        // 新系统统一入口URL，手机端自动适配
+        // === 判断是否启用强制关注公众号 ===
+        $screenConfig = $activity->screen_config ?: [];
+        $forceWxAuth = (int)($screenConfig['mobile_force_wx_auth'] ?? 1);
+
+        if ($forceWxAuth) {
+            // 尝试生成微信带参数二维码
+            $wxQrImage = $this->getWxParametricQrCode($activity);
+            if ($wxQrImage) {
+                // 输出微信二维码图片
+                header('Content-Type: image/jpg');
+                echo $wxQrImage;
+                exit;
+            }
+            // 微信二维码生成失败，降级使用普通URL二维码
+            Log::warning('[HdQrCode] 微信带参数二维码生成失败，降级使用普通URL二维码, access_code=' . $access_code);
+        }
+
+        // === 普通URL二维码（默认行为） ===
         $baseUrl = request()->scheme() . '://' . request()->host();
         $mobileUrl = $baseUrl . '/s/' . $access_code;
 
@@ -565,6 +795,164 @@ class HdAjaxBridgeController extends HdBaseController
         // 直接输出PNG图片
         \QRcode::png($mobileUrl, false, QR_ECLEVEL_Q, $s, 2);
         exit;
+    }
+
+    /**
+     * 生成微信带参数二维码
+     * 通过微信API创建临时二维码，scene_str = access_code
+     * 用户扫码关注后，微信推送事件到回调接口，自动推送签到页链接
+     *
+     * @return string|null 二维码图片二进制数据，失败返回null
+     */
+    private function getWxParametricQrCode(HdActivity $activity): ?string
+    {
+        $accessCode = $activity->access_code;
+
+        // 先检查缓存（缓存二维码图片数据）
+        $cacheKey = 'hd_wx_qr_img:' . $accessCode;
+        $cachedImg = Cache::get($cacheKey);
+        if ($cachedImg) {
+            return $cachedImg;
+        }
+
+        // 获取微信公众号配置
+        $wxConfig = $this->getActivityWxConfig($activity);
+        if (!$wxConfig) {
+            Log::warning('[HdQrCode] 无可用微信公众号配置');
+            return null;
+        }
+
+        // 获取 access_token
+        $accessToken = $this->getWxServerToken($wxConfig['appid'], $wxConfig['appsecret']);
+        if (!$accessToken) {
+            return null;
+        }
+
+        // 调用微信API创建带参数的临时二维码
+        $url = 'https://api.weixin.qq.com/cgi-bin/qrcode/create?access_token=' . $accessToken;
+        $postData = json_encode([
+            'expire_seconds' => 2592000, // 30天有效
+            'action_name'    => 'QR_STR_SCENE',
+            'action_info'    => [
+                'scene' => [
+                    'scene_str' => $accessCode,
+                ],
+            ],
+        ]);
+
+        $result = $this->wxHttpPost($url, $postData);
+        $data = json_decode($result, true);
+
+        if (empty($data['ticket'])) {
+            Log::error('[HdQrCode] 创建带参数二维码失败: ' . ($result ?: 'empty'));
+            return null;
+        }
+
+        // 通过 ticket 获取二维码图片
+        $qrImageUrl = 'https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=' . urlencode($data['ticket']);
+        $imageData = $this->wxHttpGet($qrImageUrl);
+
+        if (empty($imageData) || strlen($imageData) < 100) {
+            Log::error('[HdQrCode] 获取二维码图片失败');
+            return null;
+        }
+
+        // 缓存图片数据（缓存29天，比二维码有效期少1天）
+        Cache::set($cacheKey, $imageData, 2505600);
+
+        Log::info('[HdQrCode] 成功生成微信带参数二维码, access_code=' . $accessCode);
+        return $imageData;
+    }
+
+    /**
+     * 获取活动关联的微信公众号配置
+     * 优先级：商家自有公众号 → 平台公众号
+     */
+    private function getActivityWxConfig(HdActivity $activity): ?array
+    {
+        // 商家自有公众号
+        $bizConfig = HdBusinessConfig::where('bid', $activity->bid)->find();
+        if ($bizConfig && !empty($bizConfig->wxfw_appid) && !empty($bizConfig->wxfw_appsecret)) {
+            return [
+                'appid'     => $bizConfig->wxfw_appid,
+                'appsecret' => $bizConfig->wxfw_appsecret,
+            ];
+        }
+
+        // 平台公众号
+        $platformMp = Db::name('admin_setapp_mp')->where('aid', $activity->aid)->find();
+        if ($platformMp && !empty($platformMp['appid']) && !empty($platformMp['appsecret'])) {
+            return [
+                'appid'     => $platformMp['appid'],
+                'appsecret' => $platformMp['appsecret'],
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * 获取微信服务端 access_token（带缓存）
+     */
+    private function getWxServerToken(string $appid, string $appsecret): ?string
+    {
+        $cacheKey = 'hd_wx_access_token:' . $appid;
+        $cached = Cache::get($cacheKey);
+        if ($cached) {
+            return $cached;
+        }
+
+        $url = 'https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential'
+            . '&appid=' . $appid
+            . '&secret=' . $appsecret;
+
+        $result = $this->wxHttpGet($url);
+        $data = json_decode($result, true);
+
+        if (empty($data['access_token'])) {
+            Log::error('[HdQrCode] 获取access_token失败: ' . ($result ?: 'empty'));
+            return null;
+        }
+
+        $expiresIn = ($data['expires_in'] ?? 7200) - 100;
+        Cache::set($cacheKey, $data['access_token'], $expiresIn);
+
+        return $data['access_token'];
+    }
+
+    /**
+     * HTTP GET（微信API专用）
+     */
+    private function wxHttpGet(string $url): string
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        $result = curl_exec($ch);
+        curl_close($ch);
+        return $result ?: '';
+    }
+
+    /**
+     * HTTP POST（微信API专用）
+     */
+    private function wxHttpPost(string $url, string $data): string
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        $result = curl_exec($ch);
+        curl_close($ch);
+        return $result ?: '';
     }
 
     /**

@@ -77,6 +77,9 @@ Route::group('api/hd/activities', function () {
 // 功能列表（无需套餐权限）
 Route::get('api/hd/features', 'hd.HdActivityController/allFeatures')->middleware([$hdCors, $hdTenant, $hdAuth]);
 
+// 套餐列表（无需套餐权限，未购买套餐的用户也需查看）
+Route::get('api/hd/plans', 'hd.HdPlanController/list')->middleware([$hdCors, $hdTenant, $hdAuth]);
+
 // ============================================================
 // 3.5 文件上传 API（需要登录 + 套餐权限）
 // ============================================================
@@ -98,12 +101,20 @@ Route::group('api/hd/upload', function () {
 Route::get('api/hd/wx/jssdk', 'hd.HdWxJssdkController/config')->middleware([$hdCors, $hdTenant]);
 
 // ============================================================
+// 3.7 微信事件回调（公众号服务器配置URL，无需登录/租户）
+// 用于接收微信服务号的事件推送（扫码关注等）
+// 微信公众号后台「服务器配置」URL 填写: https://wxhd.eivie.cn/api/hd/wx/callback
+// ============================================================
+Route::rule('api/hd/wx/callback', 'hd.HdWxCallbackController/handle', 'GET|POST');
+
+// ============================================================
 // 4. 大屏/互动 API（通过 access_code 访问，无需商家登录）
 // ============================================================
 Route::group('api/hd/screen/:access_code', function () {
     Route::get('config', 'hd.HdScreenController/config');
     Route::get('sign-list', 'hd.HdScreenController/signList');
     Route::post('sign', 'hd.HdScreenController/sign');
+    Route::post('sign-sms', 'hd.HdScreenController/sendSignSms');
     Route::get('wall', 'hd.HdScreenController/wall');
     Route::post('wall', 'hd.HdScreenController/sendWall');
     Route::post('lottery/draw', 'hd.HdScreenController/lotteryDraw');
@@ -121,12 +132,26 @@ Route::group('api/hd/screen/:access_code', function () {
     Route::get('theme/bimu', 'hd.HdScreenController/bimu');
     // SSE 实时推送
     Route::get('sse', 'hd.HdSseController/stream');
+    // 管理员 API
+    Route::get('admin/check', 'hd.HdScreenController/adminCheck');
+    Route::get('admin/features', 'hd.HdScreenController/adminFeatures');
+    Route::post('admin/feature-toggle', 'hd.HdScreenController/adminFeatureToggle');
+    Route::post('admin/lottery-draw', 'hd.HdScreenController/adminLotteryDraw');
+    // 核销员 API（预留）
+    Route::get('verify/check', 'hd.HdScreenController/verifyCheck');
+    Route::get('verify/orders', 'hd.HdScreenController/verifyOrders');
+    Route::post('verify/order', 'hd.HdScreenController/verifyOrder');
 })->middleware([$hdCors, $hdTenant]);
 
 // ============================================================
 // 5. 大屏 iframe 功能页路由（必须在入口页路由之前，否则会被前缀匹配拦截）
 // ============================================================
 Route::get('s/:access_code/wall/:feature', 'hd.HdEntryController/wallPage')->middleware([$hdCors, $hdTenant]);
+
+// ============================================================
+// 5.05 模块代理路由（老系统 Lottery/Game 等模块 PHP 代理）
+// ============================================================
+Route::rule('s/:access_code/module/:m/:c/:a', 'hd.HdModuleProxyController/proxy', 'GET|POST')->middleware([$hdCors, $hdTenant]);
 
 // ============================================================
 // 5.1 活动入口页路由（大屏/手机端自适应 HTML 页面）
@@ -154,6 +179,11 @@ Route::group('s/:access_code/ajax', function () {
     Route::rule('shake', 'hd.HdAjaxBridgeController/shakeAction', 'GET|POST');
     Route::get('defaultqrcode', 'hd.HdAjaxBridgeController/defaultQrcode');
     Route::rule('set_qrcodepos', 'hd.HdAjaxBridgeController/setQrcodePos', 'GET|POST');
+    // 新增端点
+    Route::rule('set_bgmusic', 'hd.HdAjaxBridgeController/setBgmusic', 'GET|POST');
+    Route::get('get_new_qd', 'hd.HdAjaxBridgeController/getNewQd');
+    Route::get('shake_result', 'hd.HdAjaxBridgeController/shakeResultPage');
+    Route::rule('lottory_remove_user', 'hd.HdAjaxBridgeController/lotteryRemoveUser', 'GET|POST');
 })->middleware([$hdCors, $hdTenant]);
 
 // ============================================================
@@ -208,6 +238,9 @@ Route::group('api/hd/sign', function () {
     // 大屏密码管理
     Route::get(':activity_id/screen-password', 'hd.HdSignController/screenPasswordConfig');
     Route::post(':activity_id/screen-password', 'hd.HdSignController/updateScreenPasswordConfig');
+    // 参与者角色管理
+    Route::post(':activity_id/participant/:id/toggle-admin', 'hd.HdSignController/toggleAdmin');
+    Route::post(':activity_id/participant/:id/toggle-verifier', 'hd.HdSignController/toggleVerifier');
     // 3D签到管理
     Route::get(':activity_id/3d-config', 'hd.HdThreeDSignController/getConfig');
     Route::post(':activity_id/3d-config', 'hd.HdThreeDSignController/saveConfig');
@@ -305,12 +338,17 @@ Route::group('api/hd/theme', function () {
     Route::post(':activity_id/bimu', 'hd.HdThemeController/updateBimuConfig');
     Route::get(':activity_id/backgrounds', 'hd.HdThemeController/backgrounds');
     Route::post(':activity_id/backgrounds', 'hd.HdThemeController/addBackground');
+    Route::post(':activity_id/backgrounds/reset', 'hd.HdThemeController/resetBackground');
     Route::post(':activity_id/backgrounds/:id/update', 'hd.HdThemeController/updateBackground');
     Route::post(':activity_id/backgrounds/:id/delete', 'hd.HdThemeController/deleteBackground');
     Route::get(':activity_id/musics', 'hd.HdThemeController/musics');
     Route::post(':activity_id/musics', 'hd.HdThemeController/addMusic');
     Route::post(':activity_id/musics/:id/update', 'hd.HdThemeController/updateMusic');
     Route::post(':activity_id/musics/:id/delete', 'hd.HdThemeController/deleteMusic');
+    // 背景音乐管理（weixin_music 表，按功能模块）
+    Route::get(':activity_id/bgmusics', 'hd.HdThemeController/bgMusics');
+    Route::post(':activity_id/bgmusics/toggle', 'hd.HdThemeController/toggleBgMusic');
+    Route::post(':activity_id/bgmusics/upload', 'hd.HdThemeController/uploadBgMusic');
     Route::get(':activity_id/qrcode', 'hd.HdThemeController/qrcodeConfig');
     Route::post(':activity_id/qrcode', 'hd.HdThemeController/updateQrcodeConfig');
 })->middleware([$hdCors, $hdTenant, $hdAuth, $hdPlan]);
@@ -360,6 +398,7 @@ Route::group('api/hd/setting', function () {
     Route::get('map-key', 'hd.HdSettingController/mapKey');
     Route::get('place-search', 'hd.HdSettingController/placeSearch');
     Route::get('reverse-geo', 'hd.HdSettingController/reverseGeo');
+    Route::get('mobile-urls', 'hd.HdSettingController/mobileUrls');
 })->middleware([$hdCors, $hdTenant, $hdAuth]);
 
 // ============================================================

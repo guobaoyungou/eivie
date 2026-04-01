@@ -43,8 +43,16 @@
         if (HD_AJAX_MAP[cleanName]) {
             return HD_BASE_URL + HD_AJAX_MAP[cleanName] + queryStr;
         }
+        // 处理模块URL: /Modules/module.php?m=xxx&c=xxx&a=xxx
+        if (cleanName.indexOf('module.php') > -1 || cleanName.indexOf('Modules/') > -1) {
+            var moduleMatch = filename.match(/[?&]m=(\w+).*[?&]c=(\w+).*[?&]a=(\w+)(.*)/i);
+            if (moduleMatch) {
+                var extra = moduleMatch[4] || '';
+                return HD_BASE_URL + '/module/' + moduleMatch[1] + '/' + moduleMatch[2] + '/' + moduleMatch[3] + extra;
+            }
+        }
         // 降级：直接使用文件名
-        return HD_BASE_URL + '/ajax/' + cleanName.replace('.php','') + queryStr;
+        return HD_BASE_URL + '/ajax/' + cleanName.replace('.php','').replace('.do','') + queryStr;
     }{/literal}
     </script>
 
