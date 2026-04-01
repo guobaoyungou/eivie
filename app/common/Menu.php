@@ -219,6 +219,18 @@ class Menu
 			}
 		}
 
+		// ============================================================
+		// 大屏互动菜单
+		// ============================================================
+		if($isadmin){
+			$screen_interaction_child = [];
+			$screen_interaction_child[] = ['name'=>'套餐管理','path'=>'ScreenInteractionPlan/index','authdata'=>'ScreenInteractionPlan/*'];
+			$screen_interaction_child[] = ['name'=>'订单管理','path'=>'ScreenInteractionPlanOrder/index','authdata'=>'ScreenInteractionPlanOrder/*'];
+			$screen_interaction_child[] = ['name'=>'活动管理','path'=>'ScreenInteractionActivity/index','authdata'=>'ScreenInteractionActivity/*'];
+			$screen_interaction_child[] = ['name'=>'特效列表','path'=>'ScreenInteraction3dEffect/index','authdata'=>'ScreenInteraction3dEffect/*'];
+			$menudata['screen_interaction'] = ['name'=>'互动','fullname'=>'大屏互动','icon'=>'layui-icon layui-icon-screen-full','child'=>$screen_interaction_child];
+		}
+
         if($isadmin){
             $component_business = [];
             $component_business[] = ['name'=>'商户列表','path'=>'Business/index','authdata'=>'Business/*,BusinessFreight/*'];

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>3D签到特效管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          <i class="layui-icon layui-icon-screen-full"></i> 3D签到特效管理
+        </div>
+        <div class="layui-card-body" pad15>
+          <!-- 操作按钮区 -->
+          <div class="layui-col-md4" style="padding-bottom:10px">
+            <a class="layui-btn layuiadmin-btn-list" href="javascript:void(0)" onclick="openEdit(0)">
+              <i class="layui-icon layui-icon-add-1"></i> 新增特效
+            </a>
+            <a class="layui-btn layui-btn-warm" href="javascript:void(0)" onclick="openConfig()">
+              <i class="layui-icon layui-icon-set"></i> 全局配置
+            </a>
+            <a class="layui-btn layui-btn-normal" href="javascript:void(0)" onclick="initDefaults()">
+              <i class="layui-icon layui-icon-refresh"></i> 初始化默认效果
+            </a>
+          </div>
+
+          <!-- 搜索区 -->
+          <div class="layui-form layui-col-md8 layui-form-search">
+            <div class="layui-inline">
+              <label class="layui-form-label">活动</label>
+              <div class="layui-input-inline" style="width:200px">
+                <select name="activity_id" id="filterActivity" lay-filter="filterActivity">
+                  <option value="">全部活动</option>
+                  {volist name="activities" id="act"}
+                  <option value="{$act.id}">{$act.title}</option>
+                  {/volist}
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn layuiadmin-btn-replys" lay-submit lay-filter="LAY-search">
+                <i class="layui-icon layui-icon-search"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 数据表格 -->
+          <div class="layui-col-md12">
+            <table id="tabledata" lay-filter="tabledata"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  var table = layui.table;
+  var datawhere = {};
+
+  function openEdit(id) {
+    var actId = $('#filterActivity').val() || '';
+    var url = "{:url('edit')}" + (id ? '/id/' + id : '') + (actId && !id ? '/activity_id/' + actId : '');
+    layer.open({
+      type: 2,
+      title: id ? '编辑特效' : '新增特效',
+      area: ['650px', '70%'],
+      maxmin: true,
+      content: url,
+      end: function() {
+        tableIns.reload();
+      }
+    });
+  }
+
+  function openConfig() {
+    var actId = $('#filterActivity').val();
+    if (!actId) {
+      layer.msg('请先选择一个活动', {icon: 7});
+      return;
+    }
+    var url = "{:url('config')}/activity_id/" + actId;
+    layer.open({
+      type: 2,
+      title: '3D全局配置',
+      area: ['600px', '65%'],
+      maxmin: true,
+      content: url
+    });
+  }
+
+  function initDefaults() {
+    var actId = $('#filterActivity').val();
+    if (!actId) {
+      layer.msg('请先选择一个活动', {icon: 7});
+      return;
+    }
+    layer.confirm('确定要为所选活动初始化6个默认预设造型效果吗？<br>（仅当该活动尚无效果条目时有效）', {icon: 3}, function(idx) {
+      layer.close(idx);
+      var loadIdx = layer.load();
+      $.post("{:url('initDefaults')}", {activity_id: actId}, function(res) {
+        layer.close(loadIdx);
+        layer.msg(res.msg, {icon: res.status == 1 ? 1 : 2});
+        if (res.status == 1) tableIns.reload();
+      });
+    });
+  }
+
+  var tableIns = table.render({
+    elem: '#tabledata',
+    url: "{$Request.url}",
+    page: true,
+    cols: [[
+      {field: 'id', title: 'ID', sort: true, width: 60},
+      {field: 'activity_title', title: '所属活动', width: 160, templet: function(d) {
+        return d.activity_title || '<span style="color:#999">-</span>';
+      }},
+      {field: 'type_text', title: '效果类型', width: 100},
+      {field: 'content_display', title: '效果内容', minWidth: 200, templet: function(d) {
+        return d.content_display || '-';
+      }},
+      {field: 'sort', title: '排序', width: 70, sort: true},
+      {field: 'is_default', title: '默认', width: 70, templet: function(d) {
+        return d.is_default == 1 ? '<span class="layui-badge layui-bg-green">是</span>' : '<span class="layui-badge layui-bg-gray">否</span>';
+      }},
+      {field: 'created_at_text', title: '创建时间', width: 150},
+      {field: 'operation', title: '操作', width: 150, fixed: 'right', templet: function(d) {
+        var html = '';
+        html += '<button class="table-btn" onclick="openEdit('+d.id+')">编辑</button>';
+        html += '<button class="table-btn" style="color:#FF5722" onclick="datadel('+d.id+')">删除</button>';
+        return html;
+      }}
+    ]]
+  });
+
+  table.on('sort(tabledata)', function(obj) {
+    datawhere.field = obj.field;
+    datawhere.order = obj.type;
+    tableIns.reload({initSort: obj, where: datawhere});
+  });
+
+  layui.form.on('submit(LAY-search)', function(obj) {
+    datawhere = obj.field;
+    tableIns.reload({where: datawhere, page: {curr: 1}});
+    return false;
+  });
+
+  function datadel(id) {
+    layer.confirm('确定要删除该特效吗？', {icon: 7}, function(index) {
+      layer.close(index);
+      $.post("{:url('del')}", {id: id}, function(res) {
+        layer.msg(res.msg, {icon: res.status == 1 ? 1 : 2});
+        if (res.status == 1) tableIns.reload();
+      });
+    });
+  }
+  </script>
+</body>
+</html>

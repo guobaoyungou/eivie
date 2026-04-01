@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>3D全局配置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-card">
+      <div class="layui-card-header">
+        <i class="layui-icon layui-icon-set"></i> 3D签到全局配置 - {$config.activity_title}
+      </div>
+      <div class="layui-card-body" pad15>
+        <div class="layui-form form-label-w8" lay-filter="configForm">
+          <input type="hidden" name="activity_id" value="{$config.activity_id}">
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">头像数量：</label>
+            <div class="layui-input-inline" style="width:150px">
+              <input type="number" name="avatarnum" class="layui-input" value="{$config.avatarnum}" min="1" max="200">
+            </div>
+            <div class="layui-form-mid layui-word-aux">每个造型展示的头像数（1-200，默认30）</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">头像大小：</label>
+            <div class="layui-input-inline" style="width:150px">
+              <input type="number" name="avatarsize" class="layui-input" value="{$config.avatarsize}" min="1" max="50">
+            </div>
+            <div class="layui-form-mid layui-word-aux">3D场景中头像尺寸（1-50，默认7）</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">头像间距：</label>
+            <div class="layui-input-inline" style="width:150px">
+              <input type="number" name="avatargap" class="layui-input" value="{$config.avatargap}" min="1" max="50">
+            </div>
+            <div class="layui-form-mid layui-word-aux">头像之间的间距（1-50，默认15）</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">播放模式：</label>
+            <div class="layui-input-inline" style="width:200px">
+              <select name="play_mode">
+                <option value="sequential" {if $config['play_mode']=='sequential'}selected{/if}>顺序播放</option>
+                <option value="random" {if $config['play_mode']=='random'}selected{/if}>随机播放</option>
+              </select>
+            </div>
+            <div class="layui-form-mid layui-word-aux">效果列表的切换方式</div>
+          </div>
+
+          <div class="layui-form-item">
+            <div class="layui-input-block">
+              <button class="layui-btn" lay-submit lay-filter="submitConfig">保存配置</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  layui.form.on('submit(submitConfig)', function(obj) {
+    var loadIndex = layer.load();
+    $.post("{:url('config')}", obj.field, function(res) {
+      layer.close(loadIndex);
+      if (res.status == 1) {
+        layer.msg('配置已保存', {icon: 1, time: 1000}, function() {
+          var index = parent.layer.getFrameIndex(window.name);
+          parent.layer.close(index);
+        });
+      } else {
+        layer.msg(res.msg, {icon: 2});
+      }
+    });
+    return false;
+  });
+  </script>
+</body>
+</html>
