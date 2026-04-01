@@ -351,6 +351,9 @@ Route::group('api/hd/theme', function () {
     Route::post(':activity_id/bgmusics/upload', 'hd.HdThemeController/uploadBgMusic');
     Route::get(':activity_id/qrcode', 'hd.HdThemeController/qrcodeConfig');
     Route::post(':activity_id/qrcode', 'hd.HdThemeController/updateQrcodeConfig');
+    // 签到主题配置
+    Route::get(':activity_id/sign-theme', 'hd.HdThemeController/signThemeConfig');
+    Route::post(':activity_id/sign-theme', 'hd.HdThemeController/updateSignThemeConfig');
 })->middleware([$hdCors, $hdTenant, $hdAuth, $hdPlan]);
 
 // ============================================================

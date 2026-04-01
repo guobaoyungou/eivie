@@ -13,9 +13,39 @@
 
             var html = '<div class="content-card"><div class="card-title">主题展示</div>' +
                 '<div class="tab-header">' +
-                '<div class="tab-item active" onclick="SystemPage._switchThemeTab(this,\'kaimu-panel\')">开幕墙</div>' +
+                '<div class="tab-item active" onclick="SystemPage._switchThemeTab(this,\'signtheme-panel\')">签到主题</div>' +
+                '<div class="tab-item" onclick="SystemPage._switchThemeTab(this,\'kaimu-panel\')">开幕墙</div>' +
                 '<div class="tab-item" onclick="SystemPage._switchThemeTab(this,\'bimu-panel\')">闭幕墙</div></div>' +
-                '<div id="kaimu-panel">' +
+                '<div id="signtheme-panel">' +
+                '<form class="layui-form" lay-filter="signThemeForm">' +
+                '<div class="layui-form-item"><label class="layui-form-label">签到墙样式</label><div class="layui-input-block">' +
+                '<select name="sign_theme_style" lay-filter="signThemeStyleSelect">' +
+                '<option value="classic">样式一（经典瀑布流）</option>' +
+                '<option value="matrix">样式二（矩阵墙）</option>' +
+                '</select>' +
+                '</div></div>' +
+                '<div id="matrix-options" style="display:none;">' +
+                '<div class="layui-form-item"><label class="layui-form-label">头像入场</label><div class="layui-input-block">' +
+                '<select name="sign_theme_entrance"><option value="bounce">弹入缩放</option><option value="fade">淡入</option><option value="none">无动画</option></select>' +
+                '</div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">滚动效果</label><div class="layui-input-block">' +
+                '<select name="sign_theme_scroll"><option value="smooth">平滑滚动</option><option value="none">不滚动</option></select>' +
+                '</div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">Toast通知</label><div class="layui-input-block">' +
+                '<input type="checkbox" name="sign_theme_toast_enabled" value="1" lay-skin="switch" lay-text="开|关" checked>' +
+                '</div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">中央大头像</label><div class="layui-input-block">' +
+                '<input type="checkbox" name="sign_theme_center_avatar" value="1" lay-skin="switch" lay-text="开|关" checked>' +
+                '</div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">流光边框</label><div class="layui-input-block">' +
+                '<input type="checkbox" name="sign_theme_glow_border" value="1" lay-skin="switch" lay-text="开|关" checked>' +
+                '</div></div>' +
+                '</div>' +
+                '<div class="layui-form-item" style="margin-top:16px;"><div class="layui-input-block">' +
+                '<button type="button" class="btn btn-primary" onclick="SystemPage._saveSignTheme()"><i class="fas fa-save"></i> 保存签到主题</button>' +
+                '</div></div>' +
+                '</form></div>' +
+                '<div id="kaimu-panel" style="display:none;">' +
                 '<form class="layui-form" lay-filter="kaimuForm">' +
                 '<div class="layui-form-item"><label class="layui-form-label">开幕图片</label><div class="layui-input-block"><input type="text" name="kaimu_image" class="layui-input" placeholder="开幕墙图片URL"></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">显示方式</label><div class="layui-input-block"><select name="kaimu_display"><option value="center">居中显示</option><option value="fullscreen">全屏显示</option><option value="none">不显示</option></select></div></div>' +
@@ -30,6 +60,35 @@
 
             Layout.setContent(html);
             layui.form.render();
+
+            // 监听样式切换，显示/隐藏矩阵墙选项
+            layui.form.on('select(signThemeStyleSelect)', function(data) {
+                document.getElementById('matrix-options').style.display = data.value === 'matrix' ? '' : 'none';
+            });
+
+            // 加载签到主题配置
+            Api.getSignThemeConfig(actId).then(function(res) {
+                var d = res.data || {};
+                if (d.sign_theme_style) {
+                    document.querySelector('[name="sign_theme_style"]').value = d.sign_theme_style;
+                    layui.form.render('select', 'signThemeForm');
+                    document.getElementById('matrix-options').style.display = d.sign_theme_style === 'matrix' ? '' : 'none';
+                }
+                if (d.sign_theme_entrance) {
+                    document.querySelector('[name="sign_theme_entrance"]').value = d.sign_theme_entrance;
+                    layui.form.render('select', 'signThemeForm');
+                }
+                if (d.sign_theme_scroll) {
+                    document.querySelector('[name="sign_theme_scroll"]').value = d.sign_theme_scroll;
+                    layui.form.render('select', 'signThemeForm');
+                }
+                var toastEl = document.querySelector('[name="sign_theme_toast_enabled"]');
+                if (toastEl) { toastEl.checked = d.sign_theme_toast_enabled !== '0'; layui.form.render('checkbox', 'signThemeForm'); }
+                var centerEl = document.querySelector('[name="sign_theme_center_avatar"]');
+                if (centerEl) { centerEl.checked = d.sign_theme_center_avatar !== '0'; layui.form.render('checkbox', 'signThemeForm'); }
+                var glowEl = document.querySelector('[name="sign_theme_glow_border"]');
+                if (glowEl) { glowEl.checked = d.sign_theme_glow_border !== '0'; layui.form.render('checkbox', 'signThemeForm'); }
+            }).catch(function() {});
 
             Api.getKaimuConfig(actId).then(function(res) {
                 var d = res.data || {};
@@ -47,8 +106,10 @@
         _switchThemeTab: function(el, panelId) {
             el.parentElement.querySelectorAll('.tab-item').forEach(function(t) { t.classList.remove('active'); });
             el.classList.add('active');
-            document.getElementById('kaimu-panel').style.display = panelId === 'kaimu-panel' ? '' : 'none';
-            document.getElementById('bimu-panel').style.display = panelId === 'bimu-panel' ? '' : 'none';
+            ['signtheme-panel', 'kaimu-panel', 'bimu-panel'].forEach(function(id) {
+                var p = document.getElementById(id);
+                if (p) p.style.display = id === panelId ? '' : 'none';
+            });
         },
 
         _saveKaimu: function() {
@@ -67,138 +128,249 @@
             }).then(function() { layui.layer.msg('保存成功', { icon: 1 }); });
         },
 
+        _saveSignTheme: function() {
+            var actId = App.getCurrentActivityId();
+            var data = {
+                sign_theme_style: document.querySelector('[name="sign_theme_style"]').value,
+                sign_theme_entrance: document.querySelector('[name="sign_theme_entrance"]').value,
+                sign_theme_scroll: document.querySelector('[name="sign_theme_scroll"]').value,
+                sign_theme_toast_enabled: document.querySelector('[name="sign_theme_toast_enabled"]').checked ? '1' : '0',
+                sign_theme_center_avatar: document.querySelector('[name="sign_theme_center_avatar"]').checked ? '1' : '0',
+                sign_theme_glow_border: document.querySelector('[name="sign_theme_glow_border"]').checked ? '1' : '0'
+            };
+            Api.updateSignThemeConfig(actId, data).then(function() {
+                layui.layer.msg('签到主题保存成功', { icon: 1 });
+            });
+        },
+
         // ========== 背景图 ==========
         renderBackground: function() {
             var actId = App.getCurrentActivityId();
             if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
 
-            var html = '<div class="content-card"><div class="card-title"><span>背景图管理</span>' +
-                '<button class="btn btn-primary btn-sm" onclick="SystemPage._addBackground()"><i class="fas fa-plus"></i> 添加背景</button></div>' +
-                '<div id="bg-list" class="loading-state"><i class="fas fa-spinner"></i> 加载中...</div></div>';
+            var html = '<div class="content-card"><div class="card-title"><span>背景图管理</span></div>' +
+                '<p style="color:#999;font-size:13px;margin:-8px 0 16px 0;">按功能模块分类管理背景图/视频，支持 jpg、png、webp、mp4 格式，最大 10MB</p>' +
+                '<div id="bg-module-list" class="loading-state"><i class="fas fa-spinner"></i> 加载中...</div></div>';
             Layout.setContent(html);
-            this._loadBackgrounds(actId);
+            this._loadBackgroundModules(actId);
         },
 
-        _loadBackgrounds: function(actId) {
+        _loadBackgroundModules: function(actId) {
             Api.getBackgrounds(actId).then(function(res) {
                 var list = res.data || [];
                 if (!Array.isArray(list)) list = [];
-                var container = document.getElementById('bg-list');
+                var container = document.getElementById('bg-module-list');
                 if (list.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><i class="fas fa-image"></i><p>暂无背景图</p></div>';
+                    container.innerHTML = '<div class="empty-state"><i class="fas fa-image"></i><p>暂无背景模块数据</p></div>';
                     return;
                 }
-                var h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;">';
+                var h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;">';
                 list.forEach(function(bg) {
-                    var src = bg.url || bg.image || '';
-                    h += '<div style="position:relative;border-radius:8px;overflow:hidden;aspect-ratio:16/9;background:#f5f5f5;box-shadow:0 2px 8px rgba(0,0,0,0.1);">' +
-                        '<img src="' + src + '" style="width:100%;height:100%;object-fit:cover;">' +
-                        '<div style="position:absolute;bottom:0;left:0;right:0;padding:8px;background:linear-gradient(transparent,rgba(0,0,0,0.6));color:#fff;font-size:12px;">' + (bg.name || '背景图') + '</div>' +
-                        '<button onclick="SystemPage._deleteBackground(' + actId + ',' + bg.id + ')" style="position:absolute;top:6px;right:6px;background:rgba(229,57,53,0.8);color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;"><i class="fas fa-times"></i></button>' +
-                        '</div>';
+                    var hasMaterial = parseInt(bg.has_material || 0) === 1;
+                    var isVideo = parseInt(bg.bgtype) === 2;
+                    var src = bg.attachmentpath || '';
+                    var previewHtml;
+
+                    if (hasMaterial && src) {
+                        // 有素材：显示图片或视频
+                        if (isVideo) {
+                            previewHtml = '<video src="' + src + '" autoplay loop muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>';
+                        } else {
+                            previewHtml = '<img src="' + src + '" style="width:100%;height:100%;object-fit:cover;">';
+                        }
+                    } else {
+                        // 无素材：纯色背景 + 提示文字
+                        previewHtml = '<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,0.4);">' +
+                            '<i class="fas fa-image" style="font-size:32px;margin-bottom:8px;"></i>' +
+                            '<span style="font-size:12px;">未设置背景素材</span></div>';
+                    }
+
+                    h += '<div class="bg-module-card" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">' +
+                        '<div style="position:relative;aspect-ratio:16/9;background:#1a1a2e;overflow:hidden;">' +
+                        previewHtml +
+                        '</div>' +
+                        '<div style="padding:12px 16px;">' +
+                        '<div style="font-size:15px;font-weight:600;color:#333;margin-bottom:4px;">' + (bg.name || '背景图') + '</div>' +
+                        '<div style="font-size:12px;color:#999;margin-bottom:12px;">' + (hasMaterial ? (isVideo ? '视频素材' : '图片素材') : '纯色背景') + '</div>' +
+                        '<div style="display:flex;gap:8px;">' +
+                        '<label class="btn btn-primary btn-sm" style="cursor:pointer;margin:0;flex:1;text-align:center;">' +
+                        '<i class="fas fa-upload"></i> ' + (hasMaterial ? '更换素材' : '上传素材') +
+                        '<input type="file" accept="image/jpeg,image/png,image/webp,video/mp4" style="display:none;" onchange="SystemPage._handleBgFileSelect(this,\'' + bg.plugname + '\',' + actId + ')">' +
+                        '</label>';
+
+                    // 只有有素材时才显示删除按钮
+                    if (hasMaterial) {
+                        h += '<button class="btn btn-danger btn-sm" style="flex:1;" onclick="SystemPage._deleteBgMaterial(\'' + bg.plugname + '\',' + actId + ',\'' + (bg.name || '').replace(/'/g, "\\'") + '\')">' +
+                            '<i class="fas fa-trash-alt"></i> 删除素材</button>';
+                    }
+
+                    h += '</div></div></div>';
                 });
                 h += '</div>';
                 container.innerHTML = h;
-            }).catch(function() {
-                var c = document.getElementById('bg-list');
+            }).catch(function(e) {
+                var c = document.getElementById('bg-module-list');
                 if (c) c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>加载失败</p></div>';
             });
         },
 
-        _addBackground: function() {
-            var actId = App.getCurrentActivityId();
-            layui.layer.open({
-                type: 1, title: '添加背景图', area: ['450px', '250px'],
-                content: '<div style="padding:20px;">' +
-                    '<div class="layui-form-item"><label class="layui-form-label">图片URL</label><div class="layui-input-block"><input type="text" id="bg-url" class="layui-input" placeholder="背景图片地址"></div></div>' +
-                    '<div class="layui-form-item"><div class="layui-input-block"><button class="btn btn-primary" id="btn-add-bg"><i class="fas fa-save"></i> 添加</button></div></div></div>',
-                success: function(layero) {
-                    layero.find('#btn-add-bg').on('click', function() {
-                        var url = layero.find('#bg-url').val();
-                        if (!url) return layui.layer.msg('请输入图片地址', { icon: 2 });
-                        Api.addBackground(actId, { url: url }).then(function() {
-                            layui.layer.closeAll();
-                            layui.layer.msg('添加成功', { icon: 1 });
-                            SystemPage._loadBackgrounds(actId);
-                        });
-                    });
-                }
+        _handleBgFileSelect: function(inputEl, plugname, actId) {
+            var file = inputEl.files[0];
+            if (!file) return;
+
+            // 验证文件格式
+            var allowTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4'];
+            if (allowTypes.indexOf(file.type) === -1) {
+                layui.layer.msg('不支持的文件格式，仅支持 jpg/png/webp/mp4', { icon: 2 });
+                inputEl.value = '';
+                return;
+            }
+
+            // 验证文件大小
+            if (file.size > 10 * 1024 * 1024) {
+                layui.layer.msg('文件大小不能超过 10MB', { icon: 2 });
+                inputEl.value = '';
+                return;
+            }
+
+            var loadIdx = layui.layer.load(1, { shade: [0.3, '#000'] });
+
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('plugname', plugname);
+            formData.append('activity_id', actId);
+
+            Api.uploadBackground(formData).then(function(res) {
+                layui.layer.close(loadIdx);
+                layui.layer.msg('上传成功', { icon: 1 });
+                SystemPage._loadBackgroundModules(actId);
+            }).catch(function() {
+                layui.layer.close(loadIdx);
             });
+
+            inputEl.value = '';
         },
 
-        _deleteBackground: function(actId, bgId) {
-            layui.layer.confirm('确定删除该背景图？', { icon: 3 }, function(idx) {
-                Api.deleteBackground(actId, bgId).then(function() {
-                    layui.layer.close(idx);
-                    SystemPage._loadBackgrounds(actId);
+        _deleteBgMaterial: function(plugname, actId, name) {
+            layui.layer.confirm('确定删除「' + name + '」的背景素材？<br><span style="color:#999;font-size:12px;">删除后将使用纯色背景替代</span>', { icon: 3 }, function(idx) {
+                layui.layer.close(idx);
+                var loadIdx = layui.layer.load(1, { shade: [0.3, '#000'] });
+                Api.resetBackground(actId, plugname).then(function() {
+                    layui.layer.close(loadIdx);
+                    layui.layer.msg('素材已删除', { icon: 1 });
+                    SystemPage._loadBackgroundModules(actId);
+                }).catch(function() {
+                    layui.layer.close(loadIdx);
                 });
             });
         },
 
-        // ========== 背景音乐 ==========
+        // ========== 背景音乐（按功能模块分卡片管理，weixin_music 表） ==========
         renderMusic: function() {
             var actId = App.getCurrentActivityId();
             if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
 
-            var html = '<div class="content-card"><div class="card-title"><span>背景音乐管理</span>' +
-                '<button class="btn btn-primary btn-sm" onclick="SystemPage._addMusic()"><i class="fas fa-plus"></i> 添加音乐</button></div>' +
-                '<div id="music-list" class="loading-state"><i class="fas fa-spinner"></i> 加载中...</div></div>';
+            var html = '<div class="content-card"><div class="card-title"><span>背景音乐管理</span></div>' +
+                '<p style="color:#999;font-size:13px;margin:-8px 0 16px 0;">按功能模块分类管理背景音乐，支持 mp3 格式，最大 20MB</p>' +
+                '<div id="bgmusic-module-list" class="loading-state"><i class="fas fa-spinner"></i> 加载中...</div></div>';
             Layout.setContent(html);
+            this._loadBgMusicModules(actId);
+        },
 
-            Api.getMusics(actId).then(function(res) {
+        _loadBgMusicModules: function(actId) {
+            Api.getBgMusics(actId).then(function(res) {
                 var list = res.data || [];
                 if (!Array.isArray(list)) list = [];
-                var container = document.getElementById('music-list');
+                var container = document.getElementById('bgmusic-module-list');
                 if (list.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><i class="fas fa-music"></i><p>暂无背景音乐</p></div>';
+                    container.innerHTML = '<div class="empty-state"><i class="fas fa-music"></i><p>暂无背景音乐模块数据</p></div>';
                     return;
                 }
-                var h = '<div class="switch-grid">';
+                var h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;">';
                 list.forEach(function(m) {
-                    h += '<div class="switch-card"><div class="sw-icon" style="background:#FB8C00;"><i class="fas fa-music"></i></div>' +
-                        '<div class="sw-info" style="flex:1;"><div class="sw-name">' + (m.name || m.title || '音乐') + '</div>' +
-                        '<div class="sw-desc">' + (m.url || '') + '</div></div>' +
-                        '<button onclick="SystemPage._deleteMusic(' + actId + ',' + m.id + ')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button>' +
-                        '</div>';
+                    var isOn = parseInt(m.bgmusicstatus) === 1;
+                    var musicPath = m.bgmusicpath || '';
+                    var hasCustom = parseInt(m.bgmusic || 0) > 0;
+
+                    h += '<div class="bg-module-card" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">' +
+                        '<div style="padding:16px;">' +
+                        // 标题栏 + 开关
+                        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+                        '<div style="font-size:15px;font-weight:600;color:#333;">' +
+                        '<i class="fas fa-music" style="color:#FB8C00;margin-right:6px;"></i>' + (m.name || '背景乐') +
+                        '</div>' +
+                        '<div><input type="checkbox" lay-skin="switch" lay-text="开|关"' + (isOn ? ' checked' : '') +
+                        ' lay-filter="bgMusicToggle" data-plugname="' + m.plugname + '"></div>' +
+                        '</div>' +
+                        // 模块标识
+                        '<div style="font-size:12px;color:#999;margin-bottom:12px;">模块标识：' + (m.plugname || '-') +
+                        (hasCustom ? '' : ' <span style="background:rgba(0,0,0,0.06);color:#999;font-size:11px;padding:1px 6px;border-radius:3px;margin-left:6px;">默认</span>') +
+                        '</div>' +
+                        // 试听播放器
+                        (musicPath ? '<div style="margin-bottom:12px;"><audio controls preload="none" style="width:100%;height:36px;" src="' + musicPath + '"></audio></div>' : '') +
+                        // 上传按钮
+                        '<div style="display:flex;gap:8px;">' +
+                        '<label class="btn btn-primary btn-sm" style="cursor:pointer;margin:0;flex:1;text-align:center;">' +
+                        '<i class="fas fa-upload"></i> 选择文件' +
+                        '<input type="file" accept="audio/mpeg,audio/mp3,.mp3" style="display:none;" onchange="SystemPage._handleBgMusicFileSelect(this,\'' + m.plugname + '\',' + actId + ')">' +
+                        '</label>' +
+                        '</div>' +
+                        '</div></div>';
                 });
                 h += '</div>';
                 container.innerHTML = h;
-            }).catch(function() {
-                var c = document.getElementById('music-list');
+                layui.form.render('checkbox');
+
+                // 绑定开关事件
+                layui.form.on('switch(bgMusicToggle)', function(data) {
+                    var plugname = data.elem.getAttribute('data-plugname');
+                    var newStatus = data.elem.checked ? 1 : 2;
+                    Api.toggleBgMusic(actId, plugname, newStatus).then(function() {
+                        layui.layer.msg((newStatus === 1 ? '已开启' : '已关闭') + '背景音乐', { icon: 1 });
+                    }).catch(function() {
+                        data.elem.checked = !data.elem.checked;
+                        layui.form.render('checkbox');
+                    });
+                });
+            }).catch(function(e) {
+                var c = document.getElementById('bgmusic-module-list');
                 if (c) c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>加载失败</p></div>';
             });
         },
 
-        _addMusic: function() {
-            var actId = App.getCurrentActivityId();
-            layui.layer.open({
-                type: 1, title: '添加背景音乐', area: ['450px', '280px'],
-                content: '<div style="padding:20px;">' +
-                    '<div class="layui-form-item"><label class="layui-form-label">音乐名称</label><div class="layui-input-block"><input type="text" id="music-name" class="layui-input" placeholder="音乐名称"></div></div>' +
-                    '<div class="layui-form-item"><label class="layui-form-label">音乐URL</label><div class="layui-input-block"><input type="text" id="music-url" class="layui-input" placeholder="音乐文件地址"></div></div>' +
-                    '<div class="layui-form-item"><div class="layui-input-block"><button class="btn btn-primary" id="btn-add-music"><i class="fas fa-save"></i> 添加</button></div></div></div>',
-                success: function(layero) {
-                    layero.find('#btn-add-music').on('click', function() {
-                        var name = layero.find('#music-name').val();
-                        var url = layero.find('#music-url').val();
-                        if (!url) return layui.layer.msg('请输入音乐地址', { icon: 2 });
-                        Api.addMusic(actId, { name: name, url: url }).then(function() {
-                            layui.layer.closeAll();
-                            layui.layer.msg('添加成功', { icon: 1 });
-                            SystemPage.renderMusic();
-                        });
-                    });
-                }
-            });
-        },
+        _handleBgMusicFileSelect: function(inputEl, plugname, actId) {
+            var file = inputEl.files[0];
+            if (!file) return;
 
-        _deleteMusic: function(actId, musicId) {
-            layui.layer.confirm('确定删除该音乐？', { icon: 3 }, function(idx) {
-                Api.deleteMusic(actId, musicId).then(function() {
-                    layui.layer.close(idx);
-                    SystemPage.renderMusic();
-                });
+            // 验证文件格式
+            if (file.type !== 'audio/mpeg' && file.type !== 'audio/mp3' && !file.name.toLowerCase().endsWith('.mp3')) {
+                layui.layer.msg('仅支持 mp3 格式', { icon: 2 });
+                inputEl.value = '';
+                return;
+            }
+
+            // 验证文件大小
+            if (file.size > 20 * 1024 * 1024) {
+                layui.layer.msg('文件大小不能超过 20MB', { icon: 2 });
+                inputEl.value = '';
+                return;
+            }
+
+            var loadIdx = layui.layer.load(1, { shade: [0.3, '#000'] });
+
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('plugname', plugname);
+
+            Api.uploadBgMusic(actId, formData).then(function(res) {
+                layui.layer.close(loadIdx);
+                layui.layer.msg('上传成功', { icon: 1 });
+                SystemPage._loadBgMusicModules(actId);
+            }).catch(function() {
+                layui.layer.close(loadIdx);
             });
+
+            inputEl.value = '';
         },
 
         // ========== 功能开关 ==========

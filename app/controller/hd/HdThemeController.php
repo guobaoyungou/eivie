@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\controller\hd;
 
 use app\service\hd\HdThemeService;
+use think\facade\Filesystem;
 
 /**
  * 大屏互动 - 主题展示控制器
@@ -48,17 +49,14 @@ class HdThemeController extends HdBaseController
 
     public function addBackground(int $activity_id)
     {
-        return json($this->themeService->addBackground($this->getAid(), $this->getBid(), $activity_id, input('post.')));
+        // 已废弃，背景上传改由 HdUploadController::background 处理
+        return json(['code' => 1, 'msg' => '请使用上传接口']);
     }
 
-    public function updateBackground(int $activity_id, int $id)
+    public function resetBackground(int $activity_id)
     {
-        return json($this->themeService->updateBackground($this->getAid(), $this->getBid(), $activity_id, $id, input('post.')));
-    }
-
-    public function deleteBackground(int $activity_id, int $id)
-    {
-        return json($this->themeService->deleteBackground($this->getAid(), $this->getBid(), $activity_id, $id));
+        $plugname = input('post.plugname', '');
+        return json($this->themeService->resetBackground($this->getAid(), $this->getBid(), $activity_id, $plugname));
     }
 
     // —— 音乐 ——
@@ -82,6 +80,57 @@ class HdThemeController extends HdBaseController
         return json($this->themeService->deleteMusic($this->getAid(), $this->getBid(), $activity_id, $id));
     }
 
+    // —— 背景音乐（weixin_music 表，按功能模块管理） ——
+    public function bgMusics(int $activity_id)
+    {
+        return json($this->themeService->getBgMusics());
+    }
+
+    public function toggleBgMusic(int $activity_id)
+    {
+        $plugname = input('post.plugname', '');
+        $bgmusicstatus = (int)input('post.bgmusicstatus', 0);
+        return json($this->themeService->toggleBgMusic($plugname, $bgmusicstatus));
+    }
+
+    public function uploadBgMusic(int $activity_id)
+    {
+        $file = request()->file('file');
+        if (!$file) {
+            return $this->error('请上传音乐文件');
+        }
+
+        $plugname = input('post.plugname', '');
+        if (empty($plugname)) {
+            return $this->error('请指定功能模块(plugname)');
+        }
+
+        try {
+            validate(['file' => [
+                'fileSize'    => 20 * 1024 * 1024, // 20MB
+                'fileExt'     => 'mp3',
+                'fileMime'    => 'audio/mpeg,audio/mp3',
+            ]])->check(['file' => $file]);
+
+            // 保存文件
+            $savename = Filesystem::putFile('hd/' . $this->getBid() . '/bgmusic', $file);
+            $filepath = '/upload/' . str_replace("\\" , '/', $savename);
+
+            // 记录到 weixin_attachments
+            $ext = strtolower($file->extension());
+            $filemd5 = md5($file->getOriginalName() . '|' . $file->getSize());
+            $attachmentId = $this->themeService->saveAttachment($filepath, $ext, 1, $filemd5);
+
+            // 更新 weixin_music
+            $result = $this->themeService->updateBgMusic($plugname, $attachmentId);
+            return json($result);
+        } catch (\think\exception\ValidateException $e) {
+            return $this->error('仅支持 mp3 格式，最大 20MB');
+        } catch (\Exception $e) {
+            return $this->error('上传失败: ' . $e->getMessage());
+        }
+    }
+
     // —— 自定义二维码 ——
     public function qrcodeConfig(int $activity_id)
     {
@@ -91,5 +140,16 @@ class HdThemeController extends HdBaseController
     public function updateQrcodeConfig(int $activity_id)
     {
         return json($this->themeService->updateQrcodeConfig($this->getAid(), $this->getBid(), $activity_id, input('post.')));
+    }
+
+    // —— 签到主题 ——
+    public function signThemeConfig(int $activity_id)
+    {
+        return json($this->themeService->getSignThemeConfig($this->getAid(), $this->getBid(), $activity_id));
+    }
+
+    public function updateSignThemeConfig(int $activity_id)
+    {
+        return json($this->themeService->updateSignThemeConfig($this->getAid(), $this->getBid(), $activity_id, input('post.')));
     }
 }

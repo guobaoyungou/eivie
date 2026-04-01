@@ -355,6 +355,9 @@
         addBackground: function(actId, data) {
             return http.post('/theme/' + actId + '/backgrounds', data);
         },
+        resetBackground: function(actId, plugname) {
+            return http.post('/theme/' + actId + '/backgrounds/reset', { plugname: plugname });
+        },
         deleteBackground: function(actId, id) {
             return http.post('/theme/' + actId + '/backgrounds/' + id + '/delete');
         },
@@ -368,12 +371,33 @@
             return http.post('/theme/' + actId + '/musics/' + id + '/delete');
         },
 
+        // ---- 背景音乐管理 API（weixin_music 表） ----
+        getBgMusics: function(actId) {
+            return http.get('/theme/' + actId + '/bgmusics');
+        },
+        toggleBgMusic: function(actId, plugname, bgmusicstatus) {
+            return http.post('/theme/' + actId + '/bgmusics/toggle', { plugname: plugname, bgmusicstatus: bgmusicstatus });
+        },
+        uploadBgMusic: function(actId, formData) {
+            return http.post('/theme/' + actId + '/bgmusics/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+        },
+
         // ---- 功能开关 API ----
         getSwitchList: function(actId) {
             return http.get('/switch/' + actId);
         },
         toggleSwitch: function(actId, code) {
             return http.post('/switch/' + actId + '/toggle/' + code);
+        },
+
+        // ---- 签到主题配置 API ----
+        getSignThemeConfig: function(actId) {
+            return http.get('/theme/' + actId + '/sign-theme');
+        },
+        updateSignThemeConfig: function(actId, data) {
+            return http.post('/theme/' + actId + '/sign-theme', data);
         },
 
         // ---- 系统设置 API ----
@@ -394,6 +418,12 @@
         },
         reverseGeo: function(lat, lng) {
             return http.get('/setting/reverse-geo', { params: { lat: lat, lng: lng } });
+        },
+        getMobileUrls: function(activityId) {
+            return http.get('/setting/mobile-urls', { params: { activity_id: activityId } });
+        },
+        updateWxConfig: function(data) {
+            return http.post('/setting/wx-config', data);
         },
 
         // ---- 大屏密码管理 API ----
@@ -427,6 +457,11 @@
             return http.post('/upload/music', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
+        },
+
+        // ---- 套餐查询 API ----
+        getPlans: function() {
+            return http.get('/plans');
         },
 
         // ---- 导出 API ----
