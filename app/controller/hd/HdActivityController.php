@@ -65,7 +65,8 @@ class HdActivityController extends HdBaseController
     public function update(int $id)
     {
         $data = input('post.');
-        $result = $this->activityService->update($this->getAid(), $this->getBid(), $id, $data);
+        $plan = $this->request->hd_plan ?? null;
+        $result = $this->activityService->update($this->getAid(), $this->getBid(), $id, $data, $plan);
         return json($result);
     }
 

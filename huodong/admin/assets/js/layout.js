@@ -193,7 +193,8 @@
                 var statusClass = act.status === 1 ? 'on' : 'off';
                 html += '<li data-id="' + act.id + '" class="' + (isActive ? 'active' : '') + '">';
                 html += '<span class="activity-status ' + statusClass + '"></span>';
-                html += '<span>' + this._escHtml(act.name || act.title || '未命名活动') + '</span>';
+                html += '<span class="activity-name-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + this._escHtml(act.name || act.title || '未命名活动') + '</span>';
+                html += '<span class="activity-manage-btn" data-manage-id="' + act.id + '" title="管理"><i class="fas fa-cog"></i> 管理</span>';
                 html += '</li>';
             }
             list.innerHTML = html;
@@ -209,15 +210,29 @@
                 });
             }
 
-            // 绑定切换事件
+            // 绑定切换事件（点击活动名称区域或状态圆点切换活动）
             var self = this;
             list.querySelectorAll('li[data-id]').forEach(function(li) {
                 li.addEventListener('click', function(e) {
+                    // 如果点击的是管理按钮，不触发切换
+                    if (e.target.closest('.activity-manage-btn')) return;
                     e.stopPropagation();
                     var id = this.getAttribute('data-id');
                     if (id && global.App) {
                         global.App.switchActivity(id);
                         self._closeAllDropdowns();
+                    }
+                });
+            });
+
+            // 绑定「管理」按钮点击事件
+            list.querySelectorAll('.activity-manage-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var id = this.getAttribute('data-manage-id');
+                    if (id && global.App && global.App.showEditActivity) {
+                        self._closeAllDropdowns();
+                        global.App.showEditActivity(id);
                     }
                 });
             });
@@ -257,11 +272,14 @@
                 });
             });
 
-            // 旧版后台
-            var oldAdminBtn = document.getElementById('btn-old-admin');
-            if (oldAdminBtn) {
-                oldAdminBtn.addEventListener('click', function() {
-                    window.open('/huodong/myadmin/index.php', '_blank');
+            // 套餐选购
+            var pricingBtn = document.getElementById('btn-pricing');
+            if (pricingBtn) {
+                pricingBtn.addEventListener('click', function() {
+                    self._closeAllDropdowns();
+                    if (global.PricingPage && global.PricingPage.showPricingModal) {
+                        global.PricingPage.showPricingModal();
+                    }
                 });
             }
         },
@@ -272,6 +290,30 @@
         setUserName: function(name) {
             var el = document.getElementById('user-name');
             if (el) el.textContent = name || '用户';
+        },
+
+        /**
+         * 设置套餐名称标签
+         */
+        setPlanName: function(planInfo) {
+            var el = document.getElementById('user-plan-tag');
+            if (!el) return;
+            if (!planInfo || !planInfo.name) {
+                el.style.display = 'none';
+                return;
+            }
+            var name = planInfo.name;
+            var isValid = !!planInfo.is_valid;
+            el.textContent = name;
+            el.className = 'user-plan-tag' + (isValid ? '' : ' expired');
+            el.style.display = 'inline-block';
+            // 点击套餐标签打开套餐选购弹窗
+            el.onclick = function(e) {
+                e.stopPropagation();
+                if (window.PricingPage && window.PricingPage.showPricingModal) {
+                    window.PricingPage.showPricingModal();
+                }
+            };
         },
 
         /**

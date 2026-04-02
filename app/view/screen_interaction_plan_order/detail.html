@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>套餐订单详情</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .detail-card { background: #f8f8f8; border-radius: 4px; padding: 15px; margin-bottom: 15px; }
+    .detail-card h3 { font-size: 16px; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #e6e6e6; padding-bottom: 8px; }
+    .detail-item { display: inline-block; width: 48%; min-width: 280px; padding: 8px 0; vertical-align: top; }
+    .detail-item label { color: #666; display: inline-block; width: 100px; text-align: right; margin-right: 8px; }
+    .detail-item span { color: #333; font-weight: 500; }
+    .price-highlight { color: #FF6B00; font-size: 18px; font-weight: bold; }
+    .price-original { color: #999; text-decoration: line-through; font-size: 14px; }
+    .price-discount { color: #5FB878; font-size: 13px; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+
+      <!-- 订单信息 -->
+      <div class="layui-col-md12">
+        <div class="detail-card">
+          <h3><i class="layui-icon layui-icon-form"></i> 订单信息</h3>
+          <div class="detail-item"><label>订单号：</label><span>{$info.order_no}</span></div>
+          <div class="detail-item">
+            <label>订单类型：</label>
+            <span>
+              {if $info['order_type']==1}<span class="layui-badge layui-bg-blue">新购</span>
+              {elseif $info['order_type']==2/}<span class="layui-badge layui-bg-orange">续费</span>
+              {else/}未知{/if}
+            </span>
+          </div>
+          <div class="detail-item">
+            <label>支付状态：</label>
+            <span>
+              {if $info['pay_status']==1}<span class="layui-badge layui-bg-green">已支付</span>
+              {else/}<span class="layui-badge layui-bg-gray">未支付</span>{/if}
+            </span>
+          </div>
+          <div class="detail-item"><label>创建时间：</label><span>{$info.create_time_text}</span></div>
+          {if $info['remark']}
+          <div class="detail-item" style="width:96%"><label>备注：</label><span>{$info.remark}</span></div>
+          {/if}
+        </div>
+      </div>
+
+      <!-- 价格信息 -->
+      <div class="layui-col-md12">
+        <div class="detail-card">
+          <h3><i class="layui-icon layui-icon-rmb"></i> 价格信息</h3>
+          <div class="detail-item">
+            <label>原价：</label>
+            <span class="price-original">¥{$info.original_price}</span>
+          </div>
+          <div class="detail-item">
+            <label>实付金额：</label>
+            <span class="price-highlight">¥{$info.amount}</span>
+            {if $info['discount_amount'] > 0}
+            <span class="price-discount">（优惠 ¥{$info.discount_amount}）</span>
+            {/if}
+          </div>
+        </div>
+      </div>
+
+      <!-- 套餐信息 -->
+      <div class="layui-col-md12">
+        <div class="detail-card">
+          <h3><i class="layui-icon layui-icon-app"></i> 套餐信息</h3>
+          <div class="detail-item"><label>套餐名称：</label><span>{$info.plan_name}</span></div>
+          <div class="detail-item"><label>套餐编码：</label><span>{$info.plan_code|default='-'}</span></div>
+          <div class="detail-item"><label>计费周期：</label><span>{$info.period_text|default='-'}</span></div>
+          <div class="detail-item"><label>有效天数：</label><span>{$info.duration_days|default='-'} 天</span></div>
+        </div>
+      </div>
+
+      <!-- 时间信息 -->
+      <div class="layui-col-md12">
+        <div class="detail-card">
+          <h3><i class="layui-icon layui-icon-date"></i> 时间信息</h3>
+          <div class="detail-item"><label>支付时间：</label><span>{$info.pay_time_text}</span></div>
+          <div class="detail-item"><label>生效时间：</label><span>{$info.start_time_text}</span></div>
+          <div class="detail-item">
+            <label>到期时间：</label>
+            <span>{$info.end_time_text}
+              {if $info['is_expired']} <span class="layui-badge">已过期</span>{/if}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 商户信息 -->
+      <div class="layui-col-md12">
+        <div class="detail-card">
+          <h3><i class="layui-icon layui-icon-user"></i> 商户信息</h3>
+          <div class="detail-item"><label>商户名称：</label><span>{$info.business_name|default='-'}</span></div>
+          <div class="detail-item"><label>联系人：</label><span>{$info.business_contact|default='-'}</span></div>
+          <div class="detail-item"><label>联系电话：</label><span>{$info.business_tel|default='-'}</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  {include file="public/js"/}
+</body>
+</html>

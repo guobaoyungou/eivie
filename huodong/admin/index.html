@@ -125,11 +125,12 @@
                 <div class="user-menu" id="user-menu">
                     <i class="fas fa-user-circle"></i>
                     <span id="user-name">用户</span>
+                    <span class="user-plan-tag" id="user-plan-tag" title="点击查看套餐详情"></span>
                     <i class="fas fa-caret-down"></i>
                 </div>
                 <div class="user-dropdown" id="user-dropdown" style="display:none;">
                     <a href="javascript:;" id="btn-profile"><i class="fas fa-id-card"></i> 个人信息</a>
-                    <a href="javascript:;" id="btn-old-admin"><i class="fas fa-external-link-alt"></i> 旧版后台</a>
+                    <a href="javascript:;" id="btn-pricing"><i class="fas fa-crown" style="color:#FB8C00;"></i> 套餐选购</a>
                     <div class="dropdown-divider"></div>
                     <a href="javascript:;" id="btn-logout"><i class="fas fa-sign-out-alt"></i> 退出登录</a>
                 </div>
@@ -166,20 +167,22 @@
     <!-- ========== 第三方库 ========== -->
     <script src="/static/admin/layui/layui.all.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
     <!-- ========== 应用脚本 ========== -->
     <script src="assets/js/router.js?v=20260331"></script>
-    <script src="assets/js/api.js?v=20260331e"></script>
+    <script src="assets/js/api.js?v=20260331g"></script>
     <script src="assets/js/menu.js?v=20260331"></script>
     <script src="assets/js/layout.js?v=20260331"></script>
-    <script src="assets/js/pages/dashboard.js?v=20260331b"></script>
-    <script src="assets/js/pages/sign.js?v=20260331e"></script>
+    <script src="assets/js/pages/dashboard.js?v=20260331d"></script>
+    <script src="assets/js/pages/sign.js?v=20260401a"></script>
     <script src="assets/js/pages/lottery.js?v=20260331"></script>
     <script src="assets/js/pages/game.js?v=20260331"></script>
     <script src="assets/js/pages/wall.js?v=20260331"></script>
     <script src="assets/js/pages/content.js?v=20260331"></script>
     <script src="assets/js/pages/redpacket.js?v=20260331"></script>
     <script src="assets/js/pages/system.js?v=20260331"></script>
+    <script src="assets/js/pages/pricing.js?v=20260401"></script>
     <script src="assets/js/app.js?v=20260331"></script>
 </body>
 </html>

@@ -27,9 +27,21 @@ class HdSignService
 
         $screenConfig = $activity->screen_config ?: [];
         $signConfig = [
+            // 基本配置
+            'enabled'               => (int)($screenConfig['enabled'] ?? 1),
+            'start_time'            => $screenConfig['start_time'] ?? '',
+            'end_time'              => $screenConfig['end_time'] ?? '',
+            'require_name'          => (int)($screenConfig['require_name'] ?? 0),
+            'require_phone'         => (int)($screenConfig['require_phone'] ?? 0),
+            'require_phone_verify'  => (int)($screenConfig['require_phone_verify'] ?? 0),
+            'require_company'       => (int)($screenConfig['require_company'] ?? 0),
+            'require_position'      => (int)($screenConfig['require_position'] ?? 0),
+            'use_wx_avatar'         => (int)($screenConfig['use_wx_avatar'] ?? 1),
+            'show_style'            => $screenConfig['sign_show_style'] ?? ($screenConfig['show_style'] ?? 1),
+            'sign_show_style'       => $screenConfig['sign_show_style'] ?? ($screenConfig['show_style'] ?? 1),
+            // 大屏配置
             'sign_match_mode'       => $screenConfig['sign_match_mode'] ?? 1,
             'sign_verify_mode'      => $screenConfig['sign_verify_mode'] ?? 1,
-            'sign_show_style'       => $screenConfig['sign_show_style'] ?? 1,
             'sign_bg_image'         => $screenConfig['sign_bg_image'] ?? '',
             'sign_music'            => $screenConfig['sign_music'] ?? '',
             'sign_location_enabled' => (int)($screenConfig['sign_location_enabled'] ?? 0),
@@ -74,14 +86,27 @@ class HdSignService
         }
 
         $screenConfig = $activity->screen_config ?: [];
-        $allowedKeys = ['sign_match_mode', 'sign_verify_mode', 'sign_show_style', 'sign_bg_image', 'sign_music',
-                        'sign_location_enabled', 'sign_latitude', 'sign_longitude', 'sign_radius', 'sign_address',
-                        'show_employee_no', 'require_employee_no', 'show_photo', 'require_photo',
-                        'show_custom_fields', 'sign_custom_fields'];
+        $allowedKeys = [
+            // 基本配置
+            'enabled', 'start_time', 'end_time',
+            'require_name', 'require_phone', 'require_phone_verify', 'require_company', 'require_position',
+            'use_wx_avatar',
+            // 大屏配置
+            'sign_match_mode', 'sign_verify_mode', 'sign_show_style', 'sign_bg_image', 'sign_music',
+            'sign_location_enabled', 'sign_latitude', 'sign_longitude', 'sign_radius', 'sign_address',
+            // 员工号、照片、自定义字段
+            'show_employee_no', 'require_employee_no', 'show_photo', 'require_photo',
+            'show_custom_fields', 'sign_custom_fields',
+        ];
         foreach ($allowedKeys as $key) {
             if (isset($data[$key])) {
                 $screenConfig[$key] = $data[$key];
             }
+        }
+
+        // 前端发送 show_style，统一映射为 sign_show_style
+        if (isset($data['show_style'])) {
+            $screenConfig['sign_show_style'] = $data['show_style'];
         }
         $activity->screen_config = $screenConfig;
 
@@ -121,13 +146,14 @@ class HdSignService
             ->select()
             ->toArray();
 
-        // 解析 custom_data JSON
+        // 格式化签到时间 + 解析 custom_data
+        // 注意: HdParticipant 模型的 getCustomDataAttr 访问器已将 custom_data 从 JSON 字符串
+        // 转换为数组，toArray() 后 $item['custom_data'] 已经是数组，不能再次 json_decode
         foreach ($list as &$item) {
-            if (!empty($item['custom_data'])) {
-                $item['custom_data_parsed'] = json_decode($item['custom_data'], true) ?: [];
-            } else {
-                $item['custom_data_parsed'] = [];
-            }
+            // 添加格式化的签到时间字段
+            $item['datetime'] = !empty($item['createtime']) ? date('Y-m-d H:i:s', (int)$item['createtime']) : '';
+            // custom_data 已由模型访问器转换为数组，直接赋值
+            $item['custom_data_parsed'] = is_array($item['custom_data']) ? $item['custom_data'] : [];
         }
         unset($item);
 
@@ -185,39 +211,34 @@ class HdSignService
     }
 
     /**
-     * 获取手机页面设计配置
+     * 获取手机页面设计配置（从 HdActivity.screen_config 读取）
      */
     public function getMobilePageConfig(int $aid, int $bid, int $activityId): array
     {
-        $feature = HdActivityFeature::where('activity_id', $activityId)
-            ->where('feature_code', 'qdq')
-            ->find();
+        $activity = HdActivity::where('aid', $aid)->where('bid', $bid)->where('id', $activityId)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
 
-        $config = $feature ? ($feature->config ?: []) : [];
+        $screenConfig = $activity->screen_config ?: [];
 
         return [
             'code' => 0,
             'data' => [
-                // 旧字段（保留兼容）
-                'mobile_bg'            => $config['mobile_bg'] ?? '',
-                'mobile_logo'          => $config['mobile_logo'] ?? '',
-                'mobile_title'         => $config['mobile_title'] ?? '',
-                'mobile_subtitle'      => $config['mobile_subtitle'] ?? '',
-                'mobile_btn_color'     => $config['mobile_btn_color'] ?? '#ff4444',
-                // 新字段
-                'mobile_bg_image'      => $config['mobile_bg_image'] ?? '',
-                'mobile_activity_image' => $config['mobile_activity_image'] ?? '',
-                'mobile_hide_avatar'   => (int)($config['mobile_hide_avatar'] ?? 0),
-                'mobile_quick_message' => (int)($config['mobile_quick_message'] ?? 0),
-                'mobile_welcome_text'  => $config['mobile_welcome_text'] ?? '欢迎参与本次活动',
-                'mobile_btn_text'      => $config['mobile_btn_text'] ?? '参 与 活 动',
-                'mobile_btn_image'     => $config['mobile_btn_image'] ?? '',
+                'mobile_bg_image'       => $screenConfig['mobile_bg_image'] ?? '',
+                'mobile_activity_image'  => $screenConfig['mobile_activity_image'] ?? '',
+                'mobile_hide_avatar'     => (int)($screenConfig['mobile_hide_avatar'] ?? 0),
+                'mobile_quick_message'   => (int)($screenConfig['mobile_quick_message'] ?? 0),
+                'mobile_welcome_text'    => $screenConfig['mobile_welcome_text'] ?? '欢迎参与本次活动',
+                'mobile_btn_text'        => $screenConfig['mobile_btn_text'] ?? '参 与 活 动',
+                'mobile_btn_image'       => $screenConfig['mobile_btn_image'] ?? '',
+                'mobile_force_wx_auth'   => (int)($screenConfig['mobile_force_wx_auth'] ?? 1),
             ],
         ];
     }
 
     /**
-     * 更新手机页面设计配置
+     * 更新手机页面设计配置（写入 HdActivity.screen_config）
      */
     public function updateMobilePageConfig(int $aid, int $bid, int $activityId, array $data): array
     {
@@ -230,33 +251,24 @@ class HdSignService
             return ['code' => 1, 'msg' => '按钮名称不超过20字'];
         }
 
-        $feature = HdActivityFeature::where('activity_id', $activityId)
-            ->where('feature_code', 'qdq')
-            ->find();
-
-        if (!$feature) {
-            $feature = new HdActivityFeature();
-            $feature->aid = $aid;
-            $feature->bid = $bid;
-            $feature->activity_id = $activityId;
-            $feature->feature_code = 'qdq';
-            $feature->enabled = 1;
-            $feature->sort = 1;
+        $activity = HdActivity::where('aid', $aid)->where('bid', $bid)->where('id', $activityId)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
         }
 
-        $config = $feature->config ?: [];
+        $screenConfig = $activity->screen_config ?: [];
         $allowedKeys = [
-            'mobile_bg', 'mobile_logo', 'mobile_title', 'mobile_subtitle', 'mobile_btn_color',
             'mobile_bg_image', 'mobile_activity_image', 'mobile_hide_avatar',
             'mobile_quick_message', 'mobile_welcome_text', 'mobile_btn_text', 'mobile_btn_image',
+            'mobile_force_wx_auth',
         ];
         foreach ($allowedKeys as $key) {
             if (array_key_exists($key, $data)) {
-                $config[$key] = $data[$key];
+                $screenConfig[$key] = $data[$key];
             }
         }
-        $feature->config = $config;
-        $feature->save();
+        $activity->screen_config = $screenConfig;
+        $activity->save();
 
         return ['code' => 0, 'msg' => '手机页面设计已更新'];
     }

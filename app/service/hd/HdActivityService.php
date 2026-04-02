@@ -34,6 +34,8 @@ class HdActivityService
         'xiangce'              => '相册',
         'xyh'                  => '幸运号码',
         'xysjh'                => '幸运手机号',
+        'lvpai'                => '旅拍大屏',
+        'scan_lottery'         => '扫码抽奖',
     ];
 
     /**
@@ -175,7 +177,7 @@ class HdActivityService
     /**
      * 更新活动
      */
-    public function update(int $aid, int $bid, int $id, array $data): array
+    public function update(int $aid, int $bid, int $id, array $data, $plan = null): array
     {
         $activity = HdActivity::where('aid', $aid)
             ->where('bid', $bid)
@@ -195,7 +197,36 @@ class HdActivityService
             $activity->ended_at = is_numeric($data['ended_at']) ? (int)$data['ended_at'] : strtotime($data['ended_at']);
         }
         if (isset($data['verifycode'])) $activity->verifycode = $data['verifycode'];
-        if (isset($data['screen_config'])) $activity->screen_config = $data['screen_config'];
+        if (isset($data['status'])) $activity->status = (int)$data['status'];
+
+        // 处理 max_participants：套餐限值校验 + 合并到 screen_config
+        if (isset($data['max_participants'])) {
+            $maxP = (int)$data['max_participants'];
+
+            // 套餐二次校验
+            if ($plan && $plan->max_participants > 0 && $maxP > $plan->max_participants) {
+                return [
+                    'code' => 1,
+                    'msg'  => '参与人数超出套餐上限(' . $plan->max_participants . '人)，请升级套餐'
+                ];
+            }
+
+            // 合并到 screen_config JSON，不覆盖其他配置
+            $screenConfig = $activity->screen_config;
+            if (is_string($screenConfig)) {
+                $screenConfig = json_decode($screenConfig, true) ?: [];
+            }
+            if (!is_array($screenConfig)) {
+                $screenConfig = [];
+            }
+            $screenConfig['max_participants'] = $maxP;
+            $activity->screen_config = $screenConfig;
+        }
+
+        // 如果单独传入了 screen_config（非 max_participants 路径），仍然支持原有逻辑
+        if (isset($data['screen_config']) && !isset($data['max_participants'])) {
+            $activity->screen_config = $data['screen_config'];
+        }
 
         $activity->save();
 

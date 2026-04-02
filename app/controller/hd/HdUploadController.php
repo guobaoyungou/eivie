@@ -8,6 +8,8 @@ use think\facade\Filesystem;
 use app\model\hd\HdAttachment;
 use app\model\hd\HdBackground;
 use app\model\hd\HdMusic;
+use app\service\hd\HdThemeService;
+use app\common\OssHelper;
 
 /**
  * 大屏互动 - 文件上传控制器
@@ -30,7 +32,6 @@ class HdUploadController extends HdBaseController
             validate(['file' => [
                 'fileSize'    => 5 * 1024 * 1024, // 5MB
                 'fileExt'     => 'jpg,jpeg,png,gif,bmp,webp',
-                'fileMime'    => 'image/jpeg,image/png,image/gif,image/bmp,image/webp',
             ]])->check(['file' => $file]);
 
             $savename = Filesystem::putFile('hd/' . $this->getBid(), $file);
@@ -63,48 +64,65 @@ class HdUploadController extends HdBaseController
     }
 
     /**
-     * 上传活动背景图
+     * 上传活动背景图/视频
      * POST /api/hd/upload/background
+     * 支持 plugname 参数，写入 weixin_background / weixin_attachments 表
+     * 使用平台附件配置的存储类型（腾讯云COS）
      */
     public function background()
     {
+        \think\facade\Log::info('=== background upload start ===');
         $file = request()->file('file');
         if (!$file) {
-            return $this->error('请上传背景图');
+            \think\facade\Log::info('background upload: no file');
+            return $this->error('请上传背景文件');
+        }
+        \think\facade\Log::info('background upload: file=' . $file->getOriginalName() . ' size=' . $file->getSize());
+
+        $plugname = input('post.plugname', '');
+        $activityId = (int)input('post.activity_id', 0);
+
+        if (empty($plugname)) {
+            return $this->error('请指定功能模块(plugname)');
         }
 
-        $activityId = (int)input('post.activity_id', 0);
-        $scene = input('post.scene', 'screen'); // screen/mobile/sign/lottery 等
-
         try {
+            // 验证文件格式：jpg, jpeg, png, webp, mp4，最大 10MB
+            // 注意：fileMime 验证依赖 fileinfo 扩展（finfo_open），服务器未安装，仅用 fileExt 验证
             validate(['file' => [
                 'fileSize'    => 10 * 1024 * 1024, // 10MB
-                'fileExt'     => 'jpg,jpeg,png,gif,webp',
-                'fileMime'    => 'image/jpeg,image/png,image/gif,image/webp',
+                'fileExt'     => 'jpg,jpeg,png,webp,mp4',
             ]])->check(['file' => $file]);
 
-            $savename = Filesystem::putFile('hd/' . $this->getBid() . '/bg', $file);
-            $filepath = 'upload/' . str_replace("\\", '/', $savename);
-            $url = request()->domain() . '/' . $filepath;
+            // 判断文件类型
+            $ext = strtolower($file->extension());
+            $bgtype = ($ext === 'mp4') ? 2 : 1;
 
-            $bg = new HdBackground();
-            $bg->aid = $this->getAid();
-            $bg->bid = $this->getBid();
-            $bg->activity_id = $activityId;
-            $bg->scene = $scene;
-            $bg->url = $url;
-            $bg->path = $filepath;
-            $bg->createtime = time();
-            $bg->save();
+            // 生成云端存储路径
+            $ossPath = 'hd/' . $this->getBid() . '/bg/' . date('Ymd') . '/' . md5(uniqid((string)mt_rand(), true)) . '.' . $ext;
+
+            // 使用平台附件配置的存储类型上传到腾讯云COS
+            $ossHelper = new OssHelper();
+            $fileUrl = $ossHelper->uploadFile($file->getPathname(), $ossPath);
+
+            // 记录到 weixin_attachments 表（filepath 存储 COS 完整 URL）
+            $filemd5 = md5_file($file->getPathname());
+            $themeService = new HdThemeService();
+            $attachmentId = $themeService->saveAttachment($fileUrl, $ext, 1, $filemd5);
+
+            // 更新 weixin_background 表中对应 plugname 的记录
+            $themeService->updateBackgroundByPlugname($plugname, $attachmentId, $bgtype);
 
             return $this->success([
-                'id'    => $bg->id,
-                'url'   => $url,
-                'scene' => $scene,
-            ], '背景图上传成功');
+                'url'      => $fileUrl,
+                'path'     => $fileUrl,
+                'bgtype'   => $bgtype,
+                'plugname' => $plugname,
+            ], '上传成功');
         } catch (\think\exception\ValidateException $e) {
             return $this->error($e->getMessage());
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \think\facade\Log::error('background upload exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
             return $this->error('上传失败: ' . $e->getMessage());
         }
     }

@@ -1,0 +1,162 @@
+<style>
+{literal}
+body {
+    margin: 0; padding: 0;
+    min-height: 100vh;
+    -webkit-user-select: none;
+    overflow: hidden;
+}
+.cd-page {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 0 32px;
+}
+/* 暗色砂纹覆盖 */
+.cd-page::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(180deg, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.35) 40%, rgba(10,10,10,0.55) 100%);
+    z-index: 1;
+}
+.cd-page > * { position: relative; z-index: 2; }
+
+.cd-avatar {
+    width: 68px; height: 68px; border-radius: var(--r-full);
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.2);
+    margin-bottom: 24px;
+    opacity: 0.9;
+}
+.cd-eyebrow {
+    font-size: 11px; letter-spacing: 4px; text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 12px;
+}
+.cd-title {
+    font-size: 24px; font-weight: 600; color: #fff;
+    text-align: center; line-height: 1.35;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+.cd-welcome {
+    font-size: 14px; color: rgba(255,255,255,0.55);
+    text-align: center; margin-bottom: 32px;
+    line-height: 1.6; font-weight: 300;
+}
+.cd-activity-img {
+    max-width: 88%; border-radius: var(--r-lg);
+    margin-bottom: 36px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+}
+
+/* 倒计时 */
+.cd-timer {
+    display: flex; gap: 12px; margin-bottom: 36px;
+    animation: fadeUp 0.6s var(--ease) both;
+    animation-delay: 0.2s;
+}
+.cd-unit {
+    width: 64px;
+    display: flex; flex-direction: column; align-items: center;
+}
+.cd-num {
+    width: 64px; height: 72px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--r-md);
+    color: #fff; font-size: 30px; font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+}
+.cd-label {
+    margin-top: 8px;
+    font-size: 11px; color: rgba(255,255,255,0.35);
+    letter-spacing: 2px;
+}
+/* 分隔符 */
+.cd-sep {
+    display: flex; align-items: center;
+    padding-bottom: 22px;
+    color: rgba(255,255,255,0.2); font-size: 22px; font-weight: 300;
+}
+
+.cd-hint {
+    font-size: 12px; color: rgba(255,255,255,0.3);
+    letter-spacing: 1px;
+    animation: pulse 3s ease-in-out infinite;
+}
+{/literal}
+</style>
+</head>
+<body>
+<div class="cd-page" style="background:url('{$mobile_bg}') center/cover no-repeat #111;">
+    {if $mobile_hide_avatar != 1}
+    <img class="cd-avatar" src="{$user['avatar']}" alt="">
+    {/if}
+    <div class="cd-eyebrow">签到倒计时</div>
+    <div class="cd-title">{$activity_title}</div>
+    <div class="cd-welcome">{$welcome_text}</div>
+    {if $mobile_activity_image != ''}
+    <img class="cd-activity-img" src="{$mobile_activity_image}" alt="">
+    {/if}
+    <div class="cd-timer">
+        <div class="cd-unit">
+            <span class="cd-num" id="cd-days">00</span>
+            <span class="cd-label">天</span>
+        </div>
+        <span class="cd-sep">:</span>
+        <div class="cd-unit">
+            <span class="cd-num" id="cd-hours">00</span>
+            <span class="cd-label">时</span>
+        </div>
+        <span class="cd-sep">:</span>
+        <div class="cd-unit">
+            <span class="cd-num" id="cd-mins">00</span>
+            <span class="cd-label">分</span>
+        </div>
+        <span class="cd-sep">:</span>
+        <div class="cd-unit">
+            <span class="cd-num" id="cd-secs">00</span>
+            <span class="cd-label">秒</span>
+        </div>
+    </div>
+    <div class="cd-hint">签到即将开始，请耐心等待</div>
+</div>
+{if $mobile_bg==''}
+<div style="position:fixed;z-index:-1;top:0;height:100%;width:100%;">
+    <img style="width:100%;height:100%;object-fit:cover;filter:blur(40px) brightness(0.3);" src="{$user['avatar']}">
+</div>
+{/if}
+<script>
+{literal}
+(function(){
+    var serverTime = {/literal}{$server_time}{literal};
+    var startTimeStr = '{/literal}{$sign_start_time}{literal}';
+    var startTimestamp = Math.floor(new Date(startTimeStr.replace(/-/g,'/')).getTime()/1000);
+    var offset = Math.floor(Date.now()/1000) - serverTime;
+
+    function update() {
+        var now = Math.floor(Date.now()/1000) - offset;
+        var diff = startTimestamp - now;
+        if (diff <= 0) {
+            window.location.reload();
+            return;
+        }
+        var d = Math.floor(diff / 86400);
+        var h = Math.floor((diff % 86400) / 3600);
+        var m = Math.floor((diff % 3600) / 60);
+        var s = diff % 60;
+        document.getElementById('cd-days').textContent = d < 10 ? '0'+d : d;
+        document.getElementById('cd-hours').textContent = h < 10 ? '0'+h : h;
+        document.getElementById('cd-mins').textContent = m < 10 ? '0'+m : m;
+        document.getElementById('cd-secs').textContent = s < 10 ? '0'+s : s;
+    }
+    update();
+    setInterval(update, 1000);
+})();
+{/literal}
+</script>
+</body>
+</html>

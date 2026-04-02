@@ -104,7 +104,7 @@ class HdScreenService
     }
 
     /**
-     * 用户签到
+     * 用户签到（增强版：扩展字段 + 时间校验 + 人数上限 + 必填校验）
      */
     public function sign(string $accessCode, array $userData): array
     {
@@ -118,8 +118,84 @@ class HdScreenService
             return ['code' => 1, 'msg' => '缺少用户标识'];
         }
 
-        // 地点限定校验
         $screenConfig = $activity->screen_config ?: [];
+
+        // === 签到时间窗口校验 ===
+        $startTime = $screenConfig['start_time'] ?? '';
+        $endTime = $screenConfig['end_time'] ?? '';
+        $now = time();
+        if (!empty($startTime) && $now < strtotime($startTime)) {
+            return ['code' => 1, 'msg' => '签到尚未开始，请耐心等待'];
+        }
+        if (!empty($endTime) && $now > strtotime($endTime)) {
+            return ['code' => 1, 'msg' => '签到已结束'];
+        }
+
+        // === 签到人数上限校验 ===
+        $maxPlayers = (int)($screenConfig['maxplayers'] ?? 0);
+        if ($maxPlayers > 0) {
+            $currentCount = HdParticipant::where('activity_id', $activity->id)
+                ->where('flag', HdParticipant::FLAG_SIGNED)->count();
+            if ($currentCount >= $maxPlayers) {
+                return ['code' => 1, 'msg' => '活动人数已满'];
+            }
+        }
+
+        // === 必填字段校验 ===
+        if (!empty($screenConfig['require_name']) && empty($userData['signname'])) {
+            return ['code' => 1, 'msg' => '姓名必须填写'];
+        }
+        if (!empty($screenConfig['require_phone'])) {
+            $phone = $userData['phone'] ?? '';
+            if (empty($phone)) {
+                return ['code' => 1, 'msg' => '手机号必须填写'];
+            }
+            if (!preg_match('/^1[3-9]\d{9}$/', $phone)) {
+                return ['code' => 1, 'msg' => '手机号格式不正确'];
+            }
+            // 短信验证码校验（当启用 require_phone_verify 时）
+            if (!empty($screenConfig['require_phone_verify'])) {
+                $smsCode = $userData['sms_code'] ?? '';
+                if (empty($smsCode)) {
+                    return ['code' => 1, 'msg' => '请输入短信验证码'];
+                }
+                $smsCacheKey = 'hd_sign_sms:' . $activity->id . ':' . $phone;
+                $cachedCode = Cache::get($smsCacheKey);
+                if (empty($cachedCode) || $cachedCode !== $smsCode) {
+                    return ['code' => 1, 'msg' => '短信验证码错误或已过期'];
+                }
+                // 验证通过，清除验证码
+                Cache::delete($smsCacheKey);
+            }
+        }
+        if (!empty($screenConfig['require_company']) && empty($userData['company'])) {
+            return ['code' => 1, 'msg' => '公司必须填写'];
+        }
+        if (!empty($screenConfig['require_position']) && empty($userData['position'])) {
+            return ['code' => 1, 'msg' => '职位必须填写'];
+        }
+        if (!empty($screenConfig['require_employee_no']) && empty($userData['employee_no'])) {
+            return ['code' => 1, 'msg' => '员工号必须填写'];
+        }
+        if (!empty($screenConfig['require_photo']) && empty($userData['sign_photo'])) {
+            return ['code' => 1, 'msg' => '签到照片必须上传'];
+        }
+
+        // === 自定义字段必填校验 ===
+        if (!empty($screenConfig['show_custom_fields']) && !empty($screenConfig['sign_custom_fields'])) {
+            $customData = $userData['custom_data'] ?? [];
+            if (is_string($customData)) {
+                $customData = json_decode($customData, true) ?: [];
+            }
+            foreach ($screenConfig['sign_custom_fields'] as $field) {
+                if (!empty($field['is_required']) && empty($customData[$field['field_name'] ?? ''])) {
+                    $fname = $field['field_name'] ?? '自定义字段';
+                    return ['code' => 1, 'msg' => $fname . '必须填写'];
+                }
+            }
+        }
+
+        // === 地点限定校验 ===
         if (!empty($screenConfig['sign_location_enabled'])) {
             $actLat = (float)($screenConfig['sign_latitude'] ?? 0);
             $actLng = (float)($screenConfig['sign_longitude'] ?? 0);
@@ -141,7 +217,7 @@ class HdScreenService
             }
         }
 
-        // 查找或创建参与者
+        // === 查找或创建参与者 ===
         $participant = HdParticipant::where('activity_id', $activity->id)
             ->where('openid', $openid)
             ->find();
@@ -159,16 +235,32 @@ class HdScreenService
         }
 
         if ($participant->flag == HdParticipant::FLAG_SIGNED) {
-            return ['code' => 0, 'msg' => '您已签到', 'data' => ['signorder' => $participant->signorder]];
+            $signTime = $participant->createtime ? date('Y-m-d H:i:s', $participant->createtime) : '';
+            return ['code' => 0, 'msg' => '您已签到', 'data' => [
+                'signorder' => $participant->signorder,
+                'sign_time' => $signTime,
+                'nickname'  => $participant->nickname,
+            ]];
         }
 
-        // 执行签到
+        // === 执行签到 ===
         $signOrder = HdParticipant::where('activity_id', $activity->id)
             ->where('flag', HdParticipant::FLAG_SIGNED)->count() + 1;
 
         $participant->flag = HdParticipant::FLAG_SIGNED;
         $participant->signorder = $signOrder;
         $participant->signname = $userData['signname'] ?? '';
+        $participant->phone = $userData['phone'] ?? '';
+        $participant->company = $userData['company'] ?? '';
+        $participant->position = $userData['position'] ?? '';
+        $participant->employee_no = $userData['employee_no'] ?? '';
+        $participant->sign_photo = $userData['sign_photo'] ?? '';
+        // 自定义字段
+        if (!empty($userData['custom_data'])) {
+            $cd = $userData['custom_data'];
+            $participant->custom_data = is_string($cd) ? $cd : json_encode($cd, JSON_UNESCAPED_UNICODE);
+        }
+        $participant->createtime = time();
         $participant->save();
 
         // 通知SSE推送签到更新
@@ -179,9 +271,215 @@ class HdScreenService
             'msg'  => '签到成功',
             'data' => [
                 'signorder'  => $signOrder,
+                'sign_time'  => date('Y-m-d H:i:s'),
                 'nickname'   => $participant->nickname,
             ],
         ];
+    }
+
+    /**
+     * 发送签到短信验证码
+     */
+    public function sendSignSmsCode(string $accessCode, string $phone): array
+    {
+        $activity = HdActivity::where('access_code', $accessCode)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
+
+        $screenConfig = $activity->screen_config ?: [];
+        if (empty($screenConfig['require_phone_verify'])) {
+            return ['code' => 1, 'msg' => '该活动未启用短信验证'];
+        }
+
+        if (empty($phone) || !preg_match('/^1[3-9]\d{9}$/', $phone)) {
+            return ['code' => 1, 'msg' => '手机号格式不正确'];
+        }
+
+        // 防频率限制（60秒内不能重复发送）
+        $rateLimitKey = 'hd_sign_sms_rate:' . $activity->id . ':' . $phone;
+        if (Cache::get($rateLimitKey)) {
+            return ['code' => 1, 'msg' => '发送太频繁，请60秒后再试'];
+        }
+
+        // 生成6位验证码
+        $code = (string)rand(100000, 999999);
+        $cacheKey = 'hd_sign_sms:' . $activity->id . ':' . $phone;
+
+        // 发送短信
+        try {
+            if (class_exists('\\app\\common\\Sms')) {
+                $rs = \app\common\Sms::send($activity->aid, $phone, 'tmpl_smscode', ['code' => $code]);
+                if (isset($rs['status']) && $rs['status'] != 1) {
+                    Log::error("[HdSign] 签到短信发送失败: " . ($rs['msg'] ?? '未知错误'));
+                    return ['code' => 1, 'msg' => $rs['msg'] ?? '短信发送失败'];
+                }
+                Log::info("[HdSign] 签到验证码已发送至 {$phone}, 活动ID: {$activity->id}");
+            } else {
+                Log::error("[HdSign] 短信服务类不存在");
+                return ['code' => 1, 'msg' => '短信服务未配置'];
+            }
+        } catch (\Throwable $e) {
+            Log::error("[HdSign] 发送签到验证码异常: " . $e->getMessage());
+            return ['code' => 1, 'msg' => '短信发送失败，请稍后重试'];
+        }
+
+        // 短信发送成功后缓存验证码和防频
+        Cache::set($cacheKey, $code, 300); // 5分钟有效
+        Cache::set($rateLimitKey, 1, 60);  // 60秒防频
+
+        return ['code' => 0, 'msg' => '验证码已发送'];
+    }
+
+    /**
+     * 检查当前用户是否为管理员
+     */
+    public function checkAdmin(string $accessCode, string $openid): array
+    {
+        $activity = HdActivity::where('access_code', $accessCode)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
+
+        $participant = HdParticipant::where('activity_id', $activity->id)
+            ->where('openid', $openid)
+            ->find();
+
+        if (!$participant) {
+            return ['code' => 0, 'data' => ['is_admin' => 0, 'features' => []]];
+        }
+
+        $isAdmin = (int)$participant->is_admin;
+        $features = [];
+
+        if ($isAdmin) {
+            // 获取活动已启用的功能列表
+            $features = HdActivityFeature::where('activity_id', $activity->id)
+                ->where('enabled', 1)
+                ->order('sort asc')
+                ->select()
+                ->toArray();
+            foreach ($features as &$f) {
+                $f['feature_name'] = HdActivityService::ALL_FEATURES[$f['feature_code']] ?? $f['feature_code'];
+            }
+            unset($f);
+        }
+
+        return ['code' => 0, 'data' => ['is_admin' => $isAdmin, 'features' => $features]];
+    }
+
+    /**
+     * 管理员获取功能开关列表
+     */
+    public function adminGetFeatures(string $accessCode, string $openid): array
+    {
+        $activity = HdActivity::where('access_code', $accessCode)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
+
+        // 权限校验
+        $participant = HdParticipant::where('activity_id', $activity->id)
+            ->where('openid', $openid)
+            ->where('is_admin', 1)
+            ->find();
+        if (!$participant) {
+            return ['code' => 1, 'msg' => '无管理员权限'];
+        }
+
+        $features = HdActivityFeature::where('activity_id', $activity->id)
+            ->order('sort asc')
+            ->select()
+            ->toArray();
+
+        foreach ($features as &$f) {
+            $f['feature_name'] = HdActivityService::ALL_FEATURES[$f['feature_code']] ?? $f['feature_code'];
+        }
+        unset($f);
+
+        // 获取抽奖轮次（用于管理员控制页面）
+        $lotteryRounds = HdLotteryConfig::where('activity_id', $activity->id)
+            ->order('round_num asc')
+            ->select()
+            ->toArray();
+
+        return ['code' => 0, 'data' => ['features' => $features, 'lottery_rounds' => $lotteryRounds]];
+    }
+
+    /**
+     * 管理员切换大屏功能
+     */
+    public function adminFeatureToggle(string $accessCode, string $openid, array $data): array
+    {
+        $activity = HdActivity::where('access_code', $accessCode)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
+
+        // 权限校验
+        $participant = HdParticipant::where('activity_id', $activity->id)
+            ->where('openid', $openid)
+            ->where('is_admin', 1)
+            ->find();
+        if (!$participant) {
+            return ['code' => 1, 'msg' => '无管理员权限'];
+        }
+
+        $featureCode = $data['feature_code'] ?? '';
+        $action = $data['action'] ?? 'toggle';
+
+        if (empty($featureCode)) {
+            return ['code' => 1, 'msg' => '功能代码不能为空'];
+        }
+
+        if ($action === 'draw') {
+            // 触发抽奖
+            $roundId = (int)($data['round_id'] ?? 0);
+            if (!$roundId) {
+                return ['code' => 1, 'msg' => '请选择抽奖轮次'];
+            }
+            return $this->lotteryDraw($accessCode, $roundId);
+        }
+
+        // 功能开关切换
+        $feature = HdActivityFeature::where('activity_id', $activity->id)
+            ->where('feature_code', $featureCode)
+            ->find();
+
+        if (!$feature) {
+            return ['code' => 1, 'msg' => '功能不存在'];
+        }
+
+        $feature->enabled = $feature->enabled ? 0 : 1;
+        $feature->save();
+
+        // SSE推送功能切换事件
+        HdSseController::notifyChannel($activity->id, $featureCode);
+
+        return [
+            'code' => 0,
+            'msg'  => $feature->enabled ? '已启用' : '已禁用',
+            'data' => ['feature_code' => $featureCode, 'enabled' => $feature->enabled],
+        ];
+    }
+
+    /**
+     * 检查当前用户是否有核销权限
+     */
+    public function checkVerifier(string $accessCode, string $openid): array
+    {
+        $activity = HdActivity::where('access_code', $accessCode)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
+
+        $participant = HdParticipant::where('activity_id', $activity->id)
+            ->where('openid', $openid)
+            ->find();
+
+        $isVerifier = $participant ? (int)$participant->is_verifier : 0;
+
+        return ['code' => 0, 'data' => ['is_verifier' => $isVerifier]];
     }
 
     /**

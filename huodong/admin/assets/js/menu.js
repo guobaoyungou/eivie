@@ -38,7 +38,9 @@
                 { id: 'lottery-designated', text: '内定名单', route: '/lottery/designated' },
                 { id: 'lottery-themes',     text: '抽奖主题', route: '/lottery/themes' },
                 { id: 'lottery-choujiang',  text: '手机端抽奖', route: '/lottery/choujiang' },
-                { id: 'lottery-import',     text: '导入抽奖', route: '/lottery/import' }
+                { id: 'lottery-import',     text: '导入抽奖', route: '/lottery/import' },
+                { id: 'lottery-lucky-phone', text: '幸运手机号', route: '/lottery/lucky-phone' },
+                { id: 'lottery-lucky-number', text: '幸运号码', route: '/lottery/lucky-number' }
             ]
         },
         {

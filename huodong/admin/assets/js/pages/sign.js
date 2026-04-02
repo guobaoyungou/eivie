@@ -25,10 +25,13 @@
                 '<div class="form-section"><div class="section-title">必填信息</div>' +
                 '<div class="layui-form-item"><div class="layui-input-block" style="margin-left:0;">' +
                 '<input type="checkbox" name="require_name" title="姓名" lay-skin="primary">' +
-                '<input type="checkbox" name="require_phone" title="电话" lay-skin="primary">' +
+                '<input type="checkbox" name="require_phone" title="电话" lay-skin="primary" lay-filter="requirePhone">' +
                 '<input type="checkbox" name="require_company" title="公司" lay-skin="primary">' +
                 '<input type="checkbox" name="require_position" title="职位" lay-skin="primary">' +
-                '</div></div></div>' +
+                '</div></div>' +
+                '<div class="layui-form-item" id="phone-verify-row" style="display:none;"><label class="layui-form-label">短信验证码</label><div class="layui-input-block"><input type="checkbox" name="require_phone_verify" id="sign-require-phone-verify" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
+                '<div class="location-tip" id="phone-verify-tip" style="display:none;"><i class="fas fa-info-circle"></i> 开启后签到时需要输入短信验证码，确保手机号真实有效</div>' +
+                '</div>' +
                 '<div class="form-section"><div class="section-title">显示设置</div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">使用微信头像</label><div class="layui-input-block"><input type="checkbox" name="use_wx_avatar" lay-skin="switch" lay-text="开启|关闭" checked></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">嘉宾显示方式</label><div class="layui-input-block">' +
@@ -129,6 +132,23 @@
                 if (panel) panel.style.display = data.elem.checked ? 'block' : 'none';
             });
 
+            // 手机号必填 → 短信验证码联动
+            layui.form.on('checkbox(requirePhone)', function(data) {
+                var verifyRow = document.getElementById('phone-verify-row');
+                var verifyTip = document.getElementById('phone-verify-tip');
+                if (verifyRow) verifyRow.style.display = data.elem.checked ? '' : 'none';
+                if (verifyTip) verifyTip.style.display = data.elem.checked ? '' : 'none';
+                if (!data.elem.checked) {
+                    var verifyEl = document.getElementById('sign-require-phone-verify');
+                    if (verifyEl) { verifyEl.checked = false; layui.form.render('checkbox', 'signConfig'); }
+                }
+            });
+
+            // 自定义字段-字段类型变化监听（layui 接管 select 渲染，原生 onchange 不触发）
+            layui.form.on('select(cfFieldType)', function(data) {
+                SignPage._onCfTypeChange(data.elem);
+            });
+
             // 半径选择变化 → 更新预览
             layui.form.on('select(signRadius)', function(data) {
                 SignPage._updateLocationPreview();
@@ -163,6 +183,31 @@
                     var radio = document.querySelector('[name="show_style"][value="' + sv + '"]');
                     if (radio) { radio.checked = true; layui.form.render('radio', 'signConfig'); }
                 }
+                // 填充必填信息复选框
+                var checkFields = ['require_name', 'require_phone', 'require_company', 'require_position'];
+                for (var ci = 0; ci < checkFields.length; ci++) {
+                    var cfName = checkFields[ci];
+                    if (data[cfName] !== undefined) {
+                        var cb = document.querySelector('[name="' + cfName + '"]');
+                        if (cb) cb.checked = !!parseInt(data[cfName]);
+                    }
+                }
+                // 填充微信头像设置
+                if (data.use_wx_avatar !== undefined) {
+                    var wxEl = document.querySelector('[name="use_wx_avatar"]');
+                    if (wxEl) wxEl.checked = !!parseInt(data.use_wx_avatar);
+                }
+                // 填充短信验证码设置
+                if (data.require_phone_verify !== undefined) {
+                    var pvEl = document.getElementById('sign-require-phone-verify');
+                    if (pvEl) pvEl.checked = !!parseInt(data.require_phone_verify);
+                }
+                // 联动：显示/隐藏短信验证码行
+                var phoneChecked = !!parseInt(data.require_phone);
+                var pvRow = document.getElementById('phone-verify-row');
+                var pvTip = document.getElementById('phone-verify-tip');
+                if (pvRow) pvRow.style.display = phoneChecked ? '' : 'none';
+                if (pvTip) pvTip.style.display = phoneChecked ? '' : 'none';
                 // 填充地点限定配置
                 if (data.sign_location_enabled !== undefined) {
                     var locEl = document.getElementById('sign-location-enabled');
@@ -243,6 +288,7 @@
                 end_time: document.getElementById('sign-end-time').value,
                 require_name: document.querySelector('[name="require_name"]').checked ? 1 : 0,
                 require_phone: document.querySelector('[name="require_phone"]').checked ? 1 : 0,
+                require_phone_verify: document.getElementById('sign-require-phone-verify').checked ? 1 : 0,
                 require_company: document.querySelector('[name="require_company"]').checked ? 1 : 0,
                 require_position: document.querySelector('[name="require_position"]').checked ? 1 : 0,
                 use_wx_avatar: document.querySelector('[name="use_wx_avatar"]').checked ? 1 : 0,
@@ -544,48 +590,19 @@
                 '<button class="btn btn-primary" onclick="SignPage._exportList()"><i class="fas fa-download"></i> 导出</button>' +
                 '<button class="btn btn-danger" onclick="SignPage._clearList()"><i class="fas fa-trash"></i> 清空</button>' +
                 '</div></div>' +
-                '<table id="sign-table" lay-filter="signTable"></table></div>';
+                '<table id="sign-table" lay-filter="signTable"></table>' +
+                '<div id="sign-pager" style="padding:10px 15px;"></div></div>';
 
             Layout.setContent(html);
             this._initTable(actId);
         },
 
         _initTable: function(actId) {
-            layui.table.render({
-                elem: '#sign-table',
-                url: '/api/hd/sign/' + actId + '/list',
-                headers: { 'Authorization': 'Bearer ' + Api.getToken() },
-                parseData: function(res) {
-                    return {
-                        code: 0,
-                        msg: res.msg || '',
-                        count: res.data ? (res.data.total || res.data.length || 0) : 0,
-                        data: res.data ? (res.data.list || res.data) : []
-                    };
-                },
-                cols: [[
-                    { field: 'signorder', title: '序号', width: 80, sort: true },
-                    { field: 'avatar', title: '头像', width: 70, templet: function(d) {
-                        return d.avatar ? '<img class="avatar-preview" src="' + d.avatar + '">' : '<i class="fas fa-user-circle" style="font-size:36px;color:#ccc;"></i>';
-                    }},
-                    { field: 'nickname', title: '昵称', width: 120 },
-                    { field: 'signname', title: '姓名', width: 100 },
-                    { field: 'employee_no', title: '员工号', width: 110 },
-                    { field: 'phone', title: '手机号', width: 130, templet: function(d) {
-                        if (!d.phone) return '-';
-                        return d.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
-                    }},
-                    { field: 'sign_photo', title: '签到照片', width: 90, templet: function(d) {
-                        if (!d.sign_photo) return '-';
-                        return '<img src="' + d.sign_photo + '" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="layui.layer.photos({photos:{data:[{src:\x27' + d.sign_photo + '\x27}]}}); return false;">';
-                    }},
-                    { field: 'datetime', title: '签到时间', width: 170 },
-                    { title: '操作', width: 100, align: 'center', toolbar: '#signTableBar' }
-                ]],
-                page: true,
-                limit: 20,
-                text: { none: '暂无签到数据' }
-            });
+            var that = this;
+            that._signActId = actId;
+            that._signPage = 1;
+            that._signLimit = 20;
+            that._signKeyword = '';
 
             // 操作栏模板
             if (!document.getElementById('signTableBar')) {
@@ -596,6 +613,7 @@
                 document.body.appendChild(script);
             }
 
+            // 绑定表格行操作事件
             layui.table.on('tool(signTable)', function(obj) {
                 if (obj.event === 'del') {
                     layui.layer.confirm('确定删除该签到记录？', { icon: 3 }, function(idx) {
@@ -603,15 +621,133 @@
                             layui.layer.close(idx);
                             obj.del();
                             layui.layer.msg('删除成功', { icon: 1 });
+                            // 重新加载当前页
+                            that._loadSignTable();
                         });
                     });
                 }
             });
+
+            // 管理员开关
+            layui.form.on('switch(toggleAdmin)', function(data) {
+                var pid = data.elem.getAttribute('data-id');
+                Api.http.post('/sign/' + actId + '/participant/' + pid + '/toggle-admin').then(function(res) {
+                    layui.layer.msg(res.msg || '操作成功', { icon: 1 });
+                }).catch(function() {
+                    data.elem.checked = !data.elem.checked;
+                    layui.form.render('checkbox');
+                    layui.layer.msg('操作失败', { icon: 2 });
+                });
+            });
+
+            // 核销员开关
+            layui.form.on('switch(toggleVerifier)', function(data) {
+                var pid = data.elem.getAttribute('data-id');
+                Api.http.post('/sign/' + actId + '/participant/' + pid + '/toggle-verifier').then(function(res) {
+                    layui.layer.msg(res.msg || '操作成功', { icon: 1 });
+                }).catch(function() {
+                    data.elem.checked = !data.elem.checked;
+                    layui.form.render('checkbox');
+                    layui.layer.msg('操作失败', { icon: 2 });
+                });
+            });
+
+            // 首次加载数据
+            that._loadSignTable();
+        },
+
+        // 通过 Axios 加载签到数据并渲染表格（确保 Hd-Token 认证）
+        _loadSignTable: function(page) {
+            var that = this;
+            var actId = that._signActId;
+            page = page || that._signPage || 1;
+            var limit = that._signLimit || 20;
+            var keyword = that._signKeyword || '';
+
+            Api.getSignList(actId, { page: page, limit: limit, keyword: keyword }).then(function(res) {
+                var list = res.data ? (res.data.list || []) : [];
+                var count = res.data ? (res.data.count || 0) : 0;
+
+                // 渲染表格（使用 data 参数，不依赖 url）
+                layui.table.render({
+                    elem: '#sign-table',
+                    id: 'sign-table',
+                    data: list,
+                    cols: [[
+                        { field: 'signorder', title: '序号', width: 80, sort: true },
+                        { field: 'avatar', title: '头像', width: 70, templet: function(d) {
+                            return d.avatar ? '<img class="avatar-preview" src="' + d.avatar + '">' : '<i class="fas fa-user-circle" style="font-size:36px;color:#ccc;"></i>';
+                        }},
+                        { field: 'nickname', title: '昵称', width: 120 },
+                        { field: 'signname', title: '姓名', width: 100 },
+                        { field: 'employee_no', title: '员工号', width: 110 },
+                        { field: 'phone', title: '手机号', width: 130, templet: function(d) {
+                            if (!d.phone) return '-';
+                            return d.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+                        }},
+                        { field: 'sign_photo', title: '签到照片', width: 90, templet: function(d) {
+                            if (!d.sign_photo) return '-';
+                            return '<img src="' + d.sign_photo + '" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="layui.layer.photos({photos:{data:[{src:\x27' + d.sign_photo + '\x27}]}}); return false;">';
+                        }},
+                        { field: 'datetime', title: '签到时间', width: 170 },
+                        { field: 'is_admin', title: '管理员', width: 90, align: 'center', templet: function(d) {
+                            var checked = parseInt(d.is_admin) === 1 ? ' checked' : '';
+                            return '<input type="checkbox" lay-skin="switch" lay-text="是|否" lay-filter="toggleAdmin" data-id="' + d.id + '"' + checked + '>';
+                        }},
+                        { field: 'is_verifier', title: '核销员', width: 90, align: 'center', templet: function(d) {
+                            var checked = parseInt(d.is_verifier) === 1 ? ' checked' : '';
+                            return '<input type="checkbox" lay-skin="switch" lay-text="是|否" lay-filter="toggleVerifier" data-id="' + d.id + '"' + checked + '>';
+                        }},
+                        { title: '操作', width: 100, align: 'center', toolbar: '#signTableBar' }
+                    ]],
+                    limit: limit,
+                    text: { none: '暂无签到数据' }
+                });
+
+                // 渲染分页
+                if (count > limit) {
+                    layui.laypage.render({
+                        elem: 'sign-pager',
+                        count: count,
+                        limit: limit,
+                        curr: page,
+                        layout: ['count', 'prev', 'page', 'next'],
+                        jump: function(obj, first) {
+                            if (!first) {
+                                that._signPage = obj.curr;
+                                that._loadSignTable(obj.curr);
+                            }
+                        }
+                    });
+                } else {
+                    document.getElementById('sign-pager') && (document.getElementById('sign-pager').innerHTML = count > 0 ? '<span style="color:#999;font-size:13px;">共 ' + count + ' 条记录</span>' : '');
+                }
+
+                // 渲染 layui form 组件（开关等）
+                layui.form.render();
+            }).catch(function(err) {
+                console.error('[SignPage] 加载签到名单失败:', err);
+                layui.table.render({
+                    elem: '#sign-table',
+                    id: 'sign-table',
+                    data: [],
+                    cols: [[
+                        { field: 'signorder', title: '序号', width: 80 },
+                        { field: 'nickname', title: '昵称', width: 120 },
+                        { field: 'signname', title: '姓名', width: 100 },
+                        { field: 'phone', title: '手机号', width: 130 },
+                        { field: 'datetime', title: '签到时间', width: 170 }
+                    ]],
+                    text: { none: '加载失败，请刷新重试' }
+                });
+            });
         },
 
         _searchList: function() {
-            var keyword = document.getElementById('sign-search').value;
-            layui.table.reload('sign-table', { where: { keyword: keyword }, page: { curr: 1 } });
+            var that = this;
+            that._signKeyword = document.getElementById('sign-search').value;
+            that._signPage = 1;
+            that._loadSignTable(1);
         },
 
         _exportList: function() {
@@ -620,12 +756,14 @@
         },
 
         _clearList: function() {
-            var actId = App.getCurrentActivityId();
+            var that = this;
+            var actId = that._signActId || App.getCurrentActivityId();
             if (!actId) return;
             layui.layer.confirm('确定清空所有签到记录？此操作不可恢复！', { icon: 3, title: '警告' }, function(idx) {
                 Api.clearSignList(actId).then(function() {
                     layui.layer.close(idx);
-                    layui.table.reload('sign-table');
+                    that._signPage = 1;
+                    that._loadSignTable(1);
                     layui.layer.msg('已清空', { icon: 1 });
                 });
             });
@@ -633,15 +771,16 @@
 
         // ========== 手机签到页 ==========
         _mobileConfig: {},  // 缓存当前配置
+        _signConfigCache: {},  // 缓存签到设置配置（用于预览联动）
 
         renderMobile: function() {
             var actId = App.getCurrentActivityId();
             if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
 
             var html = '<div class="content-card"><div class="card-title">手机签到页配置</div>' +
-                '<div class="mobile-config-layout" style="display:flex;gap:30px;">' +
+                '<div class="mobile-config-layout" style="display:flex;gap:30px;align-items:flex-start;flex-wrap:nowrap;">' +
                 // === 左侧：配置表单区 ===
-                '<div class="mobile-config-form" style="flex:1;min-width:0;">' +
+                '<div class="mobile-config-form" style="flex:1;min-width:0;overflow:hidden;">' +
                 '<form class="layui-form" lay-filter="signMobile">' +
 
                 // 签到页背景图
@@ -668,16 +807,18 @@
                 '<div class="form-section"><div class="section-title">其他设置</div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">隐藏头像</label><div class="layui-input-block"><input type="checkbox" name="mobile_hide_avatar" id="mobile-hide-avatar" lay-skin="switch" lay-text="是|否" lay-filter="mobileHideAvatar"></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">快捷留言</label><div class="layui-input-block"><input type="checkbox" name="mobile_quick_message" id="mobile-quick-message" lay-skin="switch" lay-text="开启|关闭" lay-filter="mobileQuickMessage"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label" style="width:170px;">强制关注公众号授权登录</label><div class="layui-input-block" style="margin-left:170px;"><input type="checkbox" name="mobile_force_wx_auth" id="mobile-force-wx-auth" lay-skin="switch" lay-text="开启|关闭" lay-filter="mobileForceWxAuth"></div></div>' +
+                '<div class="upload-tip" style="margin-top:-5px;margin-bottom:10px;padding-left:2px;">默认使用平台的微信服务号，若需使用自己的微信公众服务，需前往仪表盘进行公众号设置</div>' +
                 '</div>' +
 
                 // 签到后欢迎语
                 '<div class="form-section"><div class="section-title">签到后欢迎语</div>' +
-                '<div class="layui-form-item"><div class="layui-input-block" style="margin-left:0;"><input type="text" name="mobile_welcome_text" id="mobile-welcome-text" class="layui-input" placeholder="欢迎参与本次活动" maxlength="100" oninput="SignPage._updateMobilePreview()"></div>' +
+                '<div class="layui-form-item"><div class="layui-input-block" style="margin-left:0;max-width:400px;"><input type="text" name="mobile_welcome_text" id="mobile-welcome-text" class="layui-input" placeholder="欢迎参与本次活动" maxlength="100" oninput="SignPage._updateMobilePreview()"></div>' +
                 '<div class="upload-tip">签到成功页面底部显示的文字，最多100个字符</div></div></div>' +
 
                 // 签到按钮名称
                 '<div class="form-section"><div class="section-title">签到按钮名称</div>' +
-                '<div class="layui-form-item"><div class="layui-input-block" style="margin-left:0;"><input type="text" name="mobile_btn_text" id="mobile-btn-text" class="layui-input" placeholder="参 与 活 动" maxlength="20" oninput="SignPage._updateMobilePreview()"></div></div></div>' +
+                '<div class="layui-form-item"><div class="layui-input-block" style="margin-left:0;max-width:260px;"><input type="text" name="mobile_btn_text" id="mobile-btn-text" class="layui-input" placeholder="参 与 活 动" maxlength="20" oninput="SignPage._updateMobilePreview()"></div></div></div>' +
 
                 // 签到按钮图片
                 '<div class="form-section"><div class="section-title">签到按钮图片</div>' +
@@ -696,18 +837,34 @@
                 // === 右侧：手机预览区 ===
                 '<div class="mobile-preview-wrapper" style="width:300px;flex-shrink:0;">' +
                 '<div class="mobile-preview-title" style="text-align:center;margin-bottom:10px;font-weight:bold;color:#666;">手机预览</div>' +
-                '<div class="mobile-preview-frame" id="mobile-preview-frame" style="width:270px;height:480px;border:2px solid #333;border-radius:24px;overflow:hidden;position:relative;background:linear-gradient(135deg,#0c1445 0%,#1a237e 50%,#0d47a1 100%);margin:0 auto;">' +
+                '<div class="mobile-preview-frame" id="mobile-preview-frame" style="width:270px;height:auto;min-height:480px;border:2px solid #333;border-radius:24px;overflow:hidden;position:relative;background:linear-gradient(135deg,#0c1445 0%,#1a237e 50%,#0d47a1 100%);margin:0 auto;">' +
                 // 背景层
                 '<div id="mp-bg-layer" style="position:absolute;top:0;left:0;width:100%;height:100%;background-size:cover;background-position:center;"></div>' +
                 // 内容层
-                '<div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;">' +
-                // 头像区
-                '<div id="mp-avatar-area" style="text-align:center;margin-bottom:15px;"><div style="width:70px;height:70px;border-radius:50%;background:#ccc;margin:0 auto 8px;border:2px solid rgba(255,255,255,0.8);overflow:hidden;"><i class="fas fa-user" style="font-size:40px;color:#fff;line-height:70px;"></i></div><div style="color:#fff;font-size:12px;">用户昵称</div></div>' +
+                '<div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:30px 20px 40px;">' +
+                // 头像区（含照片上传覆盖层）
+                '<div id="mp-avatar-area" style="text-align:center;margin-bottom:12px;position:relative;">' +
+                '<div style="width:70px;height:70px;border-radius:50%;background:#ccc;margin:0 auto 6px;border:2px solid rgba(255,255,255,0.8);overflow:hidden;position:relative;">' +
+                '<i class="fas fa-user" style="font-size:40px;color:#fff;line-height:70px;"></i>' +
+                '<div id="mp-photo-overlay" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;flex-direction:column;">' +
+                '<i class="fas fa-camera" style="font-size:18px;color:#fff;"></i>' +
+                '<span style="font-size:8px;color:#fff;margin-top:2px;">上传照片</span>' +
+                '</div></div>' +
+                '<div style="color:#fff;font-size:11px;">用户昵称</div></div>' +
+                // 表单字段区（动态渲染）
+                '<div id="mp-fields-area" style="width:100%;margin-bottom:12px;"></div>' +
                 // 按钮区
-                '<div id="mp-btn-area" style="text-align:center;margin-bottom:15px;width:80%;"><div id="mp-btn-default" style="background:linear-gradient(90deg,#ff6b35,#ff4444);color:#fff;padding:10px 30px;border-radius:22px;font-size:14px;text-align:center;">参 与 活 动</div><div id="mp-btn-image" style="display:none;"><img id="mp-btn-img" src="" style="max-width:100%;height:auto;"></div></div>' +
+                '<div id="mp-btn-area" style="text-align:center;margin-bottom:12px;width:85%;"><div id="mp-btn-default" style="background:linear-gradient(90deg,#ff6b35,#ff4444);color:#fff;padding:8px 24px;border-radius:22px;font-size:13px;text-align:center;">参 与 活 动</div><div id="mp-btn-image" style="display:none;"><img id="mp-btn-img" src="" style="max-width:100%;height:auto;"></div></div>' +
                 // 底部欢迎语
-                '<div id="mp-welcome" style="color:rgba(255,255,255,0.8);font-size:12px;text-align:center;position:absolute;bottom:30px;">欢迎参与本次活动</div>' +
-                '</div></div></div>' +
+                '<div id="mp-welcome" style="color:rgba(255,255,255,0.8);font-size:11px;text-align:center;margin-top:8px;">欢迎参与本次活动</div>' +
+                '</div></div>' +
+                '<div id="mobile-sign-url-area" style="margin-top:14px;">' +
+                '<div style="color:#666;font-size:12px;margin-bottom:6px;text-align:center;"><i class="fas fa-link" style="margin-right:4px;"></i>手机端签到页面地址</div>' +
+                '<div style="display:flex;align-items:center;gap:6px;background:#f5f5f5;padding:8px 10px;border-radius:6px;border:1px solid #e8e8e8;">' +
+                '<input type="text" id="mobile-sign-url-input" readonly style="flex:1;border:none;background:transparent;font-size:12px;color:#333;outline:none;overflow:hidden;text-overflow:ellipsis;" value="加载中...">' +
+                '<button type="button" class="btn btn-default btn-xs" onclick="SignPage._copySignUrl()" style="white-space:nowrap;padding:4px 10px;font-size:12px;"><i class="fas fa-copy"></i> 复制</button>' +
+                '</div></div>' +
+                '</div>' +
 
                 '</div></div>';
 
@@ -717,9 +874,12 @@
             // 监听开关变化
             layui.form.on('switch(mobileHideAvatar)', function() { SignPage._updateMobilePreview(); });
             layui.form.on('switch(mobileQuickMessage)', function() { SignPage._updateMobilePreview(); });
+            layui.form.on('switch(mobileForceWxAuth)', function() { SignPage._updateMobilePreview(); });
 
             // 加载配置
             SignPage._loadMobileConfig(actId);
+            // 加载手机端签到页地址
+            SignPage._loadSignUrl(actId);
 
             // 保存
             document.getElementById('btn-save-mobile-config').addEventListener('click', function() {
@@ -729,7 +889,11 @@
 
         /** 加载手机页配置 */
         _loadMobileConfig: function(actId) {
-            Api.http.get('/sign/' + actId + '/mobile-config').then(function(res) {
+            // 同时加载手机页配置和签到设置配置
+            var mobilePromise = Api.http.get('/sign/' + actId + '/mobile-config');
+            var signPromise = Api.getSignConfig(actId);
+
+            mobilePromise.then(function(res) {
                 var d = res.data || {};
                 SignPage._mobileConfig = d;
 
@@ -753,6 +917,8 @@
                 if (hideEl) { hideEl.checked = !!parseInt(d.mobile_hide_avatar); }
                 var quickEl = document.getElementById('mobile-quick-message');
                 if (quickEl) { quickEl.checked = !!parseInt(d.mobile_quick_message); }
+                var wxAuthEl = document.getElementById('mobile-force-wx-auth');
+                if (wxAuthEl) { wxAuthEl.checked = !!parseInt(d.mobile_force_wx_auth); }
                 layui.form.render('checkbox', 'signMobile');
 
                 // 回填文本
@@ -760,6 +926,14 @@
                 document.getElementById('mobile-btn-text').value = d.mobile_btn_text || '参 与 活 动';
 
                 // 更新预览
+                SignPage._updateMobilePreview();
+            }).catch(function() {});
+
+            // 加载签到设置配置（用于预览表单字段）
+            signPromise.then(function(res) {
+                var data = (res.data && res.data.config) ? res.data.config : (res.data || {});
+                SignPage._signConfigCache = data;
+                // 更新预览（签到配置加载完成后再次刷新）
                 SignPage._updateMobilePreview();
             }).catch(function() {});
         },
@@ -824,31 +998,83 @@
         /** 更新手机预览区 */
         _updateMobilePreview: function() {
             var cfg = SignPage._mobileConfig || {};
+            var signCfg = SignPage._signConfigCache || {};
             // 背景
             var bgLayer = document.getElementById('mp-bg-layer');
-            var bgImg = cfg.mobile_bg_image || (document.getElementById('mobile-bg-preview-img') || {}).src || '';
-            if (bgImg) {
-                bgLayer.style.backgroundImage = 'url(' + bgImg + ')';
-            } else {
-                bgLayer.style.backgroundImage = 'none';
+            if (bgLayer) {
+                var bgImg = cfg.mobile_bg_image || (document.getElementById('mobile-bg-preview-img') || {}).src || '';
+                bgLayer.style.backgroundImage = bgImg ? 'url(' + bgImg + ')' : 'none';
             }
             // 头像显隐
             var hideAvatar = document.getElementById('mobile-hide-avatar');
             var avatarArea = document.getElementById('mp-avatar-area');
             if (avatarArea) avatarArea.style.display = (hideAvatar && hideAvatar.checked) ? 'none' : 'block';
+            // 照片上传覆盖层
+            var photoOverlay = document.getElementById('mp-photo-overlay');
+            if (photoOverlay) {
+                var showPhoto = parseInt(signCfg.show_photo) || 0;
+                photoOverlay.style.display = showPhoto ? 'flex' : 'none';
+                // 照片必填时加红色边框提示
+                var avatarCircle = photoOverlay.parentElement;
+                if (avatarCircle) {
+                    avatarCircle.style.borderColor = (showPhoto && parseInt(signCfg.require_photo)) ? '#ff4444' : 'rgba(255,255,255,0.8)';
+                }
+            }
+            // 动态表单字段区
+            var fieldsArea = document.getElementById('mp-fields-area');
+            if (fieldsArea) {
+                var fieldsHtml = '';
+                var inputStyle = 'width:100%;height:26px;border:1px solid rgba(255,255,255,0.35);border-radius:4px;background:rgba(255,255,255,0.12);padding:0 8px;font-size:10px;color:rgba(255,255,255,0.6);margin-bottom:6px;box-sizing:border-box;outline:none;';
+                var requiredMark = '<span style="color:#ff4444;margin-right:2px;">*</span>';
+                // 必填信息字段
+                if (parseInt(signCfg.require_name)) {
+                    fieldsHtml += '<div style="' + inputStyle + 'display:flex;align-items:center;">' + requiredMark + '请输入姓名</div>';
+                }
+                if (parseInt(signCfg.require_phone)) {
+                    fieldsHtml += '<div style="' + inputStyle + 'display:flex;align-items:center;">' + requiredMark + '请输入电话</div>';
+                }
+                if (parseInt(signCfg.require_company)) {
+                    fieldsHtml += '<div style="' + inputStyle + 'display:flex;align-items:center;">' + requiredMark + '请输入公司</div>';
+                }
+                if (parseInt(signCfg.require_position)) {
+                    fieldsHtml += '<div style="' + inputStyle + 'display:flex;align-items:center;">' + requiredMark + '请输入职位</div>';
+                }
+                // 员工号字段
+                if (parseInt(signCfg.show_employee_no)) {
+                    var empRequired = parseInt(signCfg.require_employee_no);
+                    fieldsHtml += '<div style="' + inputStyle + 'display:flex;align-items:center;">' + (empRequired ? requiredMark : '') + '请输入员工号</div>';
+                }
+                // 自定义字段
+                if (parseInt(signCfg.show_custom_fields) && signCfg.sign_custom_fields && signCfg.sign_custom_fields.length > 0) {
+                    for (var fi = 0; fi < signCfg.sign_custom_fields.length; fi++) {
+                        var cf = signCfg.sign_custom_fields[fi];
+                        var cfName = cf.name || cf.field_name || ('自定义字段' + (fi + 1));
+                        var cfRequired = parseInt(cf.required) || 0;
+                        var cfType = cf.type || cf.field_type || 'text';
+                        if (cfType === 'select') {
+                            fieldsHtml += '<div style="' + inputStyle + 'display:flex;align-items:center;justify-content:space-between;">' + (cfRequired ? requiredMark : '') + '请选择' + cfName + '<i class="fas fa-chevron-down" style="font-size:8px;"></i></div>';
+                        } else {
+                            fieldsHtml += '<div style="' + inputStyle + 'display:flex;align-items:center;">' + (cfRequired ? requiredMark : '') + '请输入' + cfName + '</div>';
+                        }
+                    }
+                }
+                fieldsArea.innerHTML = fieldsHtml;
+            }
             // 按钮
             var btnText = document.getElementById('mobile-btn-text');
             var btnImage = cfg.mobile_btn_image || '';
             var mpBtnDefault = document.getElementById('mp-btn-default');
             var mpBtnImage = document.getElementById('mp-btn-image');
-            if (btnImage) {
-                mpBtnDefault.style.display = 'none';
-                mpBtnImage.style.display = 'block';
-                document.getElementById('mp-btn-img').src = btnImage;
-            } else {
-                mpBtnDefault.style.display = 'block';
-                mpBtnImage.style.display = 'none';
-                if (btnText) mpBtnDefault.textContent = btnText.value || '参 与 活 动';
+            if (mpBtnDefault && mpBtnImage) {
+                if (btnImage) {
+                    mpBtnDefault.style.display = 'none';
+                    mpBtnImage.style.display = 'block';
+                    document.getElementById('mp-btn-img').src = btnImage;
+                } else {
+                    mpBtnDefault.style.display = 'block';
+                    mpBtnImage.style.display = 'none';
+                    if (btnText) mpBtnDefault.textContent = btnText.value || '参 与 活 动';
+                }
             }
             // 欢迎语
             var welcomeText = document.getElementById('mobile-welcome-text');
@@ -868,12 +1094,69 @@
                 mobile_quick_message: document.getElementById('mobile-quick-message').checked ? 1 : 0,
                 mobile_welcome_text: document.getElementById('mobile-welcome-text').value || '欢迎参与本次活动',
                 mobile_btn_text: document.getElementById('mobile-btn-text').value || '参 与 活 动',
-                mobile_btn_image: SignPage._mobileConfig.mobile_btn_image || ''
+                mobile_btn_image: SignPage._mobileConfig.mobile_btn_image || '',
+                mobile_force_wx_auth: document.getElementById('mobile-force-wx-auth').checked ? 1 : 0
             };
 
             Api.http.post('/sign/' + actId + '/mobile-config', data).then(function() {
                 layui.layer.msg('保存成功', { icon: 1 });
             });
+        },
+
+        /** 加载手机端签到页地址 */
+        _loadSignUrl: function(actId) {
+            Api.getMobileUrls(actId).then(function(res) {
+                var data = res.data || {};
+                var signUrl = '';
+                var urls = data.urls || [];
+                for (var i = 0; i < urls.length; i++) {
+                    if (urls[i].key === 'qiandao') {
+                        signUrl = urls[i].url;
+                        break;
+                    }
+                }
+                if (!signUrl && data.qrcode_text) signUrl = data.qrcode_text;
+                var urlInput = document.getElementById('mobile-sign-url-input');
+                if (urlInput) urlInput.value = signUrl || '未获取到地址';
+            }).catch(function() {
+                var urlInput = document.getElementById('mobile-sign-url-input');
+                if (urlInput) urlInput.value = '获取地址失败';
+            });
+        },
+
+        /** 复制签到页地址 */
+        _copySignUrl: function() {
+            var urlInput = document.getElementById('mobile-sign-url-input');
+            if (!urlInput || !urlInput.value || urlInput.value === '加载中...' || urlInput.value === '获取地址失败') {
+                layui.layer.msg('暂无可复制的地址', { icon: 2 });
+                return;
+            }
+            var url = urlInput.value;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(function() {
+                    layui.layer.msg('地址已复制到剪贴板', { icon: 1 });
+                }).catch(function() {
+                    SignPage._fallbackCopy(url);
+                });
+            } else {
+                SignPage._fallbackCopy(url);
+            }
+        },
+
+        /** 降级复制方案 */
+        _fallbackCopy: function(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand('copy');
+                layui.layer.msg('地址已复制到剪贴板', { icon: 1 });
+            } catch (e) {
+                layui.layer.msg('复制失败，请手动复制', { icon: 2 });
+            }
+            document.body.removeChild(ta);
         },
 
         // ========== 3D签到 ==========
@@ -1211,6 +1494,8 @@
                 html += SignPage._buildCustomFieldRow(i, fields[i]);
             }
             tbody.innerHTML = html;
+            // 让 layui 重新渲染新插入的 select 元素
+            layui.form.render('select', 'signConfig');
         },
 
         /** 构建一行自定义字段 HTML */
@@ -1222,7 +1507,7 @@
             if (Array.isArray(optVal)) optVal = optVal.join(',');
             return '<tr data-cf-idx="' + idx + '">' +
                 '<td><input type="text" class="layui-input" style="width:140px;" value="' + (data.field_name || '') + '" data-cf="field_name"></td>' +
-                '<td><select class="layui-input" style="width:90px;" data-cf="field_type" onchange="SignPage._onCfTypeChange(this)">' +
+                '<td><select class="layui-input" style="width:90px;" data-cf="field_type" lay-filter="cfFieldType">' +
                 '<option value="text"' + (ft==='text'?' selected':'') + '>文本</option>' +
                 '<option value="select"' + (ft==='select'?' selected':'') + '>单选</option>' +
                 '<option value="checkbox"' + (ft==='checkbox'?' selected':'') + '>多选</option>' +
@@ -1247,6 +1532,8 @@
             tempContainer.innerHTML = SignPage._buildCustomFieldRow(idx, {});
             tbody.appendChild(tempContainer.firstChild);
             SignPage._cfIndex++;
+            // 让 layui 重新渲染新插入的 select 元素
+            layui.form.render('select', 'signConfig');
         },
 
         /** 删除一行自定义字段 */

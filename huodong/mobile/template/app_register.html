@@ -1,206 +1,471 @@
+
 <style>
 {literal}
-body{
-font:normal 14px/1.5 Microsoft YaHei,Helvitica,Verdana,Tohoma,Arial,san-serif;color:#000;
-	background: url({/literal}{$mobileqiandaobg}{literal});
-	background-size:100% auto;
--webkit-user-select:none;margin:0 auto;padding:0;list-style:none;vertical-align:middle;}
+body {
+    margin: 0; padding: 0;
+    min-height: 100vh;
+    -webkit-user-select: none;
 }
-.pay_list_c1 {
-	width: 100%;
-	height: 24px;
-	cursor: pointer;
-	padding-left: 10px;
-	padding-top: 10px;
-	padding-bottom: 10px;
-	-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+.reg-page {
+    position: relative; min-height: 100vh;
+    display: flex; flex-direction: column;
 }
-
-.radioclass {
-	opacity: 0;
-	cursor: pointer;
+/* 背景层 */
+.reg-bg {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -1;
 }
-
-.refresh_vote {
-	background-color: rgba(0, 0, 0, 0.4);
-	bottom: 200px;
-	position: fixed;
-	right: 14px;
-	text-align: center;
-	z-index: 11;
-	height: 50px;
-	width: 50px;
-	border-radius: 100%;
+.reg-bg img {
+    width: 100%; height: 100%; object-fit: cover;
+}
+.reg-bg::after {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(180deg, rgba(10,10,10,0.4) 0%, rgba(10,10,10,0.2) 30%, rgba(10,10,10,0.65) 100%);
 }
 
-.refresh_vote img {
-	padding: 5px;
-	display: block;
-	height: 40px;
-	width: 40px;
+/* 头部区域 */
+.reg-hero {
+    padding: 52px 32px 28px;
+    display: flex; flex-direction: column; align-items: center;
+    position: relative; z-index: 1;
+}
+.reg-avatar-wrap {
+    position: relative; margin-bottom: 16px;
+}
+.reg-avatar {
+    width: 80px; height: 80px; border-radius: var(--r-full);
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.15);
+}
+/* 照片上传覆盖层 */
+.reg-avatar-wrap .photo-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    border-radius: var(--r-full); background: rgba(0,0,0,0.4);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer;
+}
+.photo-overlay svg { width: 22px; height: 22px; }
+.photo-overlay span { font-size: 10px; color: rgba(255,255,255,0.8); margin-top: 2px; }
+
+.reg-title {
+    font-size: 21px; font-weight: 600; color: #fff;
+    text-align: center; margin-bottom: 6px; letter-spacing: 0.3px;
+}
+.reg-subtitle {
+    font-size: 13px; color: rgba(255,255,255,0.5);
+    text-align: center; font-weight: 300;
 }
 
-.vote_disabled {
-	display: none
+/* 表单卡片 */
+.reg-card {
+    position: relative; z-index: 1;
+    margin: 0 20px 24px;
+    background: var(--c-surface-glass);
+    backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: var(--r-lg);
+    padding: 24px 20px;
+    animation: fadeUp 0.5s var(--ease) both;
 }
-.info2 {
-display: block; 
-margin:65px auto 40px auto;width:180px;
-color: #fff;
-text-align: center;
+.reg-field {
+    margin-bottom: 16px;
 }
-.info2 .touxiang {
-width: 120px;
-height: 120px;
-border-radius: 100%;
-box-shadow: 0 0 0 3px rgba(255, 255, 255, 1), 0 0 10px 2px rgba(0, 0, 0, 0.3);
-margin: auto;
-display: block;
-margin-bottom: 20px;
+.reg-field:last-child { margin-bottom: 0; }
+.reg-label {
+    display: block; font-size: 12px; font-weight: 500;
+    color: var(--c-text-secondary);
+    margin-bottom: 6px; letter-spacing: 0.5px;
 }
-.weui_cells{
-	background: none;
-	margin: 0;
+.reg-label .required { color: #ef4444; margin-left: 2px; }
+.reg-input {
+    width: 100%; height: 48px; padding: 0 16px;
+    background: rgba(0,0,0,0.03);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
+    font-size: 15px; color: var(--c-text-primary);
+    transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
-.weui_cells:before,.weui_cell:before,.weui_cells:after{
-	border: none
+.reg-input:focus {
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 3px rgba(67,56,202,0.08);
 }
-.weui_cell{
-	background: #fff;border-radius: 5px;margin: 10px 15px;
-}
-.weui_label{
-	width: 60px;
+.reg-input::placeholder { color: var(--c-text-tertiary); }
+.reg-select {
+    width: 100%; height: 48px; padding: 0 16px;
+    background: rgba(0,0,0,0.03);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
+    font-size: 15px; color: var(--c-text-primary);
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='7' viewBox='0 0 12 7' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
 }
 
+/* 照片上传区域 */
+.reg-photo-area {
+    display: flex; align-items: center; gap: 14px;
+}
+.reg-photo-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 18px;
+    background: rgba(67,56,202,0.06);
+    border: 1px dashed rgba(67,56,202,0.25);
+    border-radius: var(--r-sm); color: var(--c-accent);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: background 0.2s;
+}
+.reg-photo-btn:active { background: rgba(67,56,202,0.12); }
+.reg-photo-preview img {
+    width: 48px; height: 48px; border-radius: 8px;
+    object-fit: cover; border: 1px solid var(--c-border);
+}
+
+/* 快捷留言 */
+.reg-quick-tags {
+    display: flex; flex-wrap: wrap; gap: 8px;
+}
+.reg-quick-tag {
+    padding: 8px 16px;
+    background: rgba(0,0,0,0.03);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-full);
+    font-size: 13px; color: var(--c-text-secondary);
+    cursor: pointer; transition: all 0.2s var(--ease);
+    -webkit-tap-highlight-color: transparent;
+}
+.reg-quick-tag.active {
+    background: var(--c-accent); color: #fff;
+    border-color: var(--c-accent);
+}
+
+/* 提交按钮 */
+.reg-btn-area {
+    position: relative; z-index: 1;
+    padding: 0 20px 40px;
+    animation: fadeUp 0.5s var(--ease) both;
+    animation-delay: 0.15s;
+}
+.reg-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 54px;
+    background: var(--c-accent);
+    color: #fff; font-size: 16px; font-weight: 600;
+    border-radius: var(--r-xl);
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 4px 16px rgba(67,56,202,0.3);
+}
+.reg-btn:active { transform: scale(0.98); opacity: 0.9; }
+.reg-btn-img { max-width: 80%; height: auto; }
+.btn-disabled { opacity: 0.4; pointer-events: none; }
+
+/* 签到成功弹层 */
+.sign-success-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+}
+.sign-success-box {
+    background: var(--c-surface); border-radius: var(--r-lg);
+    padding: 40px 32px; text-align: center;
+    animation: scaleIn 0.35s var(--ease) both;
+    box-shadow: var(--c-shadow-lg);
+    max-width: 300px; width: 85%;
+}
+.sign-success-check {
+    width: 56px; height: 56px; border-radius: var(--r-full);
+    background: var(--c-success-light);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+}
+.sign-success-check svg { width: 28px; height: 28px; }
+.sign-success-text {
+    font-size: 20px; font-weight: 600; color: var(--c-text-primary);
+    margin-bottom: 6px;
+}
+.sign-success-order {
+    font-size: 14px; color: var(--c-text-secondary); margin-bottom: 4px;
+}
+.sign-success-order strong {
+    font-size: 28px; font-weight: 700; color: var(--c-accent);
+    margin: 0 4px; vertical-align: baseline;
+}
+.sign-success-time {
+    font-size: 12px; color: var(--c-text-tertiary);
+}
 {/literal}
 </style>
-<script src="template/app/js/jquery-2.1.4.js"></script>
-<script src="../myadmin/assets/js/jquery.form.js"></script>
-
 </head>
-<body>
-	<div class="weui_cells weui_cells_form">
-		<form action="mobile.do.php?action=user_register" method="post" id="registerform">
-		{if $hide_avatar != 1}
-		<div class="info2">
-        	<img class="touxiang" src="{$user['avatar']}">
-    	</div>
-		{/if}
-		{if $qiandaosignname==1}
-		<div class="weui_cell">
-			<div class="weui_cell_hd">
-				<label class="weui_label">姓名</label>
-			</div>
-			<div class="weui_cell_bd weui_cell_primary">
-				<input class="weui_input" name="realname" type="text" placeholder="请输入您的姓名" />
-			</div>
-		</div>
-		{/if}
-		{if $qiandaophone==1}
-		<div class="weui_cell">
-			<div class="weui_cell_hd">
-				<label class="weui_label">手机</label>
-			</div>
-			<div class="weui_cell_bd weui_cell_primary">
-				<input class="weui_input" name="mobile" type="text" placeholder="请输入您的手机号" />
-			</div>
-		</div>
-		{/if}
-		{foreach $diycolumns as $item}
-		<div class="weui_cell">
-			<div class="weui_cell_hd">
-				<label class="weui_label">{$item['title']}</label>
-			</div>
-			<div class="weui_cell_bd weui_cell_primary">
-				{if $item['coltype']=='text'}
-				<input class="weui_input" name="column_{$item['id']}" type="text" placeholder="{$item['placeholder']}" value="{$item['defaultvalue']}" />
-				{/if}
-				{if $item['coltype']=='select'}
-				<select class="weui_select" name="column_{$item['id']}">
-					{foreach $item['options_arr'] as $op}
-	                <option {if $op==$item['defaultvalue']}selected{/if} value="{$op}">{$op}</option>
-	                {/foreach}
-	            </select>
-	            {/if}
-			</div>
-		</div>
-		{/foreach}
-		{if $quick_message == 1}
-		<div class="weui_cell" style="flex-direction:column;">
-			<div class="weui_cell_hd" style="width:100%;margin-bottom:8px;">
-				<label class="weui_label">快捷留言</label>
-			</div>
-			<div class="weui_cell_bd weui_cell_primary" style="width:100%;">
-				<div class="quick-msg-list" style="display:flex;flex-wrap:wrap;gap:8px;">
-					<span class="quick-msg-tag" onclick="selectQuickMsg(this)" style="display:inline-block;padding:5px 12px;background:rgba(255,255,255,0.8);border-radius:15px;font-size:12px;color:#333;cursor:pointer;">来了来了！</span>
-					<span class="quick-msg-tag" onclick="selectQuickMsg(this)" style="display:inline-block;padding:5px 12px;background:rgba(255,255,255,0.8);border-radius:15px;font-size:12px;color:#333;cursor:pointer;">期待本次活动！</span>
-					<span class="quick-msg-tag" onclick="selectQuickMsg(this)" style="display:inline-block;padding:5px 12px;background:rgba(255,255,255,0.8);border-radius:15px;font-size:12px;color:#333;cursor:pointer;">开心参加！</span>
-					<span class="quick-msg-tag" onclick="selectQuickMsg(this)" style="display:inline-block;padding:5px 12px;background:rgba(255,255,255,0.8);border-radius:15px;font-size:12px;color:#333;cursor:pointer;">加油加油！</span>
-				</div>
-				<input type="hidden" name="quick_message" id="quick_message_input" value="" />
-			</div>
-		</div>
-		{/if}
-		<input type="hidden" name="openid" value="{$user['openid']}"/>
-		<input type="hidden" name="redirecturl" value="{$redirecturl}"/>
-		</form>
-	</div>
-	<div class="weui_btn_area">
-		{if $btn_image != ''}
-		<a class="btn_register" onclick="ios13();" style="display:block;text-align:center;">
-			<img src="{$btn_image}" style="max-width:80%;height:auto;" />
-		</a>
-		{else}
-		<a class="weui_btn weui_btn_primary btn_register" onclick="ios13();">{$btn_text}</a>
-		{/if}
-	</div>
-<!-- </div> -->
-	<script>
-	function ios13(){
-		if (typeof DeviceMotionEvent.requestPermission === 'function') {
-	      DeviceMotionEvent.requestPermission()
-	        .then(permissionState => {
-	          if (permissionState === 'granted') {
-	            window.addEventListener('devicemotion', () => {});
-	          }
-	        })
-	        .catch(console.error);
-	    } else {
-	      // handle regular non iOS 13+ devices
-	    }
-	}
-	
+<body data-location-required="{$sign_config.sign_location_enabled}">
+<div class="reg-page">
+    <!-- 背景 -->
+    <div class="reg-bg">
+        {if $mobile_bg != ''}
+        <img src="{$mobile_bg}" alt="">
+        {else}
+        <img src="{$user['avatar']}" style="filter:blur(40px) brightness(0.35);" alt="">
+        {/if}
+    </div>
+
+    <!-- 头部 -->
+    <div class="reg-hero">
+        {if $mobile_hide_avatar != 1}
+        <div class="reg-avatar-wrap">
+            <img class="reg-avatar" src="{$user['avatar']}" alt="">
+            {if $sign_config.show_photo==1}
+            <div class="photo-overlay" onclick="document.getElementById('sign-photo-file').click()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="1.8" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <span>上传照片</span>
+            </div>
+            {/if}
+        </div>
+        {/if}
+        <div class="reg-title">{$activity_title}</div>
+        <div class="reg-subtitle">{$welcome_text}</div>
+    </div>
+
+    {if $mobile_activity_image != ''}
+    <div style="padding:0 24px 20px;position:relative;z-index:1;">
+        <img src="{$mobile_activity_image}" style="width:100%;border-radius:var(--r-md);box-shadow:var(--c-shadow-lg);" alt="">
+    </div>
+    {/if}
+
+    <!-- 表单卡片 -->
+    <div class="reg-card">
+        {if $sign_config.require_name==1}
+        <div class="reg-field">
+            <label class="reg-label">姓名<span class="required">*</span></label>
+            <input class="reg-input" name="signname" id="field-signname" type="text" placeholder="请输入您的姓名">
+        </div>
+        {/if}
+        {if $sign_config.require_phone==1}
+        <div class="reg-field">
+            <label class="reg-label">手机号<span class="required">*</span></label>
+            <input class="reg-input" name="phone" id="field-phone" type="tel" placeholder="请输入您的手机号">
+        </div>
+        {/if}
+        {if $sign_config.require_company==1}
+        <div class="reg-field">
+            <label class="reg-label">公司<span class="required">*</span></label>
+            <input class="reg-input" name="company" id="field-company" type="text" placeholder="请输入公司名称">
+        </div>
+        {/if}
+        {if $sign_config.require_position==1}
+        <div class="reg-field">
+            <label class="reg-label">职位<span class="required">*</span></label>
+            <input class="reg-input" name="position" id="field-position" type="text" placeholder="请输入您的职位">
+        </div>
+        {/if}
+        {if $sign_config.show_employee_no==1}
+        <div class="reg-field">
+            <label class="reg-label">员工号{if $sign_config.require_employee_no==1}<span class="required">*</span>{/if}</label>
+            <input class="reg-input" name="employee_no" id="field-employee_no" type="text" placeholder="请输入员工号">
+        </div>
+        {/if}
+
+        {if $sign_config.show_photo==1}
+        <div class="reg-field">
+            <label class="reg-label">签到照片{if $sign_config.require_photo==1}<span class="required">*</span>{/if}</label>
+            <div class="reg-photo-area">
+                <input type="file" id="sign-photo-file" accept="image/*" capture="camera" style="display:none;" onchange="handlePhotoUpload(this)">
+                <div class="reg-photo-btn" onclick="document.getElementById('sign-photo-file').click()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    拍照 / 相册
+                </div>
+                <div class="reg-photo-preview" id="photo-preview" style="display:none;">
+                    <img id="photo-preview-img" src="">
+                </div>
+                <input type="hidden" name="sign_photo" id="field-sign_photo" value="">
+            </div>
+        </div>
+        {/if}
+
+        {if $sign_config.show_custom_fields==1 && $sign_custom_fields}
+        {foreach $sign_custom_fields as $cfield}
+        <div class="reg-field">
+            <label class="reg-label">{$cfield.field_name}{if $cfield.is_required==1}<span class="required">*</span>{/if}</label>
+            {if $cfield.field_type=='select'}
+            <select class="reg-select" name="custom_{$cfield.field_name}">
+                <option value="">请选择</option>
+                {foreach $cfield.field_options as $opt}
+                <option value="{$opt}">{$opt}</option>
+                {/foreach}
+            </select>
+            {else}
+            <input class="reg-input" name="custom_{$cfield.field_name}" type="text" placeholder="请输入{$cfield.field_name}">
+            {/if}
+        </div>
+        {/foreach}
+        {/if}
+
+        {if $mobile_quick_message == 1}
+        <div class="reg-field">
+            <label class="reg-label">快捷留言</label>
+            <div class="reg-quick-tags">
+                <span class="reg-quick-tag" onclick="selectQuickMsg(this)">来了来了！</span>
+                <span class="reg-quick-tag" onclick="selectQuickMsg(this)">期待本次活动！</span>
+                <span class="reg-quick-tag" onclick="selectQuickMsg(this)">开心参加！</span>
+                <span class="reg-quick-tag" onclick="selectQuickMsg(this)">加油加油！</span>
+            </div>
+            <input type="hidden" name="quick_message" id="quick_message_input" value="">
+        </div>
+        {/if}
+    </div>
+
+    <!-- 提交按钮 -->
+    <div class="reg-btn-area">
+        {if $btn_image != ''}
+        <div class="reg-btn" id="btn-submit" onclick="doSignSubmit();" style="background:transparent;box-shadow:none;">
+            <img class="reg-btn-img" src="{$btn_image}">
+        </div>
+        {else}
+        <div class="reg-btn" id="btn-submit" onclick="doSignSubmit();">{$btn_text}</div>
+        {/if}
+    </div>
+</div>
+<div id="sign-success-container"></div>
+
+<script>
+var HD_API_BASE = '{$api_base}';
+var HD_ACCESS_CODE = '{$access_code}';
+var _submitting = false;
 
 {literal}
-$(function(){
-	$('.btn_register').bind('click',function(){
-		$('#registerform').ajaxSubmit({
-			'type':'post',
-			dataType: 'json',
-			success:function(r){
-				if(r.errno==0){
-					_loading_toast._show(r.message);
-					setTimeout(function(){  
-						window.location.reload();
-					},2000);
-				}else{
-					_loading_toast._show(r.message);
-				}
-			}
-		});
-		return false;
-	});
-})
-function selectQuickMsg(el) {
-	var tags = document.querySelectorAll('.quick-msg-tag');
-	for (var i = 0; i < tags.length; i++) {
-		tags[i].style.background = 'rgba(255,255,255,0.8)';
-		tags[i].style.color = '#333';
-	}
-	el.style.background = '#ff4444';
-	el.style.color = '#fff';
-	document.getElementById('quick_message_input').value = el.textContent;
+function doSignSubmit() {
+    if (_submitting) return;
+    _submitting = true;
+    var btn = document.getElementById('btn-submit');
+    if (btn) btn.classList.add('btn-disabled');
+
+    var data = {};
+    var fields = ['signname','phone','company','position','employee_no','sign_photo'];
+    for (var i = 0; i < fields.length; i++) {
+        var el = document.getElementById('field-' + fields[i]);
+        if (el) data[fields[i]] = el.value;
+    }
+    data.quick_message = (document.getElementById('quick_message_input') || {}).value || '';
+
+    var customData = {};
+    var customInputs = document.querySelectorAll('[name^="custom_"]');
+    for (var j = 0; j < customInputs.length; j++) {
+        var key = customInputs[j].name.replace('custom_', '');
+        customData[key] = customInputs[j].value;
+    }
+    if (Object.keys(customData).length > 0) {
+        data.custom_data = JSON.stringify(customData);
+    }
+
+    var needLocation = document.body.getAttribute('data-location-required');
+    if (needLocation === '1' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            data.latitude = pos.coords.latitude;
+            data.longitude = pos.coords.longitude;
+            postSign(data);
+        }, function() {
+            _submitting = false;
+            if (btn) btn.classList.remove('btn-disabled');
+            alert('请允许获取您的位置信息后再签到');
+        }, { timeout: 10000 });
+    } else {
+        postSign(data);
+    }
 }
 
+function postSign(data) {
+    var btn = document.getElementById('btn-submit');
+    if (typeof $ === 'undefined' || typeof $.ajax === 'undefined') {
+        alert('页面资源加载异常，请下拉刷新页面后重试');
+        _submitting = false;
+        if (btn) btn.classList.remove('btn-disabled');
+        return;
+    }
+    try {
+        $.ajax({
+            url: HD_API_BASE + '/sign',
+            type: 'POST',
+            data: data,
+            dataType: 'json',
+            timeout: 15000,
+            success: function(r) {
+                if (r.code === 0 && r.msg === '签到成功') {
+                    showSignSuccess(r.data);
+                } else if (r.code === 0 && r.msg === '您已签到') {
+                    window.location.reload();
+                } else {
+                    alert(r.msg || '签到失败');
+                    _submitting = false;
+                    if (btn) btn.classList.remove('btn-disabled');
+                }
+            },
+            error: function(xhr, status, err) {
+                alert('网络不太稳定，请点击重试');
+                _submitting = false;
+                if (btn) btn.classList.remove('btn-disabled');
+            }
+        });
+    } catch(e) {
+        alert('提交异常，请刷新页面重试');
+        _submitting = false;
+        if (btn) btn.classList.remove('btn-disabled');
+    }
+}
+
+function showSignSuccess(data) {
+    var signorder = data.signorder || '';
+    var signTime = data.sign_time || '';
+    var html = '<div class="sign-success-overlay">' +
+        '<div class="sign-success-box">' +
+        '<div class="sign-success-check"><svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+        '<div class="sign-success-text">签到成功</div>' +
+        (signorder ? '<div class="sign-success-order">您是第 <strong>' + signorder + '</strong> 位</div>' : '') +
+        (signTime ? '<div class="sign-success-time">' + signTime + '</div>' : '') +
+        '</div></div>';
+    document.getElementById('sign-success-container').innerHTML = html;
+    setTimeout(function() {
+        window.location.reload();
+    }, 1500);
+}
+
+function selectQuickMsg(el) {
+    var tags = document.querySelectorAll('.reg-quick-tag');
+    for (var i = 0; i < tags.length; i++) {
+        tags[i].classList.remove('active');
+    }
+    el.classList.add('active');
+    document.getElementById('quick_message_input').value = el.textContent;
+}
+
+function handlePhotoUpload(input) {
+    if (!input.files || !input.files[0]) return;
+    var file = input.files[0];
+    if (file.size > 2 * 1024 * 1024) { alert('照片大小不超过2MB'); input.value=''; return; }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('photo-preview-img').src = e.target.result;
+        document.getElementById('photo-preview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+    var fd = new FormData();
+    fd.append('file', file);
+    $.ajax({
+        url: '/api/hd/upload/image',
+        type: 'POST',
+        data: fd,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function(r) {
+            if (r.data && (r.data.url || r.data)) {
+                document.getElementById('field-sign_photo').value = r.data.url || r.data;
+            }
+        },
+        error: function() { alert('照片上传失败，请重试'); }
+    });
+}
 {/literal}
 </script>

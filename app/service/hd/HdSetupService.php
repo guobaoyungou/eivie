@@ -47,7 +47,7 @@ class HdSetupService
     /** Demo 管理员密码（MD5 前） */
     const DEMO_ADMIN_PASSWORD = 'guobao2026';
 
-    /** 全部 17 种功能代码 */
+    /** 全部 19 种功能代码 */
     const ALL_FEATURES = [
         ['code' => 'qdq',                  'name' => '签到墙',     'sort' => 1],
         ['code' => 'threedimensionalsign',  'name' => '3D签到',     'sort' => 2],
@@ -66,6 +66,8 @@ class HdSetupService
         ['code' => 'xiangce',               'name' => '相册',       'sort' => 15],
         ['code' => 'xyh',                   'name' => '幸运号码',   'sort' => 16],
         ['code' => 'xysjh',                 'name' => '幸运手机号', 'sort' => 17],
+        ['code' => 'lvpai',                 'name' => '旅拍大屏',   'sort' => 18],
+        ['code' => 'scan_lottery',          'name' => '扫码抽奖',   'sort' => 19],
     ];
 
     /** 11 种游戏主题预置 */

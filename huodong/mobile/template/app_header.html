@@ -4,24 +4,50 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="format-detection" content="telephone=no" />
 <meta name="screen-orientation" content="portrait"/>
 <meta name="full-screen" content="true"/>
+<meta name="theme-color" content="#0a0a0a">
 <title>{$title}</title>
-<link rel="stylesheet" href="template/app/css/weui.min.css">
-<link rel="stylesheet" href="template/app/css/jquery-weui.min.css">
-
+<link rel="stylesheet" href="/huodong/mobile/template/app/css/weui.min.css">
+<link rel="stylesheet" href="/huodong/mobile/template/app/css/jquery-weui.min.css">
 <script src="https://res.wx.qq.com/open/js/jweixin-1.2.0.js"></script>
-<script src="template/app/js/app_tool.js"></script>
+<script src="/huodong/mobile/template/app/js/jquery-2.1.4.js"></script>
+<script src="/huodong/mobile/template/app/js/app_tool.js"></script>
 <style>
-@-webkit-keyframes twinkling{ /*透明度由0到1*/
-	0%{
-		opacity:0; /*透明度为0*/
-	}
-	100%{
-		opacity:1; /*透明度为1*/
-	
-	}
+{literal}
+:root {
+    --c-bg: #f7f7f8;
+    --c-surface: #ffffff;
+    --c-surface-glass: rgba(255,255,255,0.72);
+    --c-text-primary: #1a1a2e;
+    --c-text-secondary: #6b7280;
+    --c-text-tertiary: #a1a1aa;
+    --c-accent: #4338ca;
+    --c-accent-light: #eef2ff;
+    --c-success: #059669;
+    --c-success-light: #ecfdf5;
+    --c-border: rgba(0,0,0,0.05);
+    --c-shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --c-shadow-md: 0 4px 16px rgba(0,0,0,0.06);
+    --c-shadow-lg: 0 8px 32px rgba(0,0,0,0.08);
+    --r-sm: 12px;
+    --r-md: 16px;
+    --r-lg: 20px;
+    --r-xl: 28px;
+    --r-full: 9999px;
+    --font: -apple-system, 'SF Pro Display', 'PingFang SC', 'Helvetica Neue', sans-serif;
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;}
+body{font-family:var(--font);color:var(--c-text-primary);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
+img{display:block;max-width:100%;}
+a{text-decoration:none;color:inherit;-webkit-tap-highlight-color:transparent;}
+input,textarea,select,button{font-family:inherit;font-size:inherit;-webkit-appearance:none;border:none;outline:none;background:none;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+{/literal}
 </style>

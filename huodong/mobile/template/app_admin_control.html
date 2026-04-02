@@ -1,0 +1,318 @@
+
+<style>
+{literal}
+body {
+    margin: 0; padding: 0;
+    background: var(--c-bg);
+    min-height: 100vh;
+    -webkit-user-select: none;
+}
+
+/* 顶部导航 */
+.ac-nav {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+    padding: 0 20px;
+    height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+}
+.ac-back {
+    position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+    width: 36px; height: 36px; border-radius: var(--r-full);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--c-text-primary);
+    -webkit-tap-highlight-color: transparent;
+}
+.ac-back:active { background: rgba(0,0,0,0.04); }
+.ac-back svg { width: 20px; height: 20px; }
+.ac-nav-title {
+    font-size: 16px; font-weight: 600; color: var(--c-text-primary);
+    letter-spacing: 0.3px;
+}
+
+/* 活动名称栏 */
+.ac-subtitle-bar {
+    padding: 16px 20px 8px;
+}
+.ac-subtitle {
+    font-size: 12px; color: var(--c-text-tertiary);
+    letter-spacing: 0.5px;
+}
+
+/* 功能卡片列表 */
+.ac-list {
+    padding: 8px 20px;
+}
+.ac-card {
+    background: var(--c-surface);
+    border-radius: var(--r-md);
+    padding: 18px 20px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--c-shadow-sm);
+    border: 1px solid var(--c-border);
+    transition: transform 0.15s var(--ease);
+}
+.ac-card:active { transform: scale(0.99); }
+.ac-card-info {
+    display: flex; align-items: center; gap: 14px;
+}
+.ac-card-icon {
+    width: 44px; height: 44px; border-radius: var(--r-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+}
+.ac-card-name {
+    font-size: 15px; font-weight: 500; color: var(--c-text-primary);
+    letter-spacing: 0.2px;
+}
+.ac-card-desc {
+    font-size: 11px; color: var(--c-text-tertiary); margin-top: 3px;
+    letter-spacing: 0.3px;
+}
+
+/* 开关 */
+.ac-switch {
+    position: relative; width: 50px; height: 28px;
+    background: #e5e7eb; border-radius: var(--r-full);
+    cursor: pointer; transition: background 0.3s var(--ease);
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+}
+.ac-switch.on { background: var(--c-success); }
+.ac-switch .dot {
+    position: absolute; top: 3px; left: 3px;
+    width: 22px; height: 22px; background: #fff;
+    border-radius: var(--r-full);
+    transition: left 0.3s var(--ease);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+.ac-switch.on .dot { left: 25px; }
+
+/* 抽奖区域 */
+.ac-section {
+    margin: 4px 20px 16px;
+}
+.ac-section-title {
+    font-size: 12px; font-weight: 600; color: var(--c-text-tertiary);
+    letter-spacing: 1px; text-transform: uppercase;
+    padding: 16px 0 10px;
+}
+.ac-lottery-card {
+    background: var(--c-surface);
+    border-radius: var(--r-md);
+    border: 1px solid var(--c-border);
+    box-shadow: var(--c-shadow-sm);
+    overflow: hidden;
+}
+.ac-round {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--c-border);
+}
+.ac-round:last-child { border-bottom: none; }
+.ac-round-name {
+    font-size: 14px; font-weight: 500; color: var(--c-text-primary);
+}
+.ac-round-info {
+    font-size: 11px; color: var(--c-text-tertiary); margin-top: 3px;
+}
+.ac-btn-draw {
+    height: 36px; padding: 0 20px;
+    background: var(--c-accent); color: #fff;
+    border: none; border-radius: var(--r-full);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: opacity 0.2s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.ac-btn-draw:active { transform: scale(0.96); }
+.ac-btn-draw:disabled {
+    background: #e5e7eb; color: var(--c-text-tertiary);
+}
+
+/* 加载/错误状态 */
+.ac-state {
+    text-align: center; padding: 80px 24px;
+}
+.ac-state-icon {
+    width: 56px; height: 56px; border-radius: var(--r-full);
+    background: rgba(0,0,0,0.03);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+}
+.ac-state-icon svg { width: 24px; height: 24px; animation: pulse 1.5s ease-in-out infinite; }
+.ac-state-text {
+    font-size: 14px; color: var(--c-text-tertiary);
+    letter-spacing: 0.3px;
+}
+{/literal}
+</style>
+</head>
+<body>
+
+<div class="ac-nav">
+    <a href="javascript:history.back();" class="ac-back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <div class="ac-nav-title">大屏控制</div>
+</div>
+<div class="ac-subtitle-bar">
+    <div class="ac-subtitle">{$activity_title}</div>
+</div>
+<div id="admin-content">
+    <div class="ac-state">
+        <div class="ac-state-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--c-text-tertiary)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="ac-state-text">正在加载...</div>
+    </div>
+</div>
+
+<script>
+{literal}
+(function(){
+    var accessCode = '{/literal}{$access_code}{literal}';
+    var apiBase = '/api/hd/screen/' + accessCode;
+
+    function init() {
+        $.ajax({
+            url: apiBase + '/admin/features',
+            type: 'GET',
+            dataType: 'json',
+            success: function(res) {
+                if (res.code !== 0) {
+                    showError(res.msg || '无权限访问');
+                    return;
+                }
+                renderFeatures(res.data);
+            },
+            error: function() {
+                showError('网络错误，请重试');
+            }
+        });
+    }
+
+    function showError(msg) {
+        $('#admin-content').html(
+            '<div class="ac-state">' +
+            '<div class="ac-state-icon" style="background:rgba(239,68,68,0.06);">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" style="animation:none;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' +
+            '</div>' +
+            '<div class="ac-state-text" style="color:#ef4444;">' + msg + '</div></div>'
+        );
+    }
+
+    function renderFeatures(data) {
+        var features = data.features || [];
+        var lotteryRounds = data.lottery_rounds || [];
+        var html = '<div class="ac-list">';
+
+        var featureIcons = {
+            'qdq': { icon: '✅', bg: 'rgba(5,150,105,0.08)', name: '签到墙', desc: '控制大屏签到墙动画' },
+            'wall': { icon: '💬', bg: 'rgba(59,130,246,0.08)', name: '上墙', desc: '控制大屏上墙消息流' },
+            'danmu': { icon: '🎯', bg: 'rgba(245,158,11,0.08)', name: '弹幕', desc: '控制大屏弹幕开关' },
+            'vote': { icon: '📊', bg: 'rgba(168,85,247,0.08)', name: '投票', desc: '控制大屏投票展示' },
+            'xyh': { icon: '📱', bg: 'rgba(6,182,212,0.08)', name: '摇一摇', desc: '控制大屏摇一摇竞技' },
+            'redpacket': { icon: '🧧', bg: 'rgba(239,68,68,0.08)', name: '红包雨', desc: '控制大屏红包雨' },
+            'lottery': { icon: '🎰', bg: 'rgba(236,72,153,0.08)', name: '抽奖', desc: '触发大屏抽奖' }
+        };
+
+        for (var i = 0; i < features.length; i++) {
+            var f = features[i];
+            var meta = featureIcons[f.feature_code] || { icon: '⚙️', bg: 'rgba(0,0,0,0.04)', name: f.feature_code, desc: '' };
+            if (f.feature_code === 'lottery' || f.feature_code === 'importlottery') continue;
+
+            var isOn = f.enabled ? true : false;
+            html += '<div class="ac-card">' +
+                '<div class="ac-card-info">' +
+                '<div class="ac-card-icon" style="background:' + meta.bg + ';">' + meta.icon + '</div>' +
+                '<div><div class="ac-card-name">' + meta.name + '</div>' +
+                '<div class="ac-card-desc">' + meta.desc + '</div></div>' +
+                '</div>' +
+                '<div class="ac-switch ' + (isOn ? 'on' : '') + '" data-code="' + f.feature_code + '" onclick="toggleFeature(this)">' +
+                '<div class="dot"></div></div>' +
+                '</div>';
+        }
+        html += '</div>';
+
+        if (lotteryRounds.length > 0) {
+            html += '<div class="ac-section">' +
+                '<div class="ac-section-title">抽奖控制</div>' +
+                '<div class="ac-lottery-card">';
+            for (var j = 0; j < lotteryRounds.length; j++) {
+                var r = lotteryRounds[j];
+                var btnLabel = r.drawn ? '已完成' : '开始';
+                var btnDisabled = r.drawn ? ' disabled' : '';
+                html += '<div class="ac-round">' +
+                    '<div><div class="ac-round-name">' + (r.name || ('第' + (j+1) + '轮')) + '</div>' +
+                    '<div class="ac-round-info">' + (r.prize_name || '') + ' × ' + (r.num || 0) + '</div></div>' +
+                    '<button class="ac-btn-draw" data-round-id="' + r.id + '"' + btnDisabled + ' onclick="triggerDraw(this)">' + btnLabel + '</button>' +
+                    '</div>';
+            }
+            html += '</div></div>';
+        }
+
+        $('#admin-content').html(html);
+    }
+
+    window.toggleFeature = function(el) {
+        var $el = $(el);
+        var code = $el.data('code');
+        $el.toggleClass('on');
+        $.ajax({
+            url: apiBase + '/admin/feature-toggle',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ feature_code: code, action: 'toggle' }),
+            dataType: 'json',
+            success: function(res) {
+                if (res.code !== 0) {
+                    $el.toggleClass('on');
+                    alert(res.msg || '操作失败');
+                }
+            },
+            error: function() {
+                $el.toggleClass('on');
+                alert('网络错误，请重试');
+            }
+        });
+    };
+
+    window.triggerDraw = function(btn) {
+        var $btn = $(btn);
+        var roundId = $btn.data('round-id');
+        if ($btn.prop('disabled')) return;
+        $btn.prop('disabled', true).text('抽奖中...');
+
+        $.ajax({
+            url: apiBase + '/admin/lottery-draw',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ round_id: roundId }),
+            dataType: 'json',
+            success: function(res) {
+                if (res.code === 0) {
+                    $btn.text('已完成').prop('disabled', true);
+                } else {
+                    $btn.prop('disabled', false).text('开始');
+                    alert(res.msg || '抽奖失败');
+                }
+            },
+            error: function() {
+                $btn.prop('disabled', false).text('开始');
+                alert('网络错误，请重试');
+            }
+        });
+    };
+
+    init();
+})();
+{/literal}
+</script>
+</body>
+</html>

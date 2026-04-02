@@ -176,6 +176,39 @@ class HdAuthService
             $plan = HdPlan::find($bizConfig->plan_id);
         }
 
+        // 构建套餐信息（包含前端所需的使用量统计字段）
+        $planData = null;
+        if ($plan) {
+            $aid = (int)($user['aid'] ?? 0);
+
+            // 统计当前门店数和活动数
+            $storeCount = Db::name('mendian')
+                ->where('bid', $bid)
+                ->where('aid', $aid)
+                ->count();
+            $activityCount = Db::name('hd_activity')
+                ->where('bid', $bid)
+                ->where('aid', $aid)
+                ->count();
+
+            // 格式化到期时间为可读日期
+            $expireTime = (int)$bizConfig->plan_expire_time;
+            $expireDate = $expireTime > 0 ? date('Y-m-d', $expireTime) : '--';
+
+            $planData = [
+                'name'             => $plan->name,
+                'code'             => $plan->code ?? '',
+                'max_stores'       => (int)$plan->max_stores,
+                'max_activities'   => (int)$plan->max_activities,
+                'max_participants' => (int)$plan->max_participants,
+                'expire_time'      => $expireTime,
+                'expire_date'      => $expireDate,
+                'is_valid'         => $bizConfig->isPlanValid(),
+                'store_count'      => $storeCount,
+                'activity_count'   => $activityCount,
+            ];
+        }
+
         return [
             'code' => 0,
             'data' => [
@@ -185,14 +218,7 @@ class HdAuthService
                 'business_name' => $business['name'] ?? '',
                 'business_logo' => $business['logo'] ?? '',
                 'contact'       => $business['linkman'] ?? '',
-                'plan'          => $plan ? [
-                    'name'             => $plan->name,
-                    'max_stores'       => $plan->max_stores,
-                    'max_activities'   => $plan->max_activities,
-                    'max_participants' => $plan->max_participants,
-                    'expire_time'      => $bizConfig->plan_expire_time,
-                    'is_valid'         => $bizConfig->isPlanValid(),
-                ] : null,
+                'plan'          => $planData,
             ],
         ];
     }
@@ -316,22 +342,30 @@ class HdAuthService
         }
 
         // 生成 6 位验证码
-        $code = str_pad((string)mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
+        $code = (string)rand(100000, 999999);
         $cacheKey = $cachePrefix . ':' . $phone;
-        Cache::set($cacheKey, $code, 300); // 5分钟有效
-        Cache::set($rateLimitKey, 1, 60); // 60秒防频
 
-        // 尝试发送短信
+        // 调用平台短信服务发送验证码（使用平台统一的 tmpl_smscode 模板）
         try {
             if (class_exists('\\app\\common\\Sms')) {
-                \app\common\Sms::send($aid, $phone, 'tmpl_verify', ['code' => $code]);
+                $rs = \app\common\Sms::send($aid, $phone, 'tmpl_smscode', ['code' => $code]);
+                if (isset($rs['status']) && $rs['status'] != 1) {
+                    Log::error("[HdAuth] 短信发送失败: " . ($rs['msg'] ?? '未知错误'));
+                    return ['code' => 1, 'msg' => $rs['msg'] ?? '短信发送失败，请联系管理员'];
+                }
                 Log::info("[HdAuth] 验证码已发送至 {$phone}");
             } else {
-                Log::info("[HdAuth] 短信服务不可用，验证码: {$phone} => {$code}");
+                Log::error("[HdAuth] 短信服务类不存在");
+                return ['code' => 1, 'msg' => '短信服务未配置，请联系管理员'];
             }
         } catch (\Throwable $e) {
-            Log::error("[HdAuth] 发送验证码失败: " . $e->getMessage());
+            Log::error("[HdAuth] 发送验证码异常: " . $e->getMessage());
+            return ['code' => 1, 'msg' => '短信发送失败，请稍后重试'];
         }
+
+        // 短信发送成功后再缓存验证码和防频
+        Cache::set($cacheKey, $code, 300); // 5分钟有效
+        Cache::set($rateLimitKey, 1, 60); // 60秒防频
 
         return ['code' => 0, 'msg' => '验证码已发送'];
     }

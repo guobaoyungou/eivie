@@ -217,6 +217,56 @@
         batchImport: function(actId, data) {
             return http.post('/lottery/' + actId + '/import', data);
         },
+        clearImportList: function(actId) {
+            return http.post('/lottery/' + actId + '/import/clear');
+        },
+
+        // ---- 中奖名单 API ----
+        getLotteryWinners: function(actId, params) {
+            return http.get('/lottery/' + actId + '/winners', { params: params });
+        },
+        giveLotteryPrize: function(actId, id) {
+            return http.post('/lottery/' + actId + '/winners/' + id + '/give');
+        },
+        cancelLotteryPrize: function(actId, id) {
+            return http.post('/lottery/' + actId + '/winners/' + id + '/cancel');
+        },
+        deleteLotteryWinner: function(actId, id) {
+            return http.post('/lottery/' + actId + '/winners/' + id + '/delete');
+        },
+        clearLotteryWinners: function(actId, data) {
+            return http.post('/lottery/' + actId + '/winners/clear', data || {});
+        },
+
+        // ---- 内定名单 API ----
+        getLotteryDesignated: function(actId, params) {
+            return http.get('/lottery/' + actId + '/designated', { params: params });
+        },
+        addLotteryDesignated: function(actId, data) {
+            return http.post('/lottery/' + actId + '/designated', data);
+        },
+        cancelLotteryDesignated: function(actId, id) {
+            return http.post('/lottery/' + actId + '/designated/' + id + '/cancel');
+        },
+        searchLotteryUsers: function(actId, keyword) {
+            return http.get('/lottery/' + actId + '/designated/search-users', { params: { keyword: keyword } });
+        },
+
+        // ---- 幸运手机号 API ----
+        getLuckyPhoneRecords: function(actId, params) {
+            return http.get('/lottery/' + actId + '/lucky-phone', { params: params });
+        },
+
+        // ---- 幸运号码 API ----
+        getLuckyNumberConfig: function(actId) {
+            return http.get('/lottery/' + actId + '/lucky-number/config');
+        },
+        updateLuckyNumberConfig: function(actId, data) {
+            return http.post('/lottery/' + actId + '/lucky-number/config', data);
+        },
+        getLuckyNumberRecords: function(actId, params) {
+            return http.get('/lottery/' + actId + '/lucky-number/records', { params: params });
+        },
 
         // ---- 拼手速 / 游戏 API ----
         getShakeConfig: function(actId) {

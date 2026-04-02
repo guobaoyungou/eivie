@@ -95,6 +95,27 @@ return [
 
         // 更多的数据库配置信息
 
+        // 活动互动系统数据库（huodong）
+        'huodong' => [
+            'type'            => 'mysql',
+            'hostname'        => isset($config['huodong']) ? $config['huodong']['hostname'] : '127.0.0.1',
+            'database'        => isset($config['huodong']) ? $config['huodong']['database'] : '',
+            'username'        => isset($config['huodong']) ? $config['huodong']['username'] : '',
+            'password'        => isset($config['huodong']) ? $config['huodong']['password'] : '',
+            'hostport'        => isset($config['huodong']) ? $config['huodong']['hostport'] : '3306',
+            'params'          => [],
+            'charset'         => 'utf8',
+            'prefix'          => '',
+            'deploy'          => 0,
+            'rw_separate'     => false,
+            'master_num'      => 1,
+            'slave_no'        => '',
+            'fields_strict'   => true,
+            'break_reconnect' => true,
+            'trigger_sql'     => env('app_debug', true),
+            'fields_cache'    => false,
+        ],
+
         // 授权管控系统独立数据库
         'sysadmin' => [
             'type'            => 'mysql',

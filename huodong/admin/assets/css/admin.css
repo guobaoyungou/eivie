@@ -363,6 +363,34 @@ ul, ol { list-style: none; }
     user-select: none;
 }
 .activity-switch:hover, .user-menu:hover { background: #f0f0f0; }
+
+/* 用户区域套餐标签 */
+.user-plan-tag {
+    display: none;
+    font-size: 11px;
+    line-height: 1;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    color: var(--primary);
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(30,136,229,0.2);
+}
+.user-plan-tag:hover {
+    background: linear-gradient(135deg, #bbdefb, #90caf9);
+    transform: scale(1.05);
+}
+.user-plan-tag.expired {
+    background: linear-gradient(135deg, #ffebee, #ffcdd2);
+    color: var(--danger);
+    border-color: rgba(229,57,53,0.2);
+}
+.user-plan-tag.expired:hover {
+    background: linear-gradient(135deg, #ffcdd2, #ef9a9a);
+}
 .activity-dropdown, .user-dropdown {
     position: absolute;
     top: calc(100% + 8px);
@@ -1096,4 +1124,450 @@ ul, ol { list-style: none; }
     .sign-config-right {
         width: 100%;
     }
+}
+
+/* ============================================================
+   手机签到页配置 - 左右布局
+   ============================================================ */
+.mobile-config-layout {
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+}
+.mobile-config-layout .mobile-config-form {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+/* 手机配置表单标签宽度修正：避免4字标签换行 */
+.mobile-config-layout .mobile-config-form .layui-form-label {
+    width: 110px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mobile-config-layout .mobile-config-form .layui-input-block {
+    margin-left: 110px;
+}
+.mobile-config-layout .mobile-config-form .form-section {
+    display: block;
+    width: 100%;
+    clear: both;
+}
+.mobile-config-layout .mobile-config-form .form-section::after {
+    content: '';
+    display: table;
+    clear: both;
+}
+.mobile-config-layout .mobile-preview-wrapper {
+    width: 300px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 80px;
+}
+@media (max-width: 960px) {
+    .mobile-config-layout {
+        flex-direction: column;
+    }
+    .mobile-config-layout .mobile-preview-wrapper {
+        width: 100%;
+        position: static;
+    }
+}
+
+/* ============================================================
+   套餐选购弹窗
+   ============================================================ */
+.pricing-modal-wrapper {
+    padding: 24px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+/* -- 当前套餐状态卡片 -- */
+.pricing-current-plan {
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    border-left: 4px solid var(--success);
+}
+.pricing-current-plan.pricing-status-expired {
+    border-left-color: var(--danger);
+}
+.pricing-current-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.pricing-current-left h3 {
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 6px;
+}
+.pricing-current-left h3 strong {
+    color: var(--primary);
+}
+.pricing-expire {
+    font-size: 13px;
+    color: #999;
+}
+.pricing-current-right {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.pricing-quota {
+    font-size: 13px;
+    color: #666;
+    white-space: nowrap;
+}
+.pricing-quota i {
+    color: var(--primary);
+    margin-right: 4px;
+}
+.pricing-badge {
+    display: inline-block;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: normal;
+}
+.pricing-badge.pricing-status-active {
+    background: #e8f5e9;
+    color: var(--success);
+}
+.pricing-badge.pricing-status-expired {
+    background: #ffebee;
+    color: var(--danger);
+}
+.pricing-renew-tip {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: #fff3e0;
+    border-radius: 6px;
+    color: #e65100;
+    font-size: 13px;
+}
+.pricing-renew-tip i {
+    margin-right: 6px;
+}
+
+/* -- 套餐卡片网格 -- */
+.pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 20px;
+}
+@media (max-width: 1199px) {
+    .pricing-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+@media (max-width: 767px) {
+    .pricing-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* -- 单个套餐卡片 -- */
+.pricing-card {
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    border: 2px solid transparent;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.pricing-card:hover {
+    box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+}
+.pricing-card-recommended {
+    border-color: var(--primary);
+    transform: scale(1.03);
+}
+.pricing-card-recommended:hover {
+    transform: scale(1.05);
+}
+.pricing-card-current {
+    border-color: var(--success);
+}
+
+/* 推荐角标 */
+.pricing-card-badge {
+    position: absolute;
+    top: -1px;
+    right: 16px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 0 0 6px 6px;
+    font-weight: 500;
+}
+
+/* 套餐名称 */
+.pricing-card-header {
+    text-align: center;
+    margin-bottom: 16px;
+}
+.pricing-card-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+/* 价格区域 */
+.pricing-card-price {
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f0f0f0;
+}
+.pricing-price-symbol {
+    font-size: 18px;
+    color: #e53935;
+    vertical-align: top;
+    line-height: 1.8;
+}
+.pricing-price-amount {
+    font-size: 36px;
+    font-weight: 700;
+    color: #e53935;
+    line-height: 1;
+}
+.pricing-card-price .pricing-price-amount:only-child {
+    font-size: 28px;
+}
+.pricing-price-period {
+    font-size: 14px;
+    color: #999;
+    margin-left: 4px;
+}
+
+/* 配额信息 */
+.pricing-card-quotas {
+    margin-bottom: 16px;
+}
+.pricing-quota-item {
+    font-size: 13px;
+    color: #555;
+    padding: 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.pricing-quota-item i {
+    color: var(--primary);
+    width: 16px;
+    text-align: center;
+}
+.pricing-quota-item strong {
+    margin-left: auto;
+    color: #333;
+}
+
+/* 功能清单 */
+.pricing-card-features {
+    flex: 1;
+    margin-bottom: 20px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 12px;
+}
+.pricing-feature-item {
+    font-size: 12px;
+    padding: 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.pricing-feature-item.has {
+    color: #333;
+}
+.pricing-feature-item.has i {
+    color: var(--success);
+}
+.pricing-feature-item.no {
+    color: #ccc;
+}
+.pricing-feature-item.no i {
+    color: #ddd;
+}
+
+/* 操作按钮 */
+.pricing-card-action {
+    text-align: center;
+}
+.pricing-btn {
+    display: inline-block;
+    width: 100%;
+    height: 40px;
+    line-height: 40px;
+    border: none;
+    border-radius: var(--btn-radius);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+.pricing-btn i {
+    margin-right: 6px;
+}
+.pricing-btn-buy {
+    background: var(--primary);
+    color: #fff;
+}
+.pricing-btn-buy:hover {
+    background: var(--primary-dark);
+}
+.pricing-btn-trial {
+    background: var(--success);
+    color: #fff;
+}
+.pricing-btn-trial:hover {
+    background: #388E3C;
+}
+.pricing-btn-contact {
+    background: var(--warning);
+    color: #fff;
+}
+.pricing-btn-contact:hover {
+    background: #F57C00;
+}
+.pricing-btn-current {
+    background: #e0e0e0;
+    color: #999;
+    cursor: not-allowed;
+}
+
+/* ============================================================
+   活动管理按钮 & 编辑弹窗样式
+   ============================================================ */
+
+/* 管理按钮 */
+.activity-manage-btn {
+    font-size: 12px;
+    color: #999;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all var(--transition);
+    white-space: nowrap;
+}
+.activity-manage-btn:hover {
+    color: var(--primary);
+    background: rgba(30,136,229,0.08);
+}
+.activity-manage-btn i {
+    font-size: 11px;
+    margin-right: 2px;
+}
+
+/* 活动名称文本可点击 */
+.activity-name-text {
+    cursor: pointer;
+}
+
+/* 编辑弹窗表单 */
+.edit-activity-form {
+    padding: 20px 30px;
+}
+.edit-activity-form .layui-form-item {
+    margin-bottom: 16px;
+}
+
+/* 参与人数套餐提示 */
+.plan-limit-hint {
+    font-size: 12px;
+    color: #999;
+    margin-top: 6px;
+    line-height: 1.5;
+}
+.plan-limit-hint i {
+    margin-right: 4px;
+}
+
+/* 参与人数超限警告 */
+.plan-limit-warning {
+    font-size: 12px;
+    color: var(--warning);
+    margin-top: 6px;
+    line-height: 1.5;
+    display: none;
+}
+.plan-limit-warning.visible {
+    display: block;
+}
+.plan-limit-warning i {
+    margin-right: 4px;
+}
+
+/* 超限时输入框样式 */
+.input-over-limit {
+    border-color: var(--warning) !important;
+    box-shadow: 0 0 0 3px rgba(251,140,0,0.15) !important;
+}
+
+/* 升级确认弹窗 */
+.upgrade-confirm-content {
+    padding: 30px;
+    text-align: center;
+}
+.upgrade-confirm-content .upgrade-icon {
+    font-size: 48px;
+    color: var(--warning);
+    margin-bottom: 16px;
+}
+.upgrade-confirm-content h3 {
+    font-size: 18px;
+    color: #333;
+    margin-bottom: 12px;
+}
+.upgrade-confirm-content .upgrade-info {
+    background: #fff8e1;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+    text-align: left;
+    font-size: 14px;
+    color: #555;
+    line-height: 1.8;
+}
+.upgrade-confirm-content .upgrade-btns {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+.upgrade-confirm-content .upgrade-btns .btn-upgrade {
+    padding: 10px 28px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--btn-radius);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background var(--transition);
+}
+.upgrade-confirm-content .upgrade-btns .btn-upgrade:hover {
+    background: var(--primary-dark);
+}
+.upgrade-confirm-content .upgrade-btns .btn-back {
+    padding: 10px 28px;
+    background: #f5f5f5;
+    color: #666;
+    border: 1px solid #ddd;
+    border-radius: var(--btn-radius);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background var(--transition);
+}
+.upgrade-confirm-content .upgrade-btns .btn-back:hover {
+    background: #eee;
 }

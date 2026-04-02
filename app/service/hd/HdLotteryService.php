@@ -12,6 +12,9 @@ use app\model\hd\HdLotteryConfig;
 use app\model\hd\HdLotteryTheme;
 use app\model\hd\HdChoujiangConfig;
 use app\model\hd\HdImportlottery;
+use app\model\hd\HdLotteryWinner;
+use app\model\hd\HdLotteryDesignated;
+use app\model\hd\HdParticipant;
 
 /**
  * 大屏互动 - 抽奖管理服务
@@ -42,10 +45,17 @@ class HdLotteryService
         $prize->aid = $aid;
         $prize->bid = $bid;
         $prize->activity_id = $activityId;
-        $prize->name = $data['name'] ?? '';
+        $prize->name = $data['name'] ?? ($data['prizename'] ?? '');
+        $prize->prizename = $data['prizename'] ?? ($data['name'] ?? '');
         $prize->image = $data['image'] ?? '';
-        $prize->total_num = (int)($data['total_num'] ?? 0);
+        $prize->imageid = $data['imageid'] ?? ($data['image'] ?? '');
+        $prize->total_num = (int)($data['total_num'] ?? ($data['num'] ?? 0));
+        $prize->num = (int)($data['num'] ?? ($data['total_num'] ?? 0));
+        $prize->leftnum = (int)($data['num'] ?? ($data['total_num'] ?? 0));
         $prize->used_num = 0;
+        $prize->type = (int)($data['type'] ?? 1);
+        $prize->draw_count = (int)($data['draw_count'] ?? 1);
+        $prize->plug_name = $data['plug_name'] ?? '';
         $prize->sort = (int)($data['sort'] ?? 0);
         $prize->createtime = time();
         $prize->save();
@@ -65,8 +75,19 @@ class HdLotteryService
         }
 
         if (isset($data['name'])) $prize->name = $data['name'];
+        if (isset($data['prizename'])) $prize->prizename = $data['prizename'];
         if (isset($data['image'])) $prize->image = $data['image'];
+        if (isset($data['imageid'])) $prize->imageid = $data['imageid'];
         if (isset($data['total_num'])) $prize->total_num = (int)$data['total_num'];
+        if (isset($data['num'])) {
+            $oldNum = (int)$prize->num;
+            $newNum = (int)$data['num'];
+            $prize->num = $newNum;
+            $prize->leftnum = max(0, (int)$prize->leftnum + ($newNum - $oldNum));
+        }
+        if (isset($data['type'])) $prize->type = (int)$data['type'];
+        if (isset($data['draw_count'])) $prize->draw_count = (int)$data['draw_count'];
+        if (isset($data['plug_name'])) $prize->plug_name = $data['plug_name'];
         if (isset($data['sort'])) $prize->sort = (int)$data['sort'];
         $prize->save();
 
@@ -126,11 +147,16 @@ class HdLotteryService
         $round->aid = $aid;
         $round->bid = $bid;
         $round->activity_id = $activityId;
-        $round->round_name = $data['round_name'] ?? '第' . ($maxRound + 1) . '轮活动';
+        $round->round_name = $data['round_name'] ?? ($data['title'] ?? '第' . ($maxRound + 1) . '轮活动');
+        $round->title = $data['title'] ?? ($data['round_name'] ?? '第' . ($maxRound + 1) . '轮活动');
         $round->round_num = $maxRound + 1;
         $round->prize_id = (int)($data['prize_id'] ?? 0);
         $round->win_num = (int)($data['win_num'] ?? 1);
         $round->is_repeat = (int)($data['is_repeat'] ?? 0);
+        $round->show_type = $data['show_type'] ?? 'normal';
+        $round->win_again = (int)($data['win_again'] ?? 1);
+        $round->show_style = $data['show_style'] ?? 'nickname';
+        $round->theme_id = (int)($data['theme_id'] ?? 0);
         $round->status = 1;
         $round->winners = '';
         $round->createtime = time();
@@ -151,9 +177,17 @@ class HdLotteryService
         }
 
         if (isset($data['round_name'])) $round->round_name = $data['round_name'];
+        if (isset($data['title'])) {
+            $round->title = $data['title'];
+            $round->round_name = $data['title'];
+        }
         if (isset($data['prize_id'])) $round->prize_id = (int)$data['prize_id'];
         if (isset($data['win_num'])) $round->win_num = (int)$data['win_num'];
         if (isset($data['is_repeat'])) $round->is_repeat = (int)$data['is_repeat'];
+        if (isset($data['show_type'])) $round->show_type = $data['show_type'];
+        if (isset($data['win_again'])) $round->win_again = (int)$data['win_again'];
+        if (isset($data['show_style'])) $round->show_style = $data['show_style'];
+        if (isset($data['theme_id'])) $round->theme_id = (int)$data['theme_id'];
         if (isset($data['status'])) $round->status = (int)$data['status'];
         $round->save();
 
@@ -184,6 +218,16 @@ class HdLotteryService
         if (!$round) {
             return ['code' => 1, 'msg' => '轮次不存在'];
         }
+
+        // 清空中奖记录表对应的记录，恢复奖品剩余数量
+        $winners = HdLotteryWinner::where('round_id', $id)->where('activity_id', $activityId)->select();
+        foreach ($winners as $w) {
+            if ($w->prize_id) {
+                HdPrize::where('id', $w->prize_id)->inc('leftnum')->update();
+            }
+        }
+        HdLotteryWinner::where('round_id', $id)->where('activity_id', $activityId)->delete();
+
         $round->winners = '';
         $round->status = 1;
         $round->save();
@@ -366,5 +410,340 @@ class HdLotteryService
         HdImportlottery::where('aid', $aid)->where('bid', $bid)
             ->where('activity_id', $activityId)->delete();
         return ['code' => 0, 'msg' => '名单已清空'];
+    }
+
+    // ========================================================
+    // 中奖名单管理
+    // ========================================================
+
+    /**
+     * 获取中奖名单
+     */
+    public function getWinners(int $aid, int $bid, int $activityId, array $params = []): array
+    {
+        $where = [['aid', '=', $aid], ['bid', '=', $bid], ['activity_id', '=', $activityId]];
+
+        if (!empty($params['round_id'])) {
+            $where[] = ['round_id', '=', (int)$params['round_id']];
+        }
+        if (!empty($params['prize_id'])) {
+            $where[] = ['prize_id', '=', (int)$params['prize_id']];
+        }
+        if (!empty($params['status'])) {
+            $where[] = ['status', '=', (int)$params['status']];
+        }
+
+        $page = (int)($params['page'] ?? 1);
+        $limit = (int)($params['limit'] ?? 50);
+
+        $list = HdLotteryWinner::where($where)->page($page, $limit)
+            ->order('win_time desc, id desc')->select()->toArray();
+
+        // 附加轮次名称和奖品名称
+        $roundIds = array_unique(array_column($list, 'round_id'));
+        $prizeIds = array_unique(array_column($list, 'prize_id'));
+        $rounds = $roundIds ? HdLotteryConfig::whereIn('id', $roundIds)->column('title,show_type', 'id') : [];
+        $prizes = $prizeIds ? HdPrize::whereIn('id', $prizeIds)->column('prizename', 'id') : [];
+
+        foreach ($list as &$item) {
+            $item['round_name'] = isset($rounds[$item['round_id']]) ? ($rounds[$item['round_id']]['title'] ?: '') : '';
+            $item['show_type'] = isset($rounds[$item['round_id']]) ? ($rounds[$item['round_id']]['show_type'] ?: 'normal') : 'normal';
+            $item['prize_name'] = $prizes[$item['prize_id']] ?? '';
+        }
+        unset($item);
+
+        $count = HdLotteryWinner::where($where)->count();
+        return ['code' => 0, 'data' => ['list' => $list, 'count' => $count]];
+    }
+
+    /**
+     * 发奖操作
+     */
+    public function givePrize(int $aid, int $bid, int $activityId, int $id): array
+    {
+        $winner = HdLotteryWinner::where('aid', $aid)->where('bid', $bid)
+            ->where('activity_id', $activityId)->where('id', $id)->find();
+        if (!$winner) {
+            return ['code' => 1, 'msg' => '中奖记录不存在'];
+        }
+        if ($winner->status == HdLotteryWinner::STATUS_GIVEN) {
+            return ['code' => 1, 'msg' => '已经发奖，无需重复操作'];
+        }
+        $winner->status = HdLotteryWinner::STATUS_GIVEN;
+        $winner->give_time = time();
+        $winner->save();
+        return ['code' => 0, 'msg' => '发奖成功'];
+    }
+
+    /**
+     * 取消发奖
+     */
+    public function cancelPrize(int $aid, int $bid, int $activityId, int $id): array
+    {
+        $winner = HdLotteryWinner::where('aid', $aid)->where('bid', $bid)
+            ->where('activity_id', $activityId)->where('id', $id)->find();
+        if (!$winner) {
+            return ['code' => 1, 'msg' => '中奖记录不存在'];
+        }
+        $winner->status = HdLotteryWinner::STATUS_NOT_GIVEN;
+        $winner->give_time = 0;
+        $winner->save();
+        return ['code' => 0, 'msg' => '已取消发奖'];
+    }
+
+    /**
+     * 删除中奖记录
+     */
+    public function deleteWinner(int $aid, int $bid, int $activityId, int $id): array
+    {
+        $winner = HdLotteryWinner::where('aid', $aid)->where('bid', $bid)
+            ->where('activity_id', $activityId)->where('id', $id)->find();
+        if (!$winner) {
+            return ['code' => 1, 'msg' => '中奖记录不存在'];
+        }
+        // 恢复奖品剩余数量
+        if ($winner->prize_id) {
+            HdPrize::where('id', $winner->prize_id)->inc('leftnum')->update();
+        }
+        $winner->delete();
+        return ['code' => 0, 'msg' => '删除成功'];
+    }
+
+    /**
+     * 清空中奖记录
+     */
+    public function clearWinners(int $aid, int $bid, int $activityId, array $params = []): array
+    {
+        $where = [['aid', '=', $aid], ['bid', '=', $bid], ['activity_id', '=', $activityId]];
+        if (!empty($params['round_id'])) {
+            $where[] = ['round_id', '=', (int)$params['round_id']];
+        }
+
+        // 恢复所有奖品剩余数量
+        $winners = HdLotteryWinner::where($where)->select();
+        foreach ($winners as $w) {
+            if ($w->prize_id) {
+                HdPrize::where('id', $w->prize_id)->inc('leftnum')->update();
+            }
+        }
+        HdLotteryWinner::where($where)->delete();
+
+        return ['code' => 0, 'msg' => '中奖记录已清空'];
+    }
+
+    // ========================================================
+    // 内定名单管理
+    // ========================================================
+
+    /**
+     * 获取内定名单
+     */
+    public function getDesignated(int $aid, int $bid, int $activityId, array $params = []): array
+    {
+        $where = [['aid', '=', $aid], ['bid', '=', $bid], ['activity_id', '=', $activityId]];
+
+        $page = (int)($params['page'] ?? 1);
+        $limit = (int)($params['limit'] ?? 50);
+
+        $list = HdLotteryDesignated::where($where)->page($page, $limit)
+            ->order('id desc')->select()->toArray();
+
+        // 附加用户信息和奖品信息
+        $partIds = array_unique(array_column($list, 'participant_id'));
+        $prizeIds = array_unique(array_column($list, 'prize_id'));
+        $parts = $partIds ? HdParticipant::whereIn('id', $partIds)->column('nickname,avatar,phone', 'id') : [];
+        $prizes = $prizeIds ? HdPrize::whereIn('id', $prizeIds)->column('prizename', 'id') : [];
+
+        foreach ($list as &$item) {
+            $p = $parts[$item['participant_id']] ?? [];
+            $item['nickname'] = $p['nickname'] ?? '';
+            $item['avatar'] = $p['avatar'] ?? '';
+            $item['phone'] = $p['phone'] ?? '';
+            $item['prize_name'] = $prizes[$item['prize_id']] ?? '';
+        }
+        unset($item);
+
+        $count = HdLotteryDesignated::where($where)->count();
+        return ['code' => 0, 'data' => ['list' => $list, 'count' => $count]];
+    }
+
+    /**
+     * 添加内定
+     */
+    public function addDesignated(int $aid, int $bid, int $activityId, array $data): array
+    {
+        $participantId = (int)($data['user_id'] ?? ($data['participant_id'] ?? 0));
+        $prizeId = (int)($data['prize_id'] ?? 0);
+        $designated = (int)($data['designated'] ?? 2);
+
+        if (!$participantId) {
+            return ['code' => 1, 'msg' => '请选择用户'];
+        }
+
+        // 检查是否已内定
+        $exists = HdLotteryDesignated::where('activity_id', $activityId)
+            ->where('participant_id', $participantId)->find();
+        if ($exists) {
+            // 更新内定设置
+            $exists->prize_id = $prizeId;
+            $exists->designated = $designated;
+            $exists->save();
+            return ['code' => 0, 'msg' => '内定设置已更新'];
+        }
+
+        $record = new HdLotteryDesignated();
+        $record->aid = $aid;
+        $record->bid = $bid;
+        $record->activity_id = $activityId;
+        $record->participant_id = $participantId;
+        $record->prize_id = $prizeId;
+        $record->designated = $designated;
+        $record->plug_name = $data['plug_name'] ?? '';
+        $record->createtime = time();
+        $record->save();
+
+        return ['code' => 0, 'msg' => '内定设置成功'];
+    }
+
+    /**
+     * 取消内定
+     */
+    public function cancelDesignated(int $aid, int $bid, int $activityId, int $id): array
+    {
+        $record = HdLotteryDesignated::where('aid', $aid)->where('bid', $bid)
+            ->where('activity_id', $activityId)->where('id', $id)->find();
+        if (!$record) {
+            return ['code' => 1, 'msg' => '内定记录不存在'];
+        }
+        $record->delete();
+        return ['code' => 0, 'msg' => '已取消内定'];
+    }
+
+    /**
+     * 搜索可内定人员（已签到的参与者）
+     */
+    public function searchUsers(int $aid, int $bid, int $activityId, array $params = []): array
+    {
+        $where = [
+            ['aid', '=', $aid],
+            ['bid', '=', $bid],
+            ['activity_id', '=', $activityId],
+            ['flag', '=', HdParticipant::FLAG_SIGNED],
+        ];
+
+        if (!empty($params['keyword'])) {
+            $where[] = ['nickname|signname|phone', 'like', '%' . $params['keyword'] . '%'];
+        }
+
+        $list = HdParticipant::where($where)->limit(50)
+            ->field('id,nickname,avatar,phone,signname')
+            ->order('id desc')->select()->toArray();
+
+        return ['code' => 0, 'data' => ['list' => $list]];
+    }
+
+    // ========================================================
+    // 幸运手机号 / 幸运号码管理
+    // ========================================================
+
+    /**
+     * 幸运手机号记录（从中奖记录中筛选手机号中奖）
+     */
+    public function getLuckyPhoneRecords(int $aid, int $bid, int $activityId, array $params = []): array
+    {
+        $where = [
+            ['aid', '=', $aid],
+            ['bid', '=', $bid],
+            ['activity_id', '=', $activityId],
+            ['phone', '<>', ''],
+        ];
+
+        $page = (int)($params['page'] ?? 1);
+        $limit = (int)($params['limit'] ?? 50);
+
+        $list = HdLotteryWinner::where($where)->page($page, $limit)
+            ->order('win_time desc')->select()->toArray();
+        $count = HdLotteryWinner::where($where)->count();
+
+        return ['code' => 0, 'data' => ['list' => $list, 'count' => $count]];
+    }
+
+    /**
+     * 幸运号码配置（存储在活动 screen_config 中）
+     */
+    public function getLuckyNumberConfig(int $aid, int $bid, int $activityId): array
+    {
+        $activity = HdActivity::where('aid', $aid)->where('bid', $bid)
+            ->where('id', $activityId)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
+
+        $screenConfig = $activity->screen_config;
+        if (is_string($screenConfig)) {
+            $screenConfig = json_decode($screenConfig, true) ?: [];
+        }
+        $luckyConfig = $screenConfig['lucky_number'] ?? [
+            'enabled' => 0,
+            'min' => 0,
+            'max' => 999,
+            'digit' => 3,
+            'prize_name' => '',
+        ];
+
+        return ['code' => 0, 'data' => $luckyConfig];
+    }
+
+    /**
+     * 更新幸运号码配置
+     */
+    public function updateLuckyNumberConfig(int $aid, int $bid, int $activityId, array $data): array
+    {
+        $activity = HdActivity::where('aid', $aid)->where('bid', $bid)
+            ->where('id', $activityId)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
+
+        $screenConfig = $activity->screen_config;
+        if (is_string($screenConfig)) {
+            $screenConfig = json_decode($screenConfig, true) ?: [];
+        }
+
+        $screenConfig['lucky_number'] = [
+            'enabled' => (int)($data['enabled'] ?? 0),
+            'min' => (int)($data['min'] ?? 0),
+            'max' => (int)($data['max'] ?? 999),
+            'digit' => (int)($data['digit'] ?? 3),
+            'prize_name' => $data['prize_name'] ?? '',
+        ];
+
+        $activity->screen_config = json_encode($screenConfig, JSON_UNESCAPED_UNICODE);
+        $activity->save();
+
+        return ['code' => 0, 'msg' => '幸运号码配置已更新'];
+    }
+
+    /**
+     * 幸运号码中奖记录（从中奖记录中获取）
+     */
+    public function getLuckyNumberRecords(int $aid, int $bid, int $activityId, array $params = []): array
+    {
+        // 幸运号码中奖记录复用 winner 表，通过 verify_code 字段存储幸运号码
+        $where = [
+            ['aid', '=', $aid],
+            ['bid', '=', $bid],
+            ['activity_id', '=', $activityId],
+            ['verify_code', '<>', ''],
+        ];
+
+        $page = (int)($params['page'] ?? 1);
+        $limit = (int)($params['limit'] ?? 50);
+
+        $list = HdLotteryWinner::where($where)->page($page, $limit)
+            ->order('win_time desc')->select()->toArray();
+        $count = HdLotteryWinner::where($where)->count();
+
+        return ['code' => 0, 'data' => ['list' => $list, 'count' => $count]];
     }
 }

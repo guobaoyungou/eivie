@@ -41,6 +41,11 @@ class HdSettingController extends HdBaseController
                     'appid'     => $bizConfig->wxfw_appid ?? '',
                     'appsecret' => $bizConfig->wxfw_appsecret ? '******' : '',
                 ],
+                'wx_server' => [
+                    'callback_url' => 'https://wxhd.eivie.cn/api/hd/wx/callback',
+                    'token'        => $this->getWxVerifyToken(),
+                    'encoding_mode'=> '明文模式',
+                ],
                 'plan' => $plan ? [
                     'name'             => $plan['name'],
                     'max_stores'       => $plan['max_stores'],
@@ -128,6 +133,22 @@ class HdSettingController extends HdBaseController
     }
 
     /**
+     * 获取微信服务器验证 Token
+     */
+    private function getWxVerifyToken(): string
+    {
+        try {
+            $mp = Db::name('admin_setapp_mp')->order('id asc')->find();
+            if ($mp && !empty($mp['token'])) {
+                return $mp['token'];
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+        return 'hd_wx_callback_token';
+    }
+
+    /**
      * 获取地图API Key（前端加载地图组件用）
      */
     public function mapKey()
@@ -205,5 +226,52 @@ class HdSettingController extends HdBaseController
         }
 
         return json(['code' => 1, 'msg' => '获取地址失败']);
+    }
+
+    /**
+     * 获取手机端入口地址（基于当前活动的 access_code 生成）
+     * GET /api/hd/setting/mobile-urls?activity_id=xxx
+     */
+    public function mobileUrls()
+    {
+        $activityId = (int)input('get.activity_id', 0);
+        $domain = 'https://wxhd.eivie.cn';
+
+        if ($activityId > 0) {
+            $activity = HdActivity::where('aid', $this->getAid())
+                ->where('bid', $this->getBid())
+                ->where('id', $activityId)
+                ->find();
+        } else {
+            // 取第一个活动
+            $activity = HdActivity::where('aid', $this->getAid())
+                ->where('bid', $this->getBid())
+                ->order('id desc')
+                ->find();
+        }
+
+        if (!$activity || empty($activity->access_code)) {
+            return json(['code' => 1, 'msg' => '未找到活动']);
+        }
+
+        $accessCode = $activity->access_code;
+        $entryUrl = $domain . '/s/' . $accessCode;
+
+        return json([
+            'code' => 0,
+            'data' => [
+                'access_code' => $accessCode,
+                'domain'      => $domain,
+                'screen_url'  => $entryUrl,
+                'urls'        => [
+                    ['label' => '签到地址（常用）', 'url' => $entryUrl, 'key' => 'qiandao'],
+                    ['label' => '上墙地址',         'url' => $entryUrl . '?f=wall', 'key' => 'wall'],
+                    ['label' => '投票地址',         'url' => $entryUrl . '?f=vote', 'key' => 'vote'],
+                    ['label' => '红包地址',         'url' => $entryUrl . '?f=redpacket', 'key' => 'redpacket'],
+                    ['label' => '中奖结果地址',     'url' => $entryUrl . '?f=cjresult', 'key' => 'cjresult'],
+                ],
+                'qrcode_text' => $entryUrl,
+            ],
+        ]);
     }
 }

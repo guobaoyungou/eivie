@@ -224,6 +224,7 @@ class Menu
 		// ============================================================
 		if($isadmin){
 			$screen_interaction_child = [];
+			$screen_interaction_child[] = ['name'=>'功能列表','path'=>'ScreenInteractionFeature/index','authdata'=>'ScreenInteractionFeature/*'];
 			$screen_interaction_child[] = ['name'=>'套餐管理','path'=>'ScreenInteractionPlan/index','authdata'=>'ScreenInteractionPlan/*'];
 			$screen_interaction_child[] = ['name'=>'订单管理','path'=>'ScreenInteractionPlanOrder/index','authdata'=>'ScreenInteractionPlanOrder/*'];
 			$screen_interaction_child[] = ['name'=>'活动管理','path'=>'ScreenInteractionActivity/index','authdata'=>'ScreenInteractionActivity/*'];

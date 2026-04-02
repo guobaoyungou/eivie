@@ -13,28 +13,30 @@ $openid=$_GET['rentopenid'];
 $load->model('Flag_model');
 $myinfo=$load->flag_model->getUserinfo($openid,false,true);
 
-// 从 hd_activity_feature 表读取手机签到页配置（feature_code='qdq'）
+// 从 hd_activity 表的 screen_config 读取手机签到页配置
 $_link = MysqliConnection::getlink();
-$_featureResult = mysqli_query($_link, "SELECT config FROM hd_activity_feature WHERE feature_code='qdq' LIMIT 1");
-$_featureRow = $_featureResult ? mysqli_fetch_assoc($_featureResult) : null;
-$_mobileConfig = ($_featureRow && !empty($_featureRow['config'])) ? json_decode($_featureRow['config'], true) : [];
+$_actResult = mysqli_query($_link, "SELECT screen_config FROM hd_activity ORDER BY id DESC LIMIT 1");
+$_actRow = $_actResult ? mysqli_fetch_assoc($_actResult) : null;
+$_mobileConfig = ($_actRow && !empty($_actRow['screen_config'])) ? json_decode($_actRow['screen_config'], true) : [];
 
-// 提取配置项（带默认值）
-$mobileqiandaobg   = !empty($_mobileConfig['mobile_bg_image']) ? $_mobileConfig['mobile_bg_image'] : '';
-$hide_avatar       = isset($_mobileConfig['mobile_hide_avatar']) ? intval($_mobileConfig['mobile_hide_avatar']) : 0;
-$activity_image    = !empty($_mobileConfig['mobile_activity_image']) ? $_mobileConfig['mobile_activity_image'] : '';
-$welcome_text      = !empty($_mobileConfig['mobile_welcome_text']) ? $_mobileConfig['mobile_welcome_text'] : '欢迎参与本次活动';
-$btn_text          = !empty($_mobileConfig['mobile_btn_text']) ? $_mobileConfig['mobile_btn_text'] : '参 与 活 动';
-$btn_image         = !empty($_mobileConfig['mobile_btn_image']) ? $_mobileConfig['mobile_btn_image'] : '';
-$quick_message     = isset($_mobileConfig['mobile_quick_message']) ? intval($_mobileConfig['mobile_quick_message']) : 0;
+// 提取配置项（带默认值，模板变量统一使用 $mobile_ 前缀）
+$mobile_bg           = !empty($_mobileConfig['mobile_bg_image']) ? $_mobileConfig['mobile_bg_image'] : '';
+$mobile_hide_avatar  = isset($_mobileConfig['mobile_hide_avatar']) ? intval($_mobileConfig['mobile_hide_avatar']) : 0;
+$mobile_activity_image = !empty($_mobileConfig['mobile_activity_image']) ? $_mobileConfig['mobile_activity_image'] : '';
+$welcome_text        = !empty($_mobileConfig['mobile_welcome_text']) ? $_mobileConfig['mobile_welcome_text'] : '欢迎参与本次活动';
+$btn_text            = !empty($_mobileConfig['mobile_btn_text']) ? $_mobileConfig['mobile_btn_text'] : '参 与 活 动';
+$btn_image           = !empty($_mobileConfig['mobile_btn_image']) ? $_mobileConfig['mobile_btn_image'] : '';
+$mobile_quick_message = isset($_mobileConfig['mobile_quick_message']) ? intval($_mobileConfig['mobile_quick_message']) : 0;
+$mobile_force_wx_auth = isset($_mobileConfig['mobile_force_wx_auth']) ? intval($_mobileConfig['mobile_force_wx_auth']) : 1;
+$mobile_force_wx_auth = isset($_mobileConfig['mobile_force_wx_auth']) ? intval($_mobileConfig['mobile_force_wx_auth']) : 1;
 
 // 如果新配置无背景图，回退到旧配置
-if (empty($mobileqiandaobg)) {
+if (empty($mobile_bg)) {
     $load->model('System_Config_model');
     $data = $load->system_config_model->get("mobileqiandaobg");
     $load->model('Attachment_model');
     $_oldBg = $load->attachment_model->getById(intval($data['configvalue']));
-    $mobileqiandaobg = empty($_oldBg['filepath']) ? '' : $_oldBg['filepath'];
+    $mobile_bg = empty($_oldBg['filepath']) ? '' : $_oldBg['filepath'];
 }
 
 //模版页面相关内容
@@ -52,11 +54,11 @@ if($myinfo['flag']==1){//没有签到
 	$smarty->assign('user',$myinfo);
 
 	// 背景图（无自定义时使用默认星空背景）
-	$smarty->assign('mobileqiandaobg', $mobileqiandaobg ? $mobileqiandaobg : 'template/app/images/bg.jpg');
-	$smarty->assign('hide_avatar', $hide_avatar);
+	$smarty->assign('mobile_bg', $mobile_bg ? $mobile_bg : 'template/app/images/bg.jpg');
+	$smarty->assign('mobile_hide_avatar', $mobile_hide_avatar);
 	$smarty->assign('btn_text', $btn_text);
 	$smarty->assign('btn_image', $btn_image);
-	$smarty->assign('quick_message', $quick_message);
+	$smarty->assign('mobile_quick_message', $mobile_quick_message);
 
 	//签到姓名
 	$load->model('System_Config_model');
@@ -96,9 +98,9 @@ if($myinfo['flag']==1){//没有签到
 	$custommenu=$menu_api->getAll(array('rentopenid'=>$openid));
 
 	// 背景图
-	$smarty->assign('mobileqiandaobg', $mobileqiandaobg);
-	$smarty->assign('hide_avatar', $hide_avatar);
-	$smarty->assign('activity_image', $activity_image);
+	$smarty->assign('mobile_bg', $mobile_bg);
+	$smarty->assign('mobile_hide_avatar', $mobile_hide_avatar);
+	$smarty->assign('mobile_activity_image', $mobile_activity_image);
 	$smarty->assign('welcome_text', $welcome_text);
 
 	$load->model('System_Config_model');

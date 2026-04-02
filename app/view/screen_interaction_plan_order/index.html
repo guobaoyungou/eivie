@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>套餐订单管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          <i class="layui-icon layui-icon-form"></i> 套餐订单管理
+        </div>
+        <div class="layui-card-body" pad15>
+          <!-- 操作按钮区 -->
+          <div class="layui-col-md3" style="padding-bottom:10px">
+            <a class="layui-btn layuiadmin-btn-list" href="javascript:void(0)" onclick="openAdd()">
+              <i class="layui-icon layui-icon-add-1"></i> 手动录入
+            </a>
+          </div>
+
+          <!-- 搜索区 -->
+          <div class="layui-form layui-col-md9 layui-form-search">
+            <div class="layui-inline">
+              <label class="layui-form-label">关键词</label>
+              <div class="layui-input-inline" style="width:160px">
+                <input type="text" name="keyword" class="layui-input" placeholder="订单号/套餐/商户">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">支付状态</label>
+              <div class="layui-input-inline" style="width:100px">
+                <select name="pay_status">
+                  <option value="">全部</option>
+                  <option value="0">未支付</option>
+                  <option value="1">已支付</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">类型</label>
+              <div class="layui-input-inline" style="width:90px">
+                <select name="order_type">
+                  <option value="">全部</option>
+                  <option value="1">新购</option>
+                  <option value="2">续费</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn layuiadmin-btn-replys" lay-submit lay-filter="LAY-search">
+                <i class="layui-icon layui-icon-search"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 数据表格 -->
+          <div class="layui-col-md12">
+            <table id="tabledata" lay-filter="tabledata"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  var table = layui.table;
+  var datawhere = {};
+
+  function openAdd() {
+    var index = layer.open({
+      type: 2,
+      title: '手动录入订单',
+      area: ['700px', '80%'],
+      maxmin: true,
+      content: "{:url('add')}",
+      end: function() { tableIns.reload(); }
+    });
+  }
+
+  function openDetail(id) {
+    var index = layer.open({
+      type: 2,
+      title: '订单详情',
+      area: ['750px', '85%'],
+      maxmin: true,
+      content: "{:url('detail')}/id/" + id
+    });
+  }
+
+  var tableIns = table.render({
+    elem: '#tabledata',
+    url: "{$Request.url}",
+    page: true,
+    cols: [[
+      {field: 'id', title: 'ID', sort: true, width: 60},
+      {field: 'order_no', title: '订单号', width: 210, templet: function(d) {
+        return '<a href="javascript:void(0)" style="color:#1E9FFF" onclick="openDetail('+d.id+')">' + d.order_no + '</a>';
+      }},
+      {field: 'plan_name', title: '套餐名称', width: 100},
+      {field: 'business_name', title: '商户', width: 130, templet: function(d) {
+        return d.business_name || '<span style="color:#999">-</span>';
+      }},
+      {field: 'order_type_text', title: '类型', width: 70, templet: function(d) {
+        if (d.order_type == 1) return '<span class="layui-badge layui-bg-blue">新购</span>';
+        if (d.order_type == 2) return '<span class="layui-badge layui-bg-orange">续费</span>';
+        return d.order_type_text;
+      }},
+      {field: 'original_price', title: '原价', width: 90, templet: function(d) {
+        return '<span style="color:#999;text-decoration:line-through">¥' + d.original_price + '</span>';
+      }},
+      {field: 'amount', title: '实付金额', width: 100, templet: function(d) {
+        return '<span style="color:#FF6B00;font-weight:bold">¥' + d.amount + '</span>';
+      }},
+      {field: 'pay_status', title: '支付状态', width: 90, templet: function(d) {
+        if (d.pay_status == 1) return '<span class="layui-badge layui-bg-green">已支付</span>';
+        return '<span class="layui-badge layui-bg-gray">未支付</span>';
+      }},
+      {field: 'pay_time_text', title: '支付时间', width: 160},
+      {field: 'start_time_text', title: '生效时间', width: 160},
+      {field: 'end_time_text', title: '到期时间', width: 160, templet: function(d) {
+        if (!d.end_time || d.end_time_text == '-') return '-';
+        var html = d.end_time_text;
+        if (d.is_expired) html += ' <span class="layui-badge">已过期</span>';
+        return html;
+      }},
+      {field: 'create_time_text', title: '创建时间', width: 160},
+      {field: 'operation', title: '操作', width: 120, fixed: 'right', templet: function(d) {
+        var html = '<button class="table-btn" onclick="openDetail('+d.id+')">详情</button>';
+        if (d.pay_status == 0) {
+          html += '<button class="table-btn" style="color:#FF5722" onclick="datadel('+d.id+')">删除</button>';
+        }
+        return html;
+      }}
+    ]]
+  });
+
+  table.on('sort(tabledata)', function(obj) {
+    datawhere.field = obj.field;
+    datawhere.order = obj.type;
+    tableIns.reload({initSort: obj, where: datawhere});
+  });
+
+  layui.form.on('submit(LAY-search)', function(obj) {
+    datawhere = obj.field;
+    tableIns.reload({where: datawhere, page: {curr: 1}});
+    return false;
+  });
+
+  function datadel(id) {
+    layer.confirm('确定要删除该未支付订单吗？', {icon: 7}, function(index) {
+      layer.close(index);
+      $.post("{:url('del')}", {id: id}, function(res) {
+        layer.msg(res.msg);
+        if (res.status == 1) tableIns.reload();
+      });
+    });
+  }
+  </script>
+</body>
+</html>

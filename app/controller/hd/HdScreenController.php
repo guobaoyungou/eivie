@@ -42,21 +42,42 @@ class HdScreenController extends HdBaseController
     }
 
     /**
-     * 用户签到
+     * 用户签到（支持扩展字段）
      * POST /api/hd/screen/:access_code/sign
      */
     public function sign(string $access_code)
     {
+        // 优先从 Session 获取 openid
+        $openid = session('hd_wx_openid') ?: input('post.openid', '');
         $data = [
-            'openid'    => input('post.openid', ''),
-            'nickname'  => input('post.nickname', ''),
-            'avatar'    => input('post.avatar', ''),
-            'signname'  => input('post.signname', ''),
-            'mid'       => input('post.mid', 0),
-            'latitude'  => input('post.latitude', ''),
-            'longitude' => input('post.longitude', ''),
+            'openid'       => $openid,
+            'nickname'     => session('hd_wx_nickname') ?: input('post.nickname', ''),
+            'avatar'       => session('hd_wx_avatar') ?: input('post.avatar', ''),
+            'signname'     => input('post.signname', ''),
+            'phone'        => input('post.phone', ''),
+            'company'      => input('post.company', ''),
+            'position'     => input('post.position', ''),
+            'employee_no'  => input('post.employee_no', ''),
+            'sign_photo'   => input('post.sign_photo', ''),
+            'custom_data'  => input('post.custom_data', ''),
+            'sms_code'     => input('post.sms_code', ''),
+            'mid'          => (int)(session('hd_wx_mid') ?: input('post.mid', 0)),
+            'latitude'     => input('post.latitude', ''),
+            'longitude'    => input('post.longitude', ''),
+            'quick_message'=> input('post.quick_message', ''),
         ];
         $result = $this->screenService->sign($access_code, $data);
+        return json($result);
+    }
+
+    /**
+     * 发送签到短信验证码
+     * POST /api/hd/screen/:access_code/sign-sms
+     */
+    public function sendSignSms(string $access_code)
+    {
+        $phone = input('post.phone', '');
+        $result = $this->screenService->sendSignSmsCode($access_code, $phone);
         return json($result);
     }
 
@@ -237,5 +258,93 @@ class HdScreenController extends HdBaseController
     {
         $result = $this->screenService->getBimuConfig($access_code);
         return json($result);
+    }
+
+    // ========== 管理员 API ==========
+
+    /**
+     * 检查当前用户是否为管理员
+     * GET /api/hd/screen/:access_code/admin/check
+     */
+    public function adminCheck(string $access_code)
+    {
+        $openid = session('hd_wx_openid') ?: input('get.openid', '');
+        $result = $this->screenService->checkAdmin($access_code, $openid);
+        return json($result);
+    }
+
+    /**
+     * 管理员获取功能开关列表
+     * GET /api/hd/screen/:access_code/admin/features
+     */
+    public function adminFeatures(string $access_code)
+    {
+        $openid = session('hd_wx_openid') ?: input('get.openid', '');
+        $result = $this->screenService->adminGetFeatures($access_code, $openid);
+        return json($result);
+    }
+
+    /**
+     * 管理员切换大屏功能
+     * POST /api/hd/screen/:access_code/admin/feature-toggle
+     */
+    public function adminFeatureToggle(string $access_code)
+    {
+        $openid = session('hd_wx_openid') ?: input('post.openid', '');
+        $data = [
+            'feature_code' => input('post.feature_code', ''),
+            'action'       => input('post.action', 'toggle'),
+            'round_id'     => input('post.round_id', 0),
+        ];
+        $result = $this->screenService->adminFeatureToggle($access_code, $openid, $data);
+        return json($result);
+    }
+
+    /**
+     * 管理员触发抽奖
+     * POST /api/hd/screen/:access_code/admin/lottery-draw
+     */
+    public function adminLotteryDraw(string $access_code)
+    {
+        $openid = session('hd_wx_openid') ?: input('post.openid', '');
+        // 权限校验
+        $checkResult = $this->screenService->checkAdmin($access_code, $openid);
+        if ($checkResult['code'] !== 0 || empty($checkResult['data']['is_admin'])) {
+            return json(['code' => 1, 'msg' => '无管理员权限']);
+        }
+        $roundId = (int)input('post.round_id', 0);
+        $result = $this->screenService->lotteryDraw($access_code, $roundId);
+        return json($result);
+    }
+
+    // ========== 核销员 API（预留） ==========
+
+    /**
+     * 检查当前用户是否有核销权限
+     * GET /api/hd/screen/:access_code/verify/check
+     */
+    public function verifyCheck(string $access_code)
+    {
+        $openid = session('hd_wx_openid') ?: input('get.openid', '');
+        $result = $this->screenService->checkVerifier($access_code, $openid);
+        return json($result);
+    }
+
+    /**
+     * 获取待核销订单列表（预留）
+     * GET /api/hd/screen/:access_code/verify/orders
+     */
+    public function verifyOrders(string $access_code)
+    {
+        return json(['code' => 0, 'msg' => '功能开发中，敬请期待', 'data' => ['list' => []]]);
+    }
+
+    /**
+     * 执行核销操作（预留）
+     * POST /api/hd/screen/:access_code/verify/order
+     */
+    public function verifyOrder(string $access_code)
+    {
+        return json(['code' => 1, 'msg' => '功能开发中，敬请期待']);
     }
 }

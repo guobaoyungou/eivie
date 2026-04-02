@@ -1,6 +1,6 @@
 /**
  * 签到墙 - 样式二：矩阵墙
- * 布局：4行 × 6列 圆形头像矩阵 + 中央大头像 + 角落Toast
+ * 布局：5行 × 12列 圆形头像矩阵 + 中央大头像 + 角落Toast
  */
 
 /* ============ 整体布局 ============ */
@@ -97,8 +97,8 @@
 
 .sign-matrix-grid .grid-scroll-wrap {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 14px;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 10px;
     padding: 10px;
     transition: transform 0.05s linear;
 }
@@ -345,6 +345,105 @@
     50% { opacity: 0.8; transform: scale(1.05); }
 }
 
+/* ============ 飞行头像克隆元素 ============ */
+.sign-flying-avatar {
+    position: absolute;
+    z-index: 20;
+    pointer-events: none;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+.sign-flying-avatar .flying-ring {
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    padding: 6px;
+    background: linear-gradient(135deg, #00d2ff, #7b2ff7, #ff0080, #00d2ff);
+    background-size: 400% 400%;
+    animation: glow-border-rotate 4s linear infinite;
+    box-shadow: 0 0 40px rgba(0, 210, 255, 0.4), 0 0 80px rgba(123, 47, 247, 0.2);
+}
+
+.sign-flying-avatar .flying-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #1a1a2e;
+}
+
+.sign-flying-avatar .flying-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* 到达中央时光晕脉冲 */
+.sign-flying-avatar.glow-pulse .flying-ring {
+    animation: glow-border-rotate 4s linear infinite, fly-in-glow-pulse 200ms ease-out;
+}
+
+/* 光晕脉冲（到达时） */
+@keyframes fly-in-glow-pulse {
+    0% {
+        box-shadow: 0 0 40px rgba(0, 210, 255, 0.4), 0 0 80px rgba(123, 47, 247, 0.2);
+    }
+    50% {
+        box-shadow: 0 0 60px rgba(0, 210, 255, 0.7), 0 0 120px rgba(123, 47, 247, 0.4), 0 0 160px rgba(255, 0, 128, 0.2);
+    }
+    100% {
+        box-shadow: 0 0 40px rgba(0, 210, 255, 0.4), 0 0 80px rgba(123, 47, 247, 0.2);
+    }
+}
+
+/* 中央信息淡入 */
+@keyframes center-info-fade-in {
+    0% {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 中央信息淡出 */
+@keyframes center-info-fade-out {
+    0% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+}
+
+.sign-center-avatar .center-name.info-fade-in,
+.sign-center-avatar .center-order.info-fade-in {
+    animation: center-info-fade-in 300ms ease-out forwards;
+}
+
+.sign-center-avatar .center-name.info-fade-out,
+.sign-center-avatar .center-order.info-fade-out {
+    animation: center-info-fade-out 300ms ease-in forwards;
+}
+
+/* 中央头像图片隐藏（飞行头像替代） */
+.sign-center-avatar .center-ring {
+    visibility: hidden;
+}
+
+/* 待入场的矩阵格子（不可见占位） */
+.sign-matrix-grid .avatar-cell.cell-hidden {
+    opacity: 0;
+    transform: scale(0);
+    animation: none;
+}
+
 /* ============ 响应式适配 ============ */
 @media (min-width: 1920px) {
     .sign-matrix-grid .avatar-img-wrap {
@@ -357,6 +456,10 @@
     }
     .sign-center-avatar .center-name {
         font-size: 32px;
+    }
+    .sign-flying-avatar .flying-ring {
+        width: 340px;
+        height: 340px;
     }
 }
 
@@ -374,5 +477,9 @@
     }
     .sign-matrix-grid .avatar-nick {
         font-size: 11px;
+    }
+    .sign-flying-avatar .flying-ring {
+        width: 220px;
+        height: 220px;
     }
 }

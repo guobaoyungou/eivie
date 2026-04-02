@@ -123,4 +123,98 @@ class HdLotteryController extends HdBaseController
     {
         return json($this->lotteryService->clearImportList($this->getAid(), $this->getBid(), $activity_id));
     }
+
+    // —— 中奖名单 ——
+
+    public function winners(int $activity_id)
+    {
+        $params = [
+            'round_id' => input('get.round_id', ''),
+            'prize_id' => input('get.prize_id', ''),
+            'status'   => input('get.status', ''),
+            'page'     => input('get.page', 1),
+            'limit'    => input('get.limit', 50),
+        ];
+        return json($this->lotteryService->getWinners($this->getAid(), $this->getBid(), $activity_id, $params));
+    }
+
+    public function givePrize(int $activity_id, int $id)
+    {
+        return json($this->lotteryService->givePrize($this->getAid(), $this->getBid(), $activity_id, $id));
+    }
+
+    public function cancelPrize(int $activity_id, int $id)
+    {
+        return json($this->lotteryService->cancelPrize($this->getAid(), $this->getBid(), $activity_id, $id));
+    }
+
+    public function deleteWinner(int $activity_id, int $id)
+    {
+        return json($this->lotteryService->deleteWinner($this->getAid(), $this->getBid(), $activity_id, $id));
+    }
+
+    public function clearWinners(int $activity_id)
+    {
+        $params = ['round_id' => input('post.round_id', '')];
+        return json($this->lotteryService->clearWinners($this->getAid(), $this->getBid(), $activity_id, $params));
+    }
+
+    // —— 内定名单 ——
+
+    public function designated(int $activity_id)
+    {
+        $params = [
+            'page'  => input('get.page', 1),
+            'limit' => input('get.limit', 50),
+        ];
+        return json($this->lotteryService->getDesignated($this->getAid(), $this->getBid(), $activity_id, $params));
+    }
+
+    public function addDesignated(int $activity_id)
+    {
+        return json($this->lotteryService->addDesignated($this->getAid(), $this->getBid(), $activity_id, input('post.')));
+    }
+
+    public function cancelDesignated(int $activity_id, int $id)
+    {
+        return json($this->lotteryService->cancelDesignated($this->getAid(), $this->getBid(), $activity_id, $id));
+    }
+
+    public function searchUsers(int $activity_id)
+    {
+        $params = ['keyword' => input('get.keyword', '')];
+        return json($this->lotteryService->searchUsers($this->getAid(), $this->getBid(), $activity_id, $params));
+    }
+
+    // —— 幸运手机号 ——
+
+    public function luckyPhoneRecords(int $activity_id)
+    {
+        $params = [
+            'page'  => input('get.page', 1),
+            'limit' => input('get.limit', 50),
+        ];
+        return json($this->lotteryService->getLuckyPhoneRecords($this->getAid(), $this->getBid(), $activity_id, $params));
+    }
+
+    // —— 幸运号码 ——
+
+    public function luckyNumberConfig(int $activity_id)
+    {
+        return json($this->lotteryService->getLuckyNumberConfig($this->getAid(), $this->getBid(), $activity_id));
+    }
+
+    public function updateLuckyNumberConfig(int $activity_id)
+    {
+        return json($this->lotteryService->updateLuckyNumberConfig($this->getAid(), $this->getBid(), $activity_id, input('post.')));
+    }
+
+    public function luckyNumberRecords(int $activity_id)
+    {
+        $params = [
+            'page'  => input('get.page', 1),
+            'limit' => input('get.limit', 50),
+        ];
+        return json($this->lotteryService->getLuckyNumberRecords($this->getAid(), $this->getBid(), $activity_id, $params));
+    }
 }

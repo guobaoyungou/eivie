@@ -626,7 +626,32 @@ class ApiWechat extends BaseController
 							}
 						}
 					}
-					die('success');
+						die('success');
+				}
+				// HD大屏互动签到扫码处理
+				// scene_str = access_code（无前缀），匹配 hd_activity 表
+				// 新关注 subscribe + 已关注用户 SCAN 均推送签到页链接
+				try {
+					$hdActivity = Db::name('hd_activity')->where('access_code', $eventKey)->find();
+					if ($hdActivity) {
+						$screenConfig = $hdActivity['screen_config'] ? json_decode($hdActivity['screen_config'], true) : [];
+						$forceWxAuth = (int)($screenConfig['mobile_force_wx_auth'] ?? 1);
+						if ($forceWxAuth) {
+							$signUrl = 'https://wxhd.eivie.cn/s/' . $eventKey;
+							$actTitle = $hdActivity['title'] ?: '活动';
+							$msg = "欢迎参加「{$actTitle}」！\n\n点击下方链接立即签到：\n" . $signUrl;
+							$this->send_text(aid, $msg, $openid);
+							Log::info('[HdWxCallback-ApiWechat] 推送签到页: openid=' . $openid
+								. ', event=' . strval($postObj->Event)
+								. ', access_code=' . $eventKey
+								. ', url=' . $signUrl);
+						} else {
+							Log::info('[HdWxCallback-ApiWechat] 活动未启用强制关注, access_code=' . $eventKey);
+						}
+						die('success');
+					}
+				} catch (\Throwable $e) {
+					Log::error('[HdWxCallback-ApiWechat] HD签到处理异常: ' . $e->getMessage());
 				}
 				$eventKeyArr = explode('_',$eventKey);
 				if($eventKeyArr[0] == 'pid'){ //推广

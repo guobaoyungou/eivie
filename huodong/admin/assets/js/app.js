@@ -60,6 +60,7 @@
             Layout.showApp();
             Layout.init();
             Layout.setUserName(this.userInfo.business_name || this.userInfo.name || this.userInfo.phone || '用户');
+            Layout.setPlanName(this.userInfo.plan || null);
 
             // 初始化菜单
             this.menu = new SideMenu('sidebar-menu');
@@ -112,6 +113,8 @@
             this.router.on('/lottery/themes', function() { LotteryPage.renderThemes(); });
             this.router.on('/lottery/choujiang', function() { LotteryPage.renderChoujiang(); });
             this.router.on('/lottery/import', function() { LotteryPage.renderImport(); });
+            this.router.on('/lottery/lucky-phone', function() { LotteryPage.renderLuckyPhone(); });
+            this.router.on('/lottery/lucky-number', function() { LotteryPage.renderLuckyNumber(); });
 
             // ---- 游戏互动 ----
             this.router.on('/game/shake', function() { GamePage.renderShake(); });
@@ -196,7 +199,8 @@
 
             var activeLi = document.querySelector('#activity-list li[data-id="' + actId + '"]');
             if (activeLi) {
-                this.currentActivityName = activeLi.textContent.trim();
+                var nameSpan = activeLi.querySelector('.activity-name-text');
+                this.currentActivityName = nameSpan ? nameSpan.textContent.trim() : activeLi.textContent.trim();
                 Layout.setCurrentActivity(this.currentActivityName);
             }
 
@@ -317,6 +321,288 @@
                     layui.form.render('select', 'createActivityForm');
                 }
             });
+        },
+
+        // ============================================================
+        // 活动编辑弹窗
+        // ============================================================
+
+        /**
+         * 显示活动编辑弹窗
+         */
+        showEditActivity: function(actId) {
+            var self = this;
+            var loadIdx = layui.layer.load(2);
+
+            // 并行请求活动详情、商家信息、门店列表
+            Promise.all([
+                Api.getActivity(actId),
+                Api.getProfile(),
+                Api.getStores({ limit: 100 })
+            ]).then(function(results) {
+                layui.layer.close(loadIdx);
+                var actData = results[0].data || {};
+                var profile = results[1].data || {};
+                var stores = (results[2].data && results[2].data.list) ? results[2].data.list : (results[2].data || []);
+                var planInfo = profile.plan || null;
+                self._openEditDialog(actData, stores, planInfo);
+            }).catch(function(err) {
+                layui.layer.close(loadIdx);
+                layui.layer.msg('加载活动信息失败', { icon: 2 });
+            });
+        },
+
+        /**
+         * 打开活动编辑弹窗
+         */
+        _openEditDialog: function(actData, stores, planInfo) {
+            var self = this;
+
+            // 解析套餐限值
+            var planMaxParticipants = (planInfo && planInfo.max_participants) ? planInfo.max_participants : 0;
+            var planName = (planInfo && planInfo.name) ? planInfo.name : '';
+
+            // 解析 screen_config
+            var screenConfig = actData.screen_config || {};
+            if (typeof screenConfig === 'string') {
+                try { screenConfig = JSON.parse(screenConfig); } catch(e) { screenConfig = {}; }
+            }
+
+            // 参与人数上限：优先用已保存的值，否则用套餐限值
+            var currentMaxP = (screenConfig.max_participants && parseInt(screenConfig.max_participants) > 0)
+                ? parseInt(screenConfig.max_participants)
+                : planMaxParticipants;
+
+            // 格式化时间
+            var startedAt = actData.started_at ? self._formatTimestamp(actData.started_at) : '';
+            var endedAt = actData.ended_at ? self._formatTimestamp(actData.ended_at) : '';
+
+            // 构建门店选项
+            var storeOptions = '<option value="0">不绑定公司/门店</option>';
+            if (stores && stores.length > 0) {
+                for (var i = 0; i < stores.length; i++) {
+                    var selected = (stores[i].id == actData.mdid) ? ' selected' : '';
+                    storeOptions += '<option value="' + stores[i].id + '"' + selected + '>' + (stores[i].name || stores[i].title || '未命名') + '</option>';
+                }
+            }
+
+            // 套餐提示文案
+            var planHintHtml = '';
+            if (planInfo && planMaxParticipants > 0) {
+                planHintHtml = '<div class="plan-limit-hint"><i class="fas fa-info-circle"></i> 当前套餐上限：' + planMaxParticipants + ' 人/活动</div>';
+            }
+
+            var formHtml = '<div class="edit-activity-form">' +
+                '<form class="layui-form" lay-filter="editActivityForm">' +
+                '<div class="layui-form-item">' +
+                    '<label class="layui-form-label">活动名称</label>' +
+                    '<div class="layui-input-block">' +
+                        '<input type="text" name="title" class="layui-input" value="' + self._escAttr(actData.title || '') + '" placeholder="请输入活动名称" required lay-verify="required">' +
+                    '</div>' +
+                '</div>' +
+                '<div class="layui-form-item">' +
+                    '<label class="layui-form-label">开始时间</label>' +
+                    '<div class="layui-input-block">' +
+                        '<input type="text" name="started_at" id="edit-act-start-time" class="layui-input" value="' + startedAt + '" placeholder="选择开始时间" readonly>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="layui-form-item">' +
+                    '<label class="layui-form-label">结束时间</label>' +
+                    '<div class="layui-input-block">' +
+                        '<input type="text" name="ended_at" id="edit-act-end-time" class="layui-input" value="' + endedAt + '" placeholder="选择结束时间" readonly>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="layui-form-item">' +
+                    '<label class="layui-form-label">参与人数上限</label>' +
+                    '<div class="layui-input-block">' +
+                        '<input type="number" name="max_participants" id="edit-max-participants" class="layui-input" value="' + currentMaxP + '" placeholder="0 表示不限制" min="0">' +
+                        planHintHtml +
+                        '<div class="plan-limit-warning" id="edit-plan-warning"><i class="fas fa-exclamation-triangle"></i> <span id="edit-plan-warning-text">超出当前套餐上限，保存后需升级套餐方可生效</span></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="layui-form-item">' +
+                    '<label class="layui-form-label">签到验证码</label>' +
+                    '<div class="layui-input-block">' +
+                        '<input type="text" name="verifycode" class="layui-input" value="' + self._escAttr(actData.verifycode || '') + '" placeholder="签到验证码">' +
+                    '</div>' +
+                '</div>' +
+                '<div class="layui-form-item">' +
+                    '<label class="layui-form-label">活动状态</label>' +
+                    '<div class="layui-input-block">' +
+                        '<select name="status" lay-filter="editStatusSelect">' +
+                            '<option value="1"' + (actData.status == 1 ? ' selected' : '') + '>未开始</option>' +
+                            '<option value="2"' + (actData.status == 2 ? ' selected' : '') + '>进行中</option>' +
+                            '<option value="3"' + (actData.status == 3 ? ' selected' : '') + '>已结束</option>' +
+                        '</select>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="layui-form-item">' +
+                    '<label class="layui-form-label">绑定公司</label>' +
+                    '<div class="layui-input-block">' +
+                        '<select name="mdid" lay-filter="editStoreSelect">' + storeOptions + '</select>' +
+                    '</div>' +
+                '</div>' +
+                '</form>' +
+                '</div>';
+
+            var layerIdx = layui.layer.open({
+                type: 1,
+                title: '<i class="fas fa-edit" style="color:var(--primary);margin-right:8px;"></i>编辑活动',
+                area: ['520px', '560px'],
+                content: formHtml,
+                btn: ['保存', '取消'],
+                yes: function(index) {
+                    var form = document.querySelector('[lay-filter="editActivityForm"]');
+                    var title = form.querySelector('input[name="title"]').value.trim();
+                    var startedAtVal = form.querySelector('input[name="started_at"]').value;
+                    var endedAtVal = form.querySelector('input[name="ended_at"]').value;
+                    var maxP = parseInt(form.querySelector('input[name="max_participants"]').value) || 0;
+                    var verifycode = form.querySelector('input[name="verifycode"]').value.trim();
+                    var status = parseInt(form.querySelector('select[name="status"]').value);
+                    var mdid = parseInt(form.querySelector('select[name="mdid"]').value) || 0;
+
+                    // 校验活动名称
+                    if (!title) {
+                        layui.layer.msg('请输入活动名称', { icon: 2 });
+                        return;
+                    }
+
+                    // 检查参与人数是否超出套餐限值
+                    if (planInfo && planMaxParticipants > 0 && maxP > planMaxParticipants) {
+                        self._showUpgradeConfirm(planName, planMaxParticipants, maxP, index);
+                        return;
+                    }
+
+                    var updateData = {
+                        title: title,
+                        mdid: mdid,
+                        verifycode: verifycode,
+                        status: status,
+                        max_participants: maxP
+                    };
+                    if (startedAtVal) updateData.started_at = startedAtVal;
+                    if (endedAtVal) updateData.ended_at = endedAtVal;
+
+                    Api.updateActivity(actData.id, updateData).then(function() {
+                        layui.layer.close(index);
+                        layui.layer.msg('保存成功', { icon: 1 });
+                        // 刷新活动列表
+                        self._loadActivities();
+                        // 如果修改的是当前活动，同步更新顶部名称
+                        if (String(actData.id) === String(self.currentActivityId)) {
+                            self.currentActivityName = title;
+                            Layout.setCurrentActivity(title);
+                            // 重新加载当前页面
+                            var currentRoute = self.router.current();
+                            if (currentRoute) {
+                                self.router._resolve();
+                            }
+                        }
+                    }).catch(function(err) {
+                        layui.layer.msg((err && err.msg) || '保存失败', { icon: 2 });
+                    });
+                },
+                success: function() {
+                    // 初始化日期时间选择器
+                    layui.laydate.render({
+                        elem: '#edit-act-start-time',
+                        type: 'datetime',
+                        format: 'yyyy-MM-dd HH:mm:ss'
+                    });
+                    layui.laydate.render({
+                        elem: '#edit-act-end-time',
+                        type: 'datetime',
+                        format: 'yyyy-MM-dd HH:mm:ss'
+                    });
+                    layui.form.render('select', 'editActivityForm');
+
+                    // 绑定参与人数实时校验
+                    if (planInfo && planMaxParticipants > 0) {
+                        var mpInput = document.getElementById('edit-max-participants');
+                        var warningEl = document.getElementById('edit-plan-warning');
+                        var warningText = document.getElementById('edit-plan-warning-text');
+                        if (mpInput) {
+                            mpInput.addEventListener('input', function() {
+                                var val = parseInt(this.value) || 0;
+                                if (val > planMaxParticipants) {
+                                    this.classList.add('input-over-limit');
+                                    warningEl.classList.add('visible');
+                                    warningText.textContent = '超出当前套餐上限（' + planMaxParticipants + ' 人），保存后需升级套餐方可生效';
+                                } else {
+                                    this.classList.remove('input-over-limit');
+                                    warningEl.classList.remove('visible');
+                                }
+                            });
+                            // 初始检查
+                            if (currentMaxP > planMaxParticipants) {
+                                mpInput.classList.add('input-over-limit');
+                                warningEl.classList.add('visible');
+                                warningText.textContent = '超出当前套餐上限（' + planMaxParticipants + ' 人），保存后需升级套餐方可生效';
+                            }
+                        }
+                    }
+                }
+            });
+        },
+
+        /**
+         * 显示升级确认弹窗
+         */
+        _showUpgradeConfirm: function(planName, planLimit, inputVal, editLayerIdx) {
+            var html = '<div class="upgrade-confirm-content">' +
+                '<div class="upgrade-icon"><i class="fas fa-exclamation-circle"></i></div>' +
+                '<h3>需要升级套餐</h3>' +
+                '<div class="upgrade-info">' +
+                    '<p>当前套餐（' + (planName || '当前版') + '）单活动最多 <strong>' + planLimit + '</strong> 人</p>' +
+                    '<p>您设置的人数为 <strong>' + inputVal + '</strong> 人</p>' +
+                    '<p>需升级套餐后方可使用</p>' +
+                '</div>' +
+                '<div class="upgrade-btns">' +
+                    '<button class="btn-upgrade" id="btn-go-upgrade"><i class="fas fa-arrow-up"></i> 去升级套餐</button>' +
+                    '<button class="btn-back" id="btn-go-back">返回修改</button>' +
+                '</div>' +
+                '</div>';
+
+            var confirmIdx = layui.layer.open({
+                type: 1,
+                title: false,
+                closeBtn: 1,
+                area: ['420px', 'auto'],
+                content: html,
+                shadeClose: false,
+                success: function() {
+                    document.getElementById('btn-go-upgrade').addEventListener('click', function() {
+                        layui.layer.close(confirmIdx);
+                        layui.layer.close(editLayerIdx);
+                        if (window.PricingPage && window.PricingPage.showPricingModal) {
+                            window.PricingPage.showPricingModal();
+                        }
+                    });
+                    document.getElementById('btn-go-back').addEventListener('click', function() {
+                        layui.layer.close(confirmIdx);
+                    });
+                }
+            });
+        },
+
+        /**
+         * 格式化时间戳为 yyyy-MM-dd HH:mm:ss
+         */
+        _formatTimestamp: function(ts) {
+            if (!ts) return '';
+            var d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+            if (isNaN(d.getTime())) return '';
+            var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+            return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
+                pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+        },
+
+        /**
+         * HTML 属性值转义
+         */
+        _escAttr: function(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         },
 
         // ============================================================

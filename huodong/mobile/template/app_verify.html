@@ -1,0 +1,113 @@
+
+<style>
+{literal}
+body {
+    margin: 0; padding: 0;
+    background: var(--c-bg);
+    min-height: 100vh;
+    -webkit-user-select: none;
+}
+.vf-nav {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+    padding: 0 20px;
+    height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+}
+.vf-back {
+    position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+    width: 36px; height: 36px; border-radius: var(--r-full);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--c-text-primary);
+    -webkit-tap-highlight-color: transparent;
+}
+.vf-back:active { background: rgba(0,0,0,0.04); }
+.vf-back svg { width: 20px; height: 20px; }
+.vf-nav-title {
+    font-size: 16px; font-weight: 600; color: var(--c-text-primary);
+    letter-spacing: 0.3px;
+}
+.vf-subtitle-bar {
+    padding: 16px 20px 0;
+}
+.vf-subtitle {
+    font-size: 12px; color: var(--c-text-tertiary);
+    letter-spacing: 0.5px;
+}
+.vf-empty {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 80px 40px;
+    animation: fadeUp 0.5s var(--ease) both;
+}
+.vf-empty-icon {
+    width: 72px; height: 72px; border-radius: var(--r-full);
+    background: rgba(0,0,0,0.02);
+    border: 1px solid var(--c-border);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 24px;
+}
+.vf-empty-icon svg { width: 32px; height: 32px; }
+.vf-empty-title {
+    font-size: 17px; font-weight: 600; color: var(--c-text-primary);
+    margin-bottom: 8px; letter-spacing: 0.3px;
+}
+.vf-empty-desc {
+    font-size: 13px; color: var(--c-text-tertiary);
+    text-align: center; line-height: 2;
+    letter-spacing: 0.3px;
+}
+.vf-features {
+    margin-top: 24px;
+    display: flex; flex-wrap: wrap; gap: 8px;
+    justify-content: center;
+}
+.vf-feature-tag {
+    padding: 6px 14px;
+    background: rgba(0,0,0,0.02);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-full);
+    font-size: 12px; color: var(--c-text-tertiary);
+    letter-spacing: 0.5px;
+}
+{/literal}
+</style>
+</head>
+<body>
+
+<div class="vf-nav">
+    <a href="javascript:history.back();" class="vf-back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <div class="vf-nav-title">核销中心</div>
+</div>
+<div class="vf-subtitle-bar">
+    <div class="vf-subtitle">{$activity_title}</div>
+</div>
+<div class="vf-empty">
+    <div class="vf-empty-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--c-text-tertiary)" stroke-width="1.5" stroke-linecap="round">
+            <path d="M9 11l3 3L22 4"/>
+            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+        </svg>
+    </div>
+    <div class="vf-empty-title">即将上线</div>
+    <div class="vf-empty-desc">核销功能正在开发中</div>
+    <div class="vf-features">
+        <span class="vf-feature-tag">订单核销</span>
+        <span class="vf-feature-tag">扫码核销</span>
+        <span class="vf-feature-tag">核销记录</span>
+    </div>
+</div>
+
+<script>
+{literal}
+$(document).on("WeixinJSBridgeReady", function () {
+    WeixinJSBridge.call('hideOptionMenu');
+});
+{/literal}
+</script>
+</body>
+</html>

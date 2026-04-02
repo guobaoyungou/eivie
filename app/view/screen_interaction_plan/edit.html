@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>编辑互动套餐</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-card">
+      <div class="layui-card-header">
+        <i class="layui-icon layui-icon-edit"></i> {if $info['id']}编辑套餐{else/}新增套餐{/if}
+      </div>
+      <div class="layui-card-body" pad15>
+        <div class="layui-form form-label-w8" lay-filter="planForm">
+          <input type="hidden" name="id" value="{$info.id}">
+
+          <fieldset class="layui-elem-field layui-field-title"><legend>基本信息</legend></fieldset>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">套餐名称：</label>
+            <div class="layui-input-inline">
+              <input type="text" name="name" lay-verify="required" class="layui-input" value="{$info.name}" placeholder="如：基础版">
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">套餐编码：</label>
+            <div class="layui-input-inline">
+              <input type="text" name="code" lay-verify="required" class="layui-input" value="{$info.code}" placeholder="英文+数字，如 basic">
+            </div>
+            <div class="layui-form-mid layui-word-aux">唯一标识，英文+数字</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">价格(元)：</label>
+            <div class="layui-input-inline">
+              <input type="number" name="price" lay-verify="required|number" class="layui-input" value="{$info.price}" step="0.01" min="0">
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">计费周期：</label>
+            <div class="layui-input-inline">
+              <select name="period" lay-verify="required">
+                <option value="month" {if $info['period']=='month'}selected{/if}>月</option>
+                <option value="quarter" {if $info['period']=='quarter'}selected{/if}>季</option>
+                <option value="year" {if $info['period']=='year'}selected{/if}>年</option>
+                <option value="forever" {if $info['period']=='forever'}selected{/if}>永久</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">有效天数：</label>
+            <div class="layui-input-inline">
+              <input type="number" name="duration_days" lay-verify="required|number" class="layui-input" value="{$info.duration_days}" min="1">
+            </div>
+          </div>
+
+          <fieldset class="layui-elem-field layui-field-title"><legend>容量配置</legend></fieldset>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">最大门店数：</label>
+            <div class="layui-input-inline">
+              <input type="number" name="max_stores" lay-verify="required|number" class="layui-input" value="{$info.max_stores}" min="1">
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">最大活动数：</label>
+            <div class="layui-input-inline">
+              <input type="number" name="max_activities" lay-verify="required|number" class="layui-input" value="{$info.max_activities}" min="1">
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">最大参与人数：</label>
+            <div class="layui-input-inline">
+              <input type="number" name="max_participants" lay-verify="required|number" class="layui-input" value="{$info.max_participants}" min="1">
+            </div>
+          </div>
+
+          <fieldset class="layui-elem-field layui-field-title"><legend>功能列表</legend></fieldset>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">功能选择：</label>
+            <div class="layui-input-block">
+              {volist name="allFeatures" id="fname" key="fcode"}
+              <input type="checkbox" name="features[]" value="{$key}" title="{$fname}" {if in_array($key, $selectedFeatures)}checked{/if}>
+              {/volist}
+            </div>
+          </div>
+
+          <fieldset class="layui-elem-field layui-field-title"><legend>其他设置</legend></fieldset>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">是否推荐：</label>
+            <div class="layui-input-inline">
+              <input type="checkbox" name="is_recommended" lay-skin="switch" lay-text="是|否" value="1" {if $info['is_recommended']==1}checked{/if}>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">排序：</label>
+            <div class="layui-input-inline" style="width:100px">
+              <input type="number" name="sort" class="layui-input" value="{$info.sort}">
+            </div>
+            <div class="layui-form-mid layui-word-aux">数字越大越靠前</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">状态：</label>
+            <div class="layui-input-inline">
+              <input type="radio" name="status" value="1" title="启用" {if $info['status']==1}checked{/if}>
+              <input type="radio" name="status" value="2" title="停用" {if $info['status']==2}checked{/if}>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <div class="layui-input-block">
+              <button class="layui-btn" lay-submit lay-filter="submitPlan">保存</button>
+              <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  // 处理 is_recommended 开关：未勾选时补 0
+  layui.form.on('submit(submitPlan)', function(obj) {
+    if (!obj.field.is_recommended) {
+      obj.field.is_recommended = 0;
+    }
+    var loadIndex = layer.load();
+    $.post("{:url('edit')}", obj.field, function(res) {
+      layer.close(loadIndex);
+      if (res.status == 1) {
+        layer.msg('保存成功', {icon: 1, time: 1000}, function() {
+          // 关闭当前弹窗
+          var index = parent.layer.getFrameIndex(window.name);
+          parent.layer.close(index);
+        });
+      } else {
+        layer.msg(res.msg, {icon: 2});
+      }
+    });
+    return false;
+  });
+  </script>
+</body>
+</html>

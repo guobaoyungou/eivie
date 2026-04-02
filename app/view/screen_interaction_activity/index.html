@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>互动活动管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          <i class="layui-icon layui-icon-screen-full"></i> 互动活动管理
+        </div>
+        <div class="layui-card-body" pad15>
+          <!-- 操作按钮区 -->
+          <div class="layui-col-md4" style="padding-bottom:10px">
+            <a class="layui-btn layuiadmin-btn-list" href="javascript:void(0)" onclick="openEdit(0)">
+              <i class="layui-icon layui-icon-add-1"></i> 新增活动
+            </a>
+          </div>
+
+          <!-- 搜索区 -->
+          <div class="layui-form layui-col-md8 layui-form-search">
+            <div class="layui-inline">
+              <label class="layui-form-label">关键词</label>
+              <div class="layui-input-inline" style="width:150px">
+                <input type="text" name="keyword" class="layui-input" placeholder="活动标题">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">状态</label>
+              <div class="layui-input-inline" style="width:100px">
+                <select name="status">
+                  <option value="">全部</option>
+                  <option value="1">未开始</option>
+                  <option value="2">进行中</option>
+                  <option value="3">已结束</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn layuiadmin-btn-replys" lay-submit lay-filter="LAY-search">
+                <i class="layui-icon layui-icon-search"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 数据表格 -->
+          <div class="layui-col-md12">
+            <table id="tabledata" lay-filter="tabledata"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  var table = layui.table;
+  var datawhere = {};
+
+  function openEdit(id) {
+    var url = "{:url('edit')}" + (id ? '/id/' + id : '');
+    var index = layer.open({
+      type: 2,
+      title: id ? '编辑活动' : '新增活动',
+      area: ['800px', '80%'],
+      maxmin: true,
+      content: url,
+      end: function() {
+        tableIns.reload();
+      }
+    });
+  }
+
+  function openDetail(id) {
+    var url = "{:url('detail')}/id/" + id;
+    var index = layer.open({
+      type: 2,
+      title: '活动详情',
+      area: ['90%', '90%'],
+      maxmin: true,
+      content: url
+    });
+    layer.full(index);
+  }
+
+  var tableIns = table.render({
+    elem: '#tabledata',
+    url: "{$Request.url}",
+    page: true,
+    cols: [[
+      {field: 'id', title: 'ID', sort: true, width: 60},
+      {field: 'title', title: '活动标题', width: 180},
+      {field: 'business_name', title: '商户名称', width: 120, templet: function(d) {
+        return d.business_name || '<span style="color:#999">-</span>';
+      }},
+      {field: 'access_code', title: '访问码', width: 100, templet: function(d) {
+        return '<span class="layui-badge layui-bg-blue" style="cursor:pointer" onclick="copyText(\''+d.access_code+'\')">' + d.access_code + '</span>';
+      }},
+      {field: 'status_text', title: '状态', width: 80, templet: function(d) {
+        if (d.status == 1) return '<span class="layui-badge layui-bg-gray">未开始</span>';
+        if (d.status == 2) return '<span class="layui-badge layui-bg-green">进行中</span>';
+        if (d.status == 3) return '<span class="layui-badge">已结束</span>';
+        return d.status_text;
+      }},
+      {field: 'participant_count', title: '参与人数', width: 90, templet: function(d) {
+        return '<span style="color:#1E9FFF">' + d.signed_count + '</span> / ' + d.participant_count;
+      }},
+      {field: 'screen_url', title: '大屏链接', width: 200, templet: function(d) {
+        return '<a href="' + d.screen_url + '" target="_blank" style="color:#1E9FFF;text-decoration:underline">' + d.screen_url + '</a>';
+      }},
+      {field: 'started_at_text', title: '开始时间', width: 140},
+      {field: 'ended_at_text', title: '结束时间', width: 140},
+      {field: 'create_time_text', title: '创建时间', width: 140},
+      {field: 'operation', title: '操作', width: 260, fixed: 'right', templet: function(d) {
+        var html = '';
+        html += '<button class="table-btn" onclick="openDetail('+d.id+')">详情</button>';
+        html += '<button class="table-btn" onclick="openEdit('+d.id+')">编辑</button>';
+        if (d.status == 1) {
+          html += '<button class="table-btn" style="color:#5FB878" onclick="changeStatus('+d.id+', 2)">开启</button>';
+        } else if (d.status == 2) {
+          html += '<button class="table-btn" style="color:#FFB800" onclick="changeStatus('+d.id+', 3)">关闭</button>';
+        } else if (d.status == 3) {
+          html += '<button class="table-btn" style="color:#5FB878" onclick="changeStatus('+d.id+', 2)">重新开启</button>';
+        }
+        html += '<button class="table-btn" style="color:#FF5722" onclick="datadel('+d.id+')">删除</button>';
+        return html;
+      }}
+    ]]
+  });
+
+  table.on('sort(tabledata)', function(obj) {
+    datawhere.field = obj.field;
+    datawhere.order = obj.type;
+    tableIns.reload({initSort: obj, where: datawhere});
+  });
+
+  layui.form.on('submit(LAY-search)', function(obj) {
+    datawhere = obj.field;
+    tableIns.reload({where: datawhere, page: {curr: 1}});
+    return false;
+  });
+
+  function changeStatus(id, status) {
+    var txt = {1: '设为未开始', 2: '开启', 3: '关闭'};
+    layer.confirm('确定要' + (txt[status] || '操作') + '该活动吗？', {icon: 3}, function(index) {
+      layer.close(index);
+      $.post("{:url('setst')}", {id: id, status: status}, function(res) {
+        layer.msg(res.msg);
+        if (res.status == 1) tableIns.reload();
+      });
+    });
+  }
+
+  function datadel(id) {
+    layer.confirm('确定要删除该活动吗？删除后将清除所有关联数据，此操作不可恢复！', {icon: 7}, function(index) {
+      layer.close(index);
+      $.post("{:url('del')}", {id: id}, function(res) {
+        layer.msg(res.msg);
+        if (res.status == 1) tableIns.reload();
+      });
+    });
+  }
+  </script>
+</body>
+</html>

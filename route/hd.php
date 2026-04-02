@@ -277,6 +277,23 @@ Route::group('api/hd/lottery', function () {
     Route::get(':activity_id/import', 'hd.HdLotteryController/importList');
     Route::post(':activity_id/import', 'hd.HdLotteryController/batchImport');
     Route::post(':activity_id/import/clear', 'hd.HdLotteryController/clearImportList');
+    // 中奖名单
+    Route::get(':activity_id/winners', 'hd.HdLotteryController/winners');
+    Route::post(':activity_id/winners/:id/give', 'hd.HdLotteryController/givePrize');
+    Route::post(':activity_id/winners/:id/cancel', 'hd.HdLotteryController/cancelPrize');
+    Route::post(':activity_id/winners/:id/delete', 'hd.HdLotteryController/deleteWinner');
+    Route::post(':activity_id/winners/clear', 'hd.HdLotteryController/clearWinners');
+    // 内定名单
+    Route::get(':activity_id/designated', 'hd.HdLotteryController/designated');
+    Route::post(':activity_id/designated', 'hd.HdLotteryController/addDesignated');
+    Route::post(':activity_id/designated/:id/cancel', 'hd.HdLotteryController/cancelDesignated');
+    Route::get(':activity_id/designated/search-users', 'hd.HdLotteryController/searchUsers');
+    // 幸运手机号
+    Route::get(':activity_id/lucky-phone', 'hd.HdLotteryController/luckyPhoneRecords');
+    // 幸运号码
+    Route::get(':activity_id/lucky-number/config', 'hd.HdLotteryController/luckyNumberConfig');
+    Route::post(':activity_id/lucky-number/config', 'hd.HdLotteryController/updateLuckyNumberConfig');
+    Route::get(':activity_id/lucky-number/records', 'hd.HdLotteryController/luckyNumberRecords');
 })->middleware([$hdCors, $hdTenant, $hdAuth, $hdPlan]);
 
 // ============================================================
