@@ -472,6 +472,22 @@
                 }
             }, 200);
             
+            // 检查地图API配置情况，提供友好的提示
+            setTimeout(() => {
+                if (!window.AMap) {
+                    console.log('地图API暂未加载，将在启用地点限定时尝试加载');
+                    // 可以在这里添加一个提示信息，告诉用户如何配置地图API
+                    var locationSwitch = document.querySelector('[name="sign_location_enabled"]');
+                    if (locationSwitch) {
+                        locationSwitch.addEventListener('change', function() {
+                            if (this.checked && !window.AMap) {
+                                SignPage._loadAMapAPI();
+                            }
+                        });
+                    }
+                }
+            }, 500);
+            
             // 加载配置数据
             this._loadSignConfig(actId);
         },
@@ -2785,18 +2801,37 @@
             
             console.log('开始加载高德地图API...');
             
-            // 高德地图API密钥配置 - 如果无效将自动切换到手动模式
-            // 建议申请自己的高德地图API密钥替换此处
-            var apiKey = ''; // 留空，将自动启用手动输入模式
-            var useMapAPI = false; // 默认不启用地图API
+            // 高德地图API密钥配置 - 使用平台配置文件
+            console.log('开始获取地图API密钥...');
             
-            // 如果有有效的API密钥，则使用地图API
+            // 方法1：从全局变量获取API密钥
+            var apiKey = '';
+            var useMapAPI = false;
+            
+            // 检查是否有全局配置的地图API密钥
+            if (window.EivieConfig && window.EivieConfig.mapApiKey && window.EivieConfig.mapApiKey.length > 20) {
+                apiKey = window.EivieConfig.mapApiKey;
+                console.log('从全局配置获取地图API密钥');
+            } 
+            // 方法2：从页面内联配置获取
+            else if (window.mapApiKey && window.mapApiKey.length > 20) {
+                apiKey = window.mapApiKey;
+                console.log('从页面配置获取地图API密钥');
+            }
+            // 方法3：从后端API获取
+            else {
+                console.log('未找到预配置的地图API密钥，尝试从后端获取...');
+                // 这里可以添加从后端API获取密钥的逻辑
+                // 暂时使用之前的空值，将启用手动输入模式
+            }
+            
             if (apiKey && apiKey.length > 20) {
                 useMapAPI = true;
+                console.log('使用地图API，密钥长度:', apiKey.length);
             }
             
             if (!useMapAPI) {
-                // 没有有效的API密钥，直接使用手动输入模式
+                // 没有有效的API密钥，使用手动输入模式
                 console.log('无有效地图API密钥，启用手动输入模式');
                 SignPage._showManualLocationInput();
                 return;
