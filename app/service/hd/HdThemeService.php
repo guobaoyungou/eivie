@@ -597,7 +597,7 @@ class HdThemeService
 
     /** 签到主题配置默认值 */
     private static $signThemeDefaults = [
-        'sign_theme_style'          => 'classic',   // classic=样式一(经典), matrix=样式二(矩阵墙)
+        'sign_theme_style'          => 'matrix',   // classic=样式一(经典), matrix=样式二(矩阵墙)
         'sign_theme_entrance'       => 'bounce',    // bounce=弹入缩放, fade=淡入, none=无
         'sign_theme_scroll'         => 'smooth',    // smooth=平滑滚动, none=不滚动
         'sign_theme_toast_enabled'  => '1',          // 1=开启Toast通知, 0=关闭

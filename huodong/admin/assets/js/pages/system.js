@@ -21,7 +21,7 @@
                 '<div class="layui-form-item"><label class="layui-form-label">签到墙样式</label><div class="layui-input-block">' +
                 '<select name="sign_theme_style" lay-filter="signThemeStyleSelect">' +
                 '<option value="classic">样式一（经典瀑布流）</option>' +
-                '<option value="matrix">样式二（矩阵墙）</option>' +
+                '<option value="matrix" selected>样式二（矩阵墙）</option>' +
                 '</select>' +
                 '</div></div>' +
                 '<div id="matrix-options" style="display:none;">' +
