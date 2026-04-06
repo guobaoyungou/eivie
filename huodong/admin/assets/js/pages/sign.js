@@ -134,8 +134,19 @@
                 '</div>' +
                 '</div>' +
                 '</div>' +
-                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-config" onclick="SignPage._saveConfig()"><i class="fas fa-save"></i> 保存设置</button></div>' +
-                '</form></div>';
+                '</form>' +
+                '<div class="form-actions-section" style="margin-top:30px;padding-top:20px;border-top:1px solid #f0f0f0;background-color:#fafafa;padding:20px;border-radius:4px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<div style="color:#666;font-size:14px;">' +
+                '<i class="fas fa-info-circle" style="margin-right:8px;color:#1890ff;"></i>' +
+                '完成所有设置后，请点击保存按钮应用更改' +
+                '</div>' +
+                '<button type="button" class="btn btn-primary" onclick="SignPage._saveConfig()" style="padding:8px 24px;font-size:16px;height:40px;">' +
+                '<i class="fas fa-save" style="margin-right:8px;"></i>保存设置' +
+                '</button>' +
+                '</div>' +
+                '</div>' +
+                '</div>';
 
             Layout.setContent(html);
             
@@ -293,6 +304,29 @@
                 this._initMap();
             }, 100);
             
+            // 初始检查电话复选框状态
+            setTimeout(() => {
+                var requirePhoneCheckbox = document.querySelector('[name="require_phone"]');
+                var phoneVerifyRow = document.getElementById('phone-verify-row');
+                var phoneVerifyTip = document.getElementById('phone-verify-tip');
+                
+                if (requirePhoneCheckbox) {
+                    if (requirePhoneCheckbox.checked) {
+                        if (phoneVerifyRow) phoneVerifyRow.style.display = 'block';
+                        if (phoneVerifyTip) phoneVerifyTip.style.display = 'block';
+                    } else {
+                        if (phoneVerifyRow) phoneVerifyRow.style.display = 'none';
+                        if (phoneVerifyTip) phoneVerifyTip.style.display = 'none';
+                        // 如果电话未开启，强制关闭短信验证码
+                        var phoneVerifySwitch = document.querySelector('[name="require_phone_verify"]');
+                        if (phoneVerifySwitch) {
+                            phoneVerifySwitch.checked = false;
+                            layui.form.render('checkbox', 'signConfig');
+                        }
+                    }
+                }
+            }, 200);
+            
             // 加载配置数据
             this._loadSignConfig(actId);
         },
@@ -329,8 +363,14 @@
                 if (config.require_company) document.querySelector('[name="require_company"]').checked = true;
                 if (config.require_position) document.querySelector('[name="require_position"]').checked = true;
                 
-                if (config.require_phone_verify) {
+                // 短信验证码开关 - 必须依赖电话开关
+                var requirePhoneChecked = config.require_phone;
+                if (config.require_phone_verify && requirePhoneChecked) {
+                    // 只有在电话开启的情况下才允许短信验证码开启
                     document.querySelector('[name="require_phone_verify"]').checked = true;
+                } else {
+                    // 如果电话未开启，强制关闭短信验证码
+                    document.querySelector('[name="require_phone_verify"]').checked = false;
                 }
                 
                 // 头像来源
