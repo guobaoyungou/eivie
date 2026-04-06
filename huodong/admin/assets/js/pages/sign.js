@@ -1940,8 +1940,19 @@
                 '<div class="layui-form-item"><label class="layui-form-label">空闲动画</label><div class="layui-input-block"><input type="checkbox" name="idle_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">空闲延迟</label><div class="layui-input-block"><input type="number" name="idle_delay" class="layui-input" placeholder="5000" min="1000" max="30000"></div></div>' +
                 '</div>' +
-                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-3d-config" onclick="SignPage._save3dConfig()"><i class="fas fa-save"></i> 保存设置</button></div>' +
-                '</div></div>';
+                '</form>' +
+                '<div class="form-actions-section" style="margin-top:30px;padding-top:20px;border-top:1px solid #f0f0f0;background-color:#fafafa;padding:20px;border-radius:4px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<div style="color:#666;font-size:14px;">' +
+                '<i class="fas fa-info-circle" style="margin-right:8px;color:#1890ff;"></i>' +
+                '完成3D签名设置后，请点击保存按钮应用更改' +
+                '</div>' +
+                '<button type="button" class="btn btn-primary" id="btn-save-3d-config" onclick="SignPage._save3dConfig()" style="padding:8px 24px;font-size:16px;height:40px;">' +
+                '<i class="fas fa-save" style="margin-right:8px;"></i>保存设置' +
+                '</button>' +
+                '</div>' +
+                '</div>' +
+                '</div>';
 
             Layout.setContent(html);
             
@@ -2067,8 +2078,19 @@
                 '<div class="layui-form-item"><label class="layui-form-label">头像间距</label><div class="layui-input-block"><input type="number" name="avatar_gap" class="layui-input" placeholder="10" min="2" max="30"></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">背景颜色</label><div class="layui-input-block"><input type="color" name="bg_color" class="layui-input" value="#f5f5f5"></div></div>' +
                 '</div>' +
-                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-avatar-config" onclick="SignPage._saveAvatarConfig()"><i class="fas fa-save"></i> 保存设置</button></div>' +
-                '</div></div>';
+                '</form>' +
+                '<div class="form-actions-section" style="margin-top:30px;padding-top:20px;border-top:1px solid #f0f0f0;background-color:#fafafa;padding:20px;border-radius:4px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<div style="color:#666;font-size:14px;">' +
+                '<i class="fas fa-info-circle" style="margin-right:8px;color:#1890ff;"></i>' +
+                '完成头像墙设置后，请点击保存按钮应用更改' +
+                '</div>' +
+                '<button type="button" class="btn btn-primary" id="btn-save-avatar-config" onclick="SignPage._saveAvatarConfig()" style="padding:8px 24px;font-size:16px;height:40px;">' +
+                '<i class="fas fa-save" style="margin-right:8px;"></i>保存设置' +
+                '</button>' +
+                '</div>' +
+                '</div>' +
+                '</div>';
 
             Layout.setContent(html);
             
@@ -2177,8 +2199,19 @@
                 '<div class="layui-form-item"><label class="layui-form-label">移动速度</label><div class="layui-input-block"><input type="number" name="bubble_speed" class="layui-input" placeholder="5" min="1" max="20"></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">背景颜色</label><div class="layui-input-block"><input type="color" name="bg_color" class="layui-input" value="#1a237e"></div></div>' +
                 '</div>' +
-                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-bubble-config" onclick="SignPage._saveBubbleConfig()"><i class="fas fa-save"></i> 保存设置</button></div>' +
-                '</div></div>';
+                '</form>' +
+                '<div class="form-actions-section" style="margin-top:30px;padding-top:20px;border-top:1px solid #f0f0f0;background-color:#fafafa;padding:20px;border-radius:4px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<div style="color:#666;font-size:14px;">' +
+                '<i class="fas fa-info-circle" style="margin-right:8px;color:#1890ff;"></i>' +
+                '完成泡泡签到设置后，请点击保存按钮应用更改' +
+                '</div>' +
+                '<button type="button" class="btn btn-primary" id="btn-save-bubble-config" onclick="SignPage._saveBubbleConfig()" style="padding:8px 24px;font-size:16px;height:40px;">' +
+                '<i class="fas fa-save" style="margin-right:8px;"></i>保存设置' +
+                '</button>' +
+                '</div>' +
+                '</div>' +
+                '</div>';
 
             Layout.setContent(html);
             
