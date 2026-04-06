@@ -103,18 +103,57 @@
             this.router.on('/sign/config', function() { SignPage.renderConfig(); });
             this.router.on('/sign/list', function() { SignPage.renderList(); });
             this.router.on('/sign/mobile', function() { SignPage.renderMobile(); });
+            this.router.on('/sign/wall', function() { SignPage.renderSignWall(); });
             this.router.on('/sign/3d', function() { SignPage.render3d(); });
+            this.router.on('/sign/avatar', function() { SignPage.renderAvatar(); });
+            this.router.on('/sign/bubble', function() { SignPage.renderBubble(); });
 
             // ---- 互动抽奖 ----
-            this.router.on('/lottery/rounds', function() { LotteryPage.renderRounds(); });
-            this.router.on('/lottery/prizes', function() { LotteryPage.renderPrizes(); });
-            this.router.on('/lottery/winners', function() { LotteryPage.renderWinners(); });
-            this.router.on('/lottery/designated', function() { LotteryPage.renderDesignated(); });
-            this.router.on('/lottery/themes', function() { LotteryPage.renderThemes(); });
+            // 大屏抽奖
+            this.router.on('/lottery/screen/settings', function() { LotteryPage.renderScreenSettings(); });
+            this.router.on('/lottery/screen/prizes', function() { LotteryPage.renderScreenPrizes(); });
+            this.router.on('/lottery/screen/winners', function() { LotteryPage.renderScreenWinners(); });
+            this.router.on('/lottery/screen/designated', function() { LotteryPage.renderScreenDesignated(); });
+            // 导入抽奖
+            this.router.on('/lottery/import/settings', function() { LotteryPage.renderImportSettings(); });
+            this.router.on('/lottery/import/list', function() { LotteryPage.renderImportList(); });
+            this.router.on('/lottery/import/prizes', function() { LotteryPage.renderImportPrizes(); });
+            this.router.on('/lottery/import/winners', function() { LotteryPage.renderImportWinners(); });
+            this.router.on('/lottery/import/designated', function() { LotteryPage.renderImportDesignated(); });
+            // 照片抽奖
+            this.router.on('/lottery/photo/settings', function() { LotteryPage.renderPhotoSettings(); });
+            this.router.on('/lottery/photo/import', function() { LotteryPage.renderPhotoImport(); });
+            this.router.on('/lottery/photo/prizes', function() { LotteryPage.renderPhotoPrizes(); });
+            this.router.on('/lottery/photo/winners', function() { LotteryPage.renderPhotoWinners(); });
+            this.router.on('/lottery/photo/designated', function() { LotteryPage.renderPhotoDesignated(); });
+            // 弹幕抽奖
+            this.router.on('/lottery/barrage/settings', function() { LotteryPage.renderBarrageSettings(); });
+            this.router.on('/lottery/barrage/prizes', function() { LotteryPage.renderBarragePrizes(); });
+            this.router.on('/lottery/barrage/winners', function() { LotteryPage.renderBarrageWinners(); });
+            // 抽奖箱
+            this.router.on('/lottery/box/settings', function() { LotteryPage.renderBoxSettings(); });
+            this.router.on('/lottery/box/prizes', function() { LotteryPage.renderBoxPrizes(); });
+            this.router.on('/lottery/box/winners', function() { LotteryPage.renderBoxWinners(); });
+            this.router.on('/lottery/box/designated', function() { LotteryPage.renderBoxDesignated(); });
+            // 砸金蛋
+            this.router.on('/lottery/egg/settings', function() { LotteryPage.renderEggSettings(); });
+            this.router.on('/lottery/egg/prizes', function() { LotteryPage.renderEggPrizes(); });
+            this.router.on('/lottery/egg/winners', function() { LotteryPage.renderEggWinners(); });
+            this.router.on('/lottery/egg/designated', function() { LotteryPage.renderEggDesignated(); });
+
             this.router.on('/lottery/choujiang', function() { LotteryPage.renderChoujiang(); });
-            this.router.on('/lottery/import', function() { LotteryPage.renderImport(); });
+            this.router.on('/lottery/choujiang/settings', function() { LotteryPage.renderChoujiangSettings(); });
+            this.router.on('/lottery/choujiang/prizes', function() { LotteryPage.renderChoujiangPrizes(); });
+            this.router.on('/lottery/choujiang/winners', function() { LotteryPage.renderChoujiangWinners(); });
+            this.router.on('/lottery/choujiang/designated', function() { LotteryPage.renderChoujiangDesignated(); });
             this.router.on('/lottery/lucky-phone', function() { LotteryPage.renderLuckyPhone(); });
+            this.router.on('/lottery/lucky-phone/prizes', function() { LotteryPage.renderLuckyPhonePrizes(); });
+            this.router.on('/lottery/lucky-phone/winners', function() { LotteryPage.renderLuckyPhoneWinners(); });
+            this.router.on('/lottery/lucky-phone/designated', function() { LotteryPage.renderLuckyPhoneDesignated(); });
             this.router.on('/lottery/lucky-number', function() { LotteryPage.renderLuckyNumber(); });
+            this.router.on('/lottery/lucky-number/settings', function() { LotteryPage.renderLuckyNumberSettings(); });
+            this.router.on('/lottery/lucky-number/winners', function() { LotteryPage.renderLuckyNumberWinners(); });
+            this.router.on('/lottery/lucky-number/designated', function() { LotteryPage.renderLuckyNumberDesignated(); });
 
             // ---- 游戏互动 ----
             this.router.on('/game/shake', function() { GamePage.renderShake(); });
@@ -143,6 +182,7 @@
             this.router.on('/system/background', function() { SystemPage.renderBackground(); });
             this.router.on('/system/music', function() { SystemPage.renderMusic(); });
             this.router.on('/system/switch', function() { SystemPage.renderSwitch(); });
+            this.router.on('/system/display', function() { SystemPage.renderDisplay(); });
             this.router.on('/system/basic', function() { SystemPage.renderBasic(); });
             this.router.on('/system/security', function() { SystemPage.renderSecurity(); });
 

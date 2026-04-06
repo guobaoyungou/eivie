@@ -48,248 +48,103 @@
             var actId = App.getCurrentActivityId();
             if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
 
-            var html = '<style>' +
-                '.sign-config-container { display: grid; grid-template-columns: 1.6fr 1fr; gap: 32px; max-width: 1400px; margin: 0 auto; }' +
-                '.sign-config-left { display: grid; gap: 24px; align-content: start; }' +
-                '.sign-config-right { display: grid; gap: 24px; align-content: start; }' +
-                '.form-panel { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); border: 1px solid #f0f0f0; transition: box-shadow 0.3s ease; }' +
-                '.form-panel:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }' +
-                '.panel-title { font-size: 18px; font-weight: 600; color: #1a1a1a; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #1890ff; display: flex; align-items: center; gap: 10px; }' +
-                '.panel-title i { font-size: 20px; color: #1890ff; }' +
-                '.form-group { margin-bottom: 20px; }' +
-                '.form-label { font-size: 14px; font-weight: 500; color: #333; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }' +
-                '.form-label i { color: #666; font-size: 14px; }' +
-                '.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }' +
-                '.form-info { font-size: 13px; color: #666; margin-top: 6px; display: flex; align-items: center; gap: 6px; padding-left: 24px; }' +
-                '.form-info i { color: #1890ff; }' +
-                '.checkbox-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 8px 0; }' +
-                '.checkbox-item { display: flex; align-items: center; gap: 8px; }' +
-                '.checkbox-item label { font-size: 14px; color: #333; margin: 0; }' +
-                '.feature-highlight { position: relative; border-left: 4px solid #1890ff; padding-left: 16px; background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%); }' +
-                '.feature-icon { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #1890ff 0%, #52c41a 100%); display: flex; align-items: center; justify-content: center; margin-right: 12px; }' +
-                '.feature-icon i { color: white; font-size: 18px; }' +
-                '.section-header { display: flex; align-items: center; margin-bottom: 20px; }' +
-                '.map-container { border-radius: 8px; overflow: hidden; border: 1px solid #e8e8e8; }' +
-                '.action-bar { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #e8e8e8; padding: 24px; margin-top: 40px; box-shadow: 0 -2px 12px rgba(0,0,0,0.05); z-index: 100; }' +
-                '.action-content { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }' +
-                '.action-info { display: flex; align-items: center; gap: 12px; color: #666; font-size: 14px; }' +
-                '.action-info i { color: #1890ff; font-size: 16px; }' +
-                '.save-button { background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%); border: none; padding: 12px 36px; font-size: 16px; font-weight: 500; border-radius: 8px; color: white; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3); }' +
-                '.save-button:hover { background: linear-gradient(135deg, #096dd9 0%, #0050b3 100%); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(24, 144, 255, 0.4); }' +
-                '.save-button:active { transform: translateY(0); }' +
-                '.save-button i { font-size: 18px; }' +
-                '.time-inputs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; }' +
-                '.time-divider { color: #999; font-size: 14px; text-align: center; padding: 0 8px; }' +
-                '.radio-group { display: flex; gap: 20px; }' +
-                '.radio-item { display: flex; align-items: center; gap: 6px; }' +
-                '.radio-item label { margin: 0; }' +
-                '.badge { background: #1890ff; color: white; font-size: 12px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; vertical-align: middle; }' +
-                '.location-card { width: 100%; max-height: none; overflow: visible; }' +
-                '.location-config-panel { animation: fadeIn 0.3s ease; }' +
-                '@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }' +
-                '</style>' +
-
-                '<div class="sign-config-container">' +
-                // === 左侧：主要配置 ===
+            var html = '<div class="content-card"><div class="card-title">签到设置</div>' +
+                '<form id="sign-config-form" class="layui-form" lay-filter="signConfig">' +
+                '<div class="sign-config-columns">' +
+                // === 左侧：基本配置 ===
                 '<div class="sign-config-left">' +
-                
-                // 基本配置
-                '<div class="form-panel">' +
-                '<div class="panel-title"><i class="fas fa-cogs"></i>基本配置</div>' +
-                '<div class="form-group">' +
-                '<div class="form-label"><i class="fas fa-power-off"></i>功能开关</div>' +
-                '<div class="layui-input-block" style="margin-left:0;">' +
-                '<input type="checkbox" name="enabled" lay-skin="switch" lay-text="ON|OFF" id="sign-enabled">' +
+                '<div class="form-section"><div class="section-title">基本配置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">功能开关</label><div class="layui-input-block"><input type="checkbox" name="enabled" lay-skin="switch" lay-text="开启|关闭" id="sign-enabled"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">签到时间段</label><div class="layui-input-inline" style="width:200px;"><input type="text" name="start_time" id="sign-start-time" class="layui-input" placeholder="开始时间"></div><div class="layui-form-mid">至</div><div class="layui-input-inline" style="width:200px;"><input type="text" name="end_time" id="sign-end-time" class="layui-input" placeholder="结束时间"></div></div>' +
                 '</div>' +
-                '<div class="form-info"><i class="fas fa-info-circle"></i>开启后用户可以在活动页进行签到</div>' +
+                '<div class="form-section"><div class="section-title">必填信息</div>' +
+                '<div class="layui-form-item"><div class="layui-input-block" style="margin-left:0;">' +
+                '<input type="checkbox" name="require_name" title="姓名" lay-skin="primary">' +
+                '<input type="checkbox" name="require_phone" title="电话" lay-skin="primary" lay-filter="requirePhone">' +
+                '<input type="checkbox" name="require_company" title="公司" lay-skin="primary">' +
+                '<input type="checkbox" name="require_position" title="职位" lay-skin="primary">' +
+                '</div></div>' +
+                '<div class="layui-form-item" id="phone-verify-row" style="display:none;"><label class="layui-form-label">短信验证码</label><div class="layui-input-block"><input type="checkbox" name="require_phone_verify" id="sign-require-phone-verify" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
+                '<div class="location-tip" id="phone-verify-tip" style="display:none;"><i class="fas fa-info-circle"></i> 开启后签到时需要输入短信验证码，确保手机号真实有效</div>' +
                 '</div>' +
-                '<div class="form-group">' +
-                '<div class="form-label"><i class="fas fa-clock"></i>签到时间段</div>' +
-                '<div class="time-inputs">' +
-                '<input type="text" name="start_time" id="sign-start-time" class="layui-input" placeholder="开始时间" style="width:100%;height:36px;border-radius:6px;">' +
-                '<div class="time-divider">至</div>' +
-                '<input type="text" name="end_time" id="sign-end-time" class="layui-input" placeholder="结束时间" style="width:100%;height:36px;border-radius:6px;">' +
+                '<div class="form-section"><div class="section-title">显示设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">头像来源</label><div class="layui-input-block">' +
+                '<input type="radio" name="avatar_source" value="1" title="微信头像" checked lay-filter="avatarSource">' +
+                '<input type="radio" name="avatar_source" value="0" title="显示照片" lay-filter="avatarSource" id="avatar-source-photo">' +
+                '</div></div>' +
+                '<div class="location-tip" id="avatar-photo-tip" style="display:none;color:#ff9800;"><i class="fas fa-exclamation-triangle"></i> 需先在「上传照片设置」中开启照片功能并设为<b>必填</b>，才可选择「显示照片」</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">嘉宾显示方式</label><div class="layui-input-block">' +
+                '<input type="radio" name="show_style" value="1" title="昵称" checked>' +
+                '<input type="radio" name="show_style" value="2" title="姓名">' +
+                '<input type="radio" name="show_style" value="3" title="手机号">' +
+                '</div></div></div>' +
+
+                // === 员工号设置 ===
+                '<div class="form-section"><div class="section-title"><i class="fas fa-id-badge" style="color:#1976d2;margin-right:6px;"></i>员工号设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">员工号</label><div class="layui-input-block"><input type="checkbox" name="show_employee_no" id="sign-show-employee-no" lay-skin="switch" lay-text="开启|关闭" lay-filter="showEmployeeNo"></div></div>' +
+                '<div class="layui-form-item" id="employee-no-require-row" style="display:none;"><label class="layui-form-label">员工号必填</label><div class="layui-input-block"><input type="checkbox" name="require_employee_no" id="sign-require-employee-no" lay-skin="switch" lay-text="必填|非必填"></div></div>' +
+                '<div class="location-tip"><i class="fas fa-info-circle"></i> 开启后签到时需要填写员工编号</div>' +
                 '</div>' +
-                '<div class="form-info"><i class="fas fa-info-circle"></i>设置签到开始和结束的时间范围</div>' +
+
+                // === 上传照片设置 ===
+                '<div class="form-section"><div class="section-title"><i class="fas fa-camera" style="color:#43a047;margin-right:6px;"></i>上传照片设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">上传照片</label><div class="layui-input-block"><input type="checkbox" name="show_photo" id="sign-show-photo" lay-skin="switch" lay-text="开启|关闭" lay-filter="showPhoto"></div></div>' +
+                '<div class="layui-form-item" id="photo-require-row" style="display:none;"><label class="layui-form-label">照片必填</label><div class="layui-input-block"><input type="checkbox" name="require_photo" id="sign-require-photo" lay-skin="switch" lay-text="必填|非必填" lay-filter="requirePhoto"></div></div>' +
+                '<div class="location-tip"><i class="fas fa-info-circle"></i> 开启后签到时需要上传一张照片（信息采集用途）</div>' +
                 '</div>' +
-                '</div>' +
-                
-                // 必填信息
-                '<div class="form-panel feature-highlight">' +
-                '<div class="panel-title"><i class="fas fa-id-card"></i>必填信息 <span class="badge">重要</span></div>' +
-                '<div class="form-group">' +
-                '<div class="form-label">选择需要用户填写的信息</div>' +
-                '<div class="checkbox-group">' +
-                '<div class="checkbox-item"><input type="checkbox" name="require_name" title="姓名" lay-skin="primary"> <label>姓名</label></div>' +
-                '<div class="checkbox-item"><input type="checkbox" name="require_phone" title="电话" lay-skin="primary" lay-filter="requirePhone"> <label>电话</label></div>' +
-                '<div class="checkbox-item"><input type="checkbox" name="require_company" title="公司" lay-skin="primary"> <label>公司</label></div>' +
-                '<div class="checkbox-item"><input type="checkbox" name="require_position" title="职位" lay-skin="primary"> <label>职位</label></div>' +
-                '</div>' +
-                '<div id="phone-verify-row" class="form-group" style="display:none;margin-top:16px;">' +
-                '<div class="form-label"><i class="fas fa-sms"></i>短信验证码</div>' +
-                '<div class="layui-input-block" style="margin-left:0;">' +
-                '<input type="checkbox" name="require_phone_verify" id="sign-require-phone-verify" lay-skin="switch" lay-text="开启|关闭">' +
-                '</div>' +
-                '<div id="phone-verify-tip" class="form-info" style="display:none;"><i class="fas fa-shield-alt"></i>开启后签到时需要输入短信验证码，确保手机号真实有效</div>' +
-                '</div>' +
-                '</div>' +
-                '</div>' +
-                
-                // 显示设置和员工号设置（并排）
-                '<div class="form-row">' +
-                '<div class="form-panel">' +
-                '<div class="panel-title"><i class="fas fa-eye"></i>显示设置</div>' +
-                '<div class="form-group">' +
-                '<div class="form-label">头像来源</div>' +
-                '<div class="radio-group">' +
-                '<div class="radio-item"><input type="radio" name="avatar_source" value="1" title="微信头像" checked lay-filter="avatarSource"> <label>微信头像</label></div>' +
-                '<div class="radio-item"><input type="radio" name="avatar_source" value="0" title="显示照片" lay-filter="avatarSource" id="avatar-source-photo"> <label>显示照片</label></div>' +
-                '</div>' +
-                '<div id="avatar-photo-tip" class="form-info" style="display:none;color:#faad14;"><i class="fas fa-exclamation-triangle"></i>需先在照片设置中开启功能才可选择</div>' +
-                '</div>' +
-                '<div class="form-group">' +
-                '<div class="form-label">嘉宾显示方式</div>' +
-                '<div class="radio-group">' +
-                '<div class="radio-item"><input type="radio" name="show_style" value="1" title="昵称" checked> <label>昵称</label></div>' +
-                '<div class="radio-item"><input type="radio" name="show_style" value="2" title="姓名"> <label>姓名</label></div>' +
-                '<div class="radio-item"><input type="radio" name="show_style" value="3" title="手机号"> <label>手机号</label></div>' +
-                '</div>' +
-                '</div>' +
-                '</div>' +
-                
-                '<div class="form-panel">' +
-                '<div class="panel-title"><i class="fas fa-id-badge"></i>员工号设置</div>' +
-                '<div class="form-group">' +
-                '<div class="form-label">启用员工号</div>' +
-                '<div class="layui-input-block" style="margin-left:0;">' +
-                '<input type="checkbox" name="show_employee_no" id="sign-show-employee-no" lay-skin="switch" lay-text="开启|关闭" lay-filter="showEmployeeNo">' +
-                '</div>' +
-                '</div>' +
-                '<div id="employee-no-require-row" class="form-group" style="display:none;">' +
-                '<div class="form-label">员工号必填</div>' +
-                '<div class="layui-input-block" style="margin-left:0;">' +
-                '<input type="checkbox" name="require_employee_no" id="sign-require-employee-no" lay-skin="switch" lay-text="必填|非必填">' +
-                '</div>' +
-                '</div>' +
-                '<div class="form-info"><i class="fas fa-info-circle"></i>用于企业内部员工识别和管理</div>' +
-                '</div>' +
-                '</div>' +
-                
-                // 照片和自定义字段设置（并排）
-                '<div class="form-row">' +
-                '<div class="form-panel">' +
-                '<div class="panel-title"><i class="fas fa-camera"></i>照片设置</div>' +
-                '<div class="form-group">' +
-                '<div class="form-label">启用照片功能</div>' +
-                '<div class="layui-input-block" style="margin-left:0;">' +
-                '<input type="checkbox" name="show_photo" id="sign-show-photo" lay-skin="switch" lay-text="开启|关闭" lay-filter="showPhoto">' +
-                '</div>' +
-                '</div>' +
-                '<div id="photo-require-row" class="form-group" style="display:none;">' +
-                '<div class="form-label">照片必填</div>' +
-                '<div class="layui-input-block" style="margin-left:0;">' +
-                '<input type="checkbox" name="require_photo" id="sign-require-photo" lay-skin="switch" lay-text="必填|非必填" lay-filter="requirePhoto">' +
-                '</div>' +
-                '</div>' +
-                '<div class="form-info"><i class="fas fa-info-circle"></i>用于收集用户照片信息</div>' +
-                '</div>' +
-                
-                '<div class="form-panel">' +
-                '<div class="panel-title"><i class="fas fa-edit"></i>自定义字段</div>' +
-                '<div class="form-group">' +
-                '<div class="form-label">启用自定义字段</div>' +
-                '<div class="layui-input-block" style="margin-left:0;">' +
-                '<input type="checkbox" name="show_custom_fields" id="sign-show-custom-fields" lay-skin="switch" lay-text="开启|关闭" lay-filter="showCustomFields">' +
-                '</div>' +
-                '</div>' +
-                '<div id="custom-fields-panel" style="display:none;margin-top:16px;">' +
-                '<div class="form-info" style="margin-bottom:12px;"><i class="fas fa-list"></i>自定义信息采集字段</div>' +
-                '<table class="layui-table" id="custom-fields-table" style="margin:0;border-radius:8px;overflow:hidden;">' +
-                '<thead><tr>' +
-                '<th style="width:150px;">字段名称</th>' +
-                '<th style="width:100px;">字段类型</th>' +
-                '<th style="width:180px;">选项值</th>' +
-                '<th style="width:80px;">必填</th>' +
-                '<th style="width:70px;">排序</th>' +
-                '<th style="width:60px;">操作</th>' +
+
+                // === 自定义字段设置 ===
+                '<div class="form-section"><div class="section-title"><i class="fas fa-list-alt" style="color:#ff9800;margin-right:6px;"></i>自定义字段设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">自定义字段</label><div class="layui-input-block"><input type="checkbox" name="show_custom_fields" id="sign-show-custom-fields" lay-skin="switch" lay-text="开启|关闭" lay-filter="showCustomFields"></div></div>' +
+                '<div class="location-tip"><i class="fas fa-info-circle"></i> 开启后可添加自定义信息采集字段</div>' +
+                '<div id="custom-fields-panel" style="display:none;margin-top:10px;">' +
+                '<table class="layui-table" id="custom-fields-table" style="margin:0;"><thead><tr>' +
+                '<th style="width:150px;">字段名称</th><th style="width:100px;">字段类型</th><th style="width:180px;">选项值</th><th style="width:80px;">必填</th><th style="width:70px;">排序</th><th style="width:60px;">操作</th>' +
                 '</tr></thead><tbody id="custom-fields-body"></tbody></table>' +
-                '<button type="button" class="btn btn-default btn-sm" style="margin-top:12px;border-radius:6px;" onclick="SignPage._addCustomField()"><i class="fas fa-plus"></i> 添加字段</button>' +
+                '<button type="button" class="btn btn-default btn-sm" style="margin-top:8px;" onclick="SignPage._addCustomField()"><i class="fas fa-plus"></i> 添加字段</button>' +
                 '</div>' +
                 '</div>' +
                 '</div>' +
-                '</div>' +
-                
                 // === 右侧：地点限定 ===
                 '<div class="sign-config-right">' +
-                '<div class="form-panel location-card">' +
-                '<div class="panel-title"><i class="fas fa-map-marker-alt"></i>地点限定 <span class="badge">高级</span></div>' +
-                '<div class="form-group">' +
-                '<div class="form-label">启用地点限定</div>' +
-                '<div class="layui-input-block" style="margin-left:0;">' +
-                '<input type="checkbox" name="sign_location_enabled" id="sign-location-enabled" lay-skin="switch" lay-text="开启|关闭" lay-filter="signLocationSwitch">' +
-                '</div>' +
-                '<div class="form-info"><i class="fas fa-location-arrow"></i>开启后用户必须在指定范围内签到</div>' +
-                '</div>' +
-                '<div id="location-config-panel" class="location-config-panel" style="display:none;margin-top:20px;">' +
-                '<div class="form-group">' +
-                '<div class="form-label">签到范围</div>' +
-                '<select name="sign_radius" id="sign-radius" class="layui-select" lay-filter="signRadius" style="width:100%;height:36px;border-radius:6px;">' +
+                '<div class="form-section"><div class="section-title"><i class="fas fa-map-marker-alt" style="color:#ff5722;margin-right:6px;"></i>活动地点限定</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">地点限定</label><div class="layui-input-block"><input type="checkbox" name="sign_location_enabled" id="sign-location-enabled" lay-skin="switch" lay-text="开启|关闭" lay-filter="signLocationSwitch"></div></div>' +
+                '<div class="location-tip"><i class="fas fa-info-circle"></i> 开启后，签到用户必须在指定活动地点的指定范围内才能完成签到</div>' +
+                '<div id="location-config-panel" class="location-config-panel" style="display:none;">' +
+                '<div class="layui-form-item"><label class="layui-form-label">签到范围</label><div class="layui-input-block"><select name="sign_radius" id="sign-radius" lay-filter="signRadius">' +
                 '<option value="100">100米</option>' +
                 '<option value="500">500米</option>' +
                 '<option value="1000" selected>1公里</option>' +
                 '<option value="5000">5公里</option>' +
                 '<option value="10000">10公里</option>' +
-                '</select>' +
+                '</select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">活动地址</label><div class="layui-input-block"><div class="location-search-wrapper" id="location-search-wrapper"><input type="text" name="sign_address" id="sign-address" class="layui-input" placeholder="搜索活动地址..." autocomplete="off"><i class="fas fa-search location-search-icon"></i><div id="location-suggestions" class="location-suggestions" style="display:none;"></div></div></div></div>' +
+                '<div class="location-map-container" id="location-map-container"><div id="location-map" style="width:100%;height:300px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#999;"><i class="fas fa-map" style="font-size:24px;margin-right:8px;"></i>地图加载中...</div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">经度</label><div class="layui-input-inline" style="width:180px;"><input type="text" name="sign_longitude" id="sign-longitude" class="layui-input" placeholder="自动获取"></div>' +
+                '<label class="layui-form-label" style="width:50px;">纬度</label><div class="layui-input-inline" style="width:180px;"><input type="text" name="sign_latitude" id="sign-latitude" class="layui-input" placeholder="自动获取"></div></div>' +
+                '<div class="location-actions">' +
+                '<button type="button" class="btn btn-default btn-sm" id="btn-get-location"><i class="fas fa-crosshairs"></i> 获取当前位置</button>' +
                 '</div>' +
-                '<div class="form-group">' +
-                '<div class="form-label">活动地址</div>' +
-                '<div class="location-search-wrapper" id="location-search-wrapper">' +
-                '<input type="text" name="sign_address" id="sign-address" class="layui-input" placeholder="🔍 搜索活动地址..." style="width:100%;height:36px;border-radius:6px;padding-right:40px;" autocomplete="off">' +
-                '<i class="fas fa-search location-search-icon" style="right:12px;top:10px;"></i>' +
-                '<div id="location-suggestions" class="location-suggestions" style="display:none;"></div>' +
-                '</div>' +
-                '</div>' +
-                '<div class="form-group">' +
-                '<div class="map-container">' +
-                '<div id="location-map" style="width:100%;height:280px;background:#f7f9fc;display:flex;align-items:center;justify-content:center;color:#999;">' +
-                '<div style="text-align:center;"><i class="fas fa-map" style="font-size:32px;margin-bottom:10px;color:#1890ff;"></i><br><span>地图加载中...</span></div>' +
+                '<div id="location-preview" class="location-preview" style="display:none;">' +
+                '<div class="location-info">' +
+                '<div class="location-coords" id="location-coords-display"></div>' +
+                '<div class="location-radius-text" id="location-radius-display"></div>' +
                 '</div>' +
                 '</div>' +
                 '</div>' +
-                '<div class="form-row">' +
-                '<div class="form-group">' +
-                '<div class="form-label">经度</div>' +
-                '<input type="text" name="sign_longitude" id="sign-longitude" class="layui-input" placeholder="自动获取" style="width:100%;height:36px;border-radius:6px;">' +
-                '</div>' +
-                '<div class="form-group">' +
-                '<div class="form-label">纬度</div>' +
-                '<input type="text" name="sign_latitude" id="sign-latitude" class="layui-input" placeholder="自动获取" style="width:100%;height:36px;border-radius:6px;">' +
                 '</div>' +
                 '</div>' +
-                '<div style="margin-top:20px;">' +
-                '<button type="button" class="btn btn-default" id="btn-get-location" style="width:100%;height:40px;border-radius:6px;border:1px solid #d9d9d9;background:#fafafa;">' +
-                '<i class="fas fa-crosshairs"></i> 获取当前位置' +
+                '</form>' +
+                '<div class="form-actions-section" style="margin-top:30px;padding-top:20px;border-top:1px solid #f0f0f0;background-color:#fafafa;padding:20px;border-radius:4px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<div style="color:#666;font-size:14px;">' +
+                '<i class="fas fa-info-circle" style="margin-right:8px;color:#1890ff;"></i>' +
+                '完成所有设置后，请点击保存按钮应用更改' +
+                '</div>' +
+                '<button type="button" class="btn btn-primary" onclick="SignPage._saveConfig()" style="padding:8px 24px;font-size:16px;height:40px;">' +
+                '<i class="fas fa-save" style="margin-right:8px;"></i>保存设置' +
                 '</button>' +
                 '</div>' +
-                '<div id="location-preview" class="location-preview" style="display:none;margin-top:16px;padding:16px;background:#f7f9fc;border-radius:8px;">' +
-                '<div class="form-label" style="margin-bottom:8px;">位置信息</div>' +
-                '<div class="form-info" id="location-coords-display" style="margin:0;">坐标: 未设置</div>' +
-                '<div class="form-info" id="location-radius-display" style="margin-top:4px;">签到范围: 1000米</div>' +
-                '</div>' +
-                '</div>' +
-                '</div>' +
-                '</div>' +
-                '</div>' +
-                '</div>' +
-                // === 底部操作栏 ===
-                '<div class="action-bar">' +
-                '<div class="action-content">' +
-                '<div class="action-info">' +
-                '<i class="fas fa-shield-alt"></i>配置已自动保存草稿' +
-                '</div>' +
-                '<button type="button" class="save-button" onclick="SignPage._saveConfig()">' +
-                '<i class="fas fa-cloud-upload-alt"></i>保存所有设置' +
-                '</button>' +
                 '</div>' +
                 '</div>';
 
@@ -471,22 +326,6 @@
                     }
                 }
             }, 200);
-            
-            // 检查地图API配置情况，提供友好的提示
-            setTimeout(() => {
-                if (!window.AMap) {
-                    console.log('地图API暂未加载，将在启用地点限定时尝试加载');
-                    // 可以在这里添加一个提示信息，告诉用户如何配置地图API
-                    var locationSwitch = document.querySelector('[name="sign_location_enabled"]');
-                    if (locationSwitch) {
-                        locationSwitch.addEventListener('change', function() {
-                            if (this.checked && !window.AMap) {
-                                SignPage._loadAMapAPI();
-                            }
-                        });
-                    }
-                }
-            }, 500);
             
             // 加载配置数据
             this._loadSignConfig(actId);
@@ -2086,6 +1925,89 @@
             }
         },
 
+        // ========== 签到墙 ==========
+        renderSignWall: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title">签到墙</div>' +
+                '<form class="layui-form" lay-filter="signWallForm">' +
+                '<div class="layui-form-item"><label class="layui-form-label">签到墙样式</label><div class="layui-input-block">' +
+                '<select name="sign_theme_style" lay-filter="signThemeStyleSelect">' +
+                '<option value="classic">样式一（经典瀑布流）</option>' +
+                '<option value="matrix">样式二（矩阵墙）</option>' +
+                '</select>' +
+                '</div></div>' +
+                '<div id="matrix-options" style="display:none;">' +
+                '<div class="layui-form-item"><label class="layui-form-label">头像入场</label><div class="layui-input-block">' +
+                '<select name="sign_theme_entrance"><option value="bounce">弹入缩放</option><option value="fade">淡入</option><option value="none">无动画</option></select>' +
+                '</div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">滚动效果</label><div class="layui-input-block">' +
+                '<select name="sign_theme_scroll"><option value="smooth">平滑滚动</option><option value="none">不滚动</option></select>' +
+                '</div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">Toast通知</label><div class="layui-input-block">' +
+                '<input type="checkbox" name="sign_theme_toast_enabled" value="1" lay-skin="switch" lay-text="开|关" checked>' +
+                '</div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">中央大头像</label><div class="layui-input-block">' +
+                '<input type="checkbox" name="sign_theme_center_avatar" value="1" lay-skin="switch" lay-text="开|关" checked>' +
+                '</div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">流光边框</label><div class="layui-input-block">' +
+                '<input type="checkbox" name="sign_theme_glow_border" value="1" lay-skin="switch" lay-text="开|关" checked>' +
+                '</div></div>' +
+                '</div>' +
+                '<div class="layui-form-item" style="margin-top:16px;"><div class="layui-input-block">' +
+                '<button type="button" class="btn btn-primary" onclick="SignPage._saveSignWall()"><i class="fas fa-save"></i> 保存签到墙</button>' +
+                '</div></div>' +
+                '</form></div>';
+
+            Layout.setContent(html);
+            layui.form.render();
+
+            // 监听样式切换，显示/隐藏矩阵墙选项
+            layui.form.on('select(signThemeStyleSelect)', function(data) {
+                document.getElementById('matrix-options').style.display = data.value === 'matrix' ? '' : 'none';
+            });
+
+            // 加载签到墙配置
+            Api.getSignThemeConfig(actId).then(function(res) {
+                var d = res.data || {};
+                if (d.sign_theme_style) {
+                    document.querySelector('[name="sign_theme_style"]').value = d.sign_theme_style;
+                    layui.form.render('select', 'signWallForm');
+                    document.getElementById('matrix-options').style.display = d.sign_theme_style === 'matrix' ? '' : 'none';
+                }
+                if (d.sign_theme_entrance) {
+                    document.querySelector('[name="sign_theme_entrance"]').value = d.sign_theme_entrance;
+                    layui.form.render('select', 'signWallForm');
+                }
+                if (d.sign_theme_scroll) {
+                    document.querySelector('[name="sign_theme_scroll"]').value = d.sign_theme_scroll;
+                    layui.form.render('select', 'signWallForm');
+                }
+                var toastEl = document.querySelector('[name="sign_theme_toast_enabled"]');
+                if (toastEl) { toastEl.checked = d.sign_theme_toast_enabled !== '0'; layui.form.render('checkbox', 'signWallForm'); }
+                var centerEl = document.querySelector('[name="sign_theme_center_avatar"]');
+                if (centerEl) { centerEl.checked = d.sign_theme_center_avatar !== '0'; layui.form.render('checkbox', 'signWallForm'); }
+                var glowEl = document.querySelector('[name="sign_theme_glow_border"]');
+                if (glowEl) { glowEl.checked = d.sign_theme_glow_border !== '0'; layui.form.render('checkbox', 'signWallForm'); }
+            }).catch(function() {});
+        },
+
+        _saveSignWall: function() {
+            var actId = App.getCurrentActivityId();
+            var data = {
+                sign_theme_style: document.querySelector('[name="sign_theme_style"]').value,
+                sign_theme_entrance: document.querySelector('[name="sign_theme_entrance"]').value,
+                sign_theme_scroll: document.querySelector('[name="sign_theme_scroll"]').value,
+                sign_theme_toast_enabled: document.querySelector('[name="sign_theme_toast_enabled"]').checked ? '1' : '0',
+                sign_theme_center_avatar: document.querySelector('[name="sign_theme_center_avatar"]').checked ? '1' : '0',
+                sign_theme_glow_border: document.querySelector('[name="sign_theme_glow_border"]').checked ? '1' : '0'
+            };
+            Api.updateSignThemeConfig(actId, data).then(function() {
+                layui.layer.msg('签到墙保存成功', { icon: 1 });
+            });
+        },
+
         // ========== 3D签到 ==========
         render3d: function() {
             var actId = App.getCurrentActivityId();
@@ -2101,19 +2023,8 @@
                 '<div class="layui-form-item"><label class="layui-form-label">空闲动画</label><div class="layui-input-block"><input type="checkbox" name="idle_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">空闲延迟</label><div class="layui-input-block"><input type="number" name="idle_delay" class="layui-input" placeholder="5000" min="1000" max="30000"></div></div>' +
                 '</div>' +
-                '</form>' +
-                '<div class="form-actions-section" style="margin-top:30px;padding-top:20px;border-top:1px solid #f0f0f0;background-color:#fafafa;padding:20px;border-radius:4px;">' +
-                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                '<div style="color:#666;font-size:14px;">' +
-                '<i class="fas fa-info-circle" style="margin-right:8px;color:#1890ff;"></i>' +
-                '完成3D签名设置后，请点击保存按钮应用更改' +
-                '</div>' +
-                '<button type="button" class="btn btn-primary" id="btn-save-3d-config" onclick="SignPage._save3dConfig()" style="padding:8px 24px;font-size:16px;height:40px;">' +
-                '<i class="fas fa-save" style="margin-right:8px;"></i>保存设置' +
-                '</button>' +
-                '</div>' +
-                '</div>' +
-                '</div>';
+                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-3d-config" onclick="SignPage._save3dConfig()"><i class="fas fa-save"></i> 保存设置</button></div>' +
+                '</div></div>';
 
             Layout.setContent(html);
             
@@ -2141,40 +2052,42 @@
             // 使用API获取3D配置
             Api.get3dConfig(actId).then(function(res) {
                 layui.layer.closeAll('loading');
+                // 后端返回格式: { code: 0, data: { config: {...}, effects: [...] } }
                 var data = res.data || {};
+                var config = data.config || {};
                 
                 // 填充表单数据
-                if (data.avatarnum) {
+                if (config.avatarnum) {
                     var avatarNum = document.querySelector('[name="avatarnum"]');
-                    if (avatarNum) avatarNum.value = data.avatarnum;
+                    if (avatarNum) avatarNum.value = config.avatarnum;
                 }
                 
-                if (data.avatarsize) {
+                if (config.avatarsize) {
                     var avatarSize = document.querySelector('[name="avatarsize"]');
-                    if (avatarSize) avatarSize.value = data.avatarsize;
+                    if (avatarSize) avatarSize.value = config.avatarsize;
                 }
                 
-                if (data.avatargap) {
+                if (config.avatargap) {
                     var avatarGap = document.querySelector('[name="avatargap"]');
-                    if (avatarGap) avatarGap.value = data.avatargap;
+                    if (avatarGap) avatarGap.value = config.avatargap;
                 }
                 
-                if (data.play_mode) {
+                if (config.play_mode) {
                     var playMode = document.querySelector('[name="play_mode"]');
-                    if (playMode) playMode.value = data.play_mode;
+                    if (playMode) playMode.value = config.play_mode;
                 }
                 
-                if (data.idle_enabled !== undefined) {
+                if (config.idle_enabled !== undefined) {
                     var idleEnabled = document.querySelector('[name="idle_enabled"]');
                     if (idleEnabled) {
-                        idleEnabled.checked = !!data.idle_enabled;
+                        idleEnabled.checked = !!config.idle_enabled;
                         layui.form.render('checkbox', 'sign3d');
                     }
                 }
                 
-                if (data.idle_delay) {
+                if (config.idle_delay) {
                     var idleDelay = document.querySelector('[name="idle_delay"]');
-                    if (idleDelay) idleDelay.value = data.idle_delay;
+                    if (idleDelay) idleDelay.value = config.idle_delay;
                 }
                 
                 // 重新渲染表单
@@ -2239,19 +2152,8 @@
                 '<div class="layui-form-item"><label class="layui-form-label">头像间距</label><div class="layui-input-block"><input type="number" name="avatar_gap" class="layui-input" placeholder="10" min="2" max="30"></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">背景颜色</label><div class="layui-input-block"><input type="color" name="bg_color" class="layui-input" value="#f5f5f5"></div></div>' +
                 '</div>' +
-                '</form>' +
-                '<div class="form-actions-section" style="margin-top:30px;padding-top:20px;border-top:1px solid #f0f0f0;background-color:#fafafa;padding:20px;border-radius:4px;">' +
-                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                '<div style="color:#666;font-size:14px;">' +
-                '<i class="fas fa-info-circle" style="margin-right:8px;color:#1890ff;"></i>' +
-                '完成头像墙设置后，请点击保存按钮应用更改' +
-                '</div>' +
-                '<button type="button" class="btn btn-primary" id="btn-save-avatar-config" onclick="SignPage._saveAvatarConfig()" style="padding:8px 24px;font-size:16px;height:40px;">' +
-                '<i class="fas fa-save" style="margin-right:8px;"></i>保存设置' +
-                '</button>' +
-                '</div>' +
-                '</div>' +
-                '</div>';
+                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-avatar-config" onclick="SignPage._saveAvatarConfig()"><i class="fas fa-save"></i> 保存设置</button></div>' +
+                '</div></div>';
 
             Layout.setContent(html);
             
@@ -2360,19 +2262,8 @@
                 '<div class="layui-form-item"><label class="layui-form-label">移动速度</label><div class="layui-input-block"><input type="number" name="bubble_speed" class="layui-input" placeholder="5" min="1" max="20"></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">背景颜色</label><div class="layui-input-block"><input type="color" name="bg_color" class="layui-input" value="#1a237e"></div></div>' +
                 '</div>' +
-                '</form>' +
-                '<div class="form-actions-section" style="margin-top:30px;padding-top:20px;border-top:1px solid #f0f0f0;background-color:#fafafa;padding:20px;border-radius:4px;">' +
-                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                '<div style="color:#666;font-size:14px;">' +
-                '<i class="fas fa-info-circle" style="margin-right:8px;color:#1890ff;"></i>' +
-                '完成泡泡签到设置后，请点击保存按钮应用更改' +
-                '</div>' +
-                '<button type="button" class="btn btn-primary" id="btn-save-bubble-config" onclick="SignPage._saveBubbleConfig()" style="padding:8px 24px;font-size:16px;height:40px;">' +
-                '<i class="fas fa-save" style="margin-right:8px;"></i>保存设置' +
-                '</button>' +
-                '</div>' +
-                '</div>' +
-                '</div>';
+                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-bubble-config" onclick="SignPage._saveBubbleConfig()"><i class="fas fa-save"></i> 保存设置</button></div>' +
+                '</div></div>';
 
             Layout.setContent(html);
             
@@ -2669,8 +2560,6 @@
                     center = [parseFloat(longitude), parseFloat(latitude)];
                 }
                 
-                console.log('正在创建地图实例...');
-                
                 // 创建地图实例
                 SignPage._mapInstance = new AMap.Map('location-map', {
                     zoom: longitude && latitude && longitude !== '0' && latitude !== '0' ? 15 : 11,
@@ -2801,42 +2690,8 @@
             
             console.log('开始加载高德地图API...');
             
-            // 高德地图API密钥配置 - 使用平台配置文件
-            console.log('开始获取地图API密钥...');
-            
-            // 方法1：从全局变量获取API密钥
-            var apiKey = '';
-            var useMapAPI = false;
-            
-            // 检查是否有全局配置的地图API密钥
-            if (window.EivieConfig && window.EivieConfig.mapApiKey && window.EivieConfig.mapApiKey.length > 20) {
-                apiKey = window.EivieConfig.mapApiKey;
-                console.log('从全局配置获取地图API密钥');
-            } 
-            // 方法2：从页面内联配置获取
-            else if (window.mapApiKey && window.mapApiKey.length > 20) {
-                apiKey = window.mapApiKey;
-                console.log('从页面配置获取地图API密钥');
-            }
-            // 方法3：从后端API获取
-            else {
-                console.log('未找到预配置的地图API密钥，尝试从后端获取...');
-                // 这里可以添加从后端API获取密钥的逻辑
-                // 暂时使用之前的空值，将启用手动输入模式
-            }
-            
-            if (apiKey && apiKey.length > 20) {
-                useMapAPI = true;
-                console.log('使用地图API，密钥长度:', apiKey.length);
-            }
-            
-            if (!useMapAPI) {
-                // 没有有效的API密钥，使用手动输入模式
-                console.log('无有效地图API密钥，启用手动输入模式');
-                SignPage._showManualLocationInput();
-                return;
-            }
-            
+            // 使用一个免费可用的测试密钥（仅供测试，正式环境需申请自己的API密钥）
+            var apiKey = 'd2c5aed5e0c8dedd1be7fea7c7c46b37'; // 测试用高德地图密钥（可能会有限制）
             var script = document.createElement('script');
             script.src = 'https://webapi.amap.com/maps?v=2.0&key=' + apiKey + '&plugin=AMap.PlaceSearch,AMap.Geocoder,AMap.Geolocation,AMap.AutoComplete';
             script.async = true;
@@ -3165,22 +3020,20 @@
             var mapContainer = document.getElementById('location-map');
             if (!mapContainer) return;
             
-            var html = '<div style="padding:40px 20px;text-align:center;background:linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);border-radius:8px;border:1px dashed #d0e1ff;">' +
-                '<div style="margin-bottom:30px;">' +
-                '<i class="fas fa-keyboard" style="font-size:52px;color:#1890ff;margin-bottom:20px;opacity:0.8;"></i>' +
-                '<h3 style="margin-bottom:12px;color:#1a1a1a;font-size:20px;font-weight:600;">手动输入位置信息</h3>' +
-                '<p style="color:#666;margin-bottom:20px;font-size:15px;max-width:500px;margin-left:auto;margin-right:auto;">地图功能已禁用，请按以下步骤手动填写位置信息</p>' +
+            var html = '<div style="padding:30px 20px;text-align:center;">' +
+                '<div style="margin-bottom:25px;">' +
+                '<i class="fas fa-map-marker-alt" style="font-size:48px;color:#f39c12;margin-bottom:15px;"></i>' +
+                '<h3 style="margin-bottom:10px;color:#333;">手动输入位置信息</h3>' +
+                '<p style="color:#666;margin-bottom:20px;">地图功能暂不可用，请手动填写位置信息</p>' +
                 '</div>' +
                 
-                '<div style="max-width:600px;margin:0 auto;">' +
-                '<div class="manual-location-form" style="background:#fff;border-radius:12px;padding:28px;text-align:left;border:1px solid #e8e8e8;box-shadow:0 2px 8px rgba(0,0,0,0.05);">' +
-                '<div class="form-label" style="margin-bottom:15px;color:#333;font-size:16px;font-weight:600;">' +
-                '<i class="fas fa-info-circle" style="color:#1890ff;"></i>位置信息填写指南' +
-                '</div>' +
-                '<ol style="padding-left:24px;color:#555;line-height:1.7;font-size:14px;margin-bottom:25px;">' +
-                '<li style="margin-bottom:10px;">使用地图应用（如百度地图、高德地图）搜索您的活动地址</li>' +
-                '<li style="margin-bottom:10px;">获取活动地址的<strong style="color:#1890ff;">经度</strong>和<strong style="color:#1890ff;">纬度</strong>坐标</li>' +
-                '<li style="margin-bottom:10px;">将坐标填入下方的经纬度输入框中</li>' +
+                '<div style="max-width:500px;margin:0 auto;">' +
+                '<div class="manual-location-form" style="background:#f9f9f9;border-radius:8px;padding:20px;text-align:left;">' +
+                '<h4 style="margin-bottom:15px;color:#444;">位置信息填写指南：</h4>' +
+                '<ol style="padding-left:20px;color:#555;line-height:1.6;">' +
+                '<li>在地图应用（如百度地图、高德地图）中搜索您的活动地址</li>' +
+                '<li>获取该位置的<strong>经度</strong>和<strong>纬度</strong>坐标</li>' +
+                '<li>将坐标填入下方的经纬度输入框中</li>' +
                 '<li>填写完整的活动地址信息</li>' +
                 '</ol>' +
                 
