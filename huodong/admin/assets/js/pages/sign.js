@@ -49,9 +49,9 @@
             if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
 
             var html = '<style>' +
-                '.sign-config-container { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }' +
-                '.sign-config-left { display: grid; gap: 24px; }' +
-                '.sign-config-right { height: fit-content; }' +
+                '.sign-config-container { display: grid; grid-template-columns: 1.6fr 1fr; gap: 32px; max-width: 1400px; margin: 0 auto; }' +
+                '.sign-config-left { display: grid; gap: 24px; align-content: start; }' +
+                '.sign-config-right { display: grid; gap: 24px; align-content: start; }' +
                 '.form-panel { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); border: 1px solid #f0f0f0; transition: box-shadow 0.3s ease; }' +
                 '.form-panel:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }' +
                 '.panel-title { font-size: 18px; font-weight: 600; color: #1a1a1a; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #1890ff; display: flex; align-items: center; gap: 10px; }' +
@@ -84,6 +84,9 @@
                 '.radio-item { display: flex; align-items: center; gap: 6px; }' +
                 '.radio-item label { margin: 0; }' +
                 '.badge { background: #1890ff; color: white; font-size: 12px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; vertical-align: middle; }' +
+                '.location-card { width: 100%; max-height: none; overflow: visible; }' +
+                '.location-config-panel { animation: fadeIn 0.3s ease; }' +
+                '@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }' +
                 '</style>' +
 
                 '<div class="sign-config-container">' +
@@ -218,7 +221,7 @@
                 
                 // === 右侧：地点限定 ===
                 '<div class="sign-config-right">' +
-                '<div class="form-panel" style="position:sticky;top:20px;">' +
+                '<div class="form-panel location-card">' +
                 '<div class="panel-title"><i class="fas fa-map-marker-alt"></i>地点限定 <span class="badge">高级</span></div>' +
                 '<div class="form-group">' +
                 '<div class="form-label">启用地点限定</div>' +
