@@ -2653,6 +2653,8 @@
                     center = [parseFloat(longitude), parseFloat(latitude)];
                 }
                 
+                console.log('正在创建地图实例...');
+                
                 // 创建地图实例
                 SignPage._mapInstance = new AMap.Map('location-map', {
                     zoom: longitude && latitude && longitude !== '0' && latitude !== '0' ? 15 : 11,
@@ -2783,8 +2785,23 @@
             
             console.log('开始加载高德地图API...');
             
-            // 使用一个免费可用的测试密钥（仅供测试，正式环境需申请自己的API密钥）
-            var apiKey = 'd2c5aed5e0c8dedd1be7fea7c7c46b37'; // 测试用高德地图密钥（可能会有限制）
+            // 高德地图API密钥配置 - 如果无效将自动切换到手动模式
+            // 建议申请自己的高德地图API密钥替换此处
+            var apiKey = ''; // 留空，将自动启用手动输入模式
+            var useMapAPI = false; // 默认不启用地图API
+            
+            // 如果有有效的API密钥，则使用地图API
+            if (apiKey && apiKey.length > 20) {
+                useMapAPI = true;
+            }
+            
+            if (!useMapAPI) {
+                // 没有有效的API密钥，直接使用手动输入模式
+                console.log('无有效地图API密钥，启用手动输入模式');
+                SignPage._showManualLocationInput();
+                return;
+            }
+            
             var script = document.createElement('script');
             script.src = 'https://webapi.amap.com/maps?v=2.0&key=' + apiKey + '&plugin=AMap.PlaceSearch,AMap.Geocoder,AMap.Geolocation,AMap.AutoComplete';
             script.async = true;
@@ -3113,20 +3130,22 @@
             var mapContainer = document.getElementById('location-map');
             if (!mapContainer) return;
             
-            var html = '<div style="padding:30px 20px;text-align:center;">' +
-                '<div style="margin-bottom:25px;">' +
-                '<i class="fas fa-map-marker-alt" style="font-size:48px;color:#f39c12;margin-bottom:15px;"></i>' +
-                '<h3 style="margin-bottom:10px;color:#333;">手动输入位置信息</h3>' +
-                '<p style="color:#666;margin-bottom:20px;">地图功能暂不可用，请手动填写位置信息</p>' +
+            var html = '<div style="padding:40px 20px;text-align:center;background:linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);border-radius:8px;border:1px dashed #d0e1ff;">' +
+                '<div style="margin-bottom:30px;">' +
+                '<i class="fas fa-keyboard" style="font-size:52px;color:#1890ff;margin-bottom:20px;opacity:0.8;"></i>' +
+                '<h3 style="margin-bottom:12px;color:#1a1a1a;font-size:20px;font-weight:600;">手动输入位置信息</h3>' +
+                '<p style="color:#666;margin-bottom:20px;font-size:15px;max-width:500px;margin-left:auto;margin-right:auto;">地图功能已禁用，请按以下步骤手动填写位置信息</p>' +
                 '</div>' +
                 
-                '<div style="max-width:500px;margin:0 auto;">' +
-                '<div class="manual-location-form" style="background:#f9f9f9;border-radius:8px;padding:20px;text-align:left;">' +
-                '<h4 style="margin-bottom:15px;color:#444;">位置信息填写指南：</h4>' +
-                '<ol style="padding-left:20px;color:#555;line-height:1.6;">' +
-                '<li>在地图应用（如百度地图、高德地图）中搜索您的活动地址</li>' +
-                '<li>获取该位置的<strong>经度</strong>和<strong>纬度</strong>坐标</li>' +
-                '<li>将坐标填入下方的经纬度输入框中</li>' +
+                '<div style="max-width:600px;margin:0 auto;">' +
+                '<div class="manual-location-form" style="background:#fff;border-radius:12px;padding:28px;text-align:left;border:1px solid #e8e8e8;box-shadow:0 2px 8px rgba(0,0,0,0.05);">' +
+                '<div class="form-label" style="margin-bottom:15px;color:#333;font-size:16px;font-weight:600;">' +
+                '<i class="fas fa-info-circle" style="color:#1890ff;"></i>位置信息填写指南' +
+                '</div>' +
+                '<ol style="padding-left:24px;color:#555;line-height:1.7;font-size:14px;margin-bottom:25px;">' +
+                '<li style="margin-bottom:10px;">使用地图应用（如百度地图、高德地图）搜索您的活动地址</li>' +
+                '<li style="margin-bottom:10px;">获取活动地址的<strong style="color:#1890ff;">经度</strong>和<strong style="color:#1890ff;">纬度</strong>坐标</li>' +
+                '<li style="margin-bottom:10px;">将坐标填入下方的经纬度输入框中</li>' +
                 '<li>填写完整的活动地址信息</li>' +
                 '</ol>' +
                 
