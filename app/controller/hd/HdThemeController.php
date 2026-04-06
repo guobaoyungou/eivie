@@ -80,17 +80,17 @@ class HdThemeController extends HdBaseController
         return json($this->themeService->deleteMusic($this->getAid(), $this->getBid(), $activity_id, $id));
     }
 
-    // —— 背景音乐（weixin_music 表，按功能模块管理） ——
+    // —— 背景音乐（活动级配置，存储在 hd_activity.screen_config） ——
     public function bgMusics(int $activity_id)
     {
-        return json($this->themeService->getBgMusics());
+        return json($this->themeService->getBgMusics($activity_id));
     }
 
     public function toggleBgMusic(int $activity_id)
     {
         $plugname = input('post.plugname', '');
         $bgmusicstatus = (int)input('post.bgmusicstatus', 0);
-        return json($this->themeService->toggleBgMusic($plugname, $bgmusicstatus));
+        return json($this->themeService->toggleBgMusic($activity_id, $plugname, $bgmusicstatus));
     }
 
     public function uploadBgMusic(int $activity_id)
@@ -121,8 +121,8 @@ class HdThemeController extends HdBaseController
             $filemd5 = md5($file->getOriginalName() . '|' . $file->getSize());
             $attachmentId = $this->themeService->saveAttachment($filepath, $ext, 1, $filemd5);
 
-            // 更新 weixin_music
-            $result = $this->themeService->updateBgMusic($plugname, $attachmentId);
+            // 更新活动 screen_config 中对应 plugname 的背景音乐配置
+            $result = $this->themeService->updateBgMusic($activity_id, $plugname, $attachmentId);
             return json($result);
         } catch (\think\exception\ValidateException $e) {
             return $this->error('仅支持 mp3 格式，最大 20MB');

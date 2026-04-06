@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="themes/meepo/assets/css/normalize.css">
 <script src="themes/meepo/assets/js/qdbase.js" type="text/javascript" charset="utf-8"></script>
 <script src="themes/meepo/assets/js/screen_qd.js" type="text/javascript" charset="utf-8"></script>
-<link rel="stylesheet" href="themes/meepo/assets/css/qd.css" type="text/css">
+<link rel="stylesheet" href="themes/meepo/assets/css/qd.css?v=20260402" type="text/css">
 </head>
 <body class="FUN WALL" >
 <div class="ui" style="display:none">
@@ -60,20 +60,126 @@
 <script type="text/javascript">
 {literal}
 	var new_sign_arr=[];
-	function shownewsign(){
-		if(new_sign_arr.length<=0){
-			return false;
-		}
-		var person=new_sign_arr.shift();
+
+	/* ===== 空闲防冷场动画状态变量 ===== */
+	var idleTimer = null;           // 空闲延迟定时器引用
+	var isIdleAnimation = false;    // 当前播放的是否为空闲动画
+	var lastIdleUserIndex = -1;     // 上一次空闲动画抽取的用户索引
+	var isShowingSign = false;      // 是否正在播放签到通知动画（防止重入）
+{/literal}
+	var idleEnabled = {$threed_idle_enabled};   // 是否启用空闲防冷场动画
+	var idleDelay = {$threed_idle_delay};       // 空闲延迟时间（毫秒）
+{literal}
+
+	/**
+	 * 显示签到通知卡片（真实签到与空闲动画共用）
+	 * 注意：CSS动画总时长约8.5秒（vv: 8s + vp: 0.5s@8s），JS清理超时须≥CSS动画周期
+	 */
+	function showSignCard(person) {
+		isShowingSign = true;
+		console.log('[IdleAnim] showSignCard:', person.nickname, 'idle=' + isIdleAnimation);
 		$("#qdtx").attr("src", person.avatar);
-        $("#qdnums").html(person.signorder);
-        $("#qdname").html(person.nickname);
-		$('.tuchu').addClass('view');
-		window.setTimeout(function(){$(".tuchu").removeClass('view');},3000);
+		$("#qdnums").html(person.signorder);
+		$("#qdname").html(person.nickname);
+		// 强制移除旧动画状态并触发回流，确保 CSS 动画重新播放
+		var tuchuEl = document.querySelector('.tuchu');
+		tuchuEl.classList.remove('view');
+		void tuchuEl.offsetWidth; // 强制浏览器回流
+		tuchuEl.classList.add('view');
+		// 9秒后清理：匹配CSS动画周期（vv 8s + vp 0.5s@8s = 8.5s，留0.5s余量）
+		window.setTimeout(function() {
+			$(".tuchu").removeClass('view');
+			isShowingSign = false;
+			console.log('[IdleAnim] card hidden, queue=' + new_sign_arr.length);
+			// 动画结束后：优先处理真实签到队列
+			if (new_sign_arr.length > 0) {
+				setTimeout(function() { shownewsign(); }, 500);
+			} else if (isIdleAnimation && idleEnabled && personArray.length > 0) {
+				// 空闲动画结束且仍无新签到，继续调度
+				scheduleIdleAnimation();
+			}
+			isIdleAnimation = false;
+		}, 9000);
 	}
-	
+
+	/**
+	 * 清除空闲计时器
+	 */
+	function clearIdleTimer() {
+		if (idleTimer) {
+			clearTimeout(idleTimer);
+			idleTimer = null;
+		}
+	}
+
+	/**
+	 * 调度空闲动画（延迟触发）
+	 */
+	function scheduleIdleAnimation() {
+		if (idleTimer || isShowingSign || !idleEnabled) {
+			console.log('[IdleAnim] schedule skip: timer=' + !!idleTimer + ' showing=' + isShowingSign + ' enabled=' + idleEnabled);
+			return;
+		}
+		console.log('[IdleAnim] scheduled, delay=' + idleDelay + 'ms');
+		idleTimer = setTimeout(function() {
+			idleTimer = null;
+			playIdleAnimation();
+		}, idleDelay);
+	}
+
+	/**
+	 * 播放空闲动画：从已签到用户中随机抽取
+	 */
+	function playIdleAnimation() {
+		console.log('[IdleAnim] playIdleAnimation: persons=' + personArray.length + ' queue=' + new_sign_arr.length + ' showing=' + isShowingSign);
+		// 再次检查：若有真实签到到达，优先处理
+		if (new_sign_arr.length > 0) {
+			shownewsign();
+			return;
+		}
+		if (personArray.length === 0 || isShowingSign) return;
+
+		// 随机抽取用户（避免与上次相同）
+		var idx;
+		if (personArray.length === 1) {
+			idx = 0;
+		} else {
+			do {
+				idx = Math.floor(Math.random() * personArray.length);
+			} while (idx === lastIdleUserIndex);
+		}
+		lastIdleUserIndex = idx;
+
+		var person = personArray[idx];
+		isIdleAnimation = true;
+		showSignCard(person);
+	}
+
+	/**
+	 * 主签到通知调度（改造后）
+	 */
+	function shownewsign(){
+		if (isShowingSign) return false;
+
+		if (new_sign_arr.length > 0) {
+			// 有真实签到：取消空闲计时，播放真实签到动画
+			clearIdleTimer();
+			isIdleAnimation = false;
+			var person = new_sign_arr.shift();
+			showSignCard(person);
+		} else if (idleEnabled && personArray.length > 0) {
+			// 队列为空且有已签到用户：调度空闲动画
+			scheduleIdleAnimation();
+		}
+	}
+
 	$(function(){
+		console.log('[IdleAnim] init: idleEnabled=' + idleEnabled + ' idleDelay=' + idleDelay + ' personArray.length=' + personArray.length);
 		setInterval(function(){shownewsign()},5000);
+		// 立即启动空闲调度，不等第一次 setInterval
+		if (idleEnabled && personArray.length > 0) {
+			scheduleIdleAnimation();
+		}
 	})
 	
     S.Drawing.init('.canvas');
@@ -175,7 +281,9 @@ function get_new_sign_list(){
   				if (result.mid){
   					$('#max_id').val(result.mid);
   				}  	
-				if (result.omid < result.mid) { 
+				if (result.omid < result.mid) {
+						// 真实签到到达：取消空闲计时（不中断正在播放的空闲动画）
+						clearIdleTimer();
 						new_sign_arr.push(result);
 						personArray.push(result);
 						resetTable();

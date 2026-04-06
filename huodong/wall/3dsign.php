@@ -13,10 +13,28 @@ $qd_maxid=0;
 $load->model("Flag_model");
 $flag=$load->flag_model->getRecentSignedUsers(30);
 
+// 从 screen_config 中获取嘉宾显示方式配置
+$sign_show_style = isset($scfg['sign_show_style']) ? $scfg['sign_show_style'] : 1;
+$use_wx_avatar = isset($scfg['use_wx_avatar']) ? intval($scfg['use_wx_avatar']) : 1;
+
+// 如果新配置源不可用，回退到旧 weixin_system_config
+if (empty($scfg) || !isset($scfg['sign_show_style'])) {
+    try {
+        $load->model('System_Config_model');
+        $oldShowtype = $load->system_config_model->get('signnameshowstyle');
+        if (isset($oldShowtype['configvalue'])) {
+            $sign_show_style = $oldShowtype['configvalue'];
+        }
+    } catch (Exception $e) {
+        // 忽略错误，使用默认值 1
+    }
+}
+
 $flag=array_reverse($flag);
 include("../wall/biaoqing.php");
 foreach($flag as $k=>$v){
-	$v['nickname']=pack('H*', $v['nickname']);
+	$v['nickname'] = processNickname($v, $sign_show_style);
+	$v['avatar'] = processAvatar($v, $use_wx_avatar);
 	$v['content']=pack('H*', $v['content']);
 	$v= emoji_unified_to_html(emoji_softbank_to_unified($v));
 	$v['content']=biaoqing($v['content']);
@@ -27,7 +45,8 @@ $qd_nums=count($flag);
 $qd_maxid=$qd_nums>0?$flag[$qd_nums-1]['signorder']:0;
 
 // ---- 从新系统数据库读取3D配置和效果列表 ----
-$threedimensional = array('avatarnum'=>30, 'avatarsize'=>7, 'avatargap'=>15, 'datastr'=>'#sphere|#torus|#grid|#helix|#cylinder|#gene', 'play_mode'=>'sequential');
+$threedimensional = array('avatarnum'=>30, 'avatarsize'=>7, 'avatargap'=>15, 'datastr'=>'#sphere|#torus|#grid|#helix|#cylinder|#gene', 'play_mode'=>'sequential', 'idle_enabled'=>true, 'idle_delay'=>5000);
+$scfg = array();
 try {
     $newDbConfig = @include(dirname(__FILE__) . '/../../config.php');
     if ($newDbConfig && !empty($newDbConfig['hostname'])) {
@@ -54,6 +73,8 @@ try {
                 $threedimensional['avatarsize'] = isset($scfg['threed_avatarsize']) ? intval($scfg['threed_avatarsize']) : 7;
                 $threedimensional['avatargap']  = isset($scfg['threed_avatargap'])  ? intval($scfg['threed_avatargap'])  : 15;
                 $threedimensional['play_mode']  = isset($scfg['threed_play_mode'])  ? $scfg['threed_play_mode'] : 'sequential';
+                $threedimensional['idle_enabled'] = isset($scfg['threed_idle_enabled']) ? (bool)$scfg['threed_idle_enabled'] : true;
+                $threedimensional['idle_delay']   = isset($scfg['threed_idle_delay'])   ? intval($scfg['threed_idle_delay']) : 5000;
                 // 优先使用 screen_config 中已同步的 datastr
                 if (!empty($scfg['threed_datastr'])) {
                     $threedimensional['datastr'] = $scfg['threed_datastr'];
@@ -94,6 +115,8 @@ $smarty->assign('personJson',json_encode($flag));
 $smarty->assign('erweima',$weixin_config['erweima']);
 $smarty->assign('threedimensional_config',$threedimensional);
 $smarty->assign('threedimensional_play_mode',$threedimensional['play_mode']);
+$smarty->assign('threed_idle_enabled', !empty($threedimensional['idle_enabled']) ? 'true' : 'false');
+$smarty->assign('threed_idle_delay', isset($threedimensional['idle_delay']) ? $threedimensional['idle_delay'] : 5000);
 $smarty->assign('title',"");
 $smarty->display('themes/'.$style.'/header.html');
 $smarty->display('themes/'.$style.'/3dsign.html');

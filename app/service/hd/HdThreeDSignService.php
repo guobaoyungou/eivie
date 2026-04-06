@@ -44,6 +44,8 @@ class HdThreeDSignService
                     'avatarsize' => (int)($screenConfig['threed_avatarsize'] ?? 7),
                     'avatargap'  => (int)($screenConfig['threed_avatargap'] ?? 15),
                     'play_mode'  => $screenConfig['threed_play_mode'] ?? 'sequential',
+                    'idle_enabled' => (bool)($screenConfig['threed_idle_enabled'] ?? true),
+                    'idle_delay'   => (int)($screenConfig['threed_idle_delay'] ?? 5000),
                 ],
                 'effects' => $effects,
             ],
@@ -73,6 +75,12 @@ class HdThreeDSignService
         }
         if (isset($data['play_mode']) && in_array($data['play_mode'], ['sequential', 'random'])) {
             $screenConfig['threed_play_mode'] = $data['play_mode'];
+        }
+        if (isset($data['idle_enabled'])) {
+            $screenConfig['threed_idle_enabled'] = (bool)$data['idle_enabled'];
+        }
+        if (isset($data['idle_delay'])) {
+            $screenConfig['threed_idle_delay'] = max(3000, min(30000, (int)$data['idle_delay']));
         }
 
         $activity->screen_config = $screenConfig;

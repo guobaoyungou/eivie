@@ -551,6 +551,192 @@
             });
         },
 
+        // ========== 手机端抽奖 - 抽奖设置 ==========
+        renderChoujiangSettings: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+            var html = '<div class="content-card"><div class="card-title">手机端抽奖设置</div>' +
+                '<form class="layui-form" lay-filter="choujiangSettings">' +
+                '<div class="layui-form-item"><label class="layui-form-label">功能开关</label><div class="layui-input-block"><input type="checkbox" name="cj_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">抽奖次数</label><div class="layui-input-inline"><input type="number" name="cj_times" class="layui-input" value="1" min="1"></div><div class="layui-form-mid">次/人</div></div>' +
+                '<div class="layui-form-item"><div class="layui-input-block"><button type="button" class="btn btn-primary" onclick="LotteryPage._saveChoujiangSettings()"><i class="fas fa-save"></i> 保存</button></div></div>' +
+                '</form></div>';
+            Layout.setContent(html);
+            layui.form.render(null, 'choujiangSettings');
+
+            Api.getChoujiangConfig(actId).then(function(res) {
+                var d = res.data || {};
+                if (d.enabled !== undefined) {
+                    var el = document.querySelector('[name="cj_enabled"]');
+                    if (el) { el.checked = !!d.enabled; layui.form.render('checkbox', 'choujiangSettings'); }
+                }
+                if (d.times) document.querySelector('[name="cj_times"]').value = d.times;
+            }).catch(function() {});
+        },
+
+        _saveChoujiangSettings: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return;
+            var data = {
+                enabled: document.querySelector('[name="cj_enabled"]').checked ? 1 : 0,
+                times: parseInt(document.querySelector('[name="cj_times"]').value) || 1
+            };
+            Api.updateChoujiangConfig(actId, data).then(function() {
+                layui.layer.msg('保存成功', { icon: 1 });
+            });
+        },
+
+        // ========== 手机端抽奖 - 奖品设置 ==========
+        renderChoujiangPrizes: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title"><span>手机端抽奖奖品设置</span><button class="btn btn-primary btn-sm" onclick="LotteryPage._addChoujiangPrize()"><i class="fas fa-plus"></i> 添加奖品</button></div>' +
+                '<table id="choujiang-prizes-table" lay-filter="choujiangPrizesTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        _addChoujiangPrize: function() {
+            var actId = App.getCurrentActivityId();
+            layui.layer.open({
+                type: 1, title: '添加奖品', area: ['500px', '480px'],
+                content: '<div style="padding:20px;"><form class="layui-form" lay-filter="addChoujiangPrize">' +
+                    '<div class="layui-form-item"><label class="layui-form-label">奖品名称</label><div class="layui-input-block"><input type="text" name="prizename" class="layui-input" required></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">奖品级别</label><div class="layui-input-block"><select name="type"><option value="1">一等奖</option><option value="2">二等奖</option><option value="3">三等奖</option><option value="4">四等奖</option><option value="5">五等奖</option></select></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">数量</label><div class="layui-input-inline"><input type="number" name="num" class="layui-input" value="1" min="1"></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">奖品图片</label><div class="layui-input-block"><input type="text" name="imageid" class="layui-input" placeholder="图片URL"></div></div>' +
+                    '<div class="layui-form-item"><div class="layui-input-block"><button type="button" class="btn btn-primary" id="btn-save-choujiang-prize"><i class="fas fa-save"></i> 保存</button></div></div>' +
+                    '</form></div>',
+                success: function(layero) {
+                    layui.form.render(null, 'addChoujiangPrize');
+                    layero.find('#btn-save-choujiang-prize').on('click', function() {
+                        var data = {
+                            prizename: layero.find('[name="prizename"]').val(),
+                            type: layero.find('[name="type"]').val(),
+                            num: parseInt(layero.find('[name="num"]').val()) || 1,
+                            imageid: layero.find('[name="imageid"]').val()
+                        };
+                        if (!data.prizename) return layui.layer.msg('请输入奖品名称', { icon: 2 });
+                        Api.createLotteryPrize(actId, data).then(function() {
+                            layui.layer.closeAll();
+                            layui.table.reload('choujiang-prizes-table');
+                            layui.layer.msg('添加成功', { icon: 1 });
+                        });
+                    });
+                }
+            });
+        },
+
+        // ========== 手机端抽奖 - 中奖名单 ==========
+        renderChoujiangWinners: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>手机端抽奖中奖名单</span>' +
+                '<div><button class="btn btn-primary btn-sm" onclick="Api.exportLottery(' + actId + ')"><i class="fas fa-download"></i> 导出</button>' +
+                '<button class="btn btn-danger btn-sm" style="margin-left:8px;" onclick="LotteryPage._clearChoujiangWinners()"><i class="fas fa-trash"></i> 清空</button></div></div>' +
+                '<table id="choujiang-winners-table" lay-filter="choujiangWinnersTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        _clearChoujiangWinners: function() {
+            var actId = App.getCurrentActivityId();
+            layui.layer.confirm('确定清空所有中奖记录？此操作不可恢复！', { icon: 3 }, function(idx) {
+                Api.clearLotteryWinners(actId).then(function() {
+                    layui.layer.close(idx);
+                    layui.table.reload('choujiang-winners-table');
+                    layui.layer.msg('已清空', { icon: 1 });
+                });
+            });
+        },
+
+        // ========== 手机端抽奖 - 内定名单 ==========
+        renderChoujiangDesignated: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>手机端抽奖内定名单</span>' +
+                '<button class="btn btn-primary btn-sm" onclick="LotteryPage._addChoujiangDesignated()"><i class="fas fa-plus"></i> 添加内定</button></div>' +
+                '<table id="choujiang-designated-table" lay-filter="choujiangDesignatedTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        _addChoujiangDesignated: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return;
+
+            // 先加载奖品列表用于下拉
+            Api.getLotteryPrizes(actId).then(function(res) {
+                var prizes = (res.data && res.data.list) ? res.data.list : [];
+                var prizeOpts = '<option value="0">不绑定奖品</option>';
+                prizes.forEach(function(p) {
+                    prizeOpts += '<option value="' + p.id + '">' + (p.prizename || p.name || '未命名') + '</option>';
+                });
+
+                layui.layer.open({
+                    type: 1, title: '添加内定', area: ['520px', '460px'],
+                    content: '<div style="padding:20px;"><form class="layui-form" lay-filter="addChoujiangDesignated">' +
+                        '<div class="layui-form-item"><label class="layui-form-label">搜索用户</label><div class="layui-input-block">' +
+                        '<input type="text" id="choujiang-designated-search" class="layui-input" placeholder="输入昵称/手机号搜索">' +
+                        '<div id="choujiang-designated-user-list" style="max-height:120px;overflow-y:auto;border:1px solid #e6e6e6;margin-top:5px;display:none;"></div>' +
+                        '<input type="hidden" id="choujiang-designated-user-id" value="0">' +
+                        '</div></div>' +
+                        '<div class="layui-form-item"><label class="layui-form-label">内定类型</label><div class="layui-input-block">' +
+                        '<select name="designated"><option value="2">必中</option><option value="3">不中</option></select></div></div>' +
+                        '<div class="layui-form-item"><label class="layui-form-label">关联奖品</label><div class="layui-input-block">' +
+                        '<select name="prize_id">' + prizeOpts + '</select></div></div>' +
+                        '<div class="layui-form-item"><div class="layui-input-block"><button type="button" class="btn btn-primary" id="btn-save-choujiang-designated"><i class="fas fa-save"></i> 保存</button></div></div>' +
+                        '</form></div>',
+                    success: function(layero) {
+                        layui.form.render(null, 'addChoujiangDesignated');
+                        var searchTimer = null;
+                        layero.find('#choujiang-designated-search').on('input', function() {
+                            var kw = this.value.trim();
+                            clearTimeout(searchTimer);
+                            if (!kw) { layero.find('#choujiang-designated-user-list').hide(); return; }
+                            searchTimer = setTimeout(function() {
+                                Api.searchLotteryUsers(actId, kw).then(function(res) {
+                                    var users = (res.data && res.data.list) ? res.data.list : [];
+                                    var listEl = layero.find('#choujiang-designated-user-list');
+                                    if (users.length === 0) { listEl.html('<div style="padding:8px;color:#999;">未找到用户</div>').show(); return; }
+                                    var h = '';
+                                    users.forEach(function(u) {
+                                        h += '<div class="choujiang-designated-user-item" data-id="' + u.id + '" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #f0f0f0;">' +
+                                            '<strong>' + (u.nickname || u.signname || '-') + '</strong> <span style="color:#999;">' + (u.phone || '') + '</span></div>';
+                                    });
+                                    listEl.html(h).show();
+                                    listEl.find('.choujiang-designated-user-item').on('click', function() {
+                                        var uid = $(this).data('id');
+                                        var name = $(this).find('strong').text();
+                                        layero.find('#choujiang-designated-user-id').val(uid);
+                                        layero.find('#choujiang-designated-search').val(name);
+                                        listEl.hide();
+                                    });
+                                });
+                            }, 300);
+                        });
+
+                        layero.find('#btn-save-choujiang-designated').on('click', function() {
+                            var userId = parseInt(layero.find('#choujiang-designated-user-id').val()) || 0;
+                            if (!userId) return layui.layer.msg('请搜索并选择用户', { icon: 2 });
+                            var data = {
+                                user_id: userId,
+                                designated: parseInt(layero.find('[name="designated"]').val()),
+                                prize_id: parseInt(layero.find('[name="prize_id"]').val()) || 0
+                            };
+                            Api.addLotteryDesignated(actId, data).then(function() {
+                                layui.layer.closeAll();
+                                layui.table.reload('choujiang-designated-table');
+                                layui.layer.msg('内定设置成功', { icon: 1 });
+                            });
+                        });
+                    }
+                });
+            });
+        },
+
         // ========== 导入抽奖 ==========
         renderImport: function() {
             var actId = App.getCurrentActivityId();
@@ -696,6 +882,684 @@
             Api.updateLuckyNumberConfig(actId, data).then(function() {
                 layui.layer.msg('保存成功', { icon: 1 });
             });
+        },
+
+        // ========== 幸运号码 - 幸运号码设置 ==========
+        renderLuckyNumberSettings: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title">幸运号码设置</div>' +
+                '<form class="layui-form" lay-filter="luckyNumberSettings" style="padding:20px;">' +
+                '<div class="layui-form-item"><label class="layui-form-label">功能开关</label><div class="layui-input-block"><input type="checkbox" name="ln_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">号码位数</label><div class="layui-input-inline"><input type="number" name="ln_digit" class="layui-input" value="3" min="1" max="6"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">最小值</label><div class="layui-input-inline"><input type="number" name="ln_min" class="layui-input" value="0"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">最大值</label><div class="layui-input-inline"><input type="number" name="ln_max" class="layui-input" value="999"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">奖品名称</label><div class="layui-input-block"><input type="text" name="ln_prize_name" class="layui-input" placeholder="幸运奖品名称"></div></div>' +
+                '<div class="layui-form-item"><div class="layui-input-block"><button type="button" class="btn btn-primary" onclick="LotteryPage._saveLuckyNumberSettings()"><i class="fas fa-save"></i> 保存配置</button></div></div>' +
+                '</form></div>';
+            Layout.setContent(html);
+            layui.form.render(null, 'luckyNumberSettings');
+
+            // 加载配置
+            Api.getLuckyNumberConfig(actId).then(function(res) {
+                var d = res.data || {};
+                var el = document.querySelector('[name="ln_enabled"]');
+                if (el) { el.checked = !!d.enabled; layui.form.render('checkbox', 'luckyNumberSettings'); }
+                if (d.digit !== undefined) document.querySelector('[name="ln_digit"]').value = d.digit;
+                if (d.min !== undefined) document.querySelector('[name="ln_min"]').value = d.min;
+                if (d.max !== undefined) document.querySelector('[name="ln_max"]').value = d.max;
+                if (d.prize_name) document.querySelector('[name="ln_prize_name"]').value = d.prize_name;
+            }).catch(function() {});
+        },
+
+        _saveLuckyNumberSettings: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return;
+            var data = {
+                enabled: document.querySelector('[name="ln_enabled"]').checked ? 1 : 0,
+                digit: parseInt(document.querySelector('[name="ln_digit"]').value) || 3,
+                min: parseInt(document.querySelector('[name="ln_min"]').value) || 0,
+                max: parseInt(document.querySelector('[name="ln_max"]').value) || 999,
+                prize_name: document.querySelector('[name="ln_prize_name"]').value
+            };
+            Api.updateLuckyNumberConfig(actId, data).then(function() {
+                layui.layer.msg('保存成功', { icon: 1 });
+            });
+        },
+
+        // ========== 幸运号码 - 中奖号码 ==========
+        renderLuckyNumberWinners: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>中奖号码</span>' +
+                '<div><button class="btn btn-primary btn-sm" onclick="Api.exportLottery(' + actId + ')"><i class="fas fa-download"></i> 导出</button>' +
+                '<button class="btn btn-danger btn-sm" style="margin-left:8px;" onclick="LotteryPage._clearLuckyNumberWinners()"><i class="fas fa-trash"></i> 清空</button></div></div>' +
+                '<table id="lucky-number-winners-table" lay-filter="luckyNumberWinnersTable"></table></div>';
+            Layout.setContent(html);
+
+            // 加载中奖号码表格
+            layui.table.render({
+                elem: '#lucky-number-winners-table',
+                url: '/api/hd/lottery/' + actId + '/lucky-number/records',
+                headers: { 'Hd-Token': Api.getToken() },
+                parseData: function(res) {
+                    var list = res.data ? (res.data.list || res.data) : [];
+                    return { code: 0, msg: '', count: res.data ? (res.data.count || list.length) : 0, data: list };
+                },
+                cols: [[
+                    { field: 'id', title: 'ID', width: 70 },
+                    { field: 'nickname', title: '昵称', width: 140 },
+                    { field: 'verify_code', title: '幸运号码', width: 120 },
+                    { field: 'status', title: '状态', width: 100, templet: function(d) {
+                        return d.status == 3 ? '<span style="color:#43A047">已发奖</span>' : '<span style="color:#FF9800">未发奖</span>';
+                    }},
+                    { field: 'win_time', title: '中奖时间', width: 160, templet: function(d) {
+                        if (!d.win_time) return '-';
+                        var t = new Date(d.win_time * 1000);
+                        var pad = function(n) { return n < 10 ? '0' + n : n; };
+                        return t.getFullYear() + '-' + pad(t.getMonth()+1) + '-' + pad(t.getDate()) + ' ' + pad(t.getHours()) + ':' + pad(t.getMinutes());
+                    }}
+                ]],
+                page: true,
+                limit: 50,
+                text: { none: '暂无中奖号码记录' }
+            });
+        },
+
+        _clearLuckyNumberWinners: function() {
+            var actId = App.getCurrentActivityId();
+            layui.layer.confirm('确定清空所有中奖号码记录？此操作不可恢复！', { icon: 3 }, function(idx) {
+                Api.clearLotteryWinners(actId).then(function() {
+                    layui.layer.close(idx);
+                    layui.table.reload('lucky-number-winners-table');
+                    layui.layer.msg('已清空', { icon: 1 });
+                });
+            });
+        },
+
+        // ========== 幸运号码 - 内定号码 ==========
+        renderLuckyNumberDesignated: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>内定号码</span>' +
+                '<button class="btn btn-primary btn-sm" onclick="LotteryPage._addLuckyNumberDesignated()"><i class="fas fa-plus"></i> 添加内定</button></div>' +
+                '<table id="lucky-number-designated-table" lay-filter="luckyNumberDesignatedTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        _addLuckyNumberDesignated: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return;
+
+            layui.layer.open({
+                type: 1, title: '添加内定号码', area: ['520px', '400px'],
+                content: '<div style="padding:20px;"><form class="layui-form" lay-filter="addLuckyNumberDesignated">' +
+                    '<div class="layui-form-item"><label class="layui-form-label">搜索用户</label><div class="layui-input-block">' +
+                    '<input type="text" id="lucky-number-designated-search" class="layui-input" placeholder="输入昵称/手机号搜索">' +
+                    '<div id="lucky-number-designated-user-list" style="max-height:120px;overflow-y:auto;border:1px solid #e6e6e6;margin-top:5px;display:none;"></div>' +
+                    '<input type="hidden" id="lucky-number-designated-user-id" value="0">' +
+                    '</div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">内定号码</label><div class="layui-input-block">' +
+                    '<input type="text" name="designated_number" class="layui-input" placeholder="请输入内定号码" required></div></div>' +
+                    '<div class="layui-form-item"><div class="layui-input-block"><button type="button" class="btn btn-primary" id="btn-save-lucky-number-designated"><i class="fas fa-save"></i> 保存</button></div></div>' +
+                    '</form></div>',
+                success: function(layero) {
+                    layui.form.render(null, 'addLuckyNumberDesignated');
+                    var searchTimer = null;
+                    layero.find('#lucky-number-designated-search').on('input', function() {
+                        var kw = this.value.trim();
+                        clearTimeout(searchTimer);
+                        if (!kw) { layero.find('#lucky-number-designated-user-list').hide(); return; }
+                        searchTimer = setTimeout(function() {
+                            Api.searchLotteryUsers(actId, kw).then(function(res) {
+                                var users = (res.data && res.data.list) ? res.data.list : [];
+                                var listEl = layero.find('#lucky-number-designated-user-list');
+                                if (users.length === 0) { listEl.html('<div style="padding:8px;color:#999;">未找到用户</div>').show(); return; }
+                                var h = '';
+                                users.forEach(function(u) {
+                                    h += '<div class="lucky-number-designated-user-item" data-id="' + u.id + '" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #f0f0f0;">' +
+                                        '<strong>' + (u.nickname || u.signname || '-') + '</strong> <span style="color:#999;">' + (u.phone || '') + '</span></div>';
+                                });
+                                listEl.html(h).show();
+                                listEl.find('.lucky-number-designated-user-item').on('click', function() {
+                                    var uid = $(this).data('id');
+                                    var name = $(this).find('strong').text();
+                                    layero.find('#lucky-number-designated-user-id').val(uid);
+                                    layero.find('#lucky-number-designated-search').val(name);
+                                    listEl.hide();
+                                });
+                            });
+                        }, 300);
+                    });
+
+                    layero.find('#btn-save-lucky-number-designated').on('click', function() {
+                        var userId = parseInt(layero.find('#lucky-number-designated-user-id').val()) || 0;
+                        var designatedNumber = layero.find('[name="designated_number"]').val().trim();
+                        if (!userId) return layui.layer.msg('请搜索并选择用户', { icon: 2 });
+                        if (!designatedNumber) return layui.layer.msg('请输入内定号码', { icon: 2 });
+                        var data = {
+                            user_id: userId,
+                            designated_number: designatedNumber
+                        };
+                        Api.addLotteryDesignated(actId, data).then(function() {
+                            layui.layer.closeAll();
+                            layui.table.reload('lucky-number-designated-table');
+                            layui.layer.msg('内定设置成功', { icon: 1 });
+                        });
+                    });
+                }
+            });
+        },
+
+        // ========== 幸运手机号 - 奖品设置 ==========
+        renderLuckyPhonePrizes: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title"><span>幸运手机号奖品设置</span><button class="btn btn-primary btn-sm" onclick="LotteryPage._addLuckyPhonePrize()"><i class="fas fa-plus"></i> 添加奖品</button></div>' +
+                '<table id="lucky-phone-prizes-table" lay-filter="luckyPhonePrizesTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        _addLuckyPhonePrize: function() {
+            var actId = App.getCurrentActivityId();
+            layui.layer.open({
+                type: 1, title: '添加奖品', area: ['500px', '480px'],
+                content: '<div style="padding:20px;"><form class="layui-form" lay-filter="addLuckyPhonePrize">' +
+                    '<div class="layui-form-item"><label class="layui-form-label">奖品名称</label><div class="layui-input-block"><input type="text" name="prizename" class="layui-input" required></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">奖品级别</label><div class="layui-input-block"><select name="type"><option value="1">一等奖</option><option value="2">二等奖</option><option value="3">三等奖</option><option value="4">四等奖</option><option value="5">五等奖</option></select></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">数量</label><div class="layui-input-inline"><input type="number" name="num" class="layui-input" value="1" min="1"></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">奖品图片</label><div class="layui-input-block"><input type="text" name="imageid" class="layui-input" placeholder="图片URL"></div></div>' +
+                    '<div class="layui-form-item"><div class="layui-input-block"><button type="button" class="btn btn-primary" id="btn-save-lucky-phone-prize"><i class="fas fa-save"></i> 保存</button></div></div>' +
+                    '</form></div>',
+                success: function(layero) {
+                    layui.form.render(null, 'addLuckyPhonePrize');
+                    layero.find('#btn-save-lucky-phone-prize').on('click', function() {
+                        var data = {
+                            prizename: layero.find('[name="prizename"]').val(),
+                            type: layero.find('[name="type"]').val(),
+                            num: parseInt(layero.find('[name="num"]').val()) || 1,
+                            imageid: layero.find('[name="imageid"]').val()
+                        };
+                        if (!data.prizename) return layui.layer.msg('请输入奖品名称', { icon: 2 });
+                        Api.createLotteryPrize(actId, data).then(function() {
+                            layui.layer.closeAll();
+                            layui.table.reload('lucky-phone-prizes-table');
+                            layui.layer.msg('添加成功', { icon: 1 });
+                        });
+                    });
+                }
+            });
+        },
+
+        // ========== 幸运手机号 - 中奖名单 ==========
+        renderLuckyPhoneWinners: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>幸运手机号中奖名单</span>' +
+                '<div><button class="btn btn-primary btn-sm" onclick="Api.exportLottery(' + actId + ')"><i class="fas fa-download"></i> 导出</button>' +
+                '<button class="btn btn-danger btn-sm" style="margin-left:8px;" onclick="LotteryPage._clearLuckyPhoneWinners()"><i class="fas fa-trash"></i> 清空</button></div></div>' +
+                '<table id="lucky-phone-winners-table" lay-filter="luckyPhoneWinnersTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        _clearLuckyPhoneWinners: function() {
+            var actId = App.getCurrentActivityId();
+            layui.layer.confirm('确定清空所有中奖记录？此操作不可恢复！', { icon: 3 }, function(idx) {
+                Api.clearLotteryWinners(actId).then(function() {
+                    layui.layer.close(idx);
+                    layui.table.reload('lucky-phone-winners-table');
+                    layui.layer.msg('已清空', { icon: 1 });
+                });
+            });
+        },
+
+        // ========== 幸运手机号 - 内定名单 ==========
+        renderLuckyPhoneDesignated: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>幸运手机号内定名单</span>' +
+                '<button class="btn btn-primary btn-sm" onclick="LotteryPage._addLuckyPhoneDesignated()"><i class="fas fa-plus"></i> 添加内定</button></div>' +
+                '<table id="lucky-phone-designated-table" lay-filter="luckyPhoneDesignatedTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        _addLuckyPhoneDesignated: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return;
+
+            // 先加载奖品列表用于下拉
+            Api.getLotteryPrizes(actId).then(function(res) {
+                var prizes = (res.data && res.data.list) ? res.data.list : [];
+                var prizeOpts = '<option value="0">不绑定奖品</option>';
+                prizes.forEach(function(p) {
+                    prizeOpts += '<option value="' + p.id + '">' + (p.prizename || p.name || '未命名') + '</option>';
+                });
+
+                layui.layer.open({
+                    type: 1, title: '添加内定', area: ['520px', '460px'],
+                    content: '<div style="padding:20px;"><form class="layui-form" lay-filter="addLuckyPhoneDesignated">' +
+                        '<div class="layui-form-item"><label class="layui-form-label">搜索用户</label><div class="layui-input-block">' +
+                        '<input type="text" id="lucky-phone-designated-search" class="layui-input" placeholder="输入昵称/手机号搜索">' +
+                        '<div id="lucky-phone-designated-user-list" style="max-height:120px;overflow-y:auto;border:1px solid #e6e6e6;margin-top:5px;display:none;"></div>' +
+                        '<input type="hidden" id="lucky-phone-designated-user-id" value="0">' +
+                        '</div></div>' +
+                        '<div class="layui-form-item"><label class="layui-form-label">内定类型</label><div class="layui-input-block">' +
+                        '<select name="designated"><option value="2">必中</option><option value="3">不中</option></select></div></div>' +
+                        '<div class="layui-form-item"><label class="layui-form-label">关联奖品</label><div class="layui-input-block">' +
+                        '<select name="prize_id">' + prizeOpts + '</select></div></div>' +
+                        '<div class="layui-form-item"><div class="layui-input-block"><button type="button" class="btn btn-primary" id="btn-save-lucky-phone-designated"><i class="fas fa-save"></i> 保存</button></div></div>' +
+                        '</form></div>',
+                    success: function(layero) {
+                        layui.form.render(null, 'addLuckyPhoneDesignated');
+                        var searchTimer = null;
+                        layero.find('#lucky-phone-designated-search').on('input', function() {
+                            var kw = this.value.trim();
+                            clearTimeout(searchTimer);
+                            if (!kw) { layero.find('#lucky-phone-designated-user-list').hide(); return; }
+                            searchTimer = setTimeout(function() {
+                                Api.searchLotteryUsers(actId, kw).then(function(res) {
+                                    var users = (res.data && res.data.list) ? res.data.list : [];
+                                    var listEl = layero.find('#lucky-phone-designated-user-list');
+                                    if (users.length === 0) { listEl.html('<div style="padding:8px;color:#999;">未找到用户</div>').show(); return; }
+                                    var h = '';
+                                    users.forEach(function(u) {
+                                        h += '<div class="lucky-phone-designated-user-item" data-id="' + u.id + '" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #f0f0f0;">' +
+                                            '<strong>' + (u.nickname || u.signname || '-') + '</strong> <span style="color:#999;">' + (u.phone || '') + '</span></div>';
+                                    });
+                                    listEl.html(h).show();
+                                    listEl.find('.lucky-phone-designated-user-item').on('click', function() {
+                                        var uid = $(this).data('id');
+                                        var name = $(this).find('strong').text();
+                                        layero.find('#lucky-phone-designated-user-id').val(uid);
+                                        layero.find('#lucky-phone-designated-search').val(name);
+                                        listEl.hide();
+                                    });
+                                });
+                            }, 300);
+                        });
+
+                        layero.find('#btn-save-lucky-phone-designated').on('click', function() {
+                            var userId = parseInt(layero.find('#lucky-phone-designated-user-id').val()) || 0;
+                            if (!userId) return layui.layer.msg('请搜索并选择用户', { icon: 2 });
+                            var data = {
+                                user_id: userId,
+                                designated: parseInt(layero.find('[name="designated"]').val()),
+                                prize_id: parseInt(layero.find('[name="prize_id"]').val()) || 0
+                            };
+                            Api.addLotteryDesignated(actId, data).then(function() {
+                                layui.layer.closeAll();
+                                layui.table.reload('lucky-phone-designated-table');
+                                layui.layer.msg('内定设置成功', { icon: 1 });
+                            });
+                        });
+                    }
+                });
+            });
+        },
+
+        // ========== 大屏抽奖 - 抽奖设置 ==========
+        renderScreenSettings: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title">大屏抽奖设置</div>' +
+                '<form class="layui-form" lay-filter="screenSettings">' +
+                '<div class="form-section"><div class="section-title">基本设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">功能开关</label><div class="layui-input-block"><input type="checkbox" name="screen_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">抽奖模式</label><div class="layui-input-block"><select name="screen_mode"><option value="normal">普通模式</option><option value="3d">3D模式</option><option value="egg">砸金蛋</option><option value="box">抽奖箱</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">动画时长</label><div class="layui-input-inline"><input type="number" name="screen_animation_duration" class="layui-input" placeholder="3000" min="1000" max="10000"></div><div class="layui-form-mid">毫秒</div></div>' +
+                '</div>' +
+                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-screen-settings"><i class="fas fa-save"></i> 保存设置</button></div>' +
+                '</form></div>';
+
+            Layout.setContent(html);
+        },
+
+        // ========== 大屏抽奖 - 奖品设置 ==========
+        renderScreenPrizes: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title"><span>大屏抽奖奖品设置</span><button class="btn btn-primary btn-sm" onclick="LotteryPage._addScreenPrize()"><i class="fas fa-plus"></i> 添加奖品</button></div>' +
+                '<table id="screen-prizes-table" lay-filter="screenPrizesTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 大屏抽奖 - 中奖名单 ==========
+        renderScreenWinners: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>大屏抽奖中奖名单</span>' +
+                '<div><button class="btn btn-primary btn-sm" onclick="Api.exportLottery(' + actId + ')"><i class="fas fa-download"></i> 导出</button>' +
+                '<button class="btn btn-danger btn-sm" style="margin-left:8px;" onclick="LotteryPage._clearScreenWinners()"><i class="fas fa-trash"></i> 清空</button></div></div>' +
+                '<table id="screen-winners-table" lay-filter="screenWinnersTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 大屏抽奖 - 内定名单 ==========
+        renderScreenDesignated: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>大屏抽奖内定名单</span>' +
+                '<button class="btn btn-primary btn-sm" onclick="LotteryPage._addScreenDesignated()"><i class="fas fa-plus"></i> 添加内定</button></div>' +
+                '<table id="screen-designated-table" lay-filter="screenDesignatedTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 导入抽奖 - 抽奖设置 ==========
+        renderImportSettings: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title">导入抽奖设置</div>' +
+                '<form class="layui-form" lay-filter="importSettings">' +
+                '<div class="form-section"><div class="section-title">基本设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">功能开关</label><div class="layui-input-block"><input type="checkbox" name="import_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">抽奖模式</label><div class="layui-input-block"><select name="import_mode"><option value="normal">普通模式</option><option value="3d">3D模式</option><option value="egg">砸金蛋</option><option value="box">抽奖箱</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">动画时长</label><div class="layui-input-inline"><input type="number" name="import_animation_duration" class="layui-input" placeholder="3000" min="1000" max="10000"></div><div class="layui-form-mid">毫秒</div></div>' +
+                '</div>' +
+                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-import-settings"><i class="fas fa-save"></i> 保存设置</button></div>' +
+                '</form></div>';
+
+            Layout.setContent(html);
+        },
+
+        // ========== 导入抽奖 - 导入名单 ==========
+        renderImportList: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>导入名单</span>' +
+                '<div><button class="btn btn-primary btn-sm" onclick="LotteryPage._importList()"><i class="fas fa-upload"></i> 导入</button>' +
+                '<button class="btn btn-danger btn-sm" style="margin-left:8px;" onclick="LotteryPage._clearImportList()"><i class="fas fa-trash"></i> 清空</button></div></div>' +
+                '<table id="import-list-table" lay-filter="importListTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 导入抽奖 - 奖品设置 ==========
+        renderImportPrizes: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title"><span>导入抽奖奖品设置</span><button class="btn btn-primary btn-sm" onclick="LotteryPage._addImportPrize()"><i class="fas fa-plus"></i> 添加奖品</button></div>' +
+                '<table id="import-prizes-table" lay-filter="importPrizesTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 导入抽奖 - 中奖名单 ==========
+        renderImportWinners: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>导入抽奖中奖名单</span>' +
+                '<div><button class="btn btn-primary btn-sm" onclick="Api.exportLottery(' + actId + ')"><i class="fas fa-download"></i> 导出</button>' +
+                '<button class="btn btn-danger btn-sm" style="margin-left:8px;" onclick="LotteryPage._clearImportWinners()"><i class="fas fa-trash"></i> 清空</button></div></div>' +
+                '<table id="import-winners-table" lay-filter="importWinnersTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 导入抽奖 - 内定名单 ==========
+        renderImportDesignated: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>导入抽奖内定名单</span>' +
+                '<button class="btn btn-primary btn-sm" onclick="LotteryPage._addImportDesignated()"><i class="fas fa-plus"></i> 添加内定</button></div>' +
+                '<table id="import-designated-table" lay-filter="importDesignatedTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 照片抽奖 - 抽奖设置 ==========
+        renderPhotoSettings: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title">照片抽奖设置</div>' +
+                '<form class="layui-form" lay-filter="photoSettings">' +
+                '<div class="form-section"><div class="section-title">基本设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">功能开关</label><div class="layui-input-block"><input type="checkbox" name="photo_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">展示模式</label><div class="layui-input-block"><select name="photo_mode"><option value="grid">网格模式</option><option value="carousel">轮播模式</option><option value="wall">照片墙</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">照片尺寸</label><div class="layui-input-inline"><input type="number" name="photo_size" class="layui-input" placeholder="150" min="50" max="300"></div><div class="layui-form-mid">像素</div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">动画效果</label><div class="layui-input-block"><select name="photo_animation"><option value="fade">淡入淡出</option><option value="slide">滑动</option><option value="zoom">缩放</option><option value="flip">翻转</option></select></div></div>' +
+                '</div>' +
+                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-photo-settings"><i class="fas fa-save"></i> 保存设置</button></div>' +
+                '</form></div>';
+
+            Layout.setContent(html);
+        },
+
+        // ========== 照片抽奖 - 导入照片 ==========
+        renderPhotoImport: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>导入照片</span>' +
+                '<div><button class="btn btn-primary btn-sm" onclick="LotteryPage._importPhotos()"><i class="fas fa-upload"></i> 批量导入</button>' +
+                '<button class="btn btn-danger btn-sm" style="margin-left:8px;" onclick="LotteryPage._clearPhotos()"><i class="fas fa-trash"></i> 清空</button></div></div>' +
+                '<div class="layui-form-item" style="margin:20px 0;"><label class="layui-form-label">上传照片</label><div class="layui-input-block"><input type="file" name="photo_files" class="layui-input" accept="image/*" multiple></div></div>' +
+                '<table id="photo-import-table" lay-filter="photoImportTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 照片抽奖 - 奖品设置 ==========
+        renderPhotoPrizes: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title"><span>照片抽奖奖品设置</span><button class="btn btn-primary btn-sm" onclick="LotteryPage._addPhotoPrize()"><i class="fas fa-plus"></i> 添加奖品</button></div>' +
+                '<table id="photo-prizes-table" lay-filter="photoPrizesTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 照片抽奖 - 中奖名单 ==========
+        renderPhotoWinners: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>照片抽奖中奖名单</span>' +
+                '<div><button class="btn btn-primary btn-sm" onclick="Api.exportLottery(' + actId + ')"><i class="fas fa-download"></i> 导出</button>' +
+                '<button class="btn btn-danger btn-sm" style="margin-left:8px;" onclick="LotteryPage._clearPhotoWinners()"><i class="fas fa-trash"></i> 清空</button></div></div>' +
+                '<table id="photo-winners-table" lay-filter="photoWinnersTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 照片抽奖 - 内定名单 ==========
+        renderPhotoDesignated: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>照片抽奖内定名单</span>' +
+                '<button class="btn btn-primary btn-sm" onclick="LotteryPage._addPhotoDesignated()"><i class="fas fa-plus"></i> 添加内定</button></div>' +
+                '<table id="photo-designated-table" lay-filter="photoDesignatedTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 弹幕抽奖 - 抽奖设置 ==========
+        renderBarrageSettings: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title">弹幕抽奖设置</div>' +
+                '<form class="layui-form" lay-filter="barrageSettings">' +
+                '<div class="form-section"><div class="section-title">基本设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">功能开关</label><div class="layui-input-block"><input type="checkbox" name="barrage_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">弹幕速度</label><div class="layui-input-block"><select name="barrage_speed"><option value="slow">慢速</option><option value="normal">中速</option><option value="fast">快速</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">弹幕密度</label><div class="layui-input-block"><select name="barrage_density"><option value="sparse">稀疏</option><option value="normal">适中</option><option value="dense">密集</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">颜色模式</label><div class="layui-input-block"><select name="barrage_color"><option value="single">单色</option><option value="multiple">多彩</option><option value="random">随机</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">字体大小</label><div class="layui-input-inline"><input type="number" name="barrage_font_size" class="layui-input" placeholder="24" min="12" max="48"></div><div class="layui-form-mid">像素</div></div>' +
+                '</div>' +
+                '<div class="form-section"><div class="section-title">抽奖设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">参与方式</label><div class="layui-input-block"><select name="barrage_join_type"><option value="all">所有弹幕</option><option value="keyword">含关键词</option><option value="nickname">指定昵称</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">关键词</label><div class="layui-input-block"><input type="text" name="barrage_keyword" class="layui-input" placeholder="输入关键词"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">抽奖模式</label><div class="layui-input-block"><select name="barrage_lottery_mode"><option value="real-time">实时抽奖</option><option value="batch">批量抽奖</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">动画时长</label><div class="layui-input-inline"><input type="number" name="barrage_animation_duration" class="layui-input" placeholder="3000" min="1000" max="10000"></div><div class="layui-form-mid">毫秒</div></div>' +
+                '</div>' +
+                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-barrage-settings"><i class="fas fa-save"></i> 保存设置</button></div>' +
+                '</form></div>';
+
+            Layout.setContent(html);
+        },
+
+        // ========== 弹幕抽奖 - 奖品设置 ==========
+        renderBarragePrizes: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title"><span>弹幕抽奖奖品设置</span><button class="btn btn-primary btn-sm" onclick="LotteryPage._addBarragePrize()"><i class="fas fa-plus"></i> 添加奖品</button></div>' +
+                '<table id="barrage-prizes-table" lay-filter="barragePrizesTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 弹幕抽奖 - 中奖名单 ==========
+        renderBarrageWinners: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>弹幕抽奖中奖名单</span>' +
+                '<div><button class="btn btn-primary btn-sm" onclick="Api.exportLottery(' + actId + ')"><i class="fas fa-download"></i> 导出</button>' +
+                '<button class="btn btn-danger btn-sm" style="margin-left:8px;" onclick="LotteryPage._clearBarrageWinners()"><i class="fas fa-trash"></i> 清空</button></div></div>' +
+                '<table id="barrage-winners-table" lay-filter="barrageWinnersTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 抽奖箱 - 抽奖设置 ==========
+        renderBoxSettings: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title">抽奖箱设置</div>' +
+                '<form class="layui-form" lay-filter="boxSettings">' +
+                '<div class="form-section"><div class="section-title">基本设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">功能开关</label><div class="layui-input-block"><input type="checkbox" name="box_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">抽奖箱样式</label><div class="layui-input-block"><select name="box_style"><option value="classic">经典抽奖箱</option><option value="modern">现代抽奖箱</option><option value="digital">数字抽奖箱</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">动画效果</label><div class="layui-input-block"><select name="box_animation"><option value="shake">摇晃</option><option value="rotate">旋转</option><option value="sparkle">闪烁</option><option value="confetti">彩纸</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">滚动速度</label><div class="layui-input-block"><select name="box_scroll_speed"><option value="slow">慢速</option><option value="normal">中速</option><option value="fast">快速</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">滚动时长</label><div class="layui-input-inline"><input type="number" name="box_scroll_duration" class="layui-input" placeholder="3000" min="1000" max="10000"></div><div class="layui-form-mid">毫秒</div></div>' +
+                '</div>' +
+                '<div class="form-section"><div class="section-title">奖品设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">显示方式</label><div class="layui-input-block"><select name="box_prize_display"><option value="name">仅显示名称</option><option value="full">显示详情</option><option value="image">显示图片</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">排序方式</label><div class="layui-input-block"><select name="box_prize_sort"><option value="default">默认排序</option><option value="random">随机排序</option><option value="value">价值排序</option></select></div></div>' +
+                '</div>' +
+                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-box-settings"><i class="fas fa-save"></i> 保存设置</button></div>' +
+                '</form></div>';
+
+            Layout.setContent(html);
+        },
+
+        // ========== 抽奖箱 - 奖品设置 ==========
+        renderBoxPrizes: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title"><span>抽奖箱奖品设置</span><button class="btn btn-primary btn-sm" onclick="LotteryPage._addBoxPrize()"><i class="fas fa-plus"></i> 添加奖品</button></div>' +
+                '<table id="box-prizes-table" lay-filter="boxPrizesTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 抽奖箱 - 中奖名单 ==========
+        renderBoxWinners: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>抽奖箱中奖名单</span>' +
+                '<div><button class="btn btn-primary btn-sm" onclick="Api.exportLottery(' + actId + ')"><i class="fas fa-download"></i> 导出</button>' +
+                '<button class="btn btn-danger btn-sm" style="margin-left:8px;" onclick="LotteryPage._clearBoxWinners()"><i class="fas fa-trash"></i> 清空</button></div></div>' +
+                '<table id="box-winners-table" lay-filter="boxWinnersTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 抽奖箱 - 内定名单 ==========
+        renderBoxDesignated: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>抽奖箱内定名单</span>' +
+                '<button class="btn btn-primary btn-sm" onclick="LotteryPage._addBoxDesignated()"><i class="fas fa-plus"></i> 添加内定</button></div>' +
+                '<table id="box-designated-table" lay-filter="boxDesignatedTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 砸金蛋 - 抽奖设置 ==========
+        renderEggSettings: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title">砸金蛋设置</div>' +
+                '<form class="layui-form" lay-filter="eggSettings">' +
+                '<div class="form-section"><div class="section-title">基本设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">功能开关</label><div class="layui-input-block"><input type="checkbox" name="egg_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">金蛋数量</label><div class="layui-input-inline"><input type="number" name="egg_count" class="layui-input" placeholder="6" min="1" max="20"></div><div class="layui-form-mid">个</div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">金蛋样式</label><div class="layui-input-block"><select name="egg_style"><option value="classic">经典金蛋</option><option value="modern">现代金蛋</option><option value="colorful">彩色金蛋</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">砸蛋动画</label><div class="layui-input-block"><select name="egg_animation"><option value="hammer">锤子砸蛋</option><option value="click">点击砸蛋</option><option value="shake">摇晃砸蛋</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">动画时长</label><div class="layui-input-inline"><input type="number" name="egg_animation_duration" class="layui-input" placeholder="2000" min="500" max="5000"></div><div class="layui-form-mid">毫秒</div></div>' +
+                '</div>' +
+                '<div class="form-section"><div class="section-title">音效设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">砸蛋音效</label><div class="layui-input-block"><input type="checkbox" name="egg_sound" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">中奖音效</label><div class="layui-input-block"><input type="checkbox" name="egg_win_sound" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
+                '</div>' +
+                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-egg-settings"><i class="fas fa-save"></i> 保存设置</button></div>' +
+                '</form></div>';
+
+            Layout.setContent(html);
+        },
+
+        // ========== 砸金蛋 - 奖品设置 ==========
+        renderEggPrizes: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title"><span>砸金蛋奖品设置</span><button class="btn btn-primary btn-sm" onclick="LotteryPage._addEggPrize()"><i class="fas fa-plus"></i> 添加奖品</button></div>' +
+                '<table id="egg-prizes-table" lay-filter="eggPrizesTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 砸金蛋 - 中奖名单 ==========
+        renderEggWinners: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>砸金蛋中奖名单</span>' +
+                '<div><button class="btn btn-primary btn-sm" onclick="Api.exportLottery(' + actId + ')"><i class="fas fa-download"></i> 导出</button>' +
+                '<button class="btn btn-danger btn-sm" style="margin-left:8px;" onclick="LotteryPage._clearEggWinners()"><i class="fas fa-trash"></i> 清空</button></div></div>' +
+                '<table id="egg-winners-table" lay-filter="eggWinnersTable"></table></div>';
+            Layout.setContent(html);
+        },
+
+        // ========== 砸金蛋 - 内定名单 ==========
+        renderEggDesignated: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card">' +
+                '<div class="card-title"><span>砸金蛋内定名单</span>' +
+                '<button class="btn btn-primary btn-sm" onclick="LotteryPage._addEggDesignated()"><i class="fas fa-plus"></i> 添加内定</button></div>' +
+                '<table id="egg-designated-table" lay-filter="eggDesignatedTable"></table></div>';
+            Layout.setContent(html);
         }
     };
 

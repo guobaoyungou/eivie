@@ -441,6 +441,9 @@
         toggleSwitch: function(actId, code) {
             return http.post('/switch/' + actId + '/toggle/' + code);
         },
+        batchUpdateSwitch: function(actId, switches) {
+            return http.post('/switch/' + actId + '/batch', { switches: switches });
+        },
 
         // ---- 签到主题配置 API ----
         getSignThemeConfig: function(actId) {
@@ -474,6 +477,22 @@
         },
         updateWxConfig: function(data) {
             return http.post('/setting/wx-config', data);
+        },
+
+        // ---- 大屏显示设置 API ----
+        getDisplayConfig: function(activityId) {
+            return http.get('/setting/display', { params: { activity_id: activityId } });
+        },
+        updateDisplayConfig: function(data) {
+            return http.post('/setting/display', data);
+        },
+        uploadDisplayLogo: function(formData) {
+            return http.post('/setting/display-logo', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+        },
+        deleteDisplayLogo: function(activityId) {
+            return http.post('/setting/display-logo-delete', { activity_id: activityId });
         },
 
         // ---- 大屏密码管理 API ----
@@ -523,6 +542,18 @@
         },
         exportLottery: function(actId) {
             window.open(BASE_URL + '/export/lottery/' + actId + '?token=' + Api.getToken());
+
+        },
+        importParticipants: function(actId, formData) {
+            return http.post('/sign/' + actId + '/import', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+        },
+        importParticipantsDirect: function(actId, formData) {
+            // 直接调用后端API - 使用doimport.php避免405错误
+            return axios.post('/huodong/api/sign/doimport.php?activity_id=' + actId, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
         }
     };
 

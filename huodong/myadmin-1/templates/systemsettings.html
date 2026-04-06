@@ -94,11 +94,11 @@
 												<div class="row">
 													<div class="col-sm-12">
 														<div class="form-group">
-																<label class="col-sm-3 control-label no-padding-right" >显示公司名称</label>
+																<label class="col-sm-3 control-label no-padding-right" >显示活动LOGO</label>
 																<div class="col-sm-9">
 																	<label>
-																		<input name="show_company_name_switch" class="ace ace-switch ace-switch-3" type="checkbox" value="2" {if $show_company_name== 2}checked{/if} />
-																		<span class="lbl show_company_name_switch_lb" ></span>
+																		<input name="show_logo_switch" class="ace ace-switch ace-switch-3" type="checkbox" value="2" {if $show_logo== 2}checked{/if} />
+																		<span class="lbl show_logo_switch_lb" ></span>
 																	</label>
 																</div>
 														</div>
@@ -136,17 +136,66 @@
 								
 							</div>
 							<div  class="col-xs-6">
-							
-										
-										<div class="widget-box">
-											<div class="widget-header">
-												<h4 class="smaller">
-													版权信息
-												</h4>
-											</div>
-											<div class="widget-body">
-												<div class="widget-main">
+						
+									
+									<div class="widget-box">
+										<div class="widget-header">
+											<h4 class="smaller">
+												活动LOGO
+											</h4>
+										</div>
+										<div class="widget-body">
+											<div class="widget-main">
+												<form class="form-horizontal" method="post" action="dosystemsettings.php?action=setlogo" role="form" enctype="multipart/form-data">
 													<div class="form-group">
+														<label class="col-sm-3 control-label no-padding-right" for="logo">活动LOGO：</label>
+														<div class="col-sm-9">
+															<input multiple="" type="file" id="logo" class="imageuploader" name="logo" />
+															<div class="hr hr-12 dotted"></div>
+															<button type="submit" class="btn btn-sm btn-primary">保存</button>
+															<span class="alert-info">建议上传透明背景PNG图片，尺寸不超过400*200像素</span>
+														</div>
+													</div>
+												</form>
+											</div>
+										</div>
+									</div>
+
+									<div class="widget-box">
+										<div class="widget-header">
+											<h4 class="smaller">
+												活动名称
+											</h4>
+										</div>
+										<div class="widget-body">
+											<div class="widget-main">
+												<div class="form-group">
+													<div class="input-group">
+														<span class="input-group-addon">
+															活动名称
+														</span>
+														<input type="text" name="activity_name" class="form-control" placeholder="输入活动名称" value="{$wall_config['activity_name']}"/>
+														<span class="input-group-btn">
+															<button type="button" class="btn btn-purple btn-sm btn-activityname">
+																修改
+															</button>
+														</span>
+													</div>
+													<p class="help-block">大屏幕顶部居中显示的活动名称，留空则显示默认文字</p>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<div class="widget-box">
+										<div class="widget-header">
+											<h4 class="smaller">
+												版权信息
+											</h4>
+										</div>
+										<div class="widget-body">
+											<div class="widget-main">
+												<div class="form-group">
 													<div class="input-group">
 																	<span class="input-group-addon">
 																		文字
@@ -248,16 +297,16 @@ jQuery(function($){
 			}
 		});
 	})
-	$('.show_company_name_switch_lb').bind('click',function(){
-		var val=$('input[name=show_company_name_switch]:checked').val();
+	$('.show_logo_switch_lb').bind('click',function(){
+		var val=$('input[name=show_logo_switch]:checked').val();
 		val=val==undefined?1:2;
 		$.ajax({
-			'url':'dosystemsettings.php?action=show_company_name',
+			'url':'dosystemsettings.php?action=show_logo',
 			'type':'get',
 			'dataType':'json',
-			'data':{'show_company_name':val},
+			'data':{'show_logo':val},
 			'success':function(json){
-				console.log("显示公司名称:"+json.message);
+				console.log("显示活动LOGO:"+json.message);
 			}
 		});
 	})
@@ -308,6 +357,19 @@ jQuery(function($){
 			'type':'post',
 			'dataType':'json',
 			'data':{'welcometext2':text},
+			'success':function(json){
+				alert(json.message);
+				return false;
+			}
+		});
+	});
+	$('.btn-activityname').bind('click',function(){
+		var text=$('input[name=activity_name]').val();
+		$.ajax({
+			'url':'dosystemsettings.php?action=setactivityname',
+			'type':'post',
+			'dataType':'json',
+			'data':{'activity_name':text},
 			'success':function(json){
 				alert(json.message);
 				return false;

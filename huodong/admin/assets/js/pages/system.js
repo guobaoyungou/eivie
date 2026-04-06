@@ -270,7 +270,7 @@
             var actId = App.getCurrentActivityId();
             if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
 
-            var html = '<div class="content-card"><div class="card-title"><span>背景音乐管理</span></div>' +
+            var html = '<div class="content-card layui-form" lay-filter="bgMusicForm"><div class="card-title"><span>背景音乐管理</span></div>' +
                 '<p style="color:#999;font-size:13px;margin:-8px 0 16px 0;">按功能模块分类管理背景音乐，支持 mp3 格式，最大 20MB</p>' +
                 '<div id="bgmusic-module-list" class="loading-state"><i class="fas fa-spinner"></i> 加载中...</div></div>';
             Layout.setContent(html);
@@ -378,51 +378,202 @@
             var actId = App.getCurrentActivityId();
             if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
 
-            var html = '<div class="content-card"><div class="card-title">功能开关</div>' +
+            var html = '<div class="content-card layui-form" lay-filter="switchForm"><div class="card-title">功能开关</div>' +
                 '<div id="switch-grid" class="loading-state"><i class="fas fa-spinner"></i> 加载中...</div></div>';
             Layout.setContent(html);
 
-            var switchDefs = [
-                { code: 'qdq', name: '签到墙', icon: 'fa-user-check', color: '#1E88E5' },
-                { code: 'threedimensionalsign', name: '3D签到', icon: 'fa-cube', color: '#7C4DFF' },
-                { code: 'wall', name: '微信上墙', icon: 'fa-comments', color: '#43A047' },
-                { code: 'vote', name: '投票', icon: 'fa-poll', color: '#FB8C00' },
-                { code: 'lottery', name: '抽奖', icon: 'fa-gift', color: '#E53935' },
-                { code: 'game', name: '游戏', icon: 'fa-gamepad', color: '#00BCD4' },
-                { code: 'xiangce', name: '相册', icon: 'fa-images', color: '#8BC34A' },
-                { code: 'redpacket', name: '红包雨', icon: 'fa-envelope', color: '#FF5722' },
-                { code: 'kaimu', name: '开幕墙', icon: 'fa-play-circle', color: '#3F51B5' },
-                { code: 'bimu', name: '闭幕墙', icon: 'fa-stop-circle', color: '#795548' }
-            ];
+            // 样式映射表：仅用于提供图标和配色，功能列表由后端 API 驱动
+            var styleMap = {
+                'qdq':                  { icon: 'fa-user-check',   color: '#1E88E5' },
+                'threedimensionalsign':  { icon: 'fa-cube',         color: '#7C4DFF' },
+                'wall':                 { icon: 'fa-comments',     color: '#43A047' },
+                'danmu':                { icon: 'fa-comment-dots', color: '#26A69A' },
+                'vote':                 { icon: 'fa-poll',         color: '#FB8C00' },
+                'lottery':              { icon: 'fa-trophy',       color: '#E53935' },
+                'choujiang':            { icon: 'fa-mobile-alt',   color: '#D81B60' },
+                'ydj':                  { icon: 'fa-hand-rock',    color: '#F4511E' },
+                'shake':                { icon: 'fa-running',      color: '#00ACC1' },
+                'game':                 { icon: 'fa-gamepad',      color: '#00BCD4' },
+                'redpacket':            { icon: 'fa-envelope',     color: '#FF5722' },
+                'importlottery':        { icon: 'fa-file-import',  color: '#5C6BC0' },
+                'kaimu':                { icon: 'fa-play-circle',  color: '#3F51B5' },
+                'bimu':                 { icon: 'fa-stop-circle',  color: '#795548' },
+                'xiangce':              { icon: 'fa-images',       color: '#8BC34A' },
+                'xyh':                  { icon: 'fa-dice',         color: '#9C27B0' },
+                'xysjh':                { icon: 'fa-phone',        color: '#FF9800' },
+                'lvpai':                { icon: 'fa-camera-retro', color: '#607D8B' },
+                'scan_lottery':         { icon: 'fa-qrcode',       color: '#4CAF50' }
+            };
 
             Api.getSwitchList(actId).then(function(res) {
-                var data = res.data || {};
+                var list = (res.data && res.data.list) || [];
                 var container = document.getElementById('switch-grid');
+
+                if (!list.length) {
+                    container.innerHTML = '<div class="empty-state"><i class="fas fa-toggle-off"></i><p>暂无功能配置</p></div>';
+                    return;
+                }
+
                 var h = '<div class="switch-grid">';
-                switchDefs.forEach(function(sw) {
-                    var isOn = data[sw.code] !== undefined ? !!data[sw.code] : true;
+                list.forEach(function(item) {
+                    var code = item.feature_code || '';
+                    var name = item.feature_name || code;
+                    var isOn = item.enabled == 1;
+                    var style = styleMap[code] || { icon: 'fa-puzzle-piece', color: '#757575' };
+
                     h += '<div class="switch-card">' +
-                        '<div class="sw-icon" style="background:' + sw.color + ';"><i class="fas ' + sw.icon + '"></i></div>' +
-                        '<div class="sw-info"><div class="sw-name">' + sw.name + '</div><div class="sw-desc">' + sw.code + '</div></div>' +
+                        '<div class="sw-icon" style="background:' + style.color + ';"><i class="fas ' + style.icon + '"></i></div>' +
+                        '<div class="sw-info"><div class="sw-name">' + name + '</div><div class="sw-desc">' + code + '</div></div>' +
                         '<div><input type="checkbox" lay-skin="switch" lay-text="开|关"' + (isOn ? ' checked' : '') +
-                        ' lay-filter="switchToggle" data-code="' + sw.code + '"></div></div>';
+                        ' lay-filter="switchToggle" data-code="' + code + '"></div></div>';
                 });
                 h += '</div>';
+                h += '<div style="text-align:center;margin-top:20px;padding:16px 0;">' +
+                    '<button type="button" class="btn btn-primary" onclick="SystemPage._saveSwitch()"><i class="fas fa-save"></i> 保存设置</button></div>';
                 container.innerHTML = h;
                 layui.form.render('checkbox');
-
-                layui.form.on('switch(switchToggle)', function(data) {
-                    var code = data.elem.getAttribute('data-code');
-                    Api.toggleSwitch(actId, code).then(function() {
-                        layui.layer.msg((data.elem.checked ? '已开启' : '已关闭') + '：' + code, { icon: 1 });
-                    }).catch(function() {
-                        data.elem.checked = !data.elem.checked;
-                        layui.form.render('checkbox');
-                    });
-                });
             }).catch(function() {
                 var c = document.getElementById('switch-grid');
                 if (c) c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>加载失败</p></div>';
+            });
+        },
+
+        _saveSwitch: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return;
+            var switches = [];
+            var items = document.querySelectorAll('#switch-grid input[lay-filter="switchToggle"]');
+            items.forEach(function(el) {
+                switches.push({
+                    feature_code: el.getAttribute('data-code'),
+                    enabled: el.checked ? 1 : 0
+                });
+            });
+            if (!switches.length) return layui.layer.msg('没有可保存的开关', { icon: 2 });
+            Api.batchUpdateSwitch(actId, switches).then(function() {
+                layui.layer.msg('功能开关保存成功', { icon: 1 });
+            });
+        },
+
+        // ========== 大屏显示设置 ==========
+        renderDisplay: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
+
+            var html = '<div class="content-card"><div class="card-title">大屏显示设置</div>' +
+                '<p style="color:#999;font-size:13px;margin:-8px 0 16px 0;">管理大屏容器页的活动LOGO、活动名称、版权信息及其显示开关（当前活动：#' + actId + '）</p>' +
+                '<div id="display-settings-body" class="loading-state"><i class="fas fa-spinner"></i> 加载中...</div></div>';
+            Layout.setContent(html);
+
+            Api.getDisplayConfig(actId).then(function(res) {
+                var d = res.data || {};
+                var container = document.getElementById('display-settings-body');
+                var logoPreview = d.logo_url
+                    ? '<div id="logo-preview-box" style="margin-bottom:12px;"><img src="' + d.logo_url + '" style="max-height:80px;max-width:300px;border:1px solid #e6e6e6;border-radius:6px;padding:4px;background:#f8f8f8;">' +
+                      ' <button type="button" class="btn btn-danger btn-sm" style="margin-left:10px;vertical-align:top;" onclick="SystemPage._deleteDisplayLogo()"><i class="fas fa-trash-alt"></i> 删除LOGO</button></div>'
+                    : '<div id="logo-preview-box" style="margin-bottom:12px;"><span style="color:#999;font-size:13px;">未设置LOGO</span></div>';
+
+                var h = '<form class="layui-form" lay-filter="displayForm">' +
+                    // LOGO上传
+                    '<div class="form-section"><div class="section-title"><i class="fas fa-image" style="color:#1E88E5;margin-right:6px;"></i>活动LOGO</div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">LOGO图片</label><div class="layui-input-block">' +
+                    logoPreview +
+                    '<label class="btn btn-primary btn-sm" style="cursor:pointer;">' +
+                    '<i class="fas fa-upload"></i> ' + (d.logo_url ? '更换LOGO' : '上传LOGO') +
+                    '<input type="file" id="display-logo-file" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="SystemPage._handleDisplayLogoUpload(this)">' +
+                    '</label>' +
+                    '<span style="color:#999;font-size:12px;margin-left:10px;">支持 jpg/png/gif/webp，建议高度不超过60px</span>' +
+                    '</div></div></div>' +
+                    // 活动名称
+                    '<div class="form-section"><div class="section-title"><i class="fas fa-heading" style="color:#43A047;margin-right:6px;"></i>活动名称</div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">活动名称</label><div class="layui-input-block">' +
+                    '<input type="text" name="activity_name" class="layui-input" value="' + (d.activity_name || '').replace(/"/g, '&quot;') + '" placeholder="请输入活动名称，留空则显示默认文字">' +
+                    '</div></div></div>' +
+                    // 版权信息
+                    '<div class="form-section"><div class="section-title"><i class="fas fa-copyright" style="color:#FB8C00;margin-right:6px;"></i>版权信息</div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">版权文字</label><div class="layui-input-block">' +
+                    '<input type="text" name="copyright" class="layui-input" value="' + (d.copyright || '').replace(/"/g, '&quot;') + '" placeholder="底部版权文字，留空则显示默认文字">' +
+                    '</div></div></div>' +
+                    // 显示开关
+                    '<div class="form-section"><div class="section-title"><i class="fas fa-toggle-on" style="color:#E53935;margin-right:6px;"></i>显示开关</div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">活动LOGO</label><div class="layui-input-block">' +
+                    '<input type="checkbox" name="show_logo" lay-skin="switch" lay-text="显示|隐藏" lay-filter="displaySwitch"' + (d.show_logo != 2 ? ' checked' : '') + '>' +
+                    '<span style="color:#999;font-size:12px;margin-left:10px;">控制大屏左上角LOGO图片是否显示</span>' +
+                    '</div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">活动名称</label><div class="layui-input-block">' +
+                    '<input type="checkbox" name="show_activity_name" lay-skin="switch" lay-text="显示|隐藏" lay-filter="displaySwitch"' + (d.show_activity_name != 2 ? ' checked' : '') + '>' +
+                    '<span style="color:#999;font-size:12px;margin-left:10px;">控制大屏顶部活动名称是否显示</span>' +
+                    '</div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">版权信息</label><div class="layui-input-block">' +
+                    '<input type="checkbox" name="show_copyright" lay-skin="switch" lay-text="显示|隐藏" lay-filter="displaySwitch"' + (d.show_copyright != 2 ? ' checked' : '') + '>' +
+                    '<span style="color:#999;font-size:12px;margin-left:10px;">控制大屏底部版权信息是否显示</span>' +
+                    '</div></div></div>' +
+                    // 保存按钮
+                    '<div class="layui-form-item" style="margin-top:24px;"><div class="layui-input-block">' +
+                    '<button type="button" class="btn btn-primary" onclick="SystemPage._saveDisplayConfig()"><i class="fas fa-save"></i> 保存设置</button>' +
+                    '</div></div></form>';
+
+                container.className = '';
+                container.innerHTML = h;
+                layui.form.render(null, 'displayForm');
+            }).catch(function() {
+                var c = document.getElementById('display-settings-body');
+                if (c) c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>加载失败</p></div>';
+            });
+        },
+
+        _handleDisplayLogoUpload: function(inputEl) {
+            var actId = App.getCurrentActivityId();
+            var file = inputEl.files[0];
+            if (!file) return;
+            var allowTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (allowTypes.indexOf(file.type) === -1) {
+                layui.layer.msg('仅支持 jpg/png/gif/webp 格式', { icon: 2 });
+                inputEl.value = '';
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                layui.layer.msg('文件大小不能超过 5MB', { icon: 2 });
+                inputEl.value = '';
+                return;
+            }
+            var loadIdx = layui.layer.load(1, { shade: [0.3, '#000'] });
+            var formData = new FormData();
+            formData.append('logo', file);
+            formData.append('activity_id', actId);
+            Api.uploadDisplayLogo(formData).then(function(res) {
+                layui.layer.close(loadIdx);
+                layui.layer.msg('LOGO上传成功', { icon: 1 });
+                SystemPage.renderDisplay();
+            }).catch(function() {
+                layui.layer.close(loadIdx);
+            });
+            inputEl.value = '';
+        },
+
+        _deleteDisplayLogo: function() {
+            var actId = App.getCurrentActivityId();
+            layui.layer.confirm('确定删除活动LOGO？', { icon: 3 }, function(idx) {
+                layui.layer.close(idx);
+                Api.deleteDisplayLogo(actId).then(function() {
+                    layui.layer.msg('LOGO已删除', { icon: 1 });
+                    SystemPage.renderDisplay();
+                });
+            });
+        },
+
+        _saveDisplayConfig: function() {
+            var actId = App.getCurrentActivityId();
+            var data = {
+                activity_id: actId,
+                activity_name: document.querySelector('[name="activity_name"]').value,
+                copyright: document.querySelector('[name="copyright"]').value,
+                show_logo: document.querySelector('[name="show_logo"]').checked ? 1 : 2,
+                show_activity_name: document.querySelector('[name="show_activity_name"]').checked ? 1 : 2,
+                show_copyright: document.querySelector('[name="show_copyright"]').checked ? 1 : 2
+            };
+            Api.updateDisplayConfig(data).then(function() {
+                layui.layer.msg('保存成功', { icon: 1 });
             });
         },
 

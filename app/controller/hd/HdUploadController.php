@@ -110,8 +110,8 @@ class HdUploadController extends HdBaseController
             $themeService = new HdThemeService();
             $attachmentId = $themeService->saveAttachment($fileUrl, $ext, 1, $filemd5);
 
-            // 更新 weixin_background 表中对应 plugname 的记录
-            $themeService->updateBackgroundByPlugname($plugname, $attachmentId, $bgtype);
+            // 更新活动 screen_config 中对应 plugname 的背景配置
+            $themeService->updateBackgroundByPlugname($activityId, $plugname, $attachmentId, $bgtype);
 
             return $this->success([
                 'url'      => $fileUrl,

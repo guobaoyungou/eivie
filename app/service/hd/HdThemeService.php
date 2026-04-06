@@ -92,7 +92,7 @@ class HdThemeService
     }
 
     // ========================================================
-    // 背景设置（复用旧版 weixin_background 表）
+    // 背景设置（活动级配置，存储在 hd_activity.screen_config）
     // ========================================================
 
     /** 需要过滤掉的 plugname */
@@ -101,26 +101,59 @@ class HdThemeService
     /** 无素材时返回空字符串，前端用纯色展示 */
     private static $defaultBgPath = '';
 
+    /** 默认模板活动ID */
+    private static $templateActivityId = 2;
+
     /**
-     * 获取背景列表（按功能模块，读取 weixin_background 表）
+     * 获取背景列表（按功能模块，从活动 screen_config 读取）
+     * 优先级：当前活动配置 > 活动#2模板配置 > weixin_background 全局默认
      */
     public function getBackgrounds(int $aid, int $bid, int $activityId, string $featureCode = ''): array
     {
         try {
+            // 1. 获取全局背景模块定义（从 weixin_background 表读取模块列表）
             $query = Db::connect('huodong')->table('weixin_background');
             if ($featureCode) {
                 $query->where('plugname', $featureCode);
             }
-            $list = $query->select()->toArray();
+            $globalList = $query->select()->toArray();
 
             // 过滤掉不需要的功能模块
-            $list = array_values(array_filter($list, function ($item) {
+            $globalList = array_values(array_filter($globalList, function ($item) {
                 return !in_array($item['plugname'], self::$excludePlugnames);
             }));
 
-            // 关联查询附件路径
-            foreach ($list as &$item) {
-                $attachmentId = intval($item['attachmentid'] ?? 0);
+            // 2. 获取当前活动的屏幕配置
+            $screenConfig = $this->getActivityScreenConfig($activityId);
+            $activityBgConfig = $screenConfig['backgrounds'] ?? [];
+
+            // 3. 获取活动#2的模板配置（如果当前活动没有配置，使用模板）
+            $templateBgConfig = [];
+            if ($activityId !== self::$templateActivityId) {
+                $templateScreenConfig = $this->getActivityScreenConfig(self::$templateActivityId);
+                $templateBgConfig = $templateScreenConfig['backgrounds'] ?? [];
+            }
+
+            // 4. 合并配置：当前活动配置 > 活动#2模板配置 > 全局默认
+            foreach ($globalList as &$item) {
+                $plugname = $item['plugname'];
+
+                // 确定使用哪个配置：活动配置 > 模板配置 > 全局默认
+                $attachmentId = 0;
+                $bgtype = intval($item['bgtype'] ?? 1);
+
+                if (isset($activityBgConfig[$plugname])) {
+                    $attachmentId = intval($activityBgConfig[$plugname]['attachmentid'] ?? 0);
+                    $bgtype = intval($activityBgConfig[$plugname]['bgtype'] ?? $bgtype);
+                } elseif (isset($templateBgConfig[$plugname])) {
+                    $attachmentId = intval($templateBgConfig[$plugname]['attachmentid'] ?? 0);
+                    $bgtype = intval($templateBgConfig[$plugname]['bgtype'] ?? $bgtype);
+                }
+
+                $item['attachmentid'] = $attachmentId;
+                $item['bgtype'] = $bgtype;
+
+                // 关联查询附件路径
                 if ($attachmentId > 0) {
                     $attachment = Db::connect('huodong')->table('weixin_attachments')
                         ->where('id', $attachmentId)->find();
@@ -128,13 +161,13 @@ class HdThemeService
                 } else {
                     $item['attachmentpath'] = '';
                 }
-                $item['bgtype'] = intval($item['bgtype'] ?? 1);
+
                 // 标记是否有素材
                 $item['has_material'] = ($attachmentId > 0 && !empty($item['attachmentpath'])) ? 1 : 0;
             }
             unset($item);
 
-            return ['code' => 0, 'data' => $list];
+            return ['code' => 0, 'data' => $globalList];
         } catch (\Exception $e) {
             Log::error('获取背景列表失败: ' . $e->getMessage());
             return ['code' => 1, 'msg' => '获取背景列表失败: ' . $e->getMessage()];
@@ -142,7 +175,56 @@ class HdThemeService
     }
 
     /**
-     * 删除背景素材（将 attachmentid 置为0，前端显示纯色背景）
+     * 获取活动的屏幕配置（从 hd_activity 表）
+     */
+    private function getActivityScreenConfig(int $activityId): array
+    {
+        if ($activityId <= 0) {
+            return [];
+        }
+
+        try {
+            $activity = HdActivity::where('id', $activityId)->find();
+            if ($activity && !empty($activity->screen_config)) {
+                $configRaw = $activity->getData('screen_config');
+                if (is_string($configRaw)) {
+                    return json_decode($configRaw, true) ?: [];
+                }
+                return is_array($configRaw) ? $configRaw : [];
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        return [];
+    }
+
+    /**
+     * 保存活动的屏幕配置（到 hd_activity 表）
+     */
+    private function saveActivityScreenConfig(int $activityId, array $screenConfig): bool
+    {
+        if ($activityId <= 0) {
+            return false;
+        }
+
+        try {
+            $activity = HdActivity::where('id', $activityId)->find();
+            if (!$activity) {
+                return false;
+            }
+
+            $activity->screen_config = $screenConfig;
+            $activity->save();
+            return true;
+        } catch (\Throwable $e) {
+            Log::error('保存活动屏幕配置失败: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 删除背景素材（清除活动 screen_config 中对应模块的背景配置）
      * 注意：不删除功能模块行，仅清除关联的素材
      */
     public function resetBackground(int $aid, int $bid, int $activityId, string $plugname): array
@@ -152,9 +234,18 @@ class HdThemeService
         }
 
         try {
-            $affected = Db::connect('huodong')->table('weixin_background')
-                ->where('plugname', $plugname)
-                ->update(['attachmentid' => 0, 'bgtype' => 1]);
+            // 获取当前活动的屏幕配置
+            $screenConfig = $this->getActivityScreenConfig($activityId);
+            $backgrounds = $screenConfig['backgrounds'] ?? [];
+
+            // 清除对应模块的背景配置
+            if (isset($backgrounds[$plugname])) {
+                unset($backgrounds[$plugname]);
+            }
+
+            // 保存配置
+            $screenConfig['backgrounds'] = $backgrounds;
+            $this->saveActivityScreenConfig($activityId, $screenConfig);
 
             return ['code' => 0, 'msg' => '重置成功'];
         } catch (\Exception $e) {
@@ -164,18 +255,28 @@ class HdThemeService
     }
 
     /**
-     * 上传并更新背景（更新 weixin_background 表中对应 plugname 的记录）
+     * 上传并更新背景（更新活动 screen_config 中对应 plugname 的记录）
      */
-    public function updateBackgroundByPlugname(string $plugname, int $attachmentId, int $bgtype): array
+    public function updateBackgroundByPlugname(int $activityId, string $plugname, int $attachmentId, int $bgtype = 1): array
     {
         if (empty($plugname)) {
             return ['code' => 1, 'msg' => '请指定功能模块'];
         }
 
         try {
-            Db::connect('huodong')->table('weixin_background')
-                ->where('plugname', $plugname)
-                ->update(['attachmentid' => $attachmentId, 'bgtype' => $bgtype]);
+            // 获取当前活动的屏幕配置
+            $screenConfig = $this->getActivityScreenConfig($activityId);
+            $backgrounds = $screenConfig['backgrounds'] ?? [];
+
+            // 更新对应模块的背景配置
+            $backgrounds[$plugname] = [
+                'attachmentid' => $attachmentId,
+                'bgtype' => $bgtype,
+            ];
+
+            // 保存配置
+            $screenConfig['backgrounds'] = $backgrounds;
+            $this->saveActivityScreenConfig($activityId, $screenConfig);
 
             return ['code' => 0, 'msg' => '更新成功'];
         } catch (\Exception $e) {
@@ -285,7 +386,7 @@ class HdThemeService
     }
 
     // ========================================================
-    // 背景音乐管理（weixin_music 表，按功能模块分卡片管理）
+    // 背景音乐管理（活动级配置，存储在 hd_activity.screen_config）
     // ========================================================
 
     /** 默认音乐路径 */
@@ -293,16 +394,46 @@ class HdThemeService
 
     /**
      * 获取全部功能模块的背景音乐配置列表
-     * 查询 weixin_music 全部记录，关联 weixin_attachments 获取文件路径
+     * 优先级：当前活动配置 > 活动#2模板配置 > weixin_music 全局默认
      */
-    public function getBgMusics(): array
+    public function getBgMusics(int $activityId): array
     {
         try {
+            // 1. 获取全局音乐模块定义（从 weixin_music 表读取模块列表）
             $list = Db::connect('huodong')->table('weixin_music')
                 ->select()->toArray();
 
+            // 2. 获取当前活动的屏幕配置
+            $screenConfig = $this->getActivityScreenConfig($activityId);
+            $activityMusicConfig = $screenConfig['bgmusics'] ?? [];
+
+            // 3. 获取活动#2的模板配置（如果当前活动没有配置，使用模板）
+            $templateMusicConfig = [];
+            if ($activityId !== self::$templateActivityId) {
+                $templateScreenConfig = $this->getActivityScreenConfig(self::$templateActivityId);
+                $templateMusicConfig = $templateScreenConfig['bgmusics'] ?? [];
+            }
+
+            // 4. 合并配置：当前活动配置 > 活动#2模板配置 > 全局默认
             foreach ($list as &$item) {
-                $bgmusicId = intval($item['bgmusic'] ?? 0);
+                $plugname = $item['plugname'];
+
+                // 确定使用哪个配置：活动配置 > 模板配置 > 全局默认
+                $bgmusicId = 0;
+                $bgmusicstatus = intval($item['bgmusicstatus'] ?? 2);
+
+                if (isset($activityMusicConfig[$plugname])) {
+                    $bgmusicId = intval($activityMusicConfig[$plugname]['bgmusic'] ?? 0);
+                    $bgmusicstatus = intval($activityMusicConfig[$plugname]['bgmusicstatus'] ?? $bgmusicstatus);
+                } elseif (isset($templateMusicConfig[$plugname])) {
+                    $bgmusicId = intval($templateMusicConfig[$plugname]['bgmusic'] ?? 0);
+                    $bgmusicstatus = intval($templateMusicConfig[$plugname]['bgmusicstatus'] ?? $bgmusicstatus);
+                }
+
+                $item['bgmusic'] = $bgmusicId;
+                $item['bgmusicstatus'] = $bgmusicstatus;
+
+                // 关联查询附件路径
                 if ($bgmusicId > 0) {
                     $attachment = Db::connect('huodong')->table('weixin_attachments')
                         ->where('id', $bgmusicId)->find();
@@ -312,7 +443,6 @@ class HdThemeService
                 } else {
                     $item['bgmusicpath'] = self::$defaultMusicPath;
                 }
-                $item['bgmusicstatus'] = intval($item['bgmusicstatus'] ?? 2);
             }
             unset($item);
 
@@ -324,9 +454,9 @@ class HdThemeService
     }
 
     /**
-     * 切换指定 plugname 的背景音乐开/关
+     * 切换指定 plugname 的背景音乐开/关（活动级别配置）
      */
-    public function toggleBgMusic(string $plugname, int $status): array
+    public function toggleBgMusic(int $activityId, string $plugname, int $status): array
     {
         if (empty($plugname)) {
             return ['code' => 1, 'msg' => '请指定功能模块'];
@@ -336,15 +466,29 @@ class HdThemeService
         }
 
         try {
+            // 验证功能模块是否存在
             $record = Db::connect('huodong')->table('weixin_music')
                 ->where('plugname', $plugname)->find();
             if (!$record) {
                 return ['code' => 1, 'msg' => '功能模块不存在: ' . $plugname];
             }
 
-            Db::connect('huodong')->table('weixin_music')
-                ->where('plugname', $plugname)
-                ->update(['bgmusicstatus' => $status]);
+            // 获取当前活动的屏幕配置
+            $screenConfig = $this->getActivityScreenConfig($activityId);
+            $bgmusics = $screenConfig['bgmusics'] ?? [];
+
+            // 确保该模块的配置存在
+            if (!isset($bgmusics[$plugname])) {
+                $bgmusics[$plugname] = [
+                    'bgmusic' => 0,
+                    'bgmusicstatus' => $status,
+                ];
+            }
+            $bgmusics[$plugname]['bgmusicstatus'] = $status;
+
+            // 保存配置
+            $screenConfig['bgmusics'] = $bgmusics;
+            $this->saveActivityScreenConfig($activityId, $screenConfig);
 
             return ['code' => 0, 'msg' => ($status === 1 ? '已开启' : '已关闭') . '背景音乐'];
         } catch (\Exception $e) {
@@ -354,27 +498,35 @@ class HdThemeService
     }
 
     /**
-     * 更新指定 plugname 的背景音乐附件，并自动开启
+     * 更新指定 plugname 的背景音乐附件，并自动开启（活动级别配置）
      */
-    public function updateBgMusic(string $plugname, int $attachmentId): array
+    public function updateBgMusic(int $activityId, string $plugname, int $attachmentId): array
     {
         if (empty($plugname)) {
             return ['code' => 1, 'msg' => '请指定功能模块'];
         }
 
         try {
+            // 验证功能模块是否存在
             $record = Db::connect('huodong')->table('weixin_music')
                 ->where('plugname', $plugname)->find();
             if (!$record) {
                 return ['code' => 1, 'msg' => '功能模块不存在: ' . $plugname];
             }
 
-            Db::connect('huodong')->table('weixin_music')
-                ->where('plugname', $plugname)
-                ->update([
-                    'bgmusic'       => $attachmentId,
-                    'bgmusicstatus' => 1, // 上传后自动开启
-                ]);
+            // 获取当前活动的屏幕配置
+            $screenConfig = $this->getActivityScreenConfig($activityId);
+            $bgmusics = $screenConfig['bgmusics'] ?? [];
+
+            // 更新配置
+            $bgmusics[$plugname] = [
+                'bgmusic' => $attachmentId,
+                'bgmusicstatus' => 1, // 上传后自动开启
+            ];
+
+            // 保存配置
+            $screenConfig['bgmusics'] = $bgmusics;
+            $this->saveActivityScreenConfig($activityId, $screenConfig);
 
             // 获取新的音乐路径
             $attachment = Db::connect('huodong')->table('weixin_attachments')

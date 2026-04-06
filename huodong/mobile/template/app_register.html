@@ -249,6 +249,15 @@ body {
             <input class="reg-input" name="phone" id="field-phone" type="tel" placeholder="请输入您的手机号">
         </div>
         {/if}
+        {if $sign_config.require_phone==1 && $sign_config.require_phone_verify==1}
+        <div class="reg-field">
+            <label class="reg-label">短信验证码<span class="required">*</span></label>
+            <div style="display:flex;gap:8px;">
+                <input class="reg-input" name="sms_code" id="field-sms_code" type="tel" maxlength="6" placeholder="请输入验证码" style="flex:0.6;min-width:0;">
+                <button type="button" id="btn-send-sms" onclick="sendSmsCode()" style="flex:0.4;min-width:0;height:48px;border:none;border-radius:var(--r-sm);background:transparent;color:var(--c-accent);font-size:14px;font-weight:500;cursor:pointer;">获取验证码</button>
+            </div>
+        </div>
+        {/if}
         {if $sign_config.require_company==1}
         <div class="reg-field">
             <label class="reg-label">公司<span class="required">*</span></label>
@@ -343,7 +352,7 @@ function doSignSubmit() {
     if (btn) btn.classList.add('btn-disabled');
 
     var data = {};
-    var fields = ['signname','phone','company','position','employee_no','sign_photo'];
+    var fields = ['signname','phone','sms_code','company','position','employee_no','sign_photo'];
     for (var i = 0; i < fields.length; i++) {
         var el = document.getElementById('field-' + fields[i]);
         if (el) data[fields[i]] = el.value;
@@ -438,6 +447,66 @@ function selectQuickMsg(el) {
     }
     el.classList.add('active');
     document.getElementById('quick_message_input').value = el.textContent;
+}
+
+var _smsCountdown = 0;
+var _smsTimer = null;
+function sendSmsCode() {
+    if (_smsCountdown > 0) return;
+    var phoneEl = document.getElementById('field-phone');
+    if (!phoneEl) return;
+    var phone = phoneEl.value.trim();
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+        alert('请输入正确的手机号');
+        return;
+    }
+    var btn = document.getElementById('btn-send-sms');
+    _smsCountdown = 60;
+    btn.style.color = '#999';
+    btn.style.cursor = 'default';
+    btn.textContent = _smsCountdown + '秒后重试';
+    _smsTimer = setInterval(function() {
+        _smsCountdown--;
+        if (_smsCountdown <= 0) {
+            clearInterval(_smsTimer);
+            _smsTimer = null;
+            _smsCountdown = 0;
+            btn.textContent = '获取验证码';
+            btn.style.color = 'var(--c-accent)';
+            btn.style.cursor = 'pointer';
+        } else {
+            btn.textContent = _smsCountdown + '秒后重试';
+        }
+    }, 1000);
+    $.ajax({
+        url: HD_API_BASE + '/sign-sms',
+        type: 'POST',
+        data: { phone: phone },
+        dataType: 'json',
+        timeout: 15000,
+        success: function(r) {
+            if (r.code === 0) {
+                alert('验证码已发送');
+            } else {
+                alert(r.msg || '发送失败');
+                clearInterval(_smsTimer);
+                _smsTimer = null;
+                _smsCountdown = 0;
+                btn.textContent = '获取验证码';
+                btn.style.color = 'var(--c-accent)';
+                btn.style.cursor = 'pointer';
+            }
+        },
+        error: function() {
+            alert('网络异常，请重试');
+            clearInterval(_smsTimer);
+            _smsTimer = null;
+            _smsCountdown = 0;
+            btn.textContent = '获取验证码';
+            btn.style.color = 'var(--c-accent)';
+            btn.style.cursor = 'pointer';
+        }
+    });
 }
 
 function handlePhotoUpload(input) {

@@ -6,7 +6,7 @@
 	bottom: 0;
 	right: 0;
 	background-color: rgba(0, 0, 0, 0.75);
-	z-index: 2;
+	z-index: 9999;
 	display: none
 }
 
@@ -75,17 +75,20 @@
 .tuchu.view {
 	display: block;
 	-webkit-animation: vp 0.5s 8s ease forwards;
-	-moz-animation: 0.5s 8s ease forwards;
+	-moz-animation: vp 0.5s 8s ease forwards;
+	animation: vp 0.5s 8s ease forwards;
 }
 
 .view .tuchuk {
 	-webkit-animation: vv 8s 0s ease forwards;
-	-moz-animation: 8s 0s ease forwards;
+	-moz-animation: vv 8s 0s ease forwards;
+	animation: vv 8s 0s ease forwards;
 }
 
 .view .tuchug {
 	-webkit-animation: vg 6.5s 1s ease forwards;
-	-moz-animation: 6.5s 1s ease forwards;
+	-moz-animation: vg 6.5s 1s ease forwards;
+	animation: vg 6.5s 1s ease forwards;
 	opacity: 0;
 }
 
@@ -148,4 +151,25 @@
 		-webkit-transform: rotate(70deg);
 		opacity: 0;
 	}
+}
+
+/* Standard (unprefixed) keyframes */
+@keyframes vv {
+	0% { transform: scale(0.1); opacity: 0; }
+	10% { transform: scale(1.5); opacity: 1; }
+	20% { transform: scale(1); opacity: 1; }
+	90% { transform: scale(1); opacity: 1; }
+	100% { transform: scale(0); opacity: 0; }
+}
+
+@keyframes vp {
+	0% { transform: scale(1); opacity: 1; }
+	100% { transform: scale(1); opacity: 0; }
+}
+
+@keyframes vg {
+	0% { transform: rotate(0); opacity: 0; }
+	10% { transform: rotate(0); opacity: 1; }
+	90% { transform: rotate(60deg); opacity: 1; }
+	100% { transform: rotate(70deg); opacity: 0; }
 }

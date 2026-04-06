@@ -1,7 +1,15 @@
 /**
  * 签到墙 - 样式二：矩阵墙
- * 布局：5行 × 12列 圆形头像矩阵 + 中央大头像 + 角落Toast
+ * 布局：5行 × 16列 圆形头像矩阵 + 中央大头像 + 角落Toast
+ * 头像框特效：锥形渐变旋转边框（沿圆周流转）+ 漂浮微光粒子 + 呼吸光晕脉冲
  */
+
+/* CSS Houdini: 注册角度自定义属性，用于动画化 conic-gradient 起始角度 */
+@property --ring-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
 
 /* ============ 整体布局 ============ */
 .sign-matrix-page {
@@ -97,8 +105,8 @@
 
 .sign-matrix-grid .grid-scroll-wrap {
     display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(16, 1fr);
+    gap: 6px;
     padding: 10px;
     transition: transform 0.05s linear;
 }
@@ -109,6 +117,7 @@
 
 /* 头像格子 */
 .sign-matrix-grid .avatar-cell {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -149,33 +158,145 @@
     }
 }
 
-/* 头像圆形 */
+/* 头像圆形 - 锥形渐变旋转边框（蓝→紫→粉 沿圆周流转） */
 .sign-matrix-grid .avatar-img-wrap {
+    --ring-angle: 0deg;
+    position: relative;
     width: 90px;
     height: 90px;
     border-radius: 50%;
     overflow: hidden;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
-    background: #2a2a3e;
+    border: none;
+    padding: 3px;
+    background: conic-gradient(
+        from var(--ring-angle),
+        #00d2ff 0%,
+        #7b2ff7 33%,
+        #ff0080 66%,
+        #00d2ff 100%
+    );
+    animation: avatar-ring-spin 4s linear infinite;
+    box-shadow:
+        0 0 12px rgba(0, 210, 255, 0.3),
+        0 0 28px rgba(123, 47, 247, 0.15),
+        0 0 6px rgba(255, 0, 128, 0.1);
+}
+
+/* 锥形渐变旋转动画（通过 @property 动画化角度，实现真实圆周流转） */
+@keyframes avatar-ring-spin {
+    to { --ring-angle: 360deg; }
 }
 
 .sign-matrix-grid .avatar-img-wrap img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 50%;
+    display: block;
 }
+
+/* ===== 头像粒子特效 ===== */
+
+/* 漂浮微光粒子（多点光斑轨道浮动） */
+.sign-matrix-grid .avatar-cell.shown::before {
+    content: '';
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    top: 45px;
+    left: 45px;
+    border-radius: 50%;
+    z-index: 2;
+    pointer-events: none;
+    animation: particle-float 5s ease-in-out infinite;
+    box-shadow:
+        -43px -18px 0 1px   rgba(0,210,255,0.9),
+         36px -32px 0 0.5px rgba(123,47,247,0.8),
+         43px  12px 0 1px   rgba(255,0,128,0.7),
+        -30px  38px 0 0.5px rgba(0,210,255,0.8),
+         12px -43px 0 1px   rgba(255,255,255,0.6),
+        -38px   8px 0 0.5px rgba(123,47,247,0.7),
+         24px  40px 0 0.5px rgba(255,0,128,0.6),
+        -12px -40px 0 1px   rgba(0,210,255,0.7);
+}
+
+/* 呼吸光晕脉冲 */
+.sign-matrix-grid .avatar-cell.shown::after {
+    content: '';
+    position: absolute;
+    width: 96px;
+    height: 96px;
+    top: -3px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1;
+    animation: aura-breathe 3.5s ease-in-out infinite;
+}
+
+/* 粒子浮动动画 */
+@keyframes particle-float {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+        opacity: 0.5;
+    }
+    25% {
+        transform: translate(3px, -4px) rotate(90deg);
+        opacity: 1;
+    }
+    50% {
+        transform: translate(-2px, -2px) rotate(180deg);
+        opacity: 0.3;
+    }
+    75% {
+        transform: translate(4px, 3px) rotate(270deg);
+        opacity: 0.9;
+    }
+}
+
+/* 光晕呼吸动画 */
+@keyframes aura-breathe {
+    0%, 100% {
+        opacity: 0.3;
+        box-shadow:
+            0 0 8px rgba(0,210,255,0.15),
+            0 0 16px rgba(123,47,247,0.06);
+    }
+    50% {
+        opacity: 0.7;
+        box-shadow:
+            0 0 16px rgba(0,210,255,0.3),
+            0 0 32px rgba(123,47,247,0.12),
+            0 0 48px rgba(255,0,128,0.04);
+    }
+}
+
+/* 交错动画延迟（每个头像错开节奏，避免同步跳动） */
+.sign-matrix-grid .avatar-cell.shown:nth-child(4n+1)::before  { animation-delay: 0s; }
+.sign-matrix-grid .avatar-cell.shown:nth-child(4n+1)::after   { animation-delay: 0.2s; }
+.sign-matrix-grid .avatar-cell.shown:nth-child(4n+2)::before  { animation-delay: 1.2s; }
+.sign-matrix-grid .avatar-cell.shown:nth-child(4n+2)::after   { animation-delay: 0.8s; }
+.sign-matrix-grid .avatar-cell.shown:nth-child(4n+3)::before  { animation-delay: 2.5s; }
+.sign-matrix-grid .avatar-cell.shown:nth-child(4n+3)::after   { animation-delay: 1.5s; }
+.sign-matrix-grid .avatar-cell.shown:nth-child(4n)::before    { animation-delay: 3.7s; }
+.sign-matrix-grid .avatar-cell.shown:nth-child(4n)::after     { animation-delay: 2.3s; }
+
+/* 流光边框也错开节奏 */
+.sign-matrix-grid .avatar-cell:nth-child(3n+1) .avatar-img-wrap { animation-delay: 0s; }
+.sign-matrix-grid .avatar-cell:nth-child(3n+2) .avatar-img-wrap { animation-delay: 1.3s; }
+.sign-matrix-grid .avatar-cell:nth-child(3n)   .avatar-img-wrap { animation-delay: 2.7s; }
 
 /* 头像下方昵称 */
 .sign-matrix-grid .avatar-nick {
-    margin-top: 6px;
-    font-size: 13px;
+    margin-top: 4px;
+    font-size: 12px;
     color: rgba(255, 255, 255, 0.85);
     text-align: center;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    max-width: 100px;
+    max-width: 94px;
     text-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
@@ -449,6 +570,25 @@
     .sign-matrix-grid .avatar-img-wrap {
         width: 110px;
         height: 110px;
+        padding: 3px;
+    }
+    .sign-matrix-grid .avatar-cell.shown::after {
+        width: 116px;
+        height: 116px;
+        top: -3px;
+    }
+    .sign-matrix-grid .avatar-cell.shown::before {
+        top: 55px;
+        left: 55px;
+        box-shadow:
+            -52px -22px 0 1px   rgba(0,210,255,0.9),
+             44px -38px 0 0.5px rgba(123,47,247,0.8),
+             52px  14px 0 1px   rgba(255,0,128,0.7),
+            -36px  46px 0 0.5px rgba(0,210,255,0.8),
+             14px -52px 0 1px   rgba(255,255,255,0.6),
+            -46px  10px 0 0.5px rgba(123,47,247,0.7),
+             28px  48px 0 0.5px rgba(255,0,128,0.6),
+            -14px -48px 0 1px   rgba(0,210,255,0.7);
     }
     .sign-center-avatar .center-ring {
         width: 340px;
@@ -461,12 +601,33 @@
         width: 340px;
         height: 340px;
     }
+    .sign-matrix-grid .avatar-nick {
+        max-width: 114px;
+        font-size: 13px;
+    }
 }
 
 @media (max-width: 1280px) {
     .sign-matrix-grid .avatar-img-wrap {
-        width: 70px;
-        height: 70px;
+        width: 68px;
+        height: 68px;
+        padding: 2px;
+    }
+    .sign-matrix-grid .avatar-cell.shown::after {
+        width: 72px;
+        height: 72px;
+        top: -2px;
+    }
+    .sign-matrix-grid .avatar-cell.shown::before {
+        top: 34px;
+        left: 34px;
+        box-shadow:
+            -32px -14px 0 0.5px rgba(0,210,255,0.9),
+             26px -24px 0 0.5px rgba(123,47,247,0.8),
+             32px   8px 0 0.5px rgba(255,0,128,0.7),
+            -22px  28px 0 0.5px rgba(0,210,255,0.8),
+              8px -32px 0 0.5px rgba(255,255,255,0.6),
+            -28px   6px 0 0.5px rgba(123,47,247,0.7);
     }
     .sign-center-avatar .center-ring {
         width: 220px;
@@ -476,7 +637,11 @@
         font-size: 22px;
     }
     .sign-matrix-grid .avatar-nick {
-        font-size: 11px;
+        font-size: 10px;
+        max-width: 72px;
+    }
+    .sign-matrix-grid .grid-scroll-wrap {
+        gap: 4px;
     }
     .sign-flying-avatar .flying-ring {
         width: 220px;

@@ -56,8 +56,7 @@ class HdSwitchController extends HdBaseController
                 ->where('feature_code', $code)->find();
 
             if ($feature) {
-                $feature->enabled = $enabled;
-                $feature->save();
+                HdActivityFeature::where('id', $feature->id)->update(['enabled' => $enabled]);
             } else {
                 HdActivityFeature::create([
                     'aid'          => $aid,
@@ -89,13 +88,14 @@ class HdSwitchController extends HdBaseController
             return json(['code' => 1, 'msg' => '功能不存在']);
         }
 
-        $feature->enabled = $feature->enabled ? 0 : 1;
-        $feature->save();
+        // 显式计算新状态，使用直接 update 避免 Model 脏检查遗漏
+        $newEnabled = ((int)$feature->enabled === 1) ? 0 : 1;
+        HdActivityFeature::where('id', $feature->id)->update(['enabled' => $newEnabled]);
 
         return json([
             'code' => 0,
-            'msg'  => $feature->enabled ? '已启用' : '已禁用',
-            'data' => ['enabled' => $feature->enabled],
+            'msg'  => $newEnabled ? '已启用' : '已禁用',
+            'data' => ['enabled' => $newEnabled],
         ]);
     }
 }

@@ -30,6 +30,22 @@ $mobile_quick_message = isset($_mobileConfig['mobile_quick_message']) ? intval($
 $mobile_force_wx_auth = isset($_mobileConfig['mobile_force_wx_auth']) ? intval($_mobileConfig['mobile_force_wx_auth']) : 1;
 $mobile_force_wx_auth = isset($_mobileConfig['mobile_force_wx_auth']) ? intval($_mobileConfig['mobile_force_wx_auth']) : 1;
 
+// 提取签到设置字段，组装 $sign_config 数组
+$sign_config = [
+    'require_name'          => isset($_mobileConfig['require_name']) ? intval($_mobileConfig['require_name']) : 0,
+    'require_phone'         => isset($_mobileConfig['require_phone']) ? intval($_mobileConfig['require_phone']) : 0,
+    'require_phone_verify'  => isset($_mobileConfig['require_phone_verify']) ? intval($_mobileConfig['require_phone_verify']) : 0,
+    'require_company'       => isset($_mobileConfig['require_company']) ? intval($_mobileConfig['require_company']) : 0,
+    'require_position'      => isset($_mobileConfig['require_position']) ? intval($_mobileConfig['require_position']) : 0,
+    'show_employee_no'      => isset($_mobileConfig['show_employee_no']) ? intval($_mobileConfig['show_employee_no']) : 0,
+    'require_employee_no'   => isset($_mobileConfig['require_employee_no']) ? intval($_mobileConfig['require_employee_no']) : 0,
+    'show_photo'            => isset($_mobileConfig['show_photo']) ? intval($_mobileConfig['show_photo']) : 0,
+    'require_photo'         => isset($_mobileConfig['require_photo']) ? intval($_mobileConfig['require_photo']) : 0,
+    'show_custom_fields'    => isset($_mobileConfig['show_custom_fields']) ? intval($_mobileConfig['show_custom_fields']) : 0,
+    'sign_custom_fields'    => isset($_mobileConfig['sign_custom_fields']) ? $_mobileConfig['sign_custom_fields'] : [],
+    'sign_location_enabled' => isset($_mobileConfig['sign_location_enabled']) ? intval($_mobileConfig['sign_location_enabled']) : 0,
+];
+
 // 如果新配置无背景图，回退到旧配置
 if (empty($mobile_bg)) {
     $load->model('System_Config_model');
@@ -59,6 +75,10 @@ if($myinfo['flag']==1){//没有签到
 	$smarty->assign('btn_text', $btn_text);
 	$smarty->assign('btn_image', $btn_image);
 	$smarty->assign('mobile_quick_message', $mobile_quick_message);
+
+	// 赋值签到设置配置给模板
+	$smarty->assign('sign_config', $sign_config);
+	$smarty->assign('sign_custom_fields', $sign_config['sign_custom_fields']);
 
 	//签到姓名
 	$load->model('System_Config_model');

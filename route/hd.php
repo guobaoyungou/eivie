@@ -235,6 +235,8 @@ Route::group('api/hd/sign', function () {
     Route::post(':activity_id/clear', 'hd.HdSignController/clearSignList');
     Route::get(':activity_id/mobile-config', 'hd.HdSignController/mobileConfig');
     Route::post(':activity_id/mobile-config', 'hd.HdSignController/updateMobileConfig');
+    Route::get(':activity_id/mobile', 'hd.HdSignController/mobileConfig');
+    Route::post(':activity_id/mobile', 'hd.HdSignController/updateMobileConfig');
     // 大屏密码管理
     Route::get(':activity_id/screen-password', 'hd.HdSignController/screenPasswordConfig');
     Route::post(':activity_id/screen-password', 'hd.HdSignController/updateScreenPasswordConfig');
@@ -248,6 +250,18 @@ Route::group('api/hd/sign', function () {
     Route::post(':activity_id/3d-effects/:effect_id/delete', 'hd.HdThreeDSignController/deleteEffect');
     Route::post(':activity_id/3d-effects/reorder', 'hd.HdThreeDSignController/reorderEffects');
     Route::post(':activity_id/3d-effects/upload-logo', 'hd.HdThreeDSignController/uploadLogo');
+    // 白名单管理
+    Route::get(':activity_id/whitelist', 'hd.HdSignController/whitelist');
+    Route::post(':activity_id/whitelist', 'hd.HdSignController/saveWhitelist');
+    Route::post(':activity_id/whitelist/:id', 'hd.HdSignController/updateWhitelist');
+    Route::delete(':activity_id/whitelist/:id', 'hd.HdSignController/deleteWhitelist');
+    Route::post(':activity_id/whitelist/:id/delete', 'hd.HdSignController/deleteWhitelist');
+    Route::delete(':activity_id/whitelist/clear', 'hd.HdSignController/clearWhitelist');
+    Route::post(':activity_id/whitelist/clear', 'hd.HdSignController/clearWhitelist');
+    // 导入导出功能
+    Route::get('import', 'hd.HdSignController/import');
+    Route::post('import', 'hd.HdSignController/doImport');
+    Route::get('export', 'hd.HdSignController/export');
 })->middleware([$hdCors, $hdTenant, $hdAuth, $hdPlan]);
 
 // ============================================================
@@ -419,6 +433,11 @@ Route::group('api/hd/setting', function () {
     Route::get('place-search', 'hd.HdSettingController/placeSearch');
     Route::get('reverse-geo', 'hd.HdSettingController/reverseGeo');
     Route::get('mobile-urls', 'hd.HdSettingController/mobileUrls');
+    // 大屏显示设置
+    Route::get('display', 'hd.HdSettingController/displayConfig');
+    Route::post('display', 'hd.HdSettingController/updateDisplayConfig');
+    Route::post('display-logo', 'hd.HdSettingController/uploadDisplayLogo');
+    Route::post('display-logo-delete', 'hd.HdSettingController/deleteDisplayLogo');
 })->middleware([$hdCors, $hdTenant, $hdAuth]);
 
 // ============================================================

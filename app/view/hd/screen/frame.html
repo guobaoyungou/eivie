@@ -3,7 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="renderer" content="webkit">
-    <title>微信上墙首页</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="微信上墙,大屏互动,活动互动,微信签到,大屏幕系统,现场互动,弹幕互动,抽奖互动,摇一摇互动,企业年会互动,婚礼互动,商业活动互动">
+    <meta name="description" content="艺为微信上墙系统，为企业年会、婚礼庆典、商业活动等提供专业的大屏互动解决方案，支持微信签到、弹幕、抽奖、摇一摇等多种互动功能，让活动更加精彩。">
+    <meta name="author" content="艺为互动科技有限公司">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="{$base_url}/screen/frame">
+    <meta property="og:title" content="艺为微信上墙首页">
+    <meta property="og:description" content="艺为微信上墙系统，为企业年会、婚礼庆典、商业活动等提供专业的大屏互动解决方案">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{$base_url}/screen/frame">
+    <meta property="og:site_name" content="艺为互动">
+    <title>艺为互动-微信上墙首页</title>
     <link rel="stylesheet" href="/static/hd/assets/css/normalize.css" >
     <link rel="stylesheet" href="/static/hd/assets/plugs/icon/iconfont.css" type="text/css" />
     <link rel="stylesheet" href="/static/hd/assets/css/index.css" >
@@ -33,12 +44,14 @@
 </div>
 {/if}
 
-{if $show_company_name != 2}
-<div class="screen-company-name">{$wall_config['copyright']}</div>
+{if $show_logo != 2}
+{if $wall_config['logoimg'] != ''}
+<div class="screen-logo"><img src="{$wall_config['logoimg']}" alt="活动LOGO"></div>
+{/if}
 {/if}
 
 {if $show_activity_name != 2}
-<div class="screen-activity-name">现场活动大屏幕系统</div>
+<div class="screen-activity-name">{if $wall_config['activity_name'] != ''}{$wall_config['activity_name']}{else}现场活动大屏幕系统{/if}</div>
 {/if}
 
 {if $show_copyright != 2}
@@ -144,7 +157,7 @@
 {if $screen_password_enabled != 0}
 <div class="loginformbg">
     <div class="loginform" style="z-index:100">
-        <div class="activity_title">现场活动大屏幕系统</div>
+        <div class="activity_title">{if $wall_config['activity_name'] != ''}{$wall_config['activity_name']}{else}现场活动大屏幕系统{/if}</div>
         <div>
             <input id="password" class="password" placeholder="请输入活动的管理密码" type="password" autocomplete="new-password">
         </div>

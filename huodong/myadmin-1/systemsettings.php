@@ -4,16 +4,21 @@ require_once('Page.php');
 
 class SystemSettings extends Page{
 	function show(){
+		$this->_load->model('Wall_model');
+		$wall_config=$this->_load->wall_model->getConfig();
 		$this->_load->model('Weixin_model');
 		$weixin_config=$this->_load->weixin_model->getConfig();
 		$this->_load->model("System_Config_model");
 		$menucolor=$this->_load->system_config_model->get('menucolor');
 		$showcountsign=$this->_load->system_config_model->get('showcountsign');
+		$show_logo=$this->_load->system_config_model->get('show_logo');
 		$show_company_name=$this->_load->system_config_model->get('show_company_name');
 		$show_activity_name=$this->_load->system_config_model->get('show_activity_name');
 		$show_copyright=$this->_load->system_config_model->get('show_copyright');
+		$this->assign('wall_config',$wall_config);
 		$this->assign('menucolor',$menucolor['configvalue']);
 		$this->assign('showcountsign',$showcountsign['configvalue']);
+		$this->assign('show_logo',empty($show_logo['configvalue'])?'1':$show_logo['configvalue']);
 		$this->assign('show_company_name',empty($show_company_name['configvalue'])?'1':$show_company_name['configvalue']);
 		$this->assign('show_activity_name',empty($show_activity_name['configvalue'])?'1':$show_activity_name['configvalue']);
 		$this->assign('show_copyright',empty($show_copyright['configvalue'])?'1':$show_copyright['configvalue']);

@@ -6,6 +6,7 @@ namespace app\service\hd;
 use think\facade\Db;
 use think\facade\Cache;
 use think\facade\Log;
+use app\model\hd\HdActivity;
 
 /**
  * 大屏互动 - 内容安全过滤服务
@@ -13,6 +14,9 @@ use think\facade\Log;
  */
 class HdContentFilterService
 {
+    /** 默认模板活动ID */
+    private static $templateActivityId = 2;
+
     // ========== 内容过滤核心方法 ==========
 
     /**
@@ -112,7 +116,8 @@ class HdContentFilterService
     // ========== 安全配置 ==========
 
     /**
-     * 获取活动安全配置（从 activity_feature wall 的 config 中读取）
+     * 获取活动安全配置（从 hd_activity.screen_config 读取）
+     * 优先级：当前活动配置 > 活动#2模板配置 > 默认值
      */
     public function getSecurityConfig(int $activityId): array
     {
@@ -120,26 +125,35 @@ class HdContentFilterService
         $cached = Cache::get($cacheKey);
         if ($cached) return $cached;
 
-        $feature = Db::name('hd_activity_feature')
-            ->where('activity_id', $activityId)
-            ->where('feature_code', 'wall')
-            ->find();
+        $defaults = [
+            'filter_enabled'  => 1,
+            'need_approve'    => 0,
+            'max_msg_length'  => 200,
+            'msg_interval'    => 3,
+            'global_mute'     => 0,
+        ];
 
-        $config = [];
-        if ($feature && $feature['config']) {
-            $c = is_string($feature['config']) ? json_decode($feature['config'], true) : $feature['config'];
-            $config = [
-                'filter_enabled'  => $c['filter_enabled'] ?? 1,
-                'need_approve'    => $c['need_approve'] ?? 0,
-                'max_msg_length'  => $c['max_msg_length'] ?? 200,
-                'msg_interval'    => $c['msg_interval'] ?? 3,
-                'global_mute'     => $c['global_mute'] ?? 0,
-            ];
-        } else {
-            $config = [
-                'filter_enabled' => 1, 'need_approve' => 0,
-                'max_msg_length' => 200, 'msg_interval' => 3, 'global_mute' => 0,
-            ];
+        // 获取当前活动的屏幕配置
+        $activityConfig = $this->getActivityScreenConfig($activityId);
+        $config = $activityConfig['security'] ?? [];
+
+        // 如果当前活动没有配置，尝试使用活动#2模板
+        if (empty($config) && $activityId !== self::$templateActivityId) {
+            $templateConfig = $this->getActivityScreenConfig(self::$templateActivityId);
+            $templateSecurity = $templateConfig['security'] ?? [];
+            // 合并模板配置
+            foreach ($defaults as $key => $defaultValue) {
+                if (isset($templateSecurity[$key])) {
+                    $config[$key] = $templateSecurity[$key];
+                }
+            }
+        }
+
+        // 合并默认值
+        foreach ($defaults as $key => $defaultValue) {
+            if (!isset($config[$key])) {
+                $config[$key] = $defaultValue;
+            }
         }
 
         Cache::set($cacheKey, $config, 60);
@@ -147,33 +161,74 @@ class HdContentFilterService
     }
 
     /**
-     * 更新安全配置
+     * 更新安全配置（保存到 hd_activity.screen_config）
      */
     public function updateSecurityConfig(int $aid, int $bid, int $activityId, array $data): array
     {
-        $feature = Db::name('hd_activity_feature')
-            ->where('activity_id', $activityId)
-            ->where('feature_code', 'wall')
-            ->find();
-
-        $config = [];
-        if ($feature && $feature['config']) {
-            $config = is_string($feature['config']) ? json_decode($feature['config'], true) : $feature['config'];
-        }
+        // 获取活动的屏幕配置
+        $screenConfig = $this->getActivityScreenConfig($activityId);
+        $security = $screenConfig['security'] ?? [];
 
         $allowedKeys = ['filter_enabled', 'need_approve', 'max_msg_length', 'msg_interval', 'global_mute'];
         foreach ($allowedKeys as $key) {
-            if (isset($data[$key])) $config[$key] = $data[$key];
+            if (isset($data[$key])) $security[$key] = $data[$key];
         }
 
-        if ($feature) {
-            Db::name('hd_activity_feature')->where('id', $feature['id'])->update([
-                'config' => json_encode($config, JSON_UNESCAPED_UNICODE),
-            ]);
-        }
+        // 保存配置
+        $screenConfig['security'] = $security;
+        $this->saveActivityScreenConfig($activityId, $screenConfig);
 
         Cache::delete('hd_security_config:' . $activityId);
         return ['code' => 0, 'msg' => '安全设置已更新'];
+    }
+
+    /**
+     * 获取活动的屏幕配置（从 hd_activity.screen_config 读取）
+     */
+    private function getActivityScreenConfig(int $activityId): array
+    {
+        if ($activityId <= 0) {
+            return [];
+        }
+
+        try {
+            $activity = HdActivity::where('id', $activityId)->find();
+            if ($activity && !empty($activity->screen_config)) {
+                $configRaw = $activity->getData('screen_config');
+                if (is_string($configRaw)) {
+                    return json_decode($configRaw, true) ?: [];
+                }
+                return is_array($configRaw) ? $configRaw : [];
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        return [];
+    }
+
+    /**
+     * 保存活动的屏幕配置（到 hd_activity.screen_config）
+     */
+    private function saveActivityScreenConfig(int $activityId, array $screenConfig): bool
+    {
+        if ($activityId <= 0) {
+            return false;
+        }
+
+        try {
+            $activity = HdActivity::where('id', $activityId)->find();
+            if (!$activity) {
+                return false;
+            }
+
+            $activity->screen_config = $screenConfig;
+            $activity->save();
+            return true;
+        } catch (\Throwable $e) {
+            Log::error('保存活动屏幕配置失败: ' . $e->getMessage());
+            return false;
+        }
     }
 
     // ========== 关键词管理 ==========

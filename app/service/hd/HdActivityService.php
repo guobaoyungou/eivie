@@ -115,9 +115,9 @@ class HdActivityService
             $activity->createtime = time();
             $activity->save();
 
-            // 初始化默认功能配置
-            $defaultFeatures = ['qdq', 'wall', 'lottery'];
-            foreach ($defaultFeatures as $sort => $code) {
+            // 初始化默认功能配置 - 新建活动时启用所有功能
+            $sort = 0;
+            foreach (self::ALL_FEATURES as $code => $name) {
                 HdActivityFeature::create([
                     'aid'          => $aid,
                     'bid'          => $bid,
@@ -125,7 +125,7 @@ class HdActivityService
                     'feature_code' => $code,
                     'enabled'      => 1,
                     'config'       => json_encode([]),
-                    'sort'         => $sort,
+                    'sort'         => $sort++,
                 ]);
             }
 

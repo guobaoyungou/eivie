@@ -24,8 +24,16 @@ $smarty->assign('title','上墙');
 $smarty->assign('erweima',$weixin_config['erweima']);
 $qd_nums=0;
 
-$load->model('System_Config_model');
-$showtype = $load->system_config_model->get("signnameshowstyle");
+// 优先从新系统 hd_activity.screen_config 读取显示设置
+$activity_id = isset($_GET['activity_id']) ? intval($_GET['activity_id']) : 0;
+$displayConfig = getActivityDisplayConfig($activity_id);
+if ($displayConfig && $displayConfig['sign_show_style'] !== null) {
+	$showtype_value = $displayConfig['sign_show_style'];
+} else {
+	$load->model('System_Config_model');
+	$showtype = $load->system_config_model->get("signnameshowstyle");
+	$showtype_value = isset($showtype['configvalue']) ? $showtype['configvalue'] : 1;
+}
 $load->model('Flag_model');
 $qiandaonum=$load->flag_model->getShenheCount();
 $smarty->assign('from','qiandao');

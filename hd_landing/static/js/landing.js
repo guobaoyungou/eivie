@@ -159,4 +159,74 @@
         var statsSection = document.querySelector('.hero-stats');
         if (statsSection) statsObserver.observe(statsSection);
     }
+
+    // 动态加载系统配置信息
+    function loadSystemConfig() {
+        fetch('/api/get_config.php')
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.code === 1 && data.data) {
+                    var config = data.data;
+                    
+                    // 更新企业信息
+                    if (config.company_name) document.getElementById('company_name').textContent = config.company_name;
+                    if (config.company_phone) document.getElementById('company_phone').textContent = config.company_phone;
+                    if (config.company_wechat) document.getElementById('company_wechat').textContent = config.company_wechat;
+                    if (config.company_email) document.getElementById('company_email').textContent = config.company_email;
+                    if (config.copyright) document.getElementById('copyright').textContent = config.copyright;
+                    if (config.domain) document.getElementById('domain').textContent = config.domain;
+                    if (config.icp_record) document.getElementById('icp_record').textContent = config.icp_record;
+                    if (config.police_record) document.getElementById('police_record').textContent = config.police_record;
+                }
+            })
+            .catch(function(error) {
+                console.error('加载系统配置失败:', error);
+            });
+    }
+
+    // 初始化功能幻灯片
+    function initFeatureSlider() {
+        const slider = document.querySelector('.feature-slider');
+        if (!slider) return;
+        
+        const wrapper = slider.querySelector('.slider-wrapper');
+        const leftBtn = slider.querySelector('.slider-btn-left');
+        const rightBtn = slider.querySelector('.slider-btn-right');
+        const cards = wrapper.querySelectorAll('.feature-card');
+        
+        if (!wrapper || !leftBtn || !rightBtn || cards.length === 0) return;
+        
+        const cardWidth = 300 + 24; // 卡片宽度 + 间距
+        let currentPosition = 0;
+        const maxPosition = Math.max(0, (cards.length * cardWidth) - slider.offsetWidth);
+        
+        leftBtn.addEventListener('click', function() {
+            currentPosition = Math.max(0, currentPosition - cardWidth);
+            updateSliderPosition();
+        });
+        
+        rightBtn.addEventListener('click', function() {
+            currentPosition = Math.min(maxPosition, currentPosition + cardWidth);
+            updateSliderPosition();
+        });
+        
+        function updateSliderPosition() {
+            wrapper.style.transform = `translateX(-${currentPosition}px)`;
+        }
+        
+        // 窗口大小改变时重新计算
+        window.addEventListener('resize', function() {
+            const newMaxPosition = Math.max(0, (cards.length * cardWidth) - slider.offsetWidth);
+            currentPosition = Math.min(currentPosition, newMaxPosition);
+            updateSliderPosition();
+        });
+    }
+
+    // 页面加载完成后执行
+    window.addEventListener('DOMContentLoaded', function() {
+        loadSystemConfig();
+        initFeatureSlider();
+    });
 })();

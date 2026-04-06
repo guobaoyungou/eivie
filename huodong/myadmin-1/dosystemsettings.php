@@ -26,6 +26,9 @@ switch ($action) {
     case 'show_company_name':
         setShowConfig('show_company_name');
         break;
+    case 'show_logo':
+        setShowConfig('show_logo');
+        break;
     case 'show_activity_name':
         setShowConfig('show_activity_name');
         break;
@@ -34,6 +37,12 @@ switch ($action) {
         break;
     case 'setmobilemenufontcolor':
         setmobilemenufontcolor();
+        break;
+    case 'setlogo':
+        setlogo();
+        break;
+    case 'setactivityname':
+        setactivityname();
         break;
 }
 
@@ -119,7 +128,7 @@ function setqrcodetoptext()
     }
 }
 
-// 设置显示开关（公司名称、活动名称、版权信息）
+// 设置显示开关（公司名称、活动名称、版权信息、活动LOGO）
 function setShowConfig($key)
 {
     $load = Loader::getInstance();
@@ -131,6 +140,42 @@ function setShowConfig($key)
         return;
     } else {
         echo '{"code":-2,"message":"修改失败"}';
+        return;
+    }
+}
+
+// 上传活动LOGO图片
+function setlogo()
+{
+    $load = Loader::getInstance();
+    $load->model('Wall_model');
+    $data = array('logoimg' => 0);
+    if (!empty($_FILES['logo']['type'])) {
+        $load->model('Attachment_model');
+        $file = $load->attachment_model->saveFormFile($_FILES['logo']);
+        if ($file) {
+            $data = array('logoimg' => $file['id']);
+        }
+    }
+    $result = $load->wall_model->setConfig($data);
+    echo "<script>alert('活动LOGO已保存成功！');history.go(-1);</script>";
+}
+
+// 保存活动名称
+function setactivityname()
+{
+    $text = isset($_POST['activity_name']) ? strval($_POST['activity_name']) : '';
+    $load = Loader::getInstance();
+    $load->model('Wall_model');
+    $data = array('activity_name' => $text);
+    $result = $load->wall_model->setConfig($data);
+    if ($result) {
+        $resultdata = array('code' => 1, 'message' => '修改成功');
+        echo json_encode($resultdata);
+        return;
+    } else {
+        $resultdata = array('code' => -1, 'message' => '修改失败');
+        echo json_encode($resultdata);
         return;
     }
 }

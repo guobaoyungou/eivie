@@ -54,6 +54,12 @@ class HdAjaxBridgeController extends HdBaseController
             return json(['code' => -1, 'data' => ['omid' => $mid, 'mid' => $mid, 'users' => []]]);
         }
 
+        // 读取嘉宾显示方式配置：1=昵称, 2=姓名, 3=手机号
+        $sc = $activity->screen_config ?: [];
+        $showStyle = $sc['sign_show_style'] ?? ($sc['show_style'] ?? 1);
+        // 读取头像来源配置：1=微信头像, 0=显示照片（优先sign_photo，降级avatar）
+        $useWxAvatar = (int)($sc['use_wx_avatar'] ?? 1);
+
         $where = [
             ['activity_id', '=', $activity->id],
             ['flag', '=', HdParticipant::FLAG_SIGNED],
@@ -65,7 +71,7 @@ class HdAjaxBridgeController extends HdBaseController
         $list = HdParticipant::where($where)
             ->order('signorder asc')
             ->limit($num)
-            ->field('id,nickname,avatar,signorder')
+            ->field('id,nickname,avatar,signorder,phone,signname,sign_photo')
             ->select()
             ->toArray();
 
@@ -73,8 +79,8 @@ class HdAjaxBridgeController extends HdBaseController
         $users = [];
         foreach ($list as $item) {
             $users[] = [
-                'nickname'  => $item['nickname'],
-                'avatar'    => $item['avatar'],
+                'nickname'  => $this->applyShowStyle($item, $showStyle),
+                'avatar'    => $this->applyAvatarSource($item, $useWxAvatar),
                 'signorder' => $item['signorder'],
             ];
             $newMid = max($newMid, (int)$item['signorder']);
@@ -104,19 +110,26 @@ class HdAjaxBridgeController extends HdBaseController
             return json(['omid' => $mid, 'mid' => $mid]);
         }
 
+        // 读取嘉宾显示方式配置
+        $sc = $activity->screen_config ?: [];
+        $showStyle = $sc['sign_show_style'] ?? ($sc['show_style'] ?? 1);
+        // 读取头像来源配置
+        $useWxAvatar = (int)($sc['use_wx_avatar'] ?? 1);
+
         $participant = HdParticipant::where('activity_id', $activity->id)
             ->where('flag', HdParticipant::FLAG_SIGNED)
             ->where('signorder', '>', $mid)
             ->order('signorder asc')
-            ->field('id,nickname,avatar,signorder')
+            ->field('id,nickname,avatar,signorder,phone,signname,sign_photo')
             ->find();
 
         if ($participant) {
+            $item = $participant->toArray();
             return json([
                 'omid'      => $mid,
                 'mid'       => $participant->signorder,
-                'nickname'  => $participant->nickname,
-                'avatar'    => $participant->avatar,
+                'nickname'  => $this->applyShowStyle($item, $showStyle),
+                'avatar'    => $this->applyAvatarSource($item, $useWxAvatar),
                 'signorder' => $participant->signorder,
             ]);
         }
@@ -700,20 +713,27 @@ class HdAjaxBridgeController extends HdBaseController
             return json(['omid' => $mid, 'mid' => $mid, 'avatar' => '', 'qdnums' => '', 'nick_name' => '']);
         }
 
+        // 读取嘉宾显示方式配置
+        $sc = $activity->screen_config ?: [];
+        $showStyle = $sc['sign_show_style'] ?? ($sc['show_style'] ?? 1);
+        // 读取头像来源配置
+        $useWxAvatar = (int)($sc['use_wx_avatar'] ?? 1);
+
         $participant = HdParticipant::where('activity_id', $activity->id)
             ->where('flag', HdParticipant::FLAG_SIGNED)
             ->where('signorder', '>', $mid)
             ->order('signorder asc')
-            ->field('id,nickname,avatar,signorder')
+            ->field('id,nickname,avatar,signorder,phone,signname,sign_photo')
             ->find();
 
         if ($participant) {
+            $item = $participant->toArray();
             return json([
                 'omid'      => $mid,
                 'mid'       => $participant->signorder,
-                'avatar'    => $participant->avatar,
+                'avatar'    => $this->applyAvatarSource($item, $useWxAvatar),
                 'qdnums'    => $participant->signorder,
-                'nick_name' => $participant->nickname,
+                'nick_name' => $this->applyShowStyle($item, $showStyle),
             ]);
         }
 
@@ -985,5 +1005,49 @@ class HdAjaxBridgeController extends HdBaseController
             return json(['code' => 1, 'message' => '保存成功', 'data' => $data]);
         }
         return json(['code' => -1, 'message' => '保存失败']);
+    }
+
+    /**
+     * 根据 sign_show_style 配置处理显示名称
+     * 1=昵称, 2=姓名, 3=手机号(脱敏)
+     *
+     * @param array $item 用户数据，包含 nickname/phone/signname 字段
+     * @param mixed $showStyle 显示方式配置值
+     * @return string 处理后的显示名称
+     */
+    /**
+     * 根据 use_wx_avatar 配置处理头像来源
+     * use_wx_avatar=1 使用微信头像, =0 优先使用签到照片(sign_photo)，无照片时降级为微信头像
+     *
+     * @param array $item 用户数据，包含 avatar/sign_photo 字段
+     * @param int $useWxAvatar 头像来源配置值
+     * @return string 头像URL
+     */
+    private function applyAvatarSource(array $item, int $useWxAvatar): string
+    {
+        // 设置为"显示照片"且用户有签到照片时，优先使用照片
+        if ($useWxAvatar == 0 && !empty($item['sign_photo'])) {
+            return $item['sign_photo'];
+        }
+        // 默认/降级：使用微信头像
+        return $item['avatar'] ?? '';
+    }
+
+    private function applyShowStyle(array $item, $showStyle): string
+    {
+        $displayName = $item['nickname'] ?? '';
+
+        if ($showStyle == 2 && !empty($item['signname'])) {
+            // 显示姓名
+            $displayName = $item['signname'];
+        } elseif ($showStyle == 3 && !empty($item['phone'])) {
+            // 显示手机号（中间4位脱敏）
+            $phone = $item['phone'];
+            $displayName = strlen($phone) >= 7
+                ? substr_replace($phone, '****', 3, 4)
+                : $phone;
+        }
+
+        return $displayName;
     }
 }

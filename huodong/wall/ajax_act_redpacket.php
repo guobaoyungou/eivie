@@ -10,6 +10,19 @@ require_once(dirname(__FILE__) . '/../common/http_helper.php');
 // include('biaoqing.php');
 $action = $_GET['action'];
 
+// 优先从新系统 hd_activity.screen_config 读取显示设置
+$activity_id = isset($_GET['activity_id']) ? intval($_GET['activity_id']) : 0;
+$displayConfig = getActivityDisplayConfig($activity_id);
+if ($displayConfig && $displayConfig['sign_show_style'] !== null) {
+	$g_showtype = $displayConfig['sign_show_style'];
+} else {
+	// 回退到旧的 weixin_system_config 表
+	$load_tmp = Loader::getInstance();
+	$load_tmp->model('System_Config_model');
+	$showtype_cfg = $load_tmp->system_config_model->get("signnameshowstyle");
+	$g_showtype = isset($showtype_cfg['configvalue']) ? $showtype_cfg['configvalue'] : 1;
+}
+
 switch($action){
 	case 'start':
 		gamestart();
@@ -163,12 +176,13 @@ function redpacket_users(){
 
 //处理中奖名单
 function processzjlist($redpacket_users){
+	global $g_showtype;
 	$newredpacket_users=array();
 	foreach($redpacket_users as $k=>$v){
 		$row=array();
 		$row['id']=$v['id'];
 		$row['avatar']=$v['avatar'];
-		$row['nick_name']=pack('H*', $v['nickname']);
+		$row['nick_name']=processNickname($v, $g_showtype);
 		$row['money']=$v['amount']/100;
 		$newredpacket_users[]=$row;
 	}
@@ -177,12 +191,13 @@ function processzjlist($redpacket_users){
 
 //处理参与用户名单
 function processuserlist($redpacket_users){
+	global $g_showtype;
 	$newredpacket_users=array();
 	foreach($redpacket_users as $k=>$v){
 		$row=array();
 		$row['id']=$v['signorder'];
 		$row['avatar']=$v['avatar'];
-		$row['nick_name']=pack('H*', $v['nickname']);
+		$row['nick_name']=processNickname($v, $g_showtype);
 		$newredpacket_users[]=$row;
 	}
 	return $newredpacket_users;

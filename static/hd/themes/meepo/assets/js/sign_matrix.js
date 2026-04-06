@@ -1,11 +1,11 @@
 /**
  * 签到墙 - 样式二：矩阵墙交互逻辑
  * 功能：
- * 1. 5行×12列头像矩阵显示
+ * 1. 5行×16列头像矩阵显示
  * 2. AJAX 轮询获取新签到用户
  * 3. 新用户入场：弹射飞入中央 → 停留展示 → 镜面翻转缩小飞出至矩阵格子
  * 4. 奇偶签到者交替使用左下角/右下角入场方向
- * 5. 超过60个头像时自动平滑循环滚动
+ * 5. 超过80个头像时自动平滑循环滚动
  * 6. 无新签到时随机从已签到名单抽取用户播放入场/出场动画（防冷场）
  */
 ;(function(window, $) {
@@ -14,7 +14,7 @@
     var SignMatrix = {
         // 配置
         config: {
-            cols: 12,              // 列数
+            cols: 16,              // 列数
             rowsVisible: 5,        // 可见行数
             pollInterval: 5000,    // 轮询间隔 ms
             toastDuration: 3000,   // Toast 显示总时长 ms (400ms弹入 + 2600ms保持)
@@ -548,7 +548,7 @@
          * 检查是否需要自动滚动
          */
         _checkScroll: function() {
-            var maxVisible = this.config.cols * this.config.rowsVisible; // 60
+            var maxVisible = this.config.cols * this.config.rowsVisible; // 80
             if (this.state.allUsers.length > maxVisible && !this.state.isScrolling) {
                 this._startScroll();
             }

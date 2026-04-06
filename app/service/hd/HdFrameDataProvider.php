@@ -40,8 +40,12 @@ class HdFrameDataProvider
         $showcountsign = $screenConfig['showcountsign'] ?? '1';
         $qrcodepos = isset($screenConfig['qrcodepos']) ? json_encode($screenConfig['qrcodepos']) : 'null';
 
-        // 信息显示开关配置
-        $displayConfig = $this->getDisplayConfig($activity->bid);
+        // 信息显示开关配置（从活动 screen_config 读取，优先于全局配置）
+        $displayConfig = $this->getDisplayConfig($activity);
+
+        // 从活动 screen_config 读取LOGO和活动名称等字段，合并到 wallConfig
+        $legacyWallConfig = $this->getLegacyWallConfig($activity);
+        $wallConfig = array_merge($wallConfig, $legacyWallConfig);
 
         // 背景音乐自动播放设置
         $bgmusic = [
@@ -66,6 +70,7 @@ class HdFrameDataProvider
             'show_company_name'   => $displayConfig['show_company_name'],
             'show_activity_name'  => $displayConfig['show_activity_name'],
             'show_copyright'      => $displayConfig['show_copyright'],
+            'show_logo'           => $displayConfig['show_logo'],
             'base_url'            => $baseUrl,
             'screen_password_enabled' => $screenPasswordEnabled,
         ];
@@ -462,19 +467,47 @@ class HdFrameDataProvider
     }
 
     /**
-     * 背景图 JSON（读取 weixin_background 表，输出 plugname 为 key 的格式）
+     * 背景图 JSON（从活动 screen_config 读取，输出 plugname 为 key 的格式）
+     * 优先级：当前活动配置 > 活动#2模板配置 > weixin_background 全局默认
      * 格式：{"qdq":{"path":"/static/hd/themes/meepo/assets/images/defaultbg.jpg","bgtype":1}, ...}
      */
     private function convertBackgroundJson(int $activityId): string
     {
         $defaultBgPath = '/static/hd/themes/meepo/assets/images/defaultbg.jpg';
+        $templateActivityId = 2;
+
         try {
+            // 1. 获取全局背景模块定义（从 weixin_background 表读取模块列表）
             $list = Db::connect('huodong')->table('weixin_background')->select()->toArray();
+
+            // 2. 获取当前活动的屏幕配置
+            $activityBgConfig = $this->getActivityBackgroundConfig($activityId);
+
+            // 3. 获取活动#2的模板配置（如果当前活动没有配置，使用模板）
+            $templateBgConfig = [];
+            if ($activityId !== $templateActivityId) {
+                $templateBgConfig = $this->getActivityBackgroundConfig($templateActivityId);
+            }
+
+            // 4. 合并配置
             $image_arr = [];
             foreach ($list as $val) {
-                $attachmentId = intval($val['attachmentid'] ?? 0);
+                $plugname = $val['plugname'];
+
+                // 确定使用哪个配置：活动配置 > 模板配置 > 全局默认
+                $attachmentId = 0;
                 $bgtype = intval($val['bgtype'] ?? 1);
                 $path = $defaultBgPath;
+
+                if (isset($activityBgConfig[$plugname])) {
+                    $attachmentId = intval($activityBgConfig[$plugname]['attachmentid'] ?? 0);
+                    $bgtype = intval($activityBgConfig[$plugname]['bgtype'] ?? $bgtype);
+                } elseif (isset($templateBgConfig[$plugname])) {
+                    $attachmentId = intval($templateBgConfig[$plugname]['attachmentid'] ?? 0);
+                    $bgtype = intval($templateBgConfig[$plugname]['bgtype'] ?? $bgtype);
+                }
+
+                // 查询附件路径
                 if ($attachmentId > 0) {
                     $attachment = Db::connect('huodong')->table('weixin_attachments')
                         ->where('id', $attachmentId)->find();
@@ -482,12 +515,42 @@ class HdFrameDataProvider
                         $path = $attachment['filepath'];
                     }
                 }
-                $image_arr[$val['plugname']] = ['path' => $path, 'bgtype' => $bgtype];
+
+                $image_arr[$plugname] = ['path' => $path, 'bgtype' => $bgtype];
             }
             return json_encode($image_arr, JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             return '{}';
         }
+    }
+
+    /**
+     * 获取活动的背景配置（从 hd_activity.screen_config 读取）
+     */
+    private function getActivityBackgroundConfig(int $activityId): array
+    {
+        if ($activityId <= 0) {
+            return [];
+        }
+
+        try {
+            $activity = HdActivity::where('id', $activityId)->find();
+            if ($activity && !empty($activity->screen_config)) {
+                $configRaw = $activity->getData('screen_config');
+                if (is_string($configRaw)) {
+                    $decoded = json_decode($configRaw, true);
+                    if (is_array($decoded) && isset($decoded['backgrounds'])) {
+                        return $decoded['backgrounds'];
+                    }
+                } elseif (is_array($configRaw) && isset($configRaw['backgrounds'])) {
+                    return $configRaw['backgrounds'];
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        return [];
     }
 
     /**
@@ -509,30 +572,165 @@ class HdFrameDataProvider
     }
 
     /**
-     * 获取信息显示开关配置
+     * 获取信息显示开关配置（从活动 screen_config 读取）
+     * 优先级：活动配置 > 活动#2模板配置 > 全局配置
      */
-    private function getDisplayConfig(int $bid): array
+    private function getDisplayConfig(HdActivity $activity): array
     {
         $defaults = [
-            'show_company_name'  => '1',
+            'show_company_name'   => '1',
             'show_activity_name' => '1',
             'show_copyright'     => '1',
+            'show_logo'          => '1',
         ];
 
-        $config = Db::name('hd_business_config')
-            ->where('bid', $bid)
-            ->find();
-
-        if ($config) {
-            foreach ($defaults as $key => &$val) {
-                if (isset($config[$key]) && $config[$key] !== '') {
-                    $val = (string)$config[$key];
+        // 尝试从活动 screen_config 读取
+        if (!empty($activity->screen_config)) {
+            $screenConfig = is_array($activity->screen_config)
+                ? $activity->screen_config
+                : json_decode($activity->screen_config, true);
+            if (is_array($screenConfig)) {
+                foreach (['show_company_name', 'show_activity_name', 'show_copyright', 'show_logo'] as $key) {
+                    if (isset($screenConfig[$key])) {
+                        $defaults[$key] = strval($screenConfig[$key]);
+                    }
                 }
             }
-            unset($val);
+        }
+
+        // 如果活动配置为空，尝试从活动#2模板配置读取
+        if (empty($activity->screen_config) && $activity->id !== 2) {
+            try {
+                $template = HdActivity::where('id', 2)->find();
+                if ($template && !empty($template->screen_config)) {
+                    $screenConfig = is_array($template->screen_config)
+                        ? $template->screen_config
+                        : json_decode($template->screen_config, true);
+                    if (is_array($screenConfig)) {
+                        foreach (['show_company_name', 'show_activity_name', 'show_copyright', 'show_logo'] as $key) {
+                            if (isset($screenConfig[$key]) && empty($defaults[$key])) {
+                                $defaults[$key] = strval($screenConfig[$key]);
+                            }
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
         }
 
         return $defaults;
+    }
+
+    /**
+     * 从活动 screen_config 读取LOGO和活动名称等字段
+     * 优先级：活动配置 > 活动#2模板配置 > 全局配置
+     */
+    private function getLegacyWallConfig(HdActivity $activity): array
+    {
+        $result = [
+            'activity_name' => '',
+            'logoimg'       => '',
+        ];
+
+        // 尝试从活动 screen_config 读取
+        if (!empty($activity->screen_config)) {
+            $screenConfig = is_array($activity->screen_config)
+                ? $activity->screen_config
+                : json_decode($activity->screen_config, true);
+            if (is_array($screenConfig)) {
+                if (!empty($screenConfig['activity_name'])) {
+                    $result['activity_name'] = $screenConfig['activity_name'];
+                }
+                if (!empty($screenConfig['copyright'])) {
+                    $result['copyright'] = $screenConfig['copyright'];
+                }
+                if (!empty($screenConfig['copyrightlink'])) {
+                    $result['copyrightlink'] = $screenConfig['copyrightlink'];
+                }
+                // 处理 logo
+                $logoId = intval($screenConfig['logoimg'] ?? 0);
+                if ($logoId > 0) {
+                    try {
+                        $att = Db::connect('huodong')->table('weixin_attachments')
+                            ->where('id', $logoId)->find();
+                        if ($att && !empty($att['filepath'])) {
+                            $result['logoimg'] = ($att['type'] == 1) ? $att['filepath'] : '/huodong/imageproxy.php?id=' . $att['id'];
+                        }
+                    } catch (\Throwable $e) {
+                        // ignore
+                    }
+                }
+            }
+        }
+
+        // 如果活动配置为空，尝试从活动#2模板配置读取
+        if ((empty($activity->screen_config) || empty($result['activity_name'])) && $activity->id !== 2) {
+            try {
+                $template = HdActivity::where('id', 2)->find();
+                if ($template && !empty($template->screen_config)) {
+                    $screenConfig = is_array($template->screen_config)
+                        ? $template->screen_config
+                        : json_decode($template->screen_config, true);
+                    if (is_array($screenConfig)) {
+                        if (empty($result['activity_name']) && !empty($screenConfig['activity_name'])) {
+                            $result['activity_name'] = $screenConfig['activity_name'];
+                        }
+                        if (empty($result['logoimg']) && !empty($screenConfig['logoimg'])) {
+                            $logoId = intval($screenConfig['logoimg']);
+                            if ($logoId > 0) {
+                                $att = Db::connect('huodong')->table('weixin_attachments')
+                                    ->where('id', $logoId)->find();
+                                if ($att && !empty($att['filepath'])) {
+                                    $result['logoimg'] = ($att['type'] == 1) ? $att['filepath'] : '/huodong/imageproxy.php?id=' . $att['id'];
+                                }
+                            }
+                        }
+                        if (empty($result['copyright']) && !empty($screenConfig['copyright'])) {
+                            $result['copyright'] = $screenConfig['copyright'];
+                        }
+                        if (empty($result['copyrightlink']) && !empty($screenConfig['copyrightlink'])) {
+                            $result['copyrightlink'] = $screenConfig['copyrightlink'];
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+
+        // 如果仍然为空，尝试从全局配置读取作为备用
+        if (empty($activity->screen_config) || empty($result['activity_name'])) {
+            try {
+                $row = Db::connect('huodong')->table('weixin_wall_config')->order('id', 'asc')->find();
+                if ($row) {
+                    if (empty($result['activity_name'])) {
+                        $result['activity_name'] = $row['activity_name'] ?? '';
+                    }
+                    // 解析 logoimg 附件ID 为图片URL
+                    if (empty($result['logoimg'])) {
+                        $logoId = intval($row['logoimg'] ?? 0);
+                        if ($logoId > 0) {
+                            $att = Db::connect('huodong')->table('weixin_attachments')
+                                ->where('id', $logoId)->find();
+                            if ($att && !empty($att['filepath'])) {
+                                $result['logoimg'] = ($att['type'] == 1) ? $att['filepath'] : '/huodong/imageproxy.php?id=' . $att['id'];
+                            }
+                        }
+                    }
+                    if (empty($result['copyright'])) {
+                        $result['copyright'] = $row['copyright'] ?? '';
+                    }
+                    if (empty($result['copyrightlink'])) {
+                        $result['copyrightlink'] = $row['copyrightlink'] ?? '';
+                    }
+                }
+            } catch (\Throwable $e) {
+                // 表不存在时使用默认值
+            }
+        }
+
+        return $result;
     }
 
     // ============================================================
@@ -617,11 +815,17 @@ class HdFrameDataProvider
 
         $playMode = $sc['threed_play_mode'] ?? 'sequential';
 
+        // 空闲防冷场动画配置
+        $idleEnabled = !empty($sc['threed_idle_enabled']) ? 'true' : 'false';
+        $idleDelay   = isset($sc['threed_idle_delay']) ? (int)$sc['threed_idle_delay'] : 5000;
+
         return [
             'qd_maxid'                  => $maxId,
             'personJson'                => json_encode($participants, JSON_UNESCAPED_UNICODE),
             'threedimensional_config'   => $threedimensionalConfig,
             'threedimensional_play_mode'=> $playMode,
+            'threed_idle_enabled'       => $idleEnabled,
+            'threed_idle_delay'         => $idleDelay,
         ];
     }
 

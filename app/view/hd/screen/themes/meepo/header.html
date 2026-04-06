@@ -35,6 +35,7 @@
     // AJAX路径桥接：覆盖Path_url，将老AJAX文件名映射到新系统路由
     var HD_BASE_URL = window.parent.HD_BASE_URL || "{$base_url}";
     var HD_AJAX_MAP_DEFAULT = {literal}{
+        'ajax_act_get_sign.php': '/ajax/get_sign',
         'ajax_act_get_new_sign.php': '/ajax/get_new_sign',
         'ajax_act_frame.php': '/ajax/frame',
         'ajax_act_set_bgmusic.php': '/ajax/set_bgmusic',

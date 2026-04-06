@@ -10,8 +10,18 @@ require_once('../common/session_helper.php');
 $lastshenhetime=isset($_GET['shenhetime'])?intval($_GET['shenhetime']):0;
 $load->model('Wall_model');
 $wall_config=$load->wall_model->getConfig();
-$load->model('System_Config_model');
-$showtype=$load->system_config_model->get('wallnameshowstyle');
+
+// 优先从新系统 hd_activity.screen_config 读取显示设置
+$activity_id = isset($_GET['activity_id']) ? intval($_GET['activity_id']) : 0;
+$displayConfig = getActivityDisplayConfig($activity_id);
+if ($displayConfig && $displayConfig['sign_show_style'] !== null) {
+	$showtype_value = $displayConfig['sign_show_style'];
+} else {
+	// 回退到旧的 weixin_system_config 表（消息墙原来读 wallnameshowstyle，现统一使用 sign_show_style）
+	$load->model('System_Config_model');
+	$showtype=$load->system_config_model->get('wallnameshowstyle');
+	$showtype_value = isset($showtype['configvalue']) ? $showtype['configvalue'] : 1;
+}
 $num=intval($wall_config['msg_historynum']);
 $num=$num<=0?3:$num;
 $messagelist=$load->wall_model->getWallMessage($lastshenhetime,$num);
@@ -19,11 +29,11 @@ include("../wall/biaoqing.php");
 $load->model("Attachment_model");
 foreach($messagelist as $k=>$message){
 	$message['nick_name']=pack('H*', trim($message['nickname']));
-	if($showtype['configvalue']==2 && !empty($message['signname'])){
+	if($showtype_value==2 && !empty($message['signname'])){
 		//显示姓名
 		$message['nick_name']=$message['signname'];
 	}
-	if($showtype['configvalue']==3 && !empty($message['phone'])){
+	if($showtype_value==3 && !empty($message['phone'])){
 		//显示电话
 		$message['nick_name']=substr_replace($message['phone'],'****',3,4);
 	}
