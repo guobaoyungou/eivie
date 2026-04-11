@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="/static/hd/themes/meepo/assets/css/normalize.css">
 <script src="/static/hd/themes/meepo/assets/js/qdbase.js" type="text/javascript" charset="utf-8"></script>
 <script src="/static/hd/themes/meepo/assets/js/screen_qd.js" type="text/javascript" charset="utf-8"></script>
-<link rel="stylesheet" href="/static/hd/themes/meepo/assets/css/qd.css?v=20260402" type="text/css">
+<link rel="stylesheet" href="/static/hd/themes/meepo/assets/css/qd.css?v=20260406d" type="text/css">
 </head>
 <body class="FUN WALL" >
 <div class="ui" style="display:none">
@@ -16,7 +16,7 @@
 <div id="container" style="display:none;opacity: 0;"></div>
 <div id="earth" style="display:none;"></div>
 <canvas class="canvas" style="display:none;opacity: 0;"></canvas>
-<div class="tuchu ">
+<div class="tuchu {$threed_card_style}">
   <div class="tuchug">
     <img src="/static/hd/themes/meepo/assets/images/icon/bbb.png"></div>
   <div class="tuchuk">
@@ -69,6 +69,10 @@
 {/literal}
 	var idleEnabled = {$threed_idle_enabled};   // 是否启用空闲防冷场动画
 	var idleDelay = {$threed_idle_delay};       // 空闲延迟时间（毫秒）
+	var cardStyle = '{$threed_card_style}';      // 突出卡片样式
+	var highlightScale = {$threed_highlight_scale};    // 放大倍数
+	var highlightDuration = {$threed_highlight_duration}; // 停留时长（毫秒）
+	console.log('[DEBUG] cardStyle from PHP: <' + cardStyle + '>');
 {literal}
 
 	/**
@@ -84,6 +88,9 @@
 		// 强制移除旧动画状态并触发回流，确保 CSS 动画重新播放
 		var tuchuEl = document.querySelector('.tuchu');
 		tuchuEl.classList.remove('view');
+		// 设置CSS自定义属性用于动画
+		tuchuEl.style.setProperty('--highlight-scale', highlightScale);
+		tuchuEl.style.setProperty('--highlight-duration', highlightDuration + 'ms');
 		void tuchuEl.offsetWidth; // 强制浏览器回流
 		tuchuEl.classList.add('view');
 		// 9秒后清理：匹配CSS动画周期（vv 8s + vp 0.5s@8s = 8.5s，留0.5s余量）

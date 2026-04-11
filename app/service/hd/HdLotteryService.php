@@ -37,10 +37,82 @@ class HdLotteryService
     }
 
     /**
+     * 转换奖品级别
+     * @param mixed $typeValue 类型值（数字或中文名称）
+     * @return int 转换后的数字类型
+     */
+    private function convertPrizeType($typeValue): int
+    {
+        // 如果是数字，直接返回
+        if (is_numeric($typeValue)) {
+            return (int)$typeValue;
+        }
+        
+        // 中文名称到数字的映射
+        $nameMap = [
+            '普通奖品（无级别）' => 0,
+            '普通奖品' => 0,
+            '一等奖' => 1,
+            '二等奖' => 2,
+            '三等奖' => 3,
+            '四等奖' => 4,
+            '五等奖' => 5,
+        ];
+        
+        $value = trim((string)$typeValue);
+        if (isset($nameMap[$value])) {
+            return $nameMap[$value];
+        }
+        
+        // 尝试将字符串转换为数字
+        if (is_numeric($value)) {
+            return (int)$value;
+        }
+        
+        // 默认值
+        return 0;
+    }
+    
+    /**
+     * 转换数字类型为中文名称
+     * @param int $type 数字类型
+     * @return string 中文名称
+     */
+    private function convertPrizeTypeToName(int $type): string
+    {
+        $nameMap = [
+            0 => '普通奖品（无级别）',
+            1 => '一等奖',
+            2 => '二等奖',
+            3 => '三等奖',
+            4 => '四等奖',
+            5 => '五等奖',
+        ];
+        
+        return $nameMap[$type] ?? (string)$type;
+    }
+    
+    /**
      * 创建奖品
      */
     public function createPrize(int $aid, int $bid, int $activityId, array $data): array
     {
+        error_log("[HdLotteryService] createPrize called: aid={$aid}, bid={$bid}, activityId={$activityId}, data=" . json_encode($data));
+        $typeValue = $data['type'] ?? 1;
+        // 转换中文级别名称为数字
+        $type = $this->convertPrizeType($typeValue);
+        
+        // 检查同一活动中奖品级别是否已存在
+        $exists = HdPrize::where('aid', $aid)->where('bid', $bid)
+            ->where('activity_id', $activityId)
+            ->where('type', $type)
+            ->find();
+        if ($exists) {
+            // 获取中文级别名称用于提示
+            $typeName = $this->convertPrizeTypeToName($type);
+            return ['code' => 1, 'msg' => '奖品级别 ' . $typeName . ' 已存在，请勿重复添加'];
+        }
+        
         $prize = new HdPrize();
         $prize->aid = $aid;
         $prize->bid = $bid;
@@ -53,7 +125,7 @@ class HdLotteryService
         $prize->num = (int)($data['num'] ?? ($data['total_num'] ?? 0));
         $prize->leftnum = (int)($data['num'] ?? ($data['total_num'] ?? 0));
         $prize->used_num = 0;
-        $prize->type = (int)($data['type'] ?? 1);
+        $prize->type = $type;
         $prize->draw_count = (int)($data['draw_count'] ?? 1);
         $prize->plug_name = $data['plug_name'] ?? '';
         $prize->sort = (int)($data['sort'] ?? 0);
@@ -74,6 +146,23 @@ class HdLotteryService
             return ['code' => 1, 'msg' => '奖品不存在'];
         }
 
+        // 如果type字段被修改，检查奖品级别是否重复
+        if (isset($data['type'])) {
+            $newType = $this->convertPrizeType($data['type']);
+            // 只有在type确实变化时才检查
+            if ($newType != $prize->type) {
+                $exists = HdPrize::where('aid', $aid)->where('bid', $bid)
+                    ->where('activity_id', $activityId)
+                    ->where('type', $newType)
+                    ->where('id', '<>', $id) // 排除当前奖品
+                    ->find();
+                if ($exists) {
+                    $typeName = $this->convertPrizeTypeToName($newType);
+                    return ['code' => 1, 'msg' => '奖品级别 ' . $typeName . ' 已存在，请选择其他级别'];
+                }
+            }
+        }
+
         if (isset($data['name'])) $prize->name = $data['name'];
         if (isset($data['prizename'])) $prize->prizename = $data['prizename'];
         if (isset($data['image'])) $prize->image = $data['image'];
@@ -85,7 +174,7 @@ class HdLotteryService
             $prize->num = $newNum;
             $prize->leftnum = max(0, (int)$prize->leftnum + ($newNum - $oldNum));
         }
-        if (isset($data['type'])) $prize->type = (int)$data['type'];
+        if (isset($data['type'])) $prize->type = $this->convertPrizeType($data['type']);
         if (isset($data['draw_count'])) $prize->draw_count = (int)$data['draw_count'];
         if (isset($data['plug_name'])) $prize->plug_name = $data['plug_name'];
         if (isset($data['sort'])) $prize->sort = (int)$data['sort'];
@@ -99,12 +188,15 @@ class HdLotteryService
      */
     public function deletePrize(int $aid, int $bid, int $activityId, int $id): array
     {
+        error_log("[HdLotteryService] deletePrize called: aid={$aid}, bid={$bid}, activityId={$activityId}, id={$id}");
         $prize = HdPrize::where('aid', $aid)->where('bid', $bid)
             ->where('activity_id', $activityId)->where('id', $id)->find();
         if (!$prize) {
+            error_log("[HdLotteryService] deletePrize: prize not found");
             return ['code' => 1, 'msg' => '奖品不存在'];
         }
         $prize->delete();
+        error_log("[HdLotteryService] deletePrize: success");
         return ['code' => 0, 'msg' => '删除成功'];
     }
 
@@ -745,5 +837,89 @@ class HdLotteryService
         $count = HdLotteryWinner::where($where)->count();
 
         return ['code' => 0, 'data' => ['list' => $list, 'count' => $count]];
+    }
+
+    /**
+     * 获取大屏显示设置（存储在活动 screen_config 中）
+     */
+    public function getScreenSettings(int $aid, int $bid, int $activityId): array
+    {
+        $activity = HdActivity::where('aid', $aid)->where('bid', $bid)
+            ->where('id', $activityId)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
+
+        $screenConfig = $activity->screen_config;
+        if (is_string($screenConfig)) {
+            $screenConfig = json_decode($screenConfig, true) ?: [];
+        }
+
+        $settings = $screenConfig['lottery_screen'] ?? [
+            'display_mode'              => 'nickname',
+            'template'                  => 'gold',
+            'screen_enabled'            => 0,
+            'screen_mode'               => 'normal',
+            'screen_animation_duration' => 3000,
+            'background'                => null,
+        ];
+
+        return ['code' => 0, 'data' => $settings];
+    }
+
+    /**
+     * 更新大屏显示设置
+     */
+    public function updateScreenSettings(int $aid, int $bid, int $activityId, array $data): array
+    {
+        $activity = HdActivity::where('aid', $aid)->where('bid', $bid)
+            ->where('id', $activityId)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
+
+        $screenConfig = $activity->screen_config;
+        if (is_string($screenConfig)) {
+            $screenConfig = json_decode($screenConfig, true) ?: [];
+        }
+
+        $screenConfig['lottery_screen'] = [
+            'display_mode'              => $data['display_mode'] ?? 'nickname',
+            'template'                  => $data['template'] ?? 'gold',
+            'screen_enabled'            => (int)($data['screen_enabled'] ?? 0),
+            'screen_mode'               => $data['screen_mode'] ?? 'normal',
+            'screen_animation_duration' => (int)($data['screen_animation_duration'] ?? 3000),
+            'background'                => $data['background'] ?? ($screenConfig['lottery_screen']['background'] ?? null),
+        ];
+
+        $activity->screen_config = json_encode($screenConfig, JSON_UNESCAPED_UNICODE);
+        $activity->save();
+
+        return ['code' => 0, 'msg' => '大屏显示设置已更新'];
+    }
+
+    /**
+     * 重置大屏背景
+     */
+    public function resetScreenBackground(int $aid, int $bid, int $activityId): array
+    {
+        $activity = HdActivity::where('aid', $aid)->where('bid', $bid)
+            ->where('id', $activityId)->find();
+        if (!$activity) {
+            return ['code' => 1, 'msg' => '活动不存在'];
+        }
+
+        $screenConfig = $activity->screen_config;
+        if (is_string($screenConfig)) {
+            $screenConfig = json_decode($screenConfig, true) ?: [];
+        }
+
+        if (isset($screenConfig['lottery_screen']['background'])) {
+            $screenConfig['lottery_screen']['background'] = null;
+            $activity->screen_config = json_encode($screenConfig, JSON_UNESCAPED_UNICODE);
+            $activity->save();
+        }
+
+        return ['code' => 0, 'msg' => '大屏背景已重置'];
     }
 }

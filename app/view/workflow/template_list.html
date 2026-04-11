@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AI短剧工作流 - 模板库</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .tpl-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; padding-bottom:10px; }
+    .tpl-header .left { display:flex; gap:10px; align-items:center; }
+    .genre-tag { display:inline-block; padding:2px 10px; border-radius:3px; font-size:12px; color:#fff; }
+    .genre-tag.sweet { background:#ff85c0; }
+    .genre-tag.revenge { background:#ffa940; }
+    .genre-tag.suspense { background:#597ef7; }
+    .genre-tag.comedy { background:#73d13d; }
+    .genre-tag.default { background:#999; }
+    .system-badge { display:inline-block; padding:1px 6px; border-radius:3px; font-size:11px; background:#f0f0f0; color:#999; }
+    .system-badge.yes { background:#e6f7ff; color:#1890ff; }
+    .tpl-card-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px; margin-top:15px; }
+    .tpl-card { background:#fff; border-radius:12px; border:1px solid #e8e8e8; overflow:hidden; transition:all .2s; cursor:pointer; }
+    .tpl-card:hover { box-shadow:0 6px 20px rgba(0,0,0,.12); transform:translateY(-3px); }
+    .tpl-card .card-cover { height:140px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; font-size:48px; background-size:cover; background-position:center; }
+    .tpl-card .card-body { padding:14px 16px; }
+    .tpl-card .card-title { font-size:15px; font-weight:bold; color:#333; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+    .tpl-card .card-desc { font-size:12px; color:#999; line-height:1.6; max-height:40px; overflow:hidden; margin-bottom:10px; }
+    .tpl-card .card-footer { display:flex; justify-content:space-between; align-items:center; }
+    .tpl-card .card-meta { font-size:11px; color:#bbb; }
+    .tpl-card .card-actions { display:flex; gap:6px; }
+    .tpl-card .card-actions .layui-btn { height:28px; line-height:28px; padding:0 12px; font-size:12px; }
+
+    /* 模板工作流预览缩略图 */
+    .tpl-preview-canvas { background:#1e1e2e; border-radius:8px; padding:10px; margin:10px 0; min-height:100px; position:relative; }
+    .tpl-preview-canvas .preview-node { position:absolute; background:#2d2d3f; border:1.5px solid #4d4d6f; border-radius:6px; padding:4px 8px; font-size:10px; color:#ccc; white-space:nowrap; }
+    .tpl-preview-canvas .preview-node.script { border-color:#2a6a9c; }
+    .tpl-preview-canvas .preview-node.character { border-color:#6a2a9c; }
+    .tpl-preview-canvas .preview-node.storyboard { border-color:#9c6a2a; }
+    .tpl-preview-canvas .preview-node.video { border-color:#2a9c6a; }
+    .tpl-preview-canvas .preview-node.voice { border-color:#9c2a6a; }
+    .tpl-preview-canvas .preview-node.compose { border-color:#6a6a3a; }
+    .tpl-preview-canvas svg { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+    .tpl-preview-canvas svg line { stroke:#4d4d6f; stroke-width:1; }
+
+    /* 題材筛选标签栏 */
+    .genre-filter-tabs { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+    .genre-filter-tab { display:inline-flex; align-items:center; gap:4px; padding:6px 16px; border-radius:20px; border:1px solid #e8e8e8; background:#fff; cursor:pointer; font-size:13px; color:#666; transition:all .2s; }
+    .genre-filter-tab:hover { border-color:#1890ff; color:#1890ff; }
+    .genre-filter-tab.active { background:#1890ff; color:#fff; border-color:#1890ff; }
+    .genre-filter-tab .tab-count { background:rgba(0,0,0,.08); padding:1px 6px; border-radius:10px; font-size:11px; }
+    .genre-filter-tab.active .tab-count { background:rgba(255,255,255,.3); }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          <i class="layui-icon layui-icon-template-1"></i> AI短剧工作流 - 模板库
+        </div>
+        <div class="layui-card-body" pad15>
+          <!-- 操作按钮 -->
+          <div class="tpl-header">
+            <div class="left">
+              <button class="layui-btn layui-btn-normal" onclick="createTemplate()">
+                <i class="layui-icon layui-icon-add-1"></i> 新增模板
+              </button>
+              <a href="{:url('project_list')}" class="layui-btn layui-btn-primary">
+                <i class="layui-icon layui-icon-return"></i> 返回项目
+              </a>
+            </div>
+          </div>
+
+          <!-- 题材快速筛选标签 -->
+          <div class="genre-filter-tabs" id="genreFilterTabs">
+            <div class="genre-filter-tab active" onclick="filterByGenre('')" data-genre="">📚 全部</div>
+            <div class="genre-filter-tab" onclick="filterByGenre('甜宠')" data-genre="甜宠">💕 甜宠</div>
+            <div class="genre-filter-tab" onclick="filterByGenre('逆袭')" data-genre="逆袭">🔥 逆袭</div>
+            <div class="genre-filter-tab" onclick="filterByGenre('悬疑')" data-genre="悬疑">🔍 悬疑</div>
+            <div class="genre-filter-tab" onclick="filterByGenre('搞笑')" data-genre="搞笑">😂 搞笑</div>
+          </div>
+
+          <!-- 搜索区 -->
+          <div class="layui-form layui-form-search" style="margin-bottom:15px;">
+            <div class="layui-inline">
+              <label class="layui-form-label">题材</label>
+              <div class="layui-input-inline" style="width:130px">
+                <select name="genre" lay-filter="searchFilter">
+                  <option value="">全部</option>
+                  <option value="甜宠">💕 甜宠</option>
+                  <option value="逆袭">🔥 逆袭</option>
+                  <option value="悬疑">🔍 悬疑</option>
+                  <option value="搞笑">😂 搞笑</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <div class="layui-input-inline" style="width:200px">
+                <input type="text" name="keyword" class="layui-input" placeholder="搜索模板名称...">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn" lay-submit lay-filter="LAY-search">
+                <i class="layui-icon layui-icon-search"></i> 搜索
+              </button>
+              <button class="layui-btn layui-btn-primary" onclick="toggleView()">
+                <i class="layui-icon layui-icon-tabs" id="viewIcon"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 表格视图 -->
+          <div id="tableView">
+            <table id="tabledata" lay-filter="tabledata"></table>
+          </div>
+
+          <!-- 卡片视图 -->
+          <div id="cardView" style="display:none;">
+            <div class="tpl-card-grid" id="cardGrid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  var table = layui.table;
+  var form = layui.form;
+  var currentView = 'table';
+
+  var genreMap = {
+    '甜宠': {icon:'💕', cls:'sweet'},
+    '逆袭': {icon:'🔥', cls:'revenge'},
+    '悬疑': {icon:'🔍', cls:'suspense'},
+    '搞笑': {icon:'😂', cls:'comedy'}
+  };
+
+  function genreTpl(d) {
+    var g = genreMap[d.genre] || {icon:'📋', cls:'default'};
+    return '<span class="genre-tag ' + g.cls + '">' + g.icon + ' ' + d.genre + '</span>';
+  }
+
+  function systemTpl(d) {
+    return d.is_system == 1 ? '<span class="system-badge yes">系统预置</span>' : '<span class="system-badge">自定义</span>';
+  }
+
+  // 渲染表格
+  var tableIns = table.render({
+    elem: '#tabledata',
+    url: "{$Request.url}",
+    page: true,
+    cols: [[
+      {type: "checkbox", width: 50},
+      {field: "id", title: "ID", width: 60, sort: true},
+      {field: "template_name", title: "模板名称", minWidth: 200},
+      {field: "genre", title: "题材", width: 120, templet: genreTpl},
+      {field: "episode_count", title: "集数", width: 70, align: 'center'},
+      {field: "is_system", title: "来源", width: 100, templet: systemTpl},
+      {field: "description", title: "描述", minWidth: 200},
+      {field: "create_time_text", title: "创建时间", width: 150},
+      {title: "操作", width: 260, align: "center", toolbar: "#barTpl"}
+    ]],
+    done: function() { form.render(); }
+  });
+
+  // 搜索
+  form.on('submit(LAY-search)', function(data) {
+    tableIns.reload({where: data.field, page: {curr: 1}});
+    return false;
+  });
+
+  // 工具栏事件
+  table.on('tool(tabledata)', function(obj) {
+    var data = obj.data;
+    if (obj.event === 'apply') {
+      applyTemplate(data);
+    } else if (obj.event === 'view') {
+      viewTemplate(data);
+    } else if (obj.event === 'edit') {
+      if (data.is_system == 1) { layer.msg('系统预置模板不可编辑', {icon:0}); return; }
+      openTemplateForm(data);
+    } else if (obj.event === 'delete') {
+      if (data.is_system == 1) { layer.msg('系统预置模板不可删除', {icon:0}); return; }
+      layer.confirm('确定删除该模板？', {icon:3}, function(index) {
+        $.post("{:url('template_delete')}", {id: data.id}, function(res) {
+          layer.close(index);
+          if (res.status == 1) { layer.msg(res.msg, {icon:1}); obj.del(); }
+          else { layer.msg(res.msg, {icon:2}); }
+        });
+      });
+    }
+  });
+
+  // 题材快速筛选
+  var currentGenreFilter = '';
+  function filterByGenre(genre) {
+    currentGenreFilter = genre;
+    document.querySelectorAll('.genre-filter-tab').forEach(function(el) {
+      el.classList.toggle('active', (el.dataset.genre || '') === genre);
+    });
+    // 同步刷新表格和卡片
+    tableIns.reload({where: {genre: genre}, page: {curr: 1}});
+    if (currentView === 'card') loadCardView();
+  }
+
+  // 切换视图
+  function toggleView() {
+    if (currentView === 'table') {
+      currentView = 'card';
+      $('#tableView').hide();
+      $('#cardView').show();
+      loadCardView();
+    } else {
+      currentView = 'table';
+      $('#cardView').hide();
+      $('#tableView').show();
+    }
+  }
+
+  function loadCardView() {
+    var params = {page:1, limit:50};
+    if (currentGenreFilter) params.genre = currentGenreFilter;
+    $.get("{$Request.url}", params, function(res) {
+      var html = '';
+      (res.data || []).forEach(function(d) {
+        var g = genreMap[d.genre] || {icon:'📋', cls:'default'};
+        var coverStyle = d.cover_image ? 'background-image:url('+d.cover_image+')' : '';
+        // 生成缩略图占位
+        var hasCanvas = false;
+        var canvasNodes = 0;
+        if (d.canvas_template) {
+          var ct = d.canvas_template;
+          if (typeof ct === 'string') try { ct = JSON.parse(ct); } catch(e) { ct = null; }
+          if (ct && ct.nodes) { hasCanvas = true; canvasNodes = ct.nodes.length; }
+        }
+        var coverContent = d.cover_image ? '' : (hasCanvas ? '<span style="font-size:14px;color:#888;">🌐 '+canvasNodes+'个节点工作流</span>' : g.icon);
+        html += '<div class="tpl-card">' +
+          '<div class="card-cover" style="'+coverStyle+'">'+coverContent+'</div>' +
+          '<div class="card-body">' +
+            '<div class="card-title">' +
+              '<span class="genre-tag '+g.cls+'">'+g.icon+' '+d.genre+'</span> ' + d.template_name +
+              (d.is_system==1?' <span class="system-badge yes">系统</span>':'') +
+            '</div>' +
+            '<div class="card-desc">'+(d.description||'暂无描述')+'</div>' +
+            '<div class="card-footer">' +
+              '<span class="card-meta">'+d.episode_count+'集 · '+d.create_time_text+'</span>' +
+              '<div class="card-actions">' +
+                '<button class="layui-btn layui-btn-xs layui-btn-normal" onclick="applyTemplate('+JSON.stringify(d).replace(/"/g,'&quot;')+')">\u4f7f\u7528</button>' +
+                '<button class="layui-btn layui-btn-xs" onclick="viewTemplate('+JSON.stringify(d).replace(/"/g,'&quot;')+')">\u8be6\u60c5</button>' +
+              '</div>' +
+            '</div>' +
+          '</div></div>';
+      });
+      $('#cardGrid').html(html || '<div style="padding:60px;text-align:center;color:#999;font-size:14px;">暂无模板数据</div>');
+    });
+  }
+
+  // 查看模板详情（含工作流缩略图）
+  function viewTemplate(data) {
+    var desc = data.description || '暂无描述';
+    var g = genreMap[data.genre] || {icon:'📋', cls:'default'};
+    var html = '<div style="padding:20px;">';
+    html += '<div style="margin-bottom:12px;font-size:18px;font-weight:bold;">'+g.icon+' '+data.template_name+'</div>';
+    html += '<div style="margin-bottom:10px;"><b>题材：</b>'+data.genre+'</div>';
+    html += '<div style="margin-bottom:10px;"><b>集数：</b>'+data.episode_count+'</div>';
+    html += '<div style="margin-bottom:10px;"><b>来源：</b>'+(data.is_system==1?'系统预置':'自定义')+'</div>';
+    html += '<div style="margin-bottom:10px;"><b>描述：</b></div>';
+    html += '<div style="background:#f5f5f5;padding:12px;border-radius:6px;font-size:13px;line-height:1.8;color:#555;">'+desc+'</div>';
+    // 工作流缩略图
+    if (data.canvas_template) {
+      var canvas = data.canvas_template;
+      if (typeof canvas === 'string') try { canvas = JSON.parse(canvas); } catch(e) { canvas = null; }
+      if (canvas && canvas.nodes && canvas.nodes.length > 0) {
+        html += '<div style="margin-top:12px;"><b>🌐 工作流预览</b></div>';
+        html += '<div id="tplPreviewBox" style="margin-top:8px;"></div>';
+      }
+    }
+    html += '</div>';
+    layer.open({type:1, title:'模板详情', area:['600px','580px'], content:html, success: function() {
+      if (data.canvas_template) {
+        var c2 = data.canvas_template;
+        if (typeof c2 === 'string') try { c2 = JSON.parse(c2); } catch(e) { c2 = null; }
+        if (c2 && c2.nodes) renderTemplatePreview('tplPreviewBox', c2);
+      }
+    }});
+  }
+
+  // 渲染模板工作流缩略图
+  function renderTemplatePreview(containerId, canvasData) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var nodes = canvasData.nodes || [];
+    var edges = canvasData.edges || [];
+    if (nodes.length === 0) { container.innerHTML = '<div style="color:#999;text-align:center;padding:20px;">无节点数据</div>'; return; }
+
+    var iconMap = {script:'📝',character:'🎭',storyboard:'🎬',video:'📹',voice:'🔊',compose:'🎞️'};
+    // 计算边界并缩放
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    nodes.forEach(function(n) {
+      minX = Math.min(minX, n.position_x || 0);
+      minY = Math.min(minY, n.position_y || 0);
+      maxX = Math.max(maxX, (n.position_x||0) + 160);
+      maxY = Math.max(maxY, (n.position_y||0) + 60);
+    });
+    var rangeX = Math.max(maxX - minX, 200);
+    var rangeY = Math.max(maxY - minY, 100);
+    var previewW = 540, previewH = Math.min(200, rangeY * (540/rangeX) + 40);
+    var scale = Math.min((previewW - 40) / rangeX, (previewH - 30) / rangeY, 1);
+
+    var html = '<div class="tpl-preview-canvas" style="height:'+previewH+'px;">';
+    html += '<svg width="100%" height="100%">';
+    // 连线
+    var nodeMap = {};
+    nodes.forEach(function(n) { nodeMap[n._original_id || n.id || 0] = n; });
+    edges.forEach(function(e) {
+      var src = nodeMap[e.source_node_id];
+      var tgt = nodeMap[e.target_node_id];
+      if (!src || !tgt) return;
+      var x1 = ((src.position_x||0) - minX + 80) * scale + 10;
+      var y1 = ((src.position_y||0) - minY + 30) * scale + 10;
+      var x2 = ((tgt.position_x||0) - minX) * scale + 10;
+      var y2 = ((tgt.position_y||0) - minY + 30) * scale + 10;
+      html += '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'"/>';
+    });
+    html += '</svg>';
+    // 节点
+    nodes.forEach(function(n) {
+      var x = ((n.position_x||0) - minX) * scale + 10;
+      var y = ((n.position_y||0) - minY) * scale + 10;
+      html += '<div class="preview-node '+(n.node_type||'')+'" style="left:'+x+'px;top:'+y+'px;">' +
+        (iconMap[n.node_type]||'') + ' ' + (n.node_label||n.node_type) + '</div>';
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  // 应用模板创建项目
+  function applyTemplate(data) {
+    layer.confirm('使用模板「'+data.template_name+'」创建新项目？', {icon:3, title:'应用模板'}, function(index) {
+      layer.close(index);
+      var loadIdx = layer.load(1);
+      $.post("{:url('apply_template')}", {template_id: data.id}, function(res) {
+        layer.close(loadIdx);
+        if (res.status == 1) {
+          layer.msg('项目创建成功！即将跳转到画布...', {icon:1, time:1500}, function() {
+            if (res.project_id) {
+              window.location.href = "{:url('canvas')}&id=" + res.project_id;
+            } else {
+              window.location.href = "{:url('project_list')}";
+            }
+          });
+        } else {
+          layer.msg(res.msg || '应用模板失败', {icon:2});
+        }
+      });
+    });
+  }
+
+  // 新增模板
+  function createTemplate() {
+    openTemplateForm({});
+  }
+
+  // 编辑/新建模板表单
+  function openTemplateForm(data) {
+    var isEdit = !!data.id;
+    layer.open({
+      type: 1,
+      title: isEdit ? '编辑模板' : '新增模板',
+      area: ['580px', '520px'],
+      content: '<div style="padding:20px;">' +
+        '<form class="layui-form" lay-filter="tplForm">' +
+        '<div class="layui-form-item"><label class="layui-form-label">模板名称</label>' +
+          '<div class="layui-input-block"><input type="text" name="template_name" class="layui-input" value="'+(data.template_name||'')+'" required lay-verify="required" placeholder="请输入模板名称"></div></div>' +
+        '<div class="layui-form-item"><label class="layui-form-label">题材类型</label>' +
+          '<div class="layui-input-block"><select name="genre">' +
+            '<option value="甜宠"'+(data.genre==='甜宠'?' selected':'')+'>💕 甜宠</option>' +
+            '<option value="逆袭"'+(data.genre==='逆袭'?' selected':'')+'>🔥 逆袭</option>' +
+            '<option value="悬疑"'+(data.genre==='悬疑'?' selected':'')+'>🔍 悬疑</option>' +
+            '<option value="搞笑"'+(data.genre==='搞笑'?' selected':'')+'>😂 搞笑</option>' +
+          '</select></div></div>' +
+        '<div class="layui-form-item"><label class="layui-form-label">集数</label>' +
+          '<div class="layui-input-block"><input type="number" name="episode_count" class="layui-input" value="'+(data.episode_count||1)+'" min="1"></div></div>' +
+        '<div class="layui-form-item"><label class="layui-form-label">封面图URL</label>' +
+          '<div class="layui-input-block"><input type="text" name="cover_image" class="layui-input" value="'+(data.cover_image||'')+'" placeholder="可选，模板封面图片地址"></div></div>' +
+        '<div class="layui-form-item"><label class="layui-form-label">描述</label>' +
+          '<div class="layui-input-block"><textarea name="description" class="layui-textarea" rows="4" placeholder="模板描述说明">'+(data.description||'')+'</textarea></div></div>' +
+        '<input type="hidden" name="id" value="'+(data.id||0)+'">' +
+        '<div class="layui-form-item" style="text-align:center;margin-top:10px;">' +
+          '<button class="layui-btn" lay-submit lay-filter="submitTpl"><i class="layui-icon layui-icon-ok"></i> 保存</button>' +
+        '</div></form></div>',
+      success: function() { form.render(); }
+    });
+
+    form.on('submit(submitTpl)', function(d) {
+      $.post("{:url('template_save')}", d.field, function(res) {
+        if (res.status == 1) {
+          layer.closeAll();
+          layer.msg(res.msg, {icon:1});
+          tableIns.reload();
+          if (currentView === 'card') loadCardView();
+        } else {
+          layer.msg(res.msg, {icon:2});
+        }
+      });
+      return false;
+    });
+  }
+  </script>
+
+  <!-- 工具栏模板 -->
+  <script type="text/html" id="barTpl">
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="apply"><i class="layui-icon layui-icon-release"></i> 使用</a>
+    <a class="layui-btn layui-btn-xs" lay-event="view"><i class="layui-icon layui-icon-about"></i> 详情</a>
+    <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="edit"><i class="layui-icon layui-icon-edit"></i> 编辑</a>
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+  </script>
+</body>
+</html>

@@ -326,6 +326,16 @@ class GenerationService
             return $this->callJimengApi($model, $apiKeyConfig, $inputParams);
         }
         
+        // Ollama本地LLM使用单独的调用流程（无需认证，本地HTTP API）
+        if ($this->isOllamaModel($model['model_code'], $providerCode)) {
+            return $this->callOllamaApi($model, $apiKeyConfig, $inputParams);
+        }
+        
+        // VoxCPM2语音合成使用单独的调用流程（自部署API服务）
+        if ($this->isVoxCPMModel($model['model_code'], $providerCode)) {
+            return $this->callVoxCPMApi($model, $apiKeyConfig, $inputParams);
+        }
+        
         // 构建请求头
         $headers = $this->buildAuthHeaders($providerCode, $apiKey, $apiSecret, $model['auth_config'] ?? []);
         
@@ -446,6 +456,12 @@ class GenerationService
             case 'openai':
                 $headers[] = 'Authorization: Bearer ' . $apiKey;
                 break;
+            case 'ollama':
+                // Ollama本地部署，无需认证头
+                break;
+            case 'voxcpm':
+                // VoxCPM自部署服务，无需认证头
+                break;
             default:
                 // 默认Bearer Token认证
                 $headers[] = 'Authorization: Bearer ' . $apiKey;
@@ -519,6 +535,16 @@ class GenerationService
         // 检查是否是即梦AI图片生成模型（火山引擎CV API格式）
         if ($this->isJimengImageModel($modelCode, $providerCode)) {
             return $this->buildJimengRequestBody($modelCode, $inputParams);
+        }
+        
+        // 检查是否是Ollama本地LLM模型
+        if ($this->isOllamaModel($modelCode, $providerCode)) {
+            return $this->buildOllamaChatRequestBody($modelCode, $inputParams);
+        }
+        
+        // 检查是否是阿里云百炼Wan视频生成模型（DashScope model+input+parameters格式，img_url字段）
+        if ($this->isAliyunWanVideoModel($modelCode, $providerCode)) {
+            return $this->buildAliyunWanVideoRequestBody($modelCode, $inputParams);
         }
         
         // 检查是否是阿里云百炼图像生成/编辑模型（需要将图片转为Base64）
@@ -1628,6 +1654,107 @@ class GenerationService
         }
         
         return false;
+    }
+    
+    /**
+     * 检查是否为阿里云百炼Wan视频生成模型
+     * 这些模型使用 DashScope model+input+parameters 格式，且图片字段名为 img_url
+     * 
+     * @param string $modelCode 模型代码
+     * @param string $providerCode 供应商标识
+     * @return bool
+     */
+    protected function isAliyunWanVideoModel($modelCode, $providerCode)
+    {
+        // 必须是阿里云/百炼供应商
+        if (!in_array($providerCode, ['aliyun', 'dashscope', 'alibaba', 'bailian'])) {
+            return false;
+        }
+        
+        // Wan视频生成相关模型
+        $wanVideoModels = [
+            'wan2.6-i2v-flash',
+            'wan2.6-i2v',
+            'wan2.5-i2v-preview',
+            'wan2.6-t2v',
+            'wan2.5-t2v-preview',
+            'wan2.1-i2v',
+        ];
+        
+        foreach ($wanVideoModels as $prefix) {
+            if (strpos($modelCode, $prefix) === 0) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * 为阿里云百炼Wan视频模型构建请求体
+     * DashScope视频生成API格式:
+     * {
+     *   "model": "wan2.6-i2v-flash",
+     *   "input": {
+     *     "img_url": "https://...",
+     *     "prompt": "视频内容描述"
+     *   },
+     *   "parameters": {
+     *     "resolution": "720P",
+     *     "duration": 5
+     *   }
+     * }
+     * 
+     * @param string $modelCode 模型代码
+     * @param array $inputParams 用户输入参数
+     * @return array 符合API格式的请求体
+     */
+    protected function buildAliyunWanVideoRequestBody($modelCode, $inputParams)
+    {
+        $input = [];
+        $parameters = [];
+        
+        // 映射图片URL字段：内部使用 image，DashScope API 要求 img_url
+        $imageUrl = $inputParams['image'] ?? $inputParams['img_url'] ?? $inputParams['image_url'] ?? '';
+        if (!empty($imageUrl)) {
+            $input['img_url'] = $imageUrl;
+        }
+        
+        // 提示词
+        if (!empty($inputParams['prompt'])) {
+            $input['prompt'] = $inputParams['prompt'];
+        }
+        
+        // 视频参数
+        if (!empty($inputParams['resolution'])) {
+            $parameters['resolution'] = $inputParams['resolution'];
+        }
+        if (!empty($inputParams['duration'])) {
+            $parameters['duration'] = intval($inputParams['duration']);
+        }
+        if (!empty($inputParams['fps'])) {
+            $parameters['fps'] = intval($inputParams['fps']);
+        }
+        if (!empty($inputParams['seed'])) {
+            $parameters['seed'] = intval($inputParams['seed']);
+        }
+        
+        $body = [
+            'model' => $modelCode,
+            'input' => $input,
+        ];
+        
+        if (!empty($parameters)) {
+            $body['parameters'] = $parameters;
+        }
+        
+        \think\facade\Log::info('buildAliyunWanVideoRequestBody: 构建请求体', [
+            'model_code' => $modelCode,
+            'has_image' => !empty($imageUrl),
+            'has_prompt' => !empty($inputParams['prompt']),
+        ]);
+        
+        return $body;
     }
     
     /**
@@ -4411,5 +4538,755 @@ class GenerationService
         }
         
         return ['status' => 1, 'msg' => '转存成功（' . $successCount . '个文件）'];
+    }
+    
+    // ==================== Ollama 本地LLM相关方法 ====================
+    
+    /**
+     * 检查是否为Ollama本地LLM模型
+     * 
+     * @param string $modelCode 模型代码
+     * @param string $providerCode 供应商标识
+     * @return bool
+     */
+    protected function isOllamaModel($modelCode, $providerCode = '')
+    {
+        if ($providerCode === 'ollama') {
+            return true;
+        }
+        // Ollama模型编码通常包含冒号，如 qwen3:8b, llama3.1:8b
+        $ollamaModels = array_keys(config('aivideo.ollama.models') ?? []);
+        return in_array($modelCode, $ollamaModels);
+    }
+    
+    /**
+     * 调用Ollama本地LLM API
+     * Ollama本地部署，无需API Key认证，直接通过HTTP POST请求
+     * 
+     * 支持三种模式：
+     * 1. Chat API (/api/chat) - 文本生成/深度思考（多轮对话）
+     * 2. Generate API (/api/generate) - 纯文本生成（单轮）
+     * 3. Embeddings API (/api/embeddings) - 向量嵌入
+     * 
+     * @param array $model 模型信息
+     * @param array $apiKeyConfig API Key配置（Ollama无需使用）
+     * @param array $inputParams 输入参数
+     * @return array 响应结果
+     */
+    protected function callOllamaApi($model, $apiKeyConfig, $inputParams)
+    {
+        $ollamaConfig = config('aivideo.ollama') ?? [];
+        
+        // 支持通过API Key配置中的自定义服务器地址覆盖默认值
+        $authConfig = $model['auth_config'] ?? [];
+        if (is_string($authConfig)) {
+            $authConfig = json_decode($authConfig, true) ?: [];
+        }
+        $customUrl = $apiKeyConfig['api_key_decrypted'] ?? '';
+        $apiUrl = (!empty($customUrl) && $customUrl !== 'ollama_local') 
+            ? rtrim($customUrl, '/') 
+            : ($ollamaConfig['api_url'] ?? 'http://127.0.0.1:11434');
+        
+        $modelCode = $model['model_code'];
+        $timeout = $ollamaConfig['timeout'] ?? 120;
+        $stream = $ollamaConfig['stream'] ?? false;
+        
+        // 根据模型类型选择endpoint
+        $modelConfig = $ollamaConfig['models'][$modelCode] ?? [];
+        $modelType = $modelConfig['type'] ?? 'chat';
+        
+        if ($modelType === 'embedding') {
+            $endpoint = $ollamaConfig['embeddings_endpoint'] ?? '/api/embeddings';
+            $requestBody = $this->buildOllamaEmbeddingRequestBody($modelCode, $inputParams);
+        } else {
+            // 文本生成和深度思考都使用Chat API
+            $endpoint = $ollamaConfig['chat_endpoint'] ?? '/api/chat';
+            $requestBody = $this->buildOllamaChatRequestBody($modelCode, $inputParams);
+        }
+        
+        $fullUrl = $apiUrl . $endpoint;
+        
+        $headers = [
+            'Content-Type: application/json'
+        ];
+        
+        \think\facade\Log::info('Ollama API请求', [
+            'url' => $fullUrl,
+            'model' => $modelCode,
+            'type' => $modelType,
+            'body' => $requestBody
+        ]);
+        
+        // 发送HTTP请求（使用自定义curl以支持更长超时）
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $fullUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestBody, JSON_UNESCAPED_UNICODE));
+        // Ollama本地服务无需SSL验证
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        
+        $responseRaw = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+        
+        // 连接失败特殊处理（Ollama服务未启动）
+        if ($httpCode == 0 || !empty($curlError)) {
+            \think\facade\Log::error('Ollama服务连接失败', [
+                'url' => $fullUrl,
+                'curl_error' => $curlError
+            ]);
+            return [
+                'status' => 0,
+                'error_code' => 'OLLAMA_CONNECTION_FAILED',
+                'msg' => 'Ollama本地服务连接失败，请确认Ollama服务已启动（ollama serve）并监听在 ' . $apiUrl
+            ];
+        }
+        
+        $responseBody = json_decode($responseRaw, true);
+        
+        \think\facade\Log::info('Ollama API响应', [
+            'http_code' => $httpCode,
+            'body' => $responseBody ? json_encode($responseBody, JSON_UNESCAPED_UNICODE) : substr((string)$responseRaw, 0, 2000)
+        ]);
+        
+        if ($httpCode != 200) {
+            $errorMsg = 'Ollama请求失败(HTTP ' . $httpCode . ')';
+            if (is_array($responseBody) && isset($responseBody['error'])) {
+                $errorMsg = $responseBody['error'];
+            }
+            // 常见错误提示
+            if ($httpCode == 404) {
+                $errorMsg .= '。模型 ' . $modelCode . ' 可能未下载，请执行: ollama pull ' . $modelCode;
+            }
+            return [
+                'status' => 0,
+                'error_code' => 'OLLAMA_HTTP_' . $httpCode,
+                'msg' => $errorMsg
+            ];
+        }
+        
+        // 解析响应
+        return $this->parseOllamaResponse($model, $responseBody, $modelType);
+    }
+    
+    /**
+     * 构建Ollama Chat API请求体
+     * 
+     * Ollama Chat API格式:
+     * {
+     *   "model": "qwen3:8b",
+     *   "messages": [
+     *     {"role": "system", "content": "系统提示词"},
+     *     {"role": "user", "content": "用户输入"}
+     *   ],
+     *   "stream": false,
+     *   "options": {
+     *     "temperature": 0.7,
+     *     "top_p": 0.9,
+     *     "num_predict": 4096
+     *   }
+     * }
+     * 
+     * @param string $modelCode 模型代码
+     * @param array $inputParams 用户输入参数
+     * @return array 符合API格式的请求体
+     */
+    protected function buildOllamaChatRequestBody($modelCode, $inputParams)
+    {
+        $ollamaConfig = config('aivideo.ollama') ?? [];
+        $defaultParams = $ollamaConfig['default_params'] ?? [];
+        $stream = $ollamaConfig['stream'] ?? false;
+        
+        $messages = [];
+        
+        // 系统提示词
+        $systemPrompt = $inputParams['system_prompt'] ?? $inputParams['system'] ?? '';
+        if (!empty($systemPrompt)) {
+            $messages[] = ['role' => 'system', 'content' => $systemPrompt];
+        }
+        
+        // 用户消息 - 支持messages数组格式和简单prompt格式
+        if (!empty($inputParams['messages']) && is_array($inputParams['messages'])) {
+            // 多轮对话格式
+            foreach ($inputParams['messages'] as $msg) {
+                if (isset($msg['role']) && isset($msg['content'])) {
+                    $messages[] = [
+                        'role' => $msg['role'],
+                        'content' => $msg['content']
+                    ];
+                }
+            }
+        } else {
+            // 单轮prompt格式
+            $prompt = $inputParams['prompt'] ?? $inputParams['text'] ?? $inputParams['content'] ?? '';
+            if (!empty($prompt)) {
+                $messages[] = ['role' => 'user', 'content' => $prompt];
+            }
+        }
+        
+        $body = [
+            'model' => $modelCode,
+            'messages' => $messages,
+            'stream' => $stream,
+        ];
+        
+        // 构建 options 参数
+        $options = [];
+        
+        // temperature
+        $temperature = $inputParams['temperature'] ?? $defaultParams['temperature'] ?? null;
+        if ($temperature !== null && $temperature !== '') {
+            $options['temperature'] = floatval($temperature);
+        }
+        
+        // top_p
+        $topP = $inputParams['top_p'] ?? $defaultParams['top_p'] ?? null;
+        if ($topP !== null && $topP !== '') {
+            $options['top_p'] = floatval($topP);
+        }
+        
+        // max_tokens → Ollama使用 num_predict
+        $maxTokens = $inputParams['max_tokens'] ?? $defaultParams['max_tokens'] ?? null;
+        if ($maxTokens !== null && $maxTokens !== '') {
+            $options['num_predict'] = intval($maxTokens);
+        }
+        
+        // top_k
+        if (isset($inputParams['top_k']) && $inputParams['top_k'] !== '') {
+            $options['top_k'] = intval($inputParams['top_k']);
+        }
+        
+        // repeat_penalty
+        if (isset($inputParams['repeat_penalty']) && $inputParams['repeat_penalty'] !== '') {
+            $options['repeat_penalty'] = floatval($inputParams['repeat_penalty']);
+        }
+        
+        // seed
+        if (isset($inputParams['seed']) && $inputParams['seed'] !== '' && $inputParams['seed'] !== null) {
+            $options['seed'] = intval($inputParams['seed']);
+        }
+        
+        if (!empty($options)) {
+            $body['options'] = $options;
+        }
+        
+        return $body;
+    }
+    
+    /**
+     * 构建Ollama Embedding API请求体
+     * 
+     * Ollama Embeddings API格式:
+     * {
+     *   "model": "nomic-embed-text",
+     *   "prompt": "要嵌入的文本"
+     * }
+     * 
+     * @param string $modelCode 模型代码
+     * @param array $inputParams 输入参数
+     * @return array
+     */
+    protected function buildOllamaEmbeddingRequestBody($modelCode, $inputParams)
+    {
+        $prompt = $inputParams['prompt'] ?? $inputParams['text'] ?? $inputParams['content'] ?? '';
+        
+        return [
+            'model' => $modelCode,
+            'prompt' => $prompt,
+        ];
+    }
+    
+    /**
+     * 解析Ollama API响应
+     * 
+     * Chat API响应格式:
+     * {
+     *   "model": "qwen3:8b",
+     *   "created_at": "2024-01-01T00:00:00Z",
+     *   "message": {
+     *     "role": "assistant",
+     *     "content": "回复内容"
+     *   },
+     *   "done": true,
+     *   "total_duration": 1234567890,
+     *   "eval_count": 100,
+     *   "prompt_eval_count": 20
+     * }
+     * 
+     * Embeddings API响应格式:
+     * {
+     *   "embedding": [0.123, -0.456, ...]
+     * }
+     * 
+     * @param array $model 模型信息
+     * @param array $responseBody 解析后的响应体
+     * @param string $modelType 模型类型 (chat/embedding)
+     * @return array
+     */
+    protected function parseOllamaResponse($model, $responseBody, $modelType = 'chat')
+    {
+        if (!is_array($responseBody)) {
+            return [
+                'status' => 0,
+                'error_code' => 'OLLAMA_INVALID_RESPONSE',
+                'msg' => 'Ollama返回无效响应'
+            ];
+        }
+        
+        // 检查错误
+        if (isset($responseBody['error'])) {
+            return [
+                'status' => 0,
+                'error_code' => 'OLLAMA_ERROR',
+                'msg' => $responseBody['error']
+            ];
+        }
+        
+        if ($modelType === 'embedding') {
+            // 向量嵌入响应
+            $embedding = $responseBody['embedding'] ?? [];
+            if (empty($embedding)) {
+                return [
+                    'status' => 0,
+                    'error_code' => 'OLLAMA_EMPTY_EMBEDDING',
+                    'msg' => 'Ollama返回空向量'
+                ];
+            }
+            return [
+                'status' => 1,
+                'outputs' => [
+                    [
+                        'type' => 'embedding',
+                        'data' => $embedding,
+                        'dimensions' => count($embedding)
+                    ]
+                ],
+                'tokens' => 0,
+                'cost' => 0
+            ];
+        }
+        
+        // Chat API响应
+        $message = $responseBody['message'] ?? [];
+        $content = $message['content'] ?? '';
+        
+        if (empty($content) && !isset($responseBody['done'])) {
+            return [
+                'status' => 0,
+                'error_code' => 'OLLAMA_EMPTY_RESPONSE',
+                'msg' => 'Ollama返回空响应，模型可能未加载完成'
+            ];
+        }
+        
+        // 计算token使用量
+        $promptTokens = $responseBody['prompt_eval_count'] ?? 0;
+        $completionTokens = $responseBody['eval_count'] ?? 0;
+        $totalTokens = $promptTokens + $completionTokens;
+        
+        // 构建输出
+        $outputs = [
+            [
+                'type' => 'text',
+                'content' => $content,
+                'role' => $message['role'] ?? 'assistant',
+                'url' => '',
+                'thumbnail' => ''
+            ]
+        ];
+        
+        // 记录性能信息
+        $totalDuration = $responseBody['total_duration'] ?? 0;
+        if ($totalDuration > 0) {
+            \think\facade\Log::info('Ollama生成完成', [
+                'model' => $model['model_code'],
+                'total_duration_ms' => round($totalDuration / 1000000, 2),
+                'prompt_tokens' => $promptTokens,
+                'completion_tokens' => $completionTokens,
+                'total_tokens' => $totalTokens
+            ]);
+        }
+        
+        return [
+            'status' => 1,
+            'outputs' => $outputs,
+            'tokens' => $totalTokens,
+            'cost' => 0  // 本地模型免费
+        ];
+    }
+    
+    // ==================== VoxCPM2 语音合成相关方法 ====================
+    
+    /**
+     * 检查是否为VoxCPM语音合成模型
+     * 
+     * @param string $modelCode 模型代码
+     * @param string $providerCode 供应商标识
+     * @return bool
+     */
+    protected function isVoxCPMModel($modelCode, $providerCode = '')
+    {
+        if ($providerCode === 'voxcpm') {
+            return true;
+        }
+        return strpos($modelCode, 'voxcpm') === 0;
+    }
+    
+    /**
+     * 调用VoxCPM2 API服务
+     * 支持三种模式：普通合成/声音设计、可控克隆、极致克隆
+     * 
+     * @param array $model 模型信息
+     * @param array $apiKeyConfig API Key配置（存储服务器地址）
+     * @param array $inputParams 输入参数
+     * @return array 响应结果
+     */
+    protected function callVoxCPMApi($model, $apiKeyConfig, $inputParams)
+    {
+        $voxcpmConfig = config('aivideo.voxcpm') ?? [];
+        
+        // 介API Key字段获取用户配置的服务器地址
+        $serverUrl = $apiKeyConfig['api_key_decrypted'] ?? '';
+        if (empty($serverUrl) || !preg_match('/^https?:\/\//', $serverUrl)) {
+            // 尝试使用配置文件的默认地址
+            $serverUrl = $voxcpmConfig['api_url'] ?? 'http://127.0.0.1:8866';
+        }
+        $serverUrl = rtrim($serverUrl, '/');
+        
+        $timeout = $voxcpmConfig['timeout'] ?? 300;
+        
+        // 判断合成模式
+        $mode = $inputParams['mode'] ?? 'tts';
+        $hasReferenceAudio = !empty($inputParams['reference_audio']);
+        
+        // 根据模式和参数自动判断调用哪个端点
+        if ($hasReferenceAudio || in_array($mode, ['controllable_clone', 'ultimate_clone'])) {
+            return $this->callVoxCPMCloneApi($serverUrl, $inputParams, $timeout, $model);
+        } else {
+            return $this->callVoxCPMTtsApi($serverUrl, $inputParams, $timeout, $model);
+        }
+    }
+    
+    /**
+     * 调用VoxCPM TTS端点（文本转语音 + 声音设计）
+     */
+    protected function callVoxCPMTtsApi($serverUrl, $inputParams, $timeout, $model)
+    {
+        $voxcpmConfig = config('aivideo.voxcpm') ?? [];
+        $endpoint = $voxcpmConfig['tts_endpoint'] ?? '/api/tts';
+        $defaultParams = $voxcpmConfig['default_params'] ?? [];
+        
+        $fullUrl = $serverUrl . $endpoint;
+        
+        $requestBody = [
+            'text' => $inputParams['text'] ?? $inputParams['prompt'] ?? '',
+            'cfg_value' => floatval($inputParams['cfg_value'] ?? $defaultParams['cfg_value'] ?? 2.0),
+            'inference_timesteps' => intval($inputParams['inference_timesteps'] ?? $defaultParams['inference_timesteps'] ?? 10),
+            'normalize' => filter_var($inputParams['normalize'] ?? $defaultParams['normalize'] ?? true, FILTER_VALIDATE_BOOLEAN),
+        ];
+        
+        // 声音设计描述
+        $control = $inputParams['control'] ?? $inputParams['voice_description'] ?? '';
+        if (!empty($control)) {
+            $requestBody['control'] = $control;
+        }
+        
+        \think\facade\Log::info('VoxCPM TTS 请求', [
+            'url' => $fullUrl,
+            'text_len' => strlen($requestBody['text']),
+            'has_control' => !empty($control),
+        ]);
+        
+        return $this->sendVoxCPMRequest($fullUrl, $requestBody, $timeout, $model);
+    }
+    
+    /**
+     * 调用VoxCPM Clone端点（可控克隆 + 极致克隆）
+     */
+    protected function callVoxCPMCloneApi($serverUrl, $inputParams, $timeout, $model)
+    {
+        $voxcpmConfig = config('aivideo.voxcpm') ?? [];
+        $endpoint = $voxcpmConfig['clone_endpoint'] ?? '/api/clone';
+        $defaultParams = $voxcpmConfig['default_params'] ?? [];
+        
+        $fullUrl = $serverUrl . $endpoint;
+        
+        // 获取参考音频并转换为Base64
+        $referenceAudioUrl = $inputParams['reference_audio'] ?? $inputParams['audio_url'] ?? '';
+        $referenceAudioBase64 = '';
+        
+        if (!empty($referenceAudioUrl)) {
+            $referenceAudioBase64 = $this->downloadAndEncodeAudio($referenceAudioUrl);
+            if (empty($referenceAudioBase64)) {
+                return [
+                    'status' => 0,
+                    'error_code' => 'VOXCPM_AUDIO_DOWNLOAD_FAILED',
+                    'msg' => '参考音频下载或编码失败',
+                ];
+            }
+        }
+        
+        $mode = $inputParams['mode'] ?? 'controllable_clone';
+        $isUltimateClone = ($mode === 'ultimate_clone');
+        
+        $requestBody = [
+            'text' => $inputParams['text'] ?? $inputParams['prompt'] ?? '',
+            'reference_audio_base64' => $referenceAudioBase64,
+            'ultimate_clone' => $isUltimateClone,
+            'cfg_value' => floatval($inputParams['cfg_value'] ?? $defaultParams['cfg_value'] ?? 2.0),
+            'inference_timesteps' => intval($inputParams['inference_timesteps'] ?? $defaultParams['inference_timesteps'] ?? 10),
+        ];
+        
+        // 风格控制指令（可控克隆模式）
+        if (!$isUltimateClone) {
+            $control = $inputParams['control'] ?? $inputParams['voice_description'] ?? '';
+            if (!empty($control)) {
+                $requestBody['control'] = $control;
+            }
+        }
+        
+        // 参考音频文本（极致克隆模式）
+        if ($isUltimateClone) {
+            $promptText = $inputParams['prompt_text'] ?? '';
+            if (!empty($promptText)) {
+                $requestBody['prompt_text'] = $promptText;
+            }
+        }
+        
+        \think\facade\Log::info('VoxCPM Clone 请求', [
+            'url' => $fullUrl,
+            'text_len' => strlen($requestBody['text']),
+            'ultimate_clone' => $isUltimateClone,
+            'has_prompt_text' => !empty($requestBody['prompt_text'] ?? ''),
+        ]);
+        
+        return $this->sendVoxCPMRequest($fullUrl, $requestBody, $timeout, $model);
+    }
+    
+    /**
+     * 发送VoxCPM HTTP请求并解析响应
+     * 
+     * @param string $url 完整URL
+     * @param array $requestBody 请求体
+     * @param int $timeout 超时时间
+     * @param array $model 模型信息
+     * @return array
+     */
+    protected function sendVoxCPMRequest($url, $requestBody, $timeout, $model)
+    {
+        $headers = [
+            'Content-Type: application/json',
+        ];
+        
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestBody, JSON_UNESCAPED_UNICODE));
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        
+        $responseRaw = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+        
+        // 连接失败
+        if ($httpCode == 0 || !empty($curlError)) {
+            \think\facade\Log::error('VoxCPM服务连接失败', [
+                'url' => $url,
+                'curl_error' => $curlError,
+            ]);
+            return [
+                'status' => 0,
+                'error_code' => 'VOXCPM_CONNECTION_FAILED',
+                'msg' => 'VoxCPM服务连接失败，请确认服务已启动并监听在正确的地址端口',
+            ];
+        }
+        
+        $responseBody = json_decode($responseRaw, true);
+        
+        \think\facade\Log::info('VoxCPM API响应', [
+            'http_code' => $httpCode,
+            'status' => $responseBody['status'] ?? 'unknown',
+            'duration' => $responseBody['duration'] ?? 0,
+            'generation_time' => $responseBody['generation_time'] ?? 0,
+        ]);
+        
+        // HTTP错误
+        if ($httpCode != 200) {
+            $errorMsg = 'VoxCPM请求失败(HTTP ' . $httpCode . ')';
+            if (is_array($responseBody)) {
+                $errorMsg = $responseBody['detail'] ?? $responseBody['error'] ?? $errorMsg;
+            }
+            if ($httpCode == 503) {
+                $errorMsg = 'VoxCPM模型未加载，请稍后重试或检查服务端日志';
+            }
+            return [
+                'status' => 0,
+                'error_code' => 'VOXCPM_HTTP_' . $httpCode,
+                'msg' => $errorMsg,
+            ];
+        }
+        
+        return $this->parseVoxCPMResponse($model, $responseBody);
+    }
+    
+    /**
+     * 解析VoxCPM API响应
+     * 
+     * 响应格式:
+     * {
+     *   "status": "success",
+     *   "audio_base64": "Base64编码的WAV音频",
+     *   "sample_rate": 48000,
+     *   "duration": 3.5,
+     *   "generation_time": 2.1
+     * }
+     * 
+     * @param array $model 模型信息
+     * @param array $responseBody 解析后的响应体
+     * @return array
+     */
+    protected function parseVoxCPMResponse($model, $responseBody)
+    {
+        if (!is_array($responseBody)) {
+            return [
+                'status' => 0,
+                'error_code' => 'VOXCPM_INVALID_RESPONSE',
+                'msg' => 'VoxCPM返回无效响应',
+            ];
+        }
+        
+        if (($responseBody['status'] ?? '') !== 'success') {
+            return [
+                'status' => 0,
+                'error_code' => 'VOXCPM_GENERATE_FAILED',
+                'msg' => $responseBody['error'] ?? $responseBody['detail'] ?? '语音合成失败',
+            ];
+        }
+        
+        $audioBase64 = $responseBody['audio_base64'] ?? '';
+        if (empty($audioBase64)) {
+            return [
+                'status' => 0,
+                'error_code' => 'VOXCPM_EMPTY_AUDIO',
+                'msg' => 'VoxCPM返回空音频数据',
+            ];
+        }
+        
+        // 将Base64音频保存为文件
+        $audioUrl = $this->saveBase64Audio($audioBase64, 'wav');
+        if (empty($audioUrl)) {
+            return [
+                'status' => 0,
+                'error_code' => 'VOXCPM_SAVE_FAILED',
+                'msg' => '音频文件保存失败',
+            ];
+        }
+        
+        $duration = $responseBody['duration'] ?? 0;
+        $sampleRate = $responseBody['sample_rate'] ?? 48000;
+        
+        $outputs = [
+            [
+                'type' => 'audio',
+                'url' => $audioUrl,
+                'thumbnail' => '',
+                'duration' => $duration,
+                'sample_rate' => $sampleRate,
+            ],
+        ];
+        
+        \think\facade\Log::info('VoxCPM生成成功', [
+            'model' => $model['model_code'],
+            'duration' => $duration,
+            'sample_rate' => $sampleRate,
+            'generation_time' => $responseBody['generation_time'] ?? 0,
+        ]);
+        
+        return [
+            'status' => 1,
+            'outputs' => $outputs,
+            'tokens' => 0,
+            'cost' => 0,  // 本地部署免费
+        ];
+    }
+    
+    /**
+     * 下载音频文件并转换为Base64
+     * 
+     * @param string $audioUrl 音频文件URL
+     * @return string Base64编码的音频数据
+     */
+    protected function downloadAndEncodeAudio($audioUrl)
+    {
+        try {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $audioUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            
+            $audioData = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($httpCode !== 200 || empty($audioData)) {
+                \think\facade\Log::warning('downloadAndEncodeAudio: 下载音频失败', [
+                    'url' => $audioUrl,
+                    'http_code' => $httpCode,
+                ]);
+                return '';
+            }
+            
+            return base64_encode($audioData);
+        } catch (\Exception $e) {
+            \think\facade\Log::error('downloadAndEncodeAudio: 异常 ' . $e->getMessage());
+            return '';
+        }
+    }
+    
+    /**
+     * 保存Base64编码的音频文件
+     * 
+     * @param string $base64Data Base64音频数据
+     * @param string $format 音频格式 (wav/mp3)
+     * @return string 保存后的URL
+     */
+    protected function saveBase64Audio($base64Data, $format = 'wav')
+    {
+        try {
+            $audioData = base64_decode($base64Data);
+            if (!$audioData) {
+                return '';
+            }
+            
+            $filename = 'generation/' . date('Ymd') . '/' . md5(uniqid()) . '.' . $format;
+            $localPath = ROOT_PATH . 'upload/' . $filename;
+            
+            $dir = dirname($localPath);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            
+            file_put_contents($localPath, $audioData);
+            
+            $localUrl = PRE_URL . '/upload/' . $filename;
+            $ossUrl = \app\common\Pic::uploadoss($localUrl);
+            
+            return $ossUrl ?: $localUrl;
+        } catch (\Exception $e) {
+            \think\facade\Log::error('Base64音频保存失败: ' . $e->getMessage());
+            return '';
+        }
     }
 }

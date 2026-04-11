@@ -158,9 +158,16 @@
         var checked = d.is_active == 1 ? 'checked' : '';
         return '<input type="checkbox" name="is_active" lay-skin="switch" lay-text="启用|停用" lay-filter="statusSwitch" data-id="'+d.id+'" '+checked+'>';
       }},
-      {field: 'operation', title: '操作', width: 150, fixed: 'right', templet: function(d) {
+      {field: 'operation', title: '操作', width: 260, fixed: 'right', templet: function(d) {
         var html = '';
         html += '<button class="table-btn" onclick="testApi('+d.id+')">测试</button>';
+        var pcode = d.provider_code || d.provider_code_ref || '';
+        if (pcode === 'ollama') {
+          html += '<button class="table-btn" style="color:#1E9FFF" onclick="openChat()">对话</button>';
+        }
+        if (pcode === 'voxcpm') {
+          html += '<button class="table-btn" style="color:#FF9800" onclick="openVoiceChat()">语音对话</button>';
+        }
         html += '<button class="table-btn" onclick="openmax(\'{:url(\'edit\')}/id/'+d.id+'\')">编辑</button>';
         html += '<button class="table-btn" onclick="datadel('+d.id+')">删除</button>';
         return html;
@@ -208,23 +215,157 @@
     });
   });
   
+  // 打开Ollama对话页面
+  function openChat() {
+    var chatUrl = "{:url('OllamaChat/index')}";
+    var index = layer.open({
+      type: 2,
+      title: '🦙 Ollama 本地模型对话',
+      content: chatUrl,
+      area: ['90%', '90%'],
+      maxmin: true,
+      shadeClose: false
+    });
+    layer.full(index);
+  }
+
+  // 打开VoxCPM2语音对话页面
+  function openVoiceChat() {
+    var chatUrl = "{:url('VoiceChat/index')}";
+    var index = layer.open({
+      type: 2,
+      title: '🎙️ VoxCPM2 语音对话',
+      content: chatUrl,
+      area: ['90%', '90%'],
+      maxmin: true,
+      shadeClose: false
+    });
+    layer.full(index);
+  }
+
   // 测试API连接
   function testApi(id) {
     var index = layer.load();
     $.post("{:url('test')}", {id: id}, function(res) {
       layer.close(index);
-      if (res.status == 1) {
-        layer.alert('<div style="text-align:center"><i class="layui-icon layui-icon-ok-circle" style="font-size:48px;color:#5FB878"></i><p style="margin-top:10px">' + res.msg + '</p><p style="color:#999;font-size:12px">供应商：' + res.provider + '</p></div>', {
-          title: '测试结果',
-          icon: -1
+      if (res.test_detail) {
+        // Ollama 等真实连通性测试 —— 多阶段详情模式
+        var html = renderTestDetail(res);
+        layer.open({
+          type: 1,
+          title: '连通性测试结果 - ' + (res.provider || ''),
+          area: ['520px', 'auto'],
+          content: html,
+          btn: ['关闭'],
+          shadeClose: true
         });
       } else {
-        layer.alert('<div style="text-align:center"><i class="layui-icon layui-icon-close-fill" style="font-size:48px;color:#FF5722"></i><p style="margin-top:10px">' + res.msg + '</p></div>', {
-          title: '测试结果',
-          icon: -1
-        });
+        // 通用供应商格式校验 —— 原有简单文本模式
+        if (res.status == 1) {
+          layer.alert('<div style="text-align:center"><i class="layui-icon layui-icon-ok-circle" style="font-size:48px;color:#5FB878"></i><p style="margin-top:10px">' + res.msg + '</p><p style="color:#999;font-size:12px">供应商：' + res.provider + '</p></div>', {
+            title: '测试结果',
+            icon: -1
+          });
+        } else {
+          layer.alert('<div style="text-align:center"><i class="layui-icon layui-icon-close-fill" style="font-size:48px;color:#FF5722"></i><p style="margin-top:10px">' + res.msg + '</p></div>', {
+            title: '测试结果',
+            icon: -1
+          });
+        }
       }
     });
+  }
+
+  // 渲染多阶段测试结果 HTML
+  function renderTestDetail(res) {
+    var d = res.test_detail;
+    var html = '<div style="padding:15px 20px;font-size:13px;line-height:1.8">';
+
+    // 总体结论
+    var iconCls = res.status == 1 ? 'layui-icon-ok-circle' : 'layui-icon-close-fill';
+    var iconColor = res.status == 1 ? '#5FB878' : '#FF5722';
+    html += '<div style="text-align:center;margin-bottom:12px"><i class="layui-icon ' + iconCls + '" style="font-size:40px;color:' + iconColor + '"></i>';
+    html += '<p style="margin-top:6px;font-size:13px">' + escHtml(res.msg) + '</p></div>';
+    html += '<hr style="border:0;border-top:1px solid #eee;margin:10px 0">';
+
+    // 判断是 VoxCPM2 两阶段还是 Ollama 三阶段
+    if (d.synthesis !== undefined) {
+      // VoxCPM2 两阶段
+      var svc = d.service || {};
+      html += renderPhaseRow('服务健康检查', svc.passed, escHtml(svc.message) + (svc.latency_ms ? '（' + svc.latency_ms + 'ms）' : ''));
+
+      var syn = d.synthesis || {};
+      var synMsg = escHtml(syn.message);
+      if (syn.passed) {
+        synMsg += '<div style="margin-top:4px;font-size:12px;color:#666">';
+        if (syn.sample_rate) synMsg += '采样率: ' + syn.sample_rate + 'Hz　';
+        if (syn.duration) synMsg += '时长: ' + syn.duration + 's　';
+        if (syn.latency_ms) synMsg += '耗时: ' + syn.latency_ms + 'ms';
+        synMsg += '</div>';
+      }
+      html += renderPhaseRow('语音合成测试', syn.passed, synMsg);
+    } else {
+      // Ollama 三阶段（原有逻辑）
+      var svc = d.service || {};
+      html += renderPhaseRow('服务连通性', svc.passed, svc.message + (svc.latency_ms ? '（' + svc.latency_ms + 'ms）' : ''));
+
+      var mdl = d.models || {};
+      var mdlMsg = '';
+      if (mdl.available && mdl.available.length) {
+        mdlMsg += '<span style="color:#5FB878">可用: </span>';
+        for (var i = 0; i < mdl.available.length; i++) {
+          mdlMsg += '<span style="display:inline-block;background:#f0f9eb;color:#5FB878;padding:1px 8px;border-radius:3px;margin:2px 3px;font-size:12px">' + escHtml(mdl.available[i]) + '</span>';
+        }
+      }
+      if (mdl.missing && mdl.missing.length) {
+        mdlMsg += '<br><span style="color:#FFB800">缺失: </span>';
+        for (var j = 0; j < mdl.missing.length; j++) {
+          mdlMsg += '<span style="display:inline-block;background:#fff8e6;color:#FFB800;padding:1px 8px;border-radius:3px;margin:2px 3px;font-size:12px">' + escHtml(mdl.missing[j]) + '</span>';
+        }
+        mdlMsg += '<br><span style="color:#999;font-size:11px">提示: 执行 <code>ollama pull 模型名</code> 下载缺失模型</span>';
+      }
+      html += renderPhaseRow('模型可用性', mdl.passed, mdlMsg);
+
+      var cap = d.capability || {};
+      var capMsg = '';
+      if (cap.model_tested) {
+        capMsg += '测试模型: <b>' + escHtml(cap.model_tested) + '</b>';
+      }
+      if (cap.latency_ms) {
+        capMsg += '　耗时: ' + cap.latency_ms + 'ms';
+      }
+      if (cap.tokens) {
+        capMsg += '　Token: ' + cap.tokens;
+      }
+      if (cap.response_preview) {
+        capMsg += '<div style="background:#f8f8f8;border-left:3px solid #5FB878;padding:6px 10px;margin-top:6px;font-size:12px;color:#666;word-break:break-all">' + escHtml(cap.response_preview) + '</div>';
+      }
+      if (cap.message && !cap.passed) {
+        capMsg += '<div style="color:#FF5722;margin-top:4px">' + escHtml(cap.message) + '</div>';
+      }
+      html += renderPhaseRow('真实能力调用', cap.passed, capMsg);
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  // 渲染单行阶段结果
+  function renderPhaseRow(title, passed, detail) {
+    var icon = passed ? '<span style="color:#5FB878">✅</span>' : '<span style="color:#FF5722">❌</span>';
+    var html = '<div style="margin-bottom:10px">';
+    html += '<div style="font-weight:bold;margin-bottom:4px">' + icon + ' ' + escHtml(title) + '</div>';
+    html += '<div style="padding-left:22px">' + (detail || '-') + '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // HTML 转义
+  function escHtml(s) {
+    if (!s) return '';
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(s));
+    return d.innerHTML;
   }
   
   // 删除

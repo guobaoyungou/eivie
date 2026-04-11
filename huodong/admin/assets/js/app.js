@@ -6,6 +6,11 @@
 ;(function(global) {
     'use strict';
 
+    // 全局错误处理
+    window.addEventListener('unhandledrejection', function(event) {
+        console.warn('Unhandled rejection:', event.reason);
+    });
+
     var ACTIVITY_KEY = 'hd_current_activity';
 
     var App = {

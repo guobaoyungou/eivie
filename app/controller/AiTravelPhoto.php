@@ -6549,4 +6549,168 @@ class AiTravelPhoto extends Common
             return json(['status' => 0, 'msg' => '回填失败: ' . $e->getMessage()]);
         }
     }
+
+    // ====================自拍端管理====================
+
+    /**
+     * 自拍端管理首页
+     */
+    public function selfie_manage()
+    {
+        if (request()->isAjax()) {
+            return $this->selfie_stats();
+        }
+
+        $bid = $this->bid;
+        $targetBid = $bid;
+        if ($targetBid == 0) {
+            $targetBid = Db::name('business')->where('aid', $this->aid)->value('id') ?: 0;
+        }
+
+        // 获取门店列表 - 包含当前商家门店(bid=$bid)和平台公共门店(bid=0)
+        $mendianList = Db::name('mendian')
+            ->where('aid', $this->aid)
+            ->where(function($query) use ($bid) {
+                $query->whereOr([
+                    ['bid', '=', $bid],
+                    ['bid', '=', 0]
+                ]);
+            })
+            ->where('status', 1)
+            ->field('id, name, bid, selfie_enabled')
+            ->order('id ASC')
+            ->select()
+            ->toArray();
+
+        // 获取二维码列表 - 匹配所有相关门店的二维码
+        $mendianIds = array_column($mendianList, 'id');
+        $qrcodeList = [];
+        if (!empty($mendianIds)) {
+            $qrcodeList = Db::name('ai_travel_photo_selfie_qrcode')
+                ->where('aid', $this->aid)
+                ->where('mdid', 'in', $mendianIds)
+                ->select()
+                ->toArray();
+        }
+
+        // 按门店ID索引
+        $qrcodeMap = [];
+        foreach ($qrcodeList as $qr) {
+            $qrcodeMap[$qr['mdid']] = $qr;
+        }
+
+        View::assign('mendian_list', $mendianList);
+        View::assign('qrcode_map', $qrcodeMap);
+        View::assign('target_bid', $targetBid);
+
+        return View::fetch('ai_travel_photo/selfie_manage');
+    }
+
+    /**
+     * 生成/获取门店自拍二维码
+     */
+    public function selfie_qrcode()
+    {
+        $mdid = input('mdid/d', 0);
+        if (!$mdid) {
+            return json(['status' => 0, 'msg' => '请选择门店']);
+        }
+
+        // 确定业务归属的bid：若当前登录者bid=0，从门店记录中取bid，若门店bid也为0则查找平台下第一个商家
+        $targetBid = $this->bid;
+        if ($targetBid == 0) {
+            $mdBid = Db::name('mendian')->where('id', $mdid)->value('bid');
+            $targetBid = $mdBid ?: (Db::name('business')->where('aid', $this->aid)->value('id') ?: 0);
+        }
+
+        try {
+            $selfieService = new \app\service\AiTravelPhotoSelfieService();
+            $result = $selfieService->getOrCreateQrcode($this->aid, $targetBid, $mdid);
+            return json(['status' => 1, 'msg' => '操作成功', 'data' => $result]);
+        } catch (\Exception $e) {
+            return json(['status' => 0, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 推文配置 (GET获取/POST保存)
+     */
+    public function selfie_push_config()
+    {
+        $mdid = input('mdid/d', 0);
+        if (!$mdid) {
+            return json(['status' => 0, 'msg' => '请选择门店']);
+        }
+
+        $targetBid = $this->bid;
+        if ($targetBid == 0) {
+            $mdBid = Db::name('mendian')->where('id', $mdid)->value('bid');
+            $targetBid = $mdBid ?: (Db::name('business')->where('aid', $this->aid)->value('id') ?: 0);
+        }
+
+        $selfieService = new \app\service\AiTravelPhotoSelfieService();
+
+        if (request()->isPost()) {
+            $config = [
+                'push_title' => input('push_title', ''),
+                'push_desc' => input('push_desc', ''),
+                'push_cover' => input('push_cover', ''),
+            ];
+            try {
+                $selfieService->savePushConfig($this->aid, $targetBid, $mdid, $config);
+                return json(['status' => 1, 'msg' => '保存成功']);
+            } catch (\Exception $e) {
+                return json(['status' => 0, 'msg' => $e->getMessage()]);
+            }
+        }
+
+        // GET请求
+        $config = $selfieService->getPushConfig($this->aid, $targetBid, $mdid);
+        return json(['status' => 1, 'data' => $config]);
+    }
+
+    /**
+     * 自拍数据统计
+     */
+    public function selfie_stats()
+    {
+        $mdid = input('mdid/d', 0);
+
+        $bid = $this->bid;
+        $targetBid = $bid;
+        if ($targetBid == 0) {
+            $targetBid = Db::name('business')->where('aid', $this->aid)->value('id') ?: 0;
+        }
+
+        try {
+            $selfieService = new \app\service\AiTravelPhotoSelfieService();
+            $stats = $selfieService->getStats($this->aid, $targetBid, $mdid);
+            return json(['status' => 1, 'data' => $stats]);
+        } catch (\Exception $e) {
+            return json(['status' => 0, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 切换门店自拍端启用状态
+     */
+    public function selfie_toggle_enable()
+    {
+        $mdid = input('mdid/d', 0);
+        $enabled = input('enabled/d', 1);
+
+        if (!$mdid) {
+            return json(['status' => 0, 'msg' => '请选择门店']);
+        }
+
+        // 校验门店归属：必须属于当前平台
+        $mendian = Db::name('mendian')->where('id', $mdid)->where('aid', $this->aid)->find();
+        if (!$mendian) {
+            return json(['status' => 0, 'msg' => '门店不存在或无权操作']);
+        }
+
+        Db::name('mendian')->where('id', $mdid)->update(['selfie_enabled' => $enabled]);
+
+        return json(['status' => 1, 'msg' => ($enabled ? '已启用' : '已禁用')]);
+    }
 }

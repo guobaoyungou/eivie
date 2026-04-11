@@ -267,6 +267,15 @@ if(getcustom('yx_collage_jiqiren')){
 // ====================模型广场路由====================
 Route::any('WebModelSquare/:function', 'WebModelSquare/:function');
 
+// ====================Ollama本地LLM对话路由====================
+Route::any('OllamaChat/:function', 'OllamaChat/:function');
+
+// ====================VoxCPM2语音对话路由====================
+Route::any('VoiceChat/:function', 'VoiceChat/:function');
+
+// ====================AI短剧工作流系统路由====================
+Route::any('Workflow/:function', 'Workflow/:function');
+
 // ====================系统API Key配置路由====================
 Route::any('SystemApiKey/:function', 'SystemApiKey/:function');
 
@@ -306,6 +315,9 @@ Route::any('api/ai_travel_photo/album/:function', 'api.AiTravelPhotoAlbum/:funct
 
 // API路由 - 选片交付（H5扫码选片 → 套餐推荐 → 付费下载）
 Route::any('api/ai_travel_photo/pick/:function', 'api.AiTravelPhotoPick/:function');
+
+// API路由 - 用户自拍端（笑脸拍照自抩端）
+Route::any('api/ai_travel_photo/selfie/:function', 'api.AiTravelPhotoSelfie/:function');
 
 // API路由 - XPD大屏选片端
 Route::any('api/ai-travel-photo/selection-list', 'api.AiTravelPhotoXpd/selection_list');

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>自拍端管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .stat-card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,.08); text-align: center; }
+    .stat-card .num { font-size: 28px; font-weight: bold; color: #1E9FFF; }
+    .stat-card .label { font-size: 13px; color: #999; margin-top: 5px; }
+    .store-card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 15px; border: 1px solid #eee; }
+    .store-card .store-name { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+    .store-card .qr-area { text-align: center; padding: 15px; background: #f9f9f9; border-radius: 6px; margin: 10px 0; }
+    .store-card .qr-area img { max-width: 200px; max-height: 200px; }
+    .store-card .btn-group { margin-top: 10px; }
+    .push-config-form { padding: 15px; }
+    .push-config-form .layui-form-label { width: 100px; }
+    .push-config-form .layui-input-block { margin-left: 130px; }
+    .qr-preview-modal img { max-width: 100%; display: block; margin: 0 auto; }
+    .upload-cover-wrap { display: inline-block; position: relative; }
+    .upload-cover-wrap .cover-preview { max-width: 200px; max-height: 120px; margin-top: 8px; border-radius: 4px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <!-- 数据统计卡片 -->
+    <div class="layui-row layui-col-space15" id="statsArea">
+      <div class="layui-col-md2"><div class="stat-card"><div class="num" id="stat_scan">-</div><div class="label">扫码总数</div></div></div>
+      <div class="layui-col-md2"><div class="stat-card"><div class="num" id="stat_follow">-</div><div class="label">关注转化</div></div></div>
+      <div class="layui-col-md2"><div class="stat-card"><div class="num" id="stat_selfie">-</div><div class="label">自拍次数</div></div></div>
+      <div class="layui-col-md2"><div class="stat-card"><div class="num" id="stat_match">-</div><div class="label">命中成片</div></div></div>
+      <div class="layui-col-md2"><div class="stat-card"><div class="num" id="stat_rate">-</div><div class="label">命中率</div></div></div>
+      <div class="layui-col-md2"><div class="stat-card"><div class="num" id="stat_notify">-</div><div class="label">通知推送</div></div></div>
+    </div>
+
+    <!-- 门店二维码管理 -->
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          门店自拍二维码管理
+          <span style="float:right;font-size:12px;color:#999;">用户扫描门店二维码 → 关注公众号 → 收到推文 → 打开自拍页</span>
+        </div>
+        <div class="layui-card-body" pad15>
+          {if count($mendian_list) == 0}
+          <div style="text-align:center;padding:50px;color:#999;">
+            <i class="layui-icon layui-icon-tips" style="font-size:40px;"></i>
+            <p style="margin-top:10px;">暂无门店，请先在门店管理中添加门店</p>
+          </div>
+          {else/}
+          <div class="layui-row layui-col-space15">
+            {foreach $mendian_list as $md}
+            <div class="layui-col-md6">
+              <div class="store-card" id="store_{$md.id}">
+                <div class="store-name">
+                  <i class="layui-icon layui-icon-home"></i> {$md.name}
+                  <span style="float:right;">
+                    <input type="checkbox" name="selfie_enabled" lay-skin="switch" lay-text="启用|禁用" value="{$md.id}" {if $md.selfie_enabled == 1}checked{/if} lay-filter="toggleSelfie">
+                  </span>
+                </div>
+
+                <div class="qr-area" id="qr_area_{$md.id}">
+                  {if isset($qrcode_map[$md.id]) && $qrcode_map[$md.id]['qrcode_url']}
+                  <img src="{$qrcode_map[$md.id]['qrcode_url']}" alt="自拍二维码">
+                  <p style="margin-top:8px;color:#666;font-size:12px;">场景值: {$qrcode_map[$md.id]['scene_str']}</p>
+                  <p style="color:#999;font-size:11px;">扫码 {$qrcode_map[$md.id]['scan_count']} 次 | 关注 {$qrcode_map[$md.id]['follow_count']} 人 | 自拍 {$qrcode_map[$md.id]['selfie_count']} 次</p>
+                  {else/}
+                  <p style="color:#999;"><i class="layui-icon layui-icon-picture" style="font-size:40px;"></i></p>
+                  <p style="color:#999;font-size:13px;">尚未生成二维码</p>
+                  {/if}
+                </div>
+
+                <div class="btn-group">
+                  <button class="layui-btn layui-btn-sm" onclick="generateQrcode({$md.id})">生成/刷新二维码</button>
+                  <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="downloadQrcode({$md.id})">下载</button>
+                  <button class="layui-btn layui-btn-sm layui-btn-warm" onclick="editPushConfig({$md.id}, '{$md.name}')">推文配置</button>
+                  {if isset($qrcode_map[$md.id]) && $qrcode_map[$md.id]['qrcode_url']}
+                  <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="previewQrcode('{$qrcode_map[$md.id]['qrcode_url']}', '{$md.name}')">预览</button>
+                  {/if}
+                </div>
+              </div>
+            </div>
+            {/foreach}
+          </div>
+          {/if}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  layui.use(['form', 'layer', 'upload'], function(){
+    var form = layui.form;
+
+    // 加载统计数据
+    loadStats();
+
+    // 统计自动刷新（30秒一次）
+    setInterval(loadStats, 30000);
+
+    // 自拍端启用/禁用切换
+    form.on('switch(toggleSelfie)', function(data){
+      var mdid = this.value;
+      var enabled = data.elem.checked ? 1 : 0;
+      $.post("{:url('selfie_toggle_enable')}", {mdid: mdid, enabled: enabled}, function(res){
+        layer.msg(res.msg);
+      });
+    });
+  });
+
+  // 加载统计数据
+  function loadStats() {
+    $.get("{:url('selfie_stats')}", function(res){
+      if(res.status == 1) {
+        var d = res.data;
+        $('#stat_scan').text(d.total_scan || 0);
+        $('#stat_follow').text(d.total_follow || 0);
+        $('#stat_selfie').text(d.total_selfie || 0);
+        $('#stat_match').text(d.match_count || 0);
+        $('#stat_rate').text((d.match_rate || 0) + '%');
+        $('#stat_notify').text((d.total_notify_sent || 0) + '/' + (d.total_notify_requests || 0));
+      }
+    });
+  }
+
+  // 生成二维码
+  function generateQrcode(mdid) {
+    var loadIndex = layer.load();
+    $.post("{:url('selfie_qrcode')}", {mdid: mdid}, function(res){
+      layer.close(loadIndex);
+      if(res.status == 1) {
+        layer.msg('二维码生成成功');
+        // 刷新页面以显示新的二维码
+        setTimeout(function(){ location.reload(); }, 800);
+      } else {
+        layer.msg(res.msg, {icon: 2});
+      }
+    });
+  }
+
+  // 下载二维码
+  function downloadQrcode(mdid) {
+    var qrArea = document.getElementById('qr_area_' + mdid);
+    var img = qrArea.querySelector('img');
+    if(!img || !img.src) {
+      layer.msg('请先生成二维码', {icon: 7});
+      return;
+    }
+    // 创建隐藏链接下载
+    var a = document.createElement('a');
+    a.href = img.src;
+    a.download = '自拍端二维码_门店' + mdid + '.png';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  // 预览二维码
+  function previewQrcode(url, storeName) {
+    layer.open({
+      type: 1,
+      title: '自拍二维码 - ' + storeName,
+      area: ['400px', '450px'],
+      content: '<div class="qr-preview-modal" style="padding:20px;text-align:center;"><img src="' + url + '" alt="自拍端二维码"><p style="margin-top:15px;color:#666;font-size:13px;">用户扫描此二维码 → 关注公众号 → 收到自拍推文</p></div>'
+    });
+  }
+
+  // 编辑推文配置
+  function editPushConfig(mdid, storeName) {
+    // 先获取当前配置
+    $.get("{:url('selfie_push_config')}", {mdid: mdid}, function(res){
+      if(res.status != 1) {
+        layer.msg(res.msg || '获取配置失败', {icon: 2});
+        return;
+      }
+      var config = res.data;
+      layer.open({
+        type: 1,
+        title: '推文配置 - ' + storeName,
+        area: ['600px', '420px'],
+        content: '<div class="push-config-form">'
+          + '<div class="layui-form" lay-filter="pushConfigForm">'
+          + '<div class="layui-form-item"><label class="layui-form-label">推文标题</label>'
+          + '<div class="layui-input-block"><input type="text" name="push_title" value="' + (config.push_title || '') + '" class="layui-input" placeholder="默认：点击查找您的在景区的旅拍留影"></div></div>'
+          + '<div class="layui-form-item"><label class="layui-form-label">推文描述</label>'
+          + '<div class="layui-input-block"><textarea name="push_desc" class="layui-textarea" placeholder="默认：你在该景区的游玩照片已为您准备，请打开链接查找。">' + (config.push_desc || '') + '</textarea></div></div>'
+          + '<div class="layui-form-item"><label class="layui-form-label">封面图URL</label>'
+          + '<div class="layui-input-block"><div class="upload-cover-wrap">'
+          + '<input type="text" name="push_cover" id="pushCoverInput" value="' + (config.push_cover || '') + '" class="layui-input" placeholder="可选，留空使用默认封面" oninput="previewCover(this.value)">'
+          + '<img class="cover-preview" id="coverPreview" src="' + (config.push_cover || '') + '" style="' + (config.push_cover ? 'display:block;' : '') + '">'
+          + '</div></div></div>'
+          + '<div class="layui-form-item"><div class="layui-input-block">'
+          + '<button class="layui-btn" lay-submit lay-filter="savePushConfig">保存配置</button>'
+          + '<button class="layui-btn layui-btn-primary" onclick="layer.closeAll()">取消</button>'
+          + '</div></div>'
+          + '</div></div>',
+        success: function(){
+          layui.form.render();
+          layui.form.on('submit(savePushConfig)', function(data){
+            data.field.mdid = mdid;
+            var idx = layer.load();
+            $.post("{:url('selfie_push_config')}", data.field, function(res){
+              layer.close(idx);
+              if(res.status == 1) {
+                layer.msg('保存成功');
+                layer.closeAll();
+              } else {
+                layer.msg(res.msg, {icon: 2});
+              }
+            });
+            return false;
+          });
+        }
+      });
+    });
+  }
+  // 封面图预览
+  window.previewCover = function(url) {
+    var img = document.getElementById('coverPreview');
+    if(img && url) {
+      img.src = url;
+      img.style.display = 'block';
+      img.onerror = function(){ img.style.display = 'none'; };
+    } else if(img) {
+      img.style.display = 'none';
+    }
+  };
+  </script>
+  {include file="public/copyright"/}
+</body>
+</html>

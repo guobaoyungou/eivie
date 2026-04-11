@@ -173,3 +173,320 @@
 	90% { transform: rotate(60deg); opacity: 1; }
 	100% { transform: rotate(70deg); opacity: 0; }
 }
+
+/* 突出卡片样式 - Sphere（球形布局） */
+.sphere.view .tuchuk {
+	-webkit-animation: sphere-animation var(--highlight-duration, 8s) 0s ease forwards;
+	-moz-animation: sphere-animation var(--highlight-duration, 8s) 0s ease forwards;
+	animation: sphere-animation var(--highlight-duration, 8s) 0s ease forwards;
+}
+
+@keyframes sphere-animation {
+	0% { 
+		transform: scale(0.1) rotate(0deg); 
+		opacity: 0; 
+		border-radius: 50%;
+	}
+	10% { 
+		transform: scale(var(--highlight-scale, 1.5)) rotate(180deg); 
+		opacity: 1; 
+		border-radius: 50%;
+		box-shadow: 0 0 50px rgba(255, 117, 117, 0.8);
+	}
+	20% { 
+		transform: scale(1) rotate(360deg); 
+		opacity: 1; 
+		border-radius: 50%;
+		box-shadow: 0 0 20px rgba(255, 117, 117, 0.5);
+	}
+	90% { 
+		transform: scale(1) rotate(360deg); 
+		opacity: 1; 
+		border-radius: 50%;
+		box-shadow: 0 0 20px rgba(255, 117, 117, 0.5);
+	}
+	100% { 
+		transform: scale(0) rotate(540deg); 
+		opacity: 0; 
+		border-radius: 50%;
+	}
+}
+
+.sphere.view .tuchug {
+	-webkit-animation: sphere-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	-moz-animation: sphere-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	animation: sphere-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	opacity: 0;
+	border-radius: 50%;
+}
+
+@keyframes sphere-glow {
+	0% { 
+		transform: rotate(0) scale(0.8);
+		opacity: 0;
+		box-shadow: 0 0 0 rgba(255, 117, 117, 0);
+	}
+	50% { 
+		transform: rotate(180deg) scale(1.2);
+		opacity: 0.7;
+		box-shadow: 0 0 80px rgba(255, 117, 117, 0.6);
+	}
+	100% { 
+		transform: rotate(360deg) scale(0.8);
+		opacity: 0;
+		box-shadow: 0 0 0 rgba(255, 117, 117, 0);
+	}
+}
+
+/* 突出卡片样式 - Cube（立方体布局） */
+.cube.view .tuchuk {
+	-webkit-animation: cube-animation var(--highlight-duration, 8s) 0s ease forwards;
+	-moz-animation: cube-animation var(--highlight-duration, 8s) 0s ease forwards;
+	animation: cube-animation var(--highlight-duration, 8s) 0s ease forwards;
+}
+
+@keyframes cube-animation {
+	0% { 
+		transform: scale(0.1) rotateX(0deg) rotateY(0deg); 
+		opacity: 0; 
+	}
+	10% { 
+		transform: scale(var(--highlight-scale, 1.5)) rotateX(180deg) rotateY(180deg); 
+		opacity: 1; 
+		box-shadow: 15px 15px 30px rgba(0, 0, 0, 0.3);
+	}
+	20% { 
+		transform: scale(1) rotateX(360deg) rotateY(360deg); 
+		opacity: 1; 
+		box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.2);
+	}
+	90% { 
+		transform: scale(1) rotateX(360deg) rotateY(360deg); 
+		opacity: 1; 
+		box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.2);
+	}
+	100% { 
+		transform: scale(0) rotateX(540deg) rotateY(540deg); 
+		opacity: 0; 
+	}
+}
+
+.cube.view .tuchug {
+	-webkit-animation: cube-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	-moz-animation: cube-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	animation: cube-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	opacity: 0;
+	transform-style: preserve-3d;
+}
+
+/* 其他样式会在需要时添加 */
+@keyframes cube-glow {
+	0% {
+		transform: rotate(0) scale(0.8);
+		opacity: 0;
+		box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+	}
+	50% {
+		transform: rotate(180deg) scale(1.2);
+		opacity: 0.7;
+		box-shadow: 0 0 60px rgba(0, 0, 0, 0.4);
+	}
+	100% {
+		transform: rotate(360deg) scale(0.8);
+		opacity: 0;
+		box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+	}
+}
+
+/* 突出卡片样式 - Heart（爱心布局） */
+.heart.view .tuchuk {
+	-webkit-animation: heart-animation var(--highlight-duration, 8s) 0s ease forwards;
+	-moz-animation: heart-animation var(--highlight-duration, 8s) 0s ease forwards;
+	animation: heart-animation var(--highlight-duration, 8s) 0s ease forwards;
+	clip-path: polygon(50% 15%, 70% 5%, 85% 20%, 50% 70%, 15% 20%, 30% 5%);
+}
+
+@keyframes heart-animation {
+	0% {
+		transform: scale(0.1) rotate(0deg);
+		opacity: 0;
+		border-radius: 50%;
+	}
+	10% {
+		transform: scale(var(--highlight-scale, 1.5)) rotate(180deg);
+		opacity: 1;
+		border-radius: 0;
+		box-shadow: 0 0 50px rgba(255, 117, 117, 0.8);
+	}
+	20% {
+		transform: scale(1) rotate(360deg);
+		opacity: 1;
+		box-shadow: 0 0 20px rgba(255, 117, 117, 0.5);
+	}
+	90% {
+		transform: scale(1) rotate(360deg);
+		opacity: 1;
+		box-shadow: 0 0 20px rgba(255, 117, 117, 0.5);
+	}
+	100% {
+		transform: scale(0) rotate(540deg);
+		opacity: 0;
+	}
+}
+
+.heart.view .tuchug {
+	-webkit-animation: heart-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	-moz-animation: heart-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	animation: heart-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	opacity: 0;
+	clip-path: polygon(50% 15%, 70% 5%, 85% 20%, 50% 70%, 15% 20%, 30% 5%);
+}
+
+@keyframes heart-glow {
+	0% {
+		transform: rotate(0) scale(0.8);
+		opacity: 0;
+		box-shadow: 0 0 0 rgba(255, 117, 117, 0);
+	}
+	50% {
+		transform: rotate(180deg) scale(1.2);
+		opacity: 0.7;
+		box-shadow: 0 0 80px rgba(255, 117, 117, 0.6);
+	}
+	100% {
+		transform: rotate(360deg) scale(0.8);
+		opacity: 0;
+		box-shadow: 0 0 0 rgba(255, 117, 117, 0);
+	}
+}
+
+/* 突出卡片样式 - Star（五角星布局） */
+.star.view .tuchuk {
+	-webkit-animation: star-animation var(--highlight-duration, 8s) 0s ease forwards;
+	-moz-animation: star-animation var(--highlight-duration, 8s) 0s ease forwards;
+	animation: star-animation var(--highlight-duration, 8s) 0s ease forwards;
+	clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+@keyframes star-animation {
+	0% {
+		transform: scale(0.1) rotate(0deg);
+		opacity: 0;
+	}
+	10% {
+		transform: scale(var(--highlight-scale, 1.5)) rotate(180deg);
+		opacity: 1;
+		box-shadow: 0 0 50px rgba(255, 215, 0, 0.8);
+	}
+	20% {
+		transform: scale(1) rotate(360deg);
+		opacity: 1;
+		box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+	}
+	90% {
+		transform: scale(1) rotate(360deg);
+		opacity: 1;
+		box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+	}
+	100% {
+		transform: scale(0) rotate(540deg);
+		opacity: 0;
+	}
+}
+
+.star.view .tuchug {
+	-webkit-animation: star-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	-moz-animation: star-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	animation: star-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	opacity: 0;
+	clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+@keyframes star-glow {
+	0% {
+		transform: rotate(0) scale(0.8);
+		opacity: 0;
+		box-shadow: 0 0 0 rgba(255, 215, 0, 0);
+	}
+	50% {
+		transform: rotate(180deg) scale(1.2);
+		opacity: 0.7;
+		box-shadow: 0 0 80px rgba(255, 215, 0, 0.6);
+	}
+	100% {
+		transform: rotate(360deg) scale(0.8);
+		opacity: 0;
+		box-shadow: 0 0 0 rgba(255, 215, 0, 0);
+	}
+}
+
+/* 突出卡片样式 - Helix（螺旋布局） */
+.helix.view .tuchuk {
+	-webkit-animation: helix-animation var(--highlight-duration, 8s) 0s ease forwards;
+	-moz-animation: helix-animation var(--highlight-duration, 8s) 0s ease forwards;
+	animation: helix-animation var(--highlight-duration, 8s) 0s ease forwards;
+}
+
+@keyframes helix-animation {
+	0% {
+		transform: scale(0.1) rotate(0deg) translateX(0) translateY(0);
+		opacity: 0;
+		border-radius: 50%;
+	}
+	10% {
+		transform: scale(var(--highlight-scale, 1.5)) rotate(180deg) translateX(100px) translateY(-50px);
+		opacity: 1;
+		box-shadow: 0 0 50px rgba(100, 200, 255, 0.8);
+	}
+	20% {
+		transform: scale(1) rotate(360deg) translateX(0) translateY(0);
+		opacity: 1;
+		box-shadow: 0 0 20px rgba(100, 200, 255, 0.5);
+	}
+	30% {
+		transform: scale(1) rotate(540deg) translateX(-100px) translateY(50px);
+		opacity: 1;
+	}
+	50% {
+		transform: scale(1) rotate(720deg) translateX(0) translateY(0);
+		opacity: 1;
+	}
+	70% {
+		transform: scale(1) rotate(900deg) translateX(100px) translateY(-50px);
+		opacity: 1;
+	}
+	90% {
+		transform: scale(1) rotate(1080deg) translateX(0) translateY(0);
+		opacity: 1;
+		box-shadow: 0 0 20px rgba(100, 200, 255, 0.5);
+	}
+	100% {
+		transform: scale(0) rotate(1260deg) translateX(0) translateY(0);
+		opacity: 0;
+	}
+}
+
+.helix.view .tuchug {
+	-webkit-animation: helix-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	-moz-animation: helix-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	animation: helix-glow var(--highlight-duration, 6.5s) 1s ease forwards;
+	opacity: 0;
+}
+
+@keyframes helix-glow {
+	0% {
+		transform: rotate(0) scale(0.8);
+		opacity: 0;
+		box-shadow: 0 0 0 rgba(100, 200, 255, 0);
+	}
+	50% {
+		transform: rotate(180deg) scale(1.2);
+		opacity: 0.7;
+		box-shadow: 0 0 80px rgba(100, 200, 255, 0.6);
+	}
+	100% {
+		transform: rotate(360deg) scale(0.8);
+		opacity: 0;
+		box-shadow: 0 0 0 rgba(100, 200, 255, 0);
+	}
+}

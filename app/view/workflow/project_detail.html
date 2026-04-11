@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AI短剧工作流 - 项目详情</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {include file="public/css"/}
+  <style>
+    .detail-card { background:#fff; border-radius:10px; padding:20px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+    .detail-card .card-title { font-size:16px; font-weight:bold; color:#333; margin-bottom:15px; padding-bottom:10px; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+    .detail-card .card-title .title-left { display:flex; align-items:center; gap:6px; }
+    .detail-item { display:flex; margin-bottom:10px; }
+    .detail-item .label { width:100px; color:#999; flex-shrink:0; }
+    .detail-item .value { color:#333; flex:1; }
+    .mode-badge { display:inline-block; padding:3px 10px; border-radius:4px; font-size:13px; color:#fff; }
+    .mode-badge.oneclick { background:#52c41a; }
+    .mode-badge.freestyle { background:#1890ff; }
+    .mode-badge.advanced { background:#722ed1; }
+    .status-badge { display:inline-block; padding:3px 10px; border-radius:4px; font-size:13px; }
+    .status-badge.draft { background:#f0f0f0; color:#666; }
+    .status-badge.running { background:#e6f7ff; color:#1890ff; }
+    .status-badge.completed { background:#f6ffed; color:#52c41a; }
+    .status-badge.failed { background:#fff2f0; color:#ff4d4f; }
+
+    /* 执行统计卡片 */
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:12px; margin-bottom:15px; }
+    .stat-card { background:linear-gradient(135deg,#f6f8fc,#eef2f9); border-radius:10px; padding:16px; text-align:center; border:1px solid #e0e6f0; }
+    .stat-card .stat-value { font-size:28px; font-weight:bold; color:#333; line-height:1.2; }
+    .stat-card .stat-label { font-size:12px; color:#999; margin-top:4px; }
+    .stat-card.success .stat-value { color:#52c41a; }
+    .stat-card.fail .stat-value { color:#ff4d4f; }
+    .stat-card.time .stat-value { color:#1890ff; font-size:22px; }
+    .stat-card.running .stat-value { color:#faad14; }
+
+    /* 执行时间线 */
+    .timeline { position:relative; padding-left:30px; }
+    .timeline::before { content:''; position:absolute; left:11px; top:0; bottom:0; width:2px; background:#e8e8e8; }
+    .timeline-item { position:relative; margin-bottom:20px; }
+    .timeline-item .dot { width:10px; height:10px; border-radius:50%; position:absolute; left:-25px; top:5px; border:2px solid #fff; box-shadow:0 0 0 2px #d9d9d9; }
+    .timeline-item .dot.succeeded { background:#52c41a; box-shadow:0 0 0 2px #52c41a; }
+    .timeline-item .dot.running { background:#1890ff; box-shadow:0 0 0 2px #1890ff; animation:pulse 1.5s infinite; }
+    .timeline-item .dot.polling { background:#faad14; box-shadow:0 0 0 2px #faad14; animation:pulse 1.5s infinite; }
+    .timeline-item .dot.failed { background:#ff4d4f; box-shadow:0 0 0 2px #ff4d4f; }
+    .timeline-item .dot.idle { background:#d9d9d9; }
+    .timeline-item .dot.configured { background:#1890ff; box-shadow:0 0 0 2px #91d5ff; }
+    .timeline-item .dot.waiting { background:#faad14; box-shadow:0 0 0 2px #ffe58f; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+    .tl-header { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+    .tl-header .tl-icon { font-size:18px; }
+    .tl-header .tl-name { font-weight:bold; font-size:14px; color:#333; }
+    .tl-header .tl-status { display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; }
+    .tl-status.succeeded { background:#f6ffed; color:#52c41a; }
+    .tl-status.running { background:#e6f7ff; color:#1890ff; }
+    .tl-status.polling { background:#fff7e6; color:#d46b08; }
+    .tl-status.failed { background:#fff2f0; color:#ff4d4f; }
+    .tl-status.idle { background:#f5f5f5; color:#999; }
+    .tl-status.configured { background:#e6f7ff; color:#096dd9; }
+    .tl-status.waiting { background:#fffbe6; color:#d48806; }
+    .tl-status.ready { background:#f0f5ff; color:#2f54eb; }
+    .tl-body { padding:8px 0 0 26px; }
+    .tl-body .tl-meta { font-size:12px; color:#999; margin-bottom:4px; }
+    .tl-body .tl-error { font-size:12px; color:#ff4d4f; background:#fff2f0; padding:6px 10px; border-radius:4px; margin-top:4px; }
+    .tl-body .tl-output-preview { margin-top:8px; }
+    .tl-body .tl-output-preview img { max-height:120px; border-radius:6px; margin:2px 4px 2px 0; cursor:pointer; transition:transform .2s; }
+    .tl-body .tl-output-preview img:hover { transform:scale(1.05); }
+    .tl-body .tl-output-preview video { max-height:150px; border-radius:6px; margin:2px 4px; }
+    .tl-body .tl-output-preview audio { max-width:220px; margin:2px 4px; }
+    .tl-body .tl-output-preview .text-snippet { background:#f5f5f5; padding:8px 12px; border-radius:6px; font-size:12px; color:#555; max-height:80px; overflow-y:auto; line-height:1.6; }
+
+    /* 成片播放器 */
+    .video-player-wrap { background:#000; border-radius:12px; overflow:hidden; max-width:400px; margin:0 auto; position:relative; }
+    .video-player-wrap video { width:100%; max-height:500px; display:block; }
+    .video-info { display:flex; gap:15px; justify-content:center; margin-top:10px; font-size:12px; color:#999; }
+    .video-info .vi-item { display:flex; align-items:center; gap:4px; }
+
+    /* 角色卡片 */
+    .char-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+    .char-card { background:linear-gradient(135deg,#f6f8fc,#eef2f9); border:1px solid #e0e6f0; border-radius:10px; padding:14px; }
+    .char-card .cc-name { font-weight:bold; font-size:15px; color:#333; margin-bottom:4px; }
+    .char-card .cc-tag { display:inline-block; padding:1px 8px; background:#e6f0ff; color:#1890ff; border-radius:10px; font-size:11px; margin-bottom:6px; }
+    .char-card .cc-desc { font-size:12px; color:#666; line-height:1.6; }
+    .char-card .cc-img { width:100%; height:120px; border-radius:6px; object-fit:cover; margin-bottom:8px; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <!-- 基本信息 -->
+      <div class="layui-col-md12">
+        <div class="detail-card">
+          <div class="card-title">
+            <span class="title-left">
+              <i class="layui-icon layui-icon-template-1"></i> 项目详情
+            </span>
+            <span>
+              {if $project}
+              <a href="{:url('canvas')}&id={$project.id}" class="layui-btn layui-btn-sm layui-btn-normal">
+                <i class="layui-icon layui-icon-edit"></i> 打开画布
+              </a>
+              <a href="javascript:void(0)" onclick="exportThisProject()" class="layui-btn layui-btn-sm layui-btn-warm">
+                <i class="layui-icon layui-icon-export"></i> 导出
+              </a>
+              {/if}
+              <a href="{:url('project_list')}" class="layui-btn layui-btn-sm layui-btn-primary">
+                <i class="layui-icon layui-icon-return"></i> 返回列表
+              </a>
+            </span>
+          </div>
+          {if $project}
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 30px;">
+            <div class="detail-item"><div class="label">项目ID</div><div class="value">#{$project.id}</div></div>
+            <div class="detail-item"><div class="label">项目名称</div><div class="value" style="font-weight:bold;font-size:15px;">{$project.title}</div></div>
+            <div class="detail-item"><div class="label">创作模式</div><div class="value">
+              <span class="mode-badge {$project.creation_mode}">{$project.creation_mode_text}</span>
+            </div></div>
+            <div class="detail-item"><div class="label">状态</div><div class="value">
+              <span class="status-badge {$project.status}">{$project.status_text}</span>
+            </div></div>
+            <div class="detail-item"><div class="label">描述</div><div class="value">{$project.description|default='暂无描述'}</div></div>
+            <div class="detail-item"><div class="label">创建时间</div><div class="value">{$project.create_time|date='Y-m-d H:i:s'}</div></div>
+            <div class="detail-item"><div class="label">更新时间</div><div class="value">{$project.update_time|date='Y-m-d H:i:s'}</div></div>
+            <div class="detail-item"><div class="label">节点数</div><div class="value">{$project.nodes|count}个</div></div>
+          </div>
+          {else/}
+          <div style="text-align:center;padding:60px;color:#999;">
+            <i class="layui-icon layui-icon-about" style="font-size:60px;display:block;margin-bottom:15px;color:#ddd;"></i>
+            <div style="font-size:16px;margin-bottom:8px;">请指定项目</div>
+            <div style="font-size:13px;">通过 URL 参数 <code>id</code> 指定要查看的项目</div>
+          </div>
+          {/if}
+        </div>
+      </div>
+
+      {if $project}
+      <!-- 执行统计摘要 -->
+      {if $project.nodes && ($project.nodes|count) > 0}
+      <div class="layui-col-md12">
+        <div class="detail-card">
+          <div class="card-title"><span class="title-left"><i class="layui-icon layui-icon-chart"></i> 📊 执行统计摘要</span></div>
+          <div class="stats-grid" id="statsGrid"></div>
+        </div>
+      </div>
+      {/if}
+
+      <!-- 成片视频播放 -->
+      {if $project.output_video_url}
+      <div class="layui-col-md6">
+        <div class="detail-card">
+          <div class="card-title"><span class="title-left"><i class="layui-icon layui-icon-video"></i> 🎬 成片视频</span>
+            <a href="{$project.output_video_url}" target="_blank" class="layui-btn layui-btn-xs layui-btn-warm">
+              <i class="layui-icon layui-icon-download-circle"></i> 下载
+            </a>
+          </div>
+          <div class="video-player-wrap">
+            <video src="{$project.output_video_url}" controls preload="metadata" poster="" playsinline></video>
+          </div>
+          <div class="video-info">
+            <span class="vi-item">📐 1080×1920</span>
+            <span class="vi-item">🎥 H.264</span>
+            <span class="vi-item">📁 MP4</span>
+          </div>
+        </div>
+      </div>
+      {/if}
+
+      <!-- 执行时间线 -->
+      {if $project.nodes}
+      <div class="{if $project.output_video_url}layui-col-md6{else/}layui-col-md12{/if}">
+        <div class="detail-card">
+          <div class="card-title"><span class="title-left"><i class="layui-icon layui-icon-log"></i> ⏱️ 执行时间线</span></div>
+          <div class="timeline" id="execTimeline">
+            {volist name="$project.nodes" id="node"}
+            <div class="timeline-item" data-node-id="{$node.id}" data-node-type="{$node.node_type}">
+              <div class="dot {$node.status}"></div>
+              <div class="tl-header">
+                <span class="tl-icon">
+                  {switch name="$node.node_type"}
+                  {case value="script"}📝{/case}
+                  {case value="character"}🎭{/case}
+                  {case value="storyboard"}🎬{/case}
+                  {case value="video"}📹{/case}
+                  {case value="voice"}🔊{/case}
+                  {case value="compose"}🎞️{/case}
+                  {default/}📦
+                  {/switch}
+                </span>
+                <span class="tl-name">{$node.node_label|default=$node.node_type}</span>
+                <span class="tl-status {$node.status}">
+                  {switch name="$node.status"}
+                  {case value="idle"}空闲{/case}
+                  {case value="configured"}已配置{/case}
+                  {case value="waiting"}等待上游{/case}
+                  {case value="ready"}就绪{/case}
+                  {case value="running"}运行中{/case}
+                  {case value="polling"}轮询中{/case}
+                  {case value="succeeded"}✅ 成功{/case}
+                  {case value="failed"}❌ 失败{/case}
+                  {default/}未知
+                  {/switch}
+                </span>
+              </div>
+              <div class="tl-body">
+                {if $node.execute_time}
+                <div class="tl-meta">⏰ 执行于 {$node.execute_time|date='Y-m-d H:i:s'}</div>
+                {/if}
+                {if $node.error_message}
+                <div class="tl-error">💥 {$node.error_message}</div>
+                {/if}
+                <div class="tl-output-preview" id="output-{$node.id}"></div>
+              </div>
+            </div>
+            {/volist}
+          </div>
+        </div>
+      </div>
+      {/if}
+
+      <!-- 角色身份卡 -->
+      {if $project.character_cards && ($project.character_cards|count) > 0}
+      <div class="layui-col-md12">
+        <div class="detail-card">
+          <div class="card-title"><span class="title-left"><i class="layui-icon layui-icon-user"></i> 🎭 角色身份卡 ({$project.character_cards|count}个)</span></div>
+          <div class="char-cards">
+            {volist name="$project.character_cards" id="card"}
+            <div class="char-card">
+              {if $card.reference_image}
+              <img class="cc-img" src="{$card.reference_image}" alt="{$card.character_name}">
+              {/if}
+              <div class="cc-name">{$card.character_name}</div>
+              <span class="cc-tag">🏷️ {$card.character_tag}</span>
+              <div class="cc-desc">{$card.appearance_prompt|default='暂无描述'}</div>
+            </div>
+            {/volist}
+          </div>
+        </div>
+      </div>
+      {/if}
+      {/if}
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  // 加载节点输出预览
+  $(function() {
+    // 计算执行统计
+    var statsGrid = document.getElementById('statsGrid');
+    if (statsGrid) {
+      var nodes = document.querySelectorAll('.timeline-item');
+      var totalNodes = nodes.length;
+      var succeeded = 0, failed = 0, running = 0;
+      var totalDuration = 0;
+      var nodeStats = [];
+
+      nodes.forEach(function(el) {
+        var dot = el.querySelector('.dot');
+        if (!dot) return;
+        var cls = dot.className;
+        if (cls.includes('succeeded')) succeeded++;
+        else if (cls.includes('failed')) failed++;
+        else if (cls.includes('running') || cls.includes('polling')) running++;
+      });
+
+      // 获取每个节点的耗时信息
+      var nodeIds = [];
+      nodes.forEach(function(el) { nodeIds.push(el.dataset.nodeId); });
+      var completedFetches = 0;
+      nodeIds.forEach(function(nid) {
+        $.get("{:url('node_status')}", {id: nid}, function(res) {
+          completedFetches++;
+          if (res.status == 1 && res.execute_time) {
+            nodeStats.push({id: nid, execute_time: res.execute_time});
+          }
+          if (completedFetches === nodeIds.length) {
+            renderStats();
+          }
+        });
+      });
+
+      function renderStats() {
+        var pct = totalNodes > 0 ? Math.round(succeeded / totalNodes * 100) : 0;
+        var html = '';
+        html += '<div class="stat-card"><div class="stat-value">' + totalNodes + '</div><div class="stat-label">总节点数</div></div>';
+        html += '<div class="stat-card success"><div class="stat-value">' + succeeded + '</div><div class="stat-label">✅ 成功</div></div>';
+        if (failed > 0) html += '<div class="stat-card fail"><div class="stat-value">' + failed + '</div><div class="stat-label">❌ 失败</div></div>';
+        if (running > 0) html += '<div class="stat-card running"><div class="stat-value">' + running + '</div><div class="stat-label">⏳ 运行中</div></div>';
+        html += '<div class="stat-card"><div class="stat-value" style="color:#722ed1;">' + pct + '%</div><div class="stat-label">完成率</div></div>';
+
+        // 如果有执行时间信息，计算总时间跨度
+        if (nodeStats.length > 1) {
+          var minTime = Infinity, maxTime = 0;
+          nodeStats.forEach(function(ns) {
+            if (ns.execute_time < minTime) minTime = ns.execute_time;
+            if (ns.execute_time > maxTime) maxTime = ns.execute_time;
+          });
+          if (maxTime > minTime) {
+            var span = maxTime - minTime;
+            var spanText = span >= 60 ? Math.floor(span/60) + '分' + (span%60) + '秒' : span + '秒';
+            html += '<div class="stat-card time"><div class="stat-value">' + spanText + '</div><div class="stat-label">⼾ 总耗时跨度</div></div>';
+          }
+        }
+
+        statsGrid.innerHTML = html;
+      }
+
+      // 如果没有节点，直接渲染
+      if (nodeIds.length === 0) {
+        statsGrid.innerHTML = '<div class="stat-card"><div class="stat-value">0</div><div class="stat-label">总节点数</div></div>';
+      }
+    } // end if(statsGrid)
+
+    // 加载节点输出预览
+    $('.timeline-item').each(function() {
+      var nodeId = $(this).data('node-id');
+      var nodeType = $(this).data('node-type');
+      var container = $('#output-' + nodeId);
+      if (!nodeId) return;
+
+      $.get("{:url('node_output')}", {id: nodeId}, function(res) {
+        if (res.status != 1 || !res.output_data) return;
+        var output = res.output_data;
+        if (typeof output === 'string') { try { output = JSON.parse(output); } catch(e) { return; } }
+        var html = '';
+
+        switch(nodeType) {
+          case 'script':
+            if (output.characters) {
+              html += '<div class="text-snippet"><b>角色 (' + output.characters.length + '):</b> ';
+              output.characters.forEach(function(c, i) {
+                html += (i > 0 ? '、' : '') + c.name + '(' + c.tag + ')';
+              });
+              html += '</div>';
+            }
+            if (output.scenes) {
+              html += '<div class="text-snippet" style="margin-top:4px;"><b>分镜 (' + output.scenes.length + '):</b> ';
+              output.scenes.forEach(function(s, i) {
+                if (i < 3) html += '<br>• ' + (s.description || s.scene_desc || JSON.stringify(s)).substring(0, 60);
+              });
+              if (output.scenes.length > 3) html += '<br><span style="color:#1890ff;">...还有 ' + (output.scenes.length - 3) + ' 个</span>';
+              html += '</div>';
+            }
+            break;
+
+          case 'character':
+            var assets = output.character_assets;
+            if (assets) {
+              (Array.isArray(assets) ? assets : [assets]).forEach(function(a) {
+                if (a.image_url) html += '<img src="' + a.image_url + '" onclick="viewImage(this.src)" title="' + (a.name || '') + '">';
+              });
+            }
+            break;
+
+          case 'storyboard':
+            if (output.frames) {
+              output.frames.forEach(function(f) {
+                if (f.image_url) html += '<img src="' + f.image_url + '" onclick="viewImage(this.src)">';
+              });
+            }
+            break;
+
+          case 'video':
+            if (output.clips) {
+              output.clips.forEach(function(c) {
+                if (c.video_url) html += '<video src="' + c.video_url + '" controls preload="metadata"></video>';
+              });
+            }
+            break;
+
+          case 'voice':
+            if (output.audio_clips) {
+              output.audio_clips.forEach(function(a, i) {
+                if (a.audio_url) html += '<div style="display:inline-flex;align-items:center;gap:4px;margin:2px 0;"><span style="font-size:11px;color:#999;">片段'+(i+1)+'</span><audio src="' + a.audio_url + '" controls preload="none"></audio></div>';
+              });
+            }
+            break;
+
+          case 'compose':
+            if (output.final_video) {
+              var fv = output.final_video;
+              var url = typeof fv === 'string' ? fv : (fv.url || fv.video_url || '');
+              if (url) html += '<div class="text-snippet">✅ 成片已生成 <a href="' + url + '" target="_blank" style="color:#1890ff;">▶ 播放</a></div>';
+            }
+            break;
+        }
+
+        if (html) container.html(html);
+      });
+    });
+  });
+
+  // 图片预览弹窗
+  function viewImage(src) {
+    layer.open({
+      type: 1,
+      title: '图片预览',
+      area: ['auto', 'auto'],
+      maxWidth: 800,
+      content: '<div style="text-align:center;padding:10px;"><img src="' + src + '" style="max-width:100%;max-height:80vh;"></div>'
+    });
+  }
+
+  // 导出项目
+  function exportThisProject() {
+    {if $project}
+    var pid = {$project.id};
+    var ptitle = '{$project.title}';
+    var loadIdx = layer.load(2, {shade: [0.3, '#000']});
+    $.get("{:url('project_export')}", {id: pid}, function(res) {
+      layer.close(loadIdx);
+      if (res.status == 1) {
+        var json = JSON.stringify(res.data, null, 2);
+        var blob = new Blob([json], {type: 'application/json'});
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (ptitle || 'project_'+pid) + '.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        layer.msg('导出成功', {icon: 1});
+      } else {
+        layer.msg(res.msg || '导出失败', {icon: 2});
+      }
+    });
+    {/if}
+  }
+  </script>
+</body>
+</html>

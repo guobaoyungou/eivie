@@ -283,6 +283,99 @@ return [
         ],
     ],
 
+    // Ollama 本地LLM配置
+    'ollama' => [
+        'api_url' => 'http://127.0.0.1:11434',
+        'chat_endpoint' => '/api/chat',
+        'generate_endpoint' => '/api/generate',
+        'embeddings_endpoint' => '/api/embeddings',
+        'tags_endpoint' => '/api/tags',           // 获取本地已拉取模型列表
+        'timeout' => 120,         // 请求超时时间(秒)，本地LLM生成可能较慢
+        'stream' => false,        // 默认关闭流式输出，等待完整响应
+        'max_retry' => 2,
+        
+        // 预置模型列表（用户可通过ollama pull下载更多）
+        'models' => [
+            'qwen3:8b' => [
+                'name' => 'Qwen3 8B',
+                'type' => 'chat',
+                'description' => '通义千问Qwen3 8B，适合中英文对话、写作、代码生成等通用任务',
+                'context_length' => 32768,
+                'price_per_1k_tokens' => 0,  // 本地免费
+            ],
+            'llama3.1:8b' => [
+                'name' => 'Llama 3.1 8B',
+                'type' => 'chat',
+                'description' => 'Meta Llama 3.1 8B，高质量开源语言模型，支持128K上下文，适合通用对话与代码生成',
+                'context_length' => 131072,
+                'price_per_1k_tokens' => 0,
+            ],
+            'deepseek-r1:8b' => [
+                'name' => 'DeepSeek R1 8B',
+                'type' => 'chat',
+                'description' => 'DeepSeek R1 8B，擅长深度推理与复杂问题求解，支持链式思考',
+                'context_length' => 65536,
+                'price_per_1k_tokens' => 0,
+            ],
+            'gemma3:12b' => [
+                'name' => 'Gemma 3 12B',
+                'type' => 'chat',
+                'description' => 'Google Gemma 3 12B，支持多语言、视觉理解，适合中英文对话',
+                'context_length' => 131072,
+                'price_per_1k_tokens' => 0,
+            ],
+            'nomic-embed-text' => [
+                'name' => 'Nomic Embed Text',
+                'type' => 'embedding',
+                'description' => '高质量文本向量模型，适合语义搜索和RAG检索增强',
+                'context_length' => 8192,
+                'dimensions' => 768,
+                'price_per_1k_tokens' => 0,
+            ],
+        ],
+
+        // 默认生成参数
+        'default_params' => [
+            'temperature' => 0.7,
+            'top_p' => 0.9,
+            'max_tokens' => 4096,
+        ],
+    ],
+
+    // VoxCPM2 语音合成配置（本地部署）
+    'voxcpm' => [
+        'api_url' => 'http://127.0.0.1:8866',  // 默认API服务地址，用户可在API Key配置中覆盖
+        'tts_endpoint' => '/api/tts',            // 文本转语音（含声音设计）
+        'clone_endpoint' => '/api/clone',        // 声音克隆
+        'health_endpoint' => '/api/health',      // 健康检查
+        'info_endpoint' => '/api/info',          // 模型信息
+        'stream_endpoint' => '/api/tts/stream',  // 流式合成
+        'timeout' => 300,         // 请求超时时间(秒)，语音合成较慢
+        'gradio_sse_timeout' => 180, // Gradio SSE 轮询专用超时(秒)，建议120~300
+        'max_retry' => 2,
+        'sample_rate' => 48000,   // VoxCPM2默认输出48kHz
+        
+        // VoxCPM2模型能力注册
+        'models' => [
+            'voxcpm2-tts' => [
+                'name' => 'VoxCPM2 语音合成',
+                'type' => 'tts',
+                'description' => '2B参数，支持30种语言及方言，48kHz高清音频输出，支持声音设计、可控克隆、极致克隆三种模式',
+                'capabilities' => ['text_to_speech', 'voice_design', 'controllable_clone', 'ultimate_clone', 'streaming'],
+                'languages' => 30,
+                'sample_rate' => 48000,
+                'vram' => '~8GB',
+            ],
+        ],
+        
+        // 默认生成参数
+        'default_params' => [
+            'cfg_value' => 2.0,           // CFG引导强度
+            'inference_timesteps' => 10,  // LocDiT推理步数
+            'normalize' => true,          // 文本规范化
+        ],
+    ],
+
     // 队列配置
     'queue' => [
         'prefix' => 'aivideo:',

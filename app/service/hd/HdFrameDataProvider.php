@@ -819,6 +819,11 @@ class HdFrameDataProvider
         $idleEnabled = !empty($sc['threed_idle_enabled']) ? 'true' : 'false';
         $idleDelay   = isset($sc['threed_idle_delay']) ? (int)$sc['threed_idle_delay'] : 5000;
 
+        // 突出卡片样式配置
+        $cardStyle = $sc['threed_card_style'] ?? 'normal';
+        $highlightScale = (float)($sc['threed_highlight_scale'] ?? 3);
+        $highlightDuration = (int)($sc['threed_highlight_duration'] ?? 2000);
+
         return [
             'qd_maxid'                  => $maxId,
             'personJson'                => json_encode($participants, JSON_UNESCAPED_UNICODE),
@@ -826,6 +831,9 @@ class HdFrameDataProvider
             'threedimensional_play_mode'=> $playMode,
             'threed_idle_enabled'       => $idleEnabled,
             'threed_idle_delay'         => $idleDelay,
+            'threed_card_style'         => $cardStyle,
+            'threed_highlight_scale'    => $highlightScale,
+            'threed_highlight_duration' => $highlightDuration,
         ];
     }
 

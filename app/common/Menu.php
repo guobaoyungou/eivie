@@ -175,6 +175,9 @@ class Menu
 			// 数据统计
 			$ai_travel_photo_child[] = ['name'=>'数据统计','path'=>'AiTravelPhoto/statistics','authdata'=>'AiTravelPhoto/statistics'];
 
+			// 自拍端管理
+			$ai_travel_photo_child[] = ['name'=>'自拍端管理','path'=>'AiTravelPhoto/selfie_manage','authdata'=>'AiTravelPhoto/selfie_manage,AiTravelPhoto/selfie_qrcode,AiTravelPhoto/selfie_push_config,AiTravelPhoto/selfie_stats,AiTravelPhoto/selfie_toggle_enable'];
+
 			// 系统设置
 			$ai_travel_photo_child[] = ['name'=>'系统设置','path'=>'AiTravelPhoto/settings','authdata'=>'AiTravelPhoto/settings'];
 
@@ -211,12 +214,29 @@ class Menu
 				
 				// 数据统计
 				$ai_travel_photo_child[] = ['name'=>'数据统计','path'=>'AiTravelPhoto/statistics','authdata'=>'AiTravelPhoto/statistics'];
+
+				// 自拍端管理
+				$ai_travel_photo_child[] = ['name'=>'自拍端管理','path'=>'AiTravelPhoto/selfie_manage','authdata'=>'AiTravelPhoto/selfie_manage,AiTravelPhoto/selfie_qrcode,AiTravelPhoto/selfie_push_config,AiTravelPhoto/selfie_stats,AiTravelPhoto/selfie_toggle_enable'];
 				
 				// 系统设置
 				$ai_travel_photo_child[] = ['name'=>'系统设置','path'=>'AiTravelPhoto/settings','authdata'=>'AiTravelPhoto/settings'];
 				
 				$menudata['ai_travel_photo'] = ['name'=>'旅拍','fullname'=>'AI旅拍','icon'=>'my-icon my-icon-aitravelphoto','child'=>$ai_travel_photo_child];
 			}
+		}
+
+		// ============================================================
+		// AI短剧工作流菜单
+		// ============================================================
+		if($isadmin){
+			$workflow_child = [];
+			$workflow_child[] = ['name'=>'仪表盘','path'=>'Workflow/dashboard','authdata'=>'Workflow/dashboard'];
+			$workflow_child[] = ['name'=>'项目列表','path'=>'Workflow/project_list','authdata'=>'Workflow/project_list,Workflow/project_create,Workflow/project_save,Workflow/project_delete,Workflow/project_duplicate,Workflow/project_upgrade_mode,Workflow/project_detail,Workflow/preset_template_list,Workflow/oneclick_generate,Workflow/project_export,Workflow/project_import'];
+			$workflow_child[] = ['name'=>'工作流画布','path'=>'Workflow/canvas','authdata'=>'Workflow/canvas,Workflow/node_add,Workflow/node_update,Workflow/node_delete,Workflow/node_execute,Workflow/node_status,Workflow/node_output,Workflow/edge_add,Workflow/edge_delete,Workflow/run,Workflow/run_from_node,Workflow/stop,Workflow/progress,Workflow/poll_async,Workflow/exec_logs,Workflow/character_cards,Workflow/character_id_card,Workflow/character_id_card_save,Workflow/consistency_check,Workflow/node_output_regenerate_item,Workflow/node_output_history,Workflow/node_output_select_version,Workflow/save_as_template,Workflow/save_snapshot,Workflow/snapshot_list,Workflow/restore_snapshot','hide'=>true];
+			$workflow_child[] = ['name'=>'模板库','path'=>'Workflow/template_list','authdata'=>'Workflow/template_list,Workflow/template_save,Workflow/template_delete,Workflow/apply_template'];
+			$workflow_child[] = ['name'=>'资源管理','path'=>'Workflow/resource_list','authdata'=>'Workflow/resource_list,Workflow/resource_list_api,Workflow/resource_save,Workflow/resource_delete,Workflow/resource_upload'];
+			$workflow_child[] = ['name'=>'模型配置','path'=>'Workflow/model_options','authdata'=>'Workflow/model_options','hide'=>true];
+			$menudata['workflow'] = ['name'=>'短剧','fullname'=>'AI短剧工作流','icon'=>'layui-icon layui-icon-video','child'=>$workflow_child];
 		}
 
 		// ============================================================

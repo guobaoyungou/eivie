@@ -302,6 +302,10 @@ Route::group('api/hd/lottery', function () {
     Route::post(':activity_id/designated', 'hd.HdLotteryController/addDesignated');
     Route::post(':activity_id/designated/:id/cancel', 'hd.HdLotteryController/cancelDesignated');
     Route::get(':activity_id/designated/search-users', 'hd.HdLotteryController/searchUsers');
+    // 大屏显示设置（存储在活动 screen_config 中）
+    Route::get(':activity_id/screen/settings', 'hd.HdLotteryController/screenSettings');
+    Route::post(':activity_id/screen/settings', 'hd.HdLotteryController/updateScreenSettings');
+    Route::post(':activity_id/screen/background/reset', 'hd.HdLotteryController/resetScreenBackground');
     // 幸运手机号
     Route::get(':activity_id/lucky-phone', 'hd.HdLotteryController/luckyPhoneRecords');
     // 幸运号码

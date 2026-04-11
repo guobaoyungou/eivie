@@ -105,6 +105,22 @@
           </div>
 
           <div class="layui-form-item">
+            <label class="layui-form-label">允许自定义公众号：</label>
+            <div class="layui-input-inline">
+              <input type="checkbox" name="allow_custom_wx" lay-skin="switch" lay-text="允许|禁止" value="1" {if $info['allow_custom_wx']==1}checked{/if}>
+            </div>
+            <div class="layui-form-mid layui-word-aux" style="width:auto;max-width:380px;">开启时活动管理员可自定义公众号配置；关闭则需单独付费或使用平台公众号</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">允许自定义大屏显示：</label>
+            <div class="layui-input-inline">
+              <input type="checkbox" name="allow_custom_display" lay-skin="switch" lay-text="允许|禁止" value="1" {if $info['allow_custom_display']==1}checked{/if}>
+            </div>
+            <div class="layui-form-mid layui-word-aux" style="width:auto;max-width:380px;">开启时可自定义大屏显示设置（LOGO、名称、版权等）；关闭则需单独付费或使用默认设置</div>
+          </div>
+
+          <div class="layui-form-item">
             <label class="layui-form-label">排序：</label>
             <div class="layui-input-inline" style="width:100px">
               <input type="number" name="sort" class="layui-input" value="{$info.sort}">
@@ -133,10 +149,16 @@
 
   {include file="public/js"/}
   <script>
-  // 处理 is_recommended 开关：未勾选时补 0
+  // 处理 switch 开关未勾选时补 0（is_recommended, allow_custom_wx, allow_custom_display）
   layui.form.on('submit(submitPlan)', function(obj) {
     if (!obj.field.is_recommended) {
       obj.field.is_recommended = 0;
+    }
+    if (!obj.field.allow_custom_wx) {
+      obj.field.allow_custom_wx = 0;
+    }
+    if (!obj.field.allow_custom_display) {
+      obj.field.allow_custom_display = 0;
     }
     var loadIndex = layer.load();
     $.post("{:url('edit')}", obj.field, function(res) {

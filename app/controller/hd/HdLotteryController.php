@@ -217,4 +217,21 @@ class HdLotteryController extends HdBaseController
         ];
         return json($this->lotteryService->getLuckyNumberRecords($this->getAid(), $this->getBid(), $activity_id, $params));
     }
+
+    // —— 大屏显示设置 ——
+
+    public function screenSettings(int $activity_id)
+    {
+        return json($this->lotteryService->getScreenSettings($this->getAid(), $this->getBid(), $activity_id));
+    }
+
+    public function updateScreenSettings(int $activity_id)
+    {
+        return json($this->lotteryService->updateScreenSettings($this->getAid(), $this->getBid(), $activity_id, input('post.')));
+    }
+
+    public function resetScreenBackground(int $activity_id)
+    {
+        return json($this->lotteryService->resetScreenBackground($this->getAid(), $this->getBid(), $activity_id));
+    }
 }

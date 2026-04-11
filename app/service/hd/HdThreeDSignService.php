@@ -46,6 +46,9 @@ class HdThreeDSignService
                     'play_mode'  => $screenConfig['threed_play_mode'] ?? 'sequential',
                     'idle_enabled' => (bool)($screenConfig['threed_idle_enabled'] ?? true),
                     'idle_delay'   => (int)($screenConfig['threed_idle_delay'] ?? 5000),
+                    'card_style'     => $screenConfig['threed_card_style'] ?? 'normal',
+                    'highlight_scale'    => (float)($screenConfig['threed_highlight_scale'] ?? 3),
+                    'highlight_duration' => (int)($screenConfig['threed_highlight_duration'] ?? 2000),
                 ],
                 'effects' => $effects,
             ],
@@ -81,6 +84,15 @@ class HdThreeDSignService
         }
         if (isset($data['idle_delay'])) {
             $screenConfig['threed_idle_delay'] = max(3000, min(30000, (int)$data['idle_delay']));
+        }
+        if (isset($data['card_style']) && in_array($data['card_style'], ['normal', 'sphere', 'heart', 'star', 'helix', 'cube'])) {
+            $screenConfig['threed_card_style'] = $data['card_style'];
+        }
+        if (isset($data['highlight_scale'])) {
+            $screenConfig['threed_highlight_scale'] = max(1, min(10, (float)$data['highlight_scale']));
+        }
+        if (isset($data['highlight_duration'])) {
+            $screenConfig['threed_highlight_duration'] = max(500, min(10000, (int)$data['highlight_duration']));
         }
 
         $activity->screen_config = $screenConfig;

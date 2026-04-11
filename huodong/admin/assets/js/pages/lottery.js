@@ -5,6 +5,18 @@
 ;(function(global) {
     'use strict';
 
+    // 修复 notice.avoidance 缺失的错误
+    if (typeof notice !== 'undefined' && typeof notice.avoidance === 'undefined') {
+        notice.avoidance = function() {};
+    }
+
+    // 修复 judegIsFullScreen 缺失的错误
+    if (typeof judegIsFullScreen === 'undefined') {
+        window.judegIsFullScreen = function() {
+            return false;
+        };
+    }
+
     var LotteryPage = {
         // ========== 抽奖轮次 ==========
         renderRounds: function() {
@@ -162,13 +174,60 @@
                 },
                 cols: [[
                     { field: 'imageid', title: '图片', width: 80, templet: function(d) {
-                        var img = d.imageid || d.image;
-                        return img ? '<img class="img-preview" src="' + img + '">' : '<i class="fas fa-image" style="font-size:24px;color:#ddd;"></i>';
+                        var img = '';
+                        // 检查可能的图片字段
+                        var possibleFields = ['imageid', 'image', 'pic', 'picurl', 'picture', 'img', 'imgurl'];
+                        for (var i = 0; i < possibleFields.length; i++) {
+                            var field = possibleFields[i];
+                            if (d[field]) {
+                                if (field === 'imageid' && !isNaN(d[field]) && d[field] > 0) {
+                                    img = '/huodong/imageproxy.php?id=' + d[field];
+                                    break;
+                                } else if (typeof d[field] === 'string' && d[field].trim() !== '') {
+                                    img = d[field];
+                                    break;
+                                }
+                            }
+                        }
+                        if (img) {
+                            // 确保图片路径是完整URL
+                            if (img.startsWith('/')) {
+                                img = window.location.origin + img;
+                            } else if (!img.startsWith('http') && !img.startsWith('//')) {
+                                // 相对路径，添加基础URL
+                                img = (window.location.origin + '/') + img;
+                            }
+                            // 如果图片URL包含 wxhd.eivie.cn 域名，替换为当前域名
+                            if (img.includes('wxhd.eivie.cn')) {
+                                img = img.replace('https://wxhd.eivie.cn', window.location.origin);
+                            }
+                            return '<img class="img-preview" src="' + img + '" onerror="this.style.display=\'none\'; this.parentNode.innerHTML=\'<i class=\\\'fas fa-image\\\' style=\\\'font-size:24px;color:#ddd;\\\'></i>\'">';
+                        }
+                        return '<i class="fas fa-image" style="font-size:24px;color:#ddd;"></i>';
                     }},
                     { field: 'prizename', title: '奖品名称', width: 160 },
-                    { field: 'type', title: '奖品级别', width: 100, templet: function(d) {
-                        var map = { 1: '一等奖', 2: '二等奖', 3: '三等奖', 4: '四等奖', 5: '五等奖' };
-                        return map[d.type] || d.type || '-';
+{ field: 'type', title: '奖品级别', width: 100, templet: function(d) {
+    var map = { 0: '普通奖品（无级别）', 1: '一等奖', 2: '二等奖', 3: '三等奖', 4: '四等奖', 5: '五等奖' };
+    // 处理数字字符串和中文级别名称
+                        var typeValue = d.type;
+                        var result;
+                        if (typeValue === null || typeValue === undefined || typeValue === '') {
+                            result = '-';
+                        } else if (!isNaN(typeValue) && typeValue !== '') {
+                            // 数字或数字字符串
+                            result = map[parseInt(typeValue, 10)] || typeValue;
+                        } else if (typeof typeValue === 'string') {
+                            // 检查是否已经是中文级别名称
+                            var reverseMap = { '一等奖': 1, '二等奖': 2, '三等奖': 3, '四等奖': 4, '五等奖': 5 };
+                            if (reverseMap[typeValue]) {
+                                result = typeValue;
+                            } else {
+                                result = typeValue;
+                            }
+                        } else {
+                            result = typeValue || '-';
+                        }
+                        return result;
                     }},
                     { field: 'num', title: '数量', width: 80 },
                     { field: 'leftnum', title: '剩余', width: 80 },
@@ -180,9 +239,14 @@
             });
 
             layui.table.on('tool(lotteryPrizesTable)', function(obj) {
-                if (obj.event === 'edit') LotteryPage._editPrize(actId, obj.data);
+                console.log('普通奖品表格工具事件:', obj.event, '奖品数据:', obj.data);
+                if (obj.event === 'edit') {
+                    console.log('编辑奖品，ID:', obj.data.id, '活动ID:', actId);
+                    LotteryPage._editPrize(actId, obj.data);
+                }
                 else if (obj.event === 'del') {
                     layui.layer.confirm('确定删除该奖品？', { icon: 3 }, function(idx) {
+                        console.log('删除普通奖品: actId=' + actId + ', prizeId=' + obj.data.id);
                         Api.deleteLotteryPrize(actId, obj.data.id).then(function() {
                             layui.layer.close(idx);
                             obj.del();
@@ -193,24 +257,71 @@
             });
         },
 
+        // 奖品弹窗内联样式
+        _prizeModalCSS: '<style>' +
+            '.prize-form-item{display:flex;align-items:flex-start;margin-bottom:18px;}' +
+            '.prize-form-label{width:90px;text-align:right;padding:9px 10px 9px 0;color:#333;font-size:14px;flex-shrink:0;line-height:1.3;}' +
+            '.prize-form-input{flex:1;min-width:0;}' +
+            '.prize-form-input .layui-input{height:38px;border-radius:4px;border-color:#d9d9d9;font-size:14px;}' +
+            '.prize-form-input .layui-input:focus{border-color:#1890ff;box-shadow:0 0 0 2px rgba(24,144,255,0.1);}' +
+            '.prize-draw-hint{margin-top:6px;display:flex;align-items:flex-start;}' +
+            '.prize-hint-icon{color:#1890ff;margin-right:5px;font-style:normal;font-weight:bold;font-size:13px;flex-shrink:0;line-height:1.5;}' +
+            '.prize-hint-text{color:#999;font-size:12px;line-height:1.5;}' +
+            '.prize-upload-area{border:2px dashed #d9d9d9;border-radius:8px;padding:20px;text-align:center;background:#fafafa;cursor:pointer;transition:all 0.25s ease;width:100%;box-sizing:border-box;}' +
+            '.prize-upload-area:hover{border-color:#1890ff;background:#f0f7ff;}' +
+            '.prize-upload-icon{font-size:40px;color:#c0c4cc;margin-bottom:8px;}' +
+            '.prize-upload-text{color:#999;font-size:14px;}' +
+            '.prize-preview-wrap{position:relative;display:inline-block;}' +
+            '.prize-preview-img{max-width:180px;max-height:120px;border-radius:6px;border:1px solid #e8e8e8;object-fit:cover;}' +
+            '.prize-preview-remove{position:absolute;top:-8px;right:-8px;width:22px;height:22px;background:#ff4d4f;color:#fff;border-radius:50%;text-align:center;line-height:22px;font-size:12px;cursor:pointer;transition:transform 0.2s;}' +
+            '.prize-preview-remove:hover{transform:scale(1.15);}' +
+            '.prize-upload-tip{margin-top:8px;color:#999;font-size:12px;}' +
+            '.prize-footer{display:flex;justify-content:flex-end;padding-top:16px;margin-top:20px;border-top:1px solid #f0f0f0;gap:12px;}' +
+            '.btn-prize-cancel{padding:0 20px;height:36px;border:1px solid #d9d9d9;border-radius:4px;background:#fff;color:#666;font-size:14px;cursor:pointer;transition:all 0.25s;}' +
+            '.btn-prize-cancel:hover{border-color:#1890ff;color:#1890ff;}' +
+            '.btn-prize-save{padding:0 20px;height:36px;border:none;border-radius:4px;background:#1890ff;color:#fff;font-size:14px;cursor:pointer;transition:all 0.25s;}' +
+            '.btn-prize-save:hover{background:#40a9ff;}' +
+            '</style>',
+
         _addPrize: function() {
             var actId = App.getCurrentActivityId();
+            var self = this;
             layui.layer.open({
-                type: 1, title: '添加奖品', area: ['500px', '480px'],
-                content: '<div style="padding:20px;"><form class="layui-form" lay-filter="addPrize">' +
-                    '<div class="layui-form-item"><label class="layui-form-label">奖品名称</label><div class="layui-input-block"><input type="text" name="prizename" class="layui-input" required></div></div>' +
-                    '<div class="layui-form-item"><label class="layui-form-label">奖品级别</label><div class="layui-input-block"><select name="type"><option value="1">一等奖</option><option value="2">二等奖</option><option value="3">三等奖</option><option value="4">四等奖</option><option value="5">五等奖</option></select></div></div>' +
-                    '<div class="layui-form-item"><label class="layui-form-label">数量</label><div class="layui-input-inline"><input type="number" name="num" class="layui-input" value="1" min="1"></div></div>' +
-                    '<div class="layui-form-item"><label class="layui-form-label">每次抽取</label><div class="layui-input-inline"><input type="number" name="draw_count" class="layui-input" value="1" min="1"></div></div>' +
-                    '<div class="layui-form-item"><label class="layui-form-label">奖品图片</label><div class="layui-input-block"><input type="text" name="imageid" class="layui-input" placeholder="图片URL"></div></div>' +
-                    '<div class="layui-form-item"><div class="layui-input-block"><button type="button" class="btn btn-primary" id="btn-save-prize"><i class="fas fa-save"></i> 保存</button></div></div>' +
-                    '</form></div>',
+                type: 1, title: '奖品信息', area: ['520px', '640px'],
+                content: this._prizeModalCSS + '<div style="padding:25px 30px 15px;"><form class="layui-form" lay-filter="addPrize">' +
+                    '<div class="prize-form-item"><label class="prize-form-label">抽奖顺序</label><div class="prize-form-input"><input type="number" name="sort" class="layui-input" placeholder="请输入数字" min="0"></div></div>' +
+                    '<div class="prize-form-item"><label class="prize-form-label">奖品级别</label><div class="prize-form-input"><select name="type_text" class="layui-select"><option value="0">普通奖品（无级别）</option><option value="1">一等奖</option><option value="2">二等奖</option><option value="3">三等奖</option><option value="4">四等奖</option><option value="5">五等奖</option></select></div></div>' +
+                    '<div class="prize-form-item"><label class="prize-form-label">奖品名称</label><div class="prize-form-input"><input type="text" name="prizename" class="layui-input" placeholder="请输入奖品名称"></div></div>' +
+                    '<div class="prize-form-item"><label class="prize-form-label">奖品数量</label><div class="prize-form-input"><input type="number" name="num" class="layui-input" placeholder="请输入奖品数量" value="1" min="1"></div></div>' +
+                    '<div class="prize-form-item"><label class="prize-form-label">每次抽取人数</label><div class="prize-form-input">' +
+                        '<input type="number" name="draw_count" class="layui-input" placeholder="请输入每次抽奖的抽取数量" value="1" min="1">' +
+                        '<div class="prize-draw-hint"><span class="prize-hint-icon">ⓘ</span><span class="prize-hint-text">例：假设该奖品有100份，分5次抽取，则每次抽取人数为20</span></div>' +
+                    '</div></div>' +
+                    '<div class="prize-form-item"><label class="prize-form-label">奖品图片</label><div class="prize-form-input">' +
+                        '<input type="file" id="prize-add-file" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="LotteryPage._handlePrizeImageUpload(this)">' +
+                        '<div id="prize-add-upload-area" class="prize-upload-area" onclick="document.getElementById(\'prize-add-file\').click()">' +
+                            '<i class="fas fa-cloud-upload-alt prize-upload-icon"></i>' +
+                            '<div class="prize-upload-text">点击此处选择图片</div>' +
+                        '</div>' +
+                        '<div id="prize-add-preview" class="prize-preview-wrap" style="display:none;">' +
+                            '<img id="prize-add-preview-img" class="prize-preview-img" src="">' +
+                            '<span class="prize-preview-remove" onclick="LotteryPage._removePrizeImage(\'add\')">×</span>' +
+                        '</div>' +
+                        '<input type="hidden" name="imageid" id="prize-add-imageid" value="">' +
+                        '<div class="prize-upload-tip">尺寸400x400像素，图片大小请勿超过2M</div>' +
+                    '</div></div>' +
+                    '<div class="prize-footer">' +
+                        '<button type="button" class="btn-prize-cancel" onclick="layui.layer.closeAll()">取消</button>' +
+                        '<button type="button" class="btn-prize-save" id="btn-save-prize"><i class="fas fa-check"></i> 保存</button>' +
+                    '</div>' +
+                '</form></div>',
                 success: function(layero) {
                     layui.form.render(null, 'addPrize');
                     layero.find('#btn-save-prize').on('click', function() {
                         var data = {
+                            sort: parseInt(layero.find('[name="sort"]').val()) || 0,
+                            type: layero.find('[name="type_text"]').val(),
                             prizename: layero.find('[name="prizename"]').val(),
-                            type: layero.find('[name="type"]').val(),
                             num: parseInt(layero.find('[name="num"]').val()) || 1,
                             draw_count: parseInt(layero.find('[name="draw_count"]').val()) || 1,
                             imageid: layero.find('[name="imageid"]').val()
@@ -219,6 +330,7 @@
                         Api.createLotteryPrize(actId, data).then(function() {
                             layui.layer.closeAll();
                             layui.table.reload('lottery-prizes-table');
+                            try { layui.table.reload('screen-prizes-table'); } catch(e) {}
                             layui.layer.msg('添加成功', { icon: 1 });
                         });
                     });
@@ -227,36 +339,134 @@
         },
 
         _editPrize: function(actId, rowData) {
+            console.log('编辑奖品函数，活动ID:', actId, '奖品数据:', rowData);
+            if (!rowData || !rowData.id) {
+                console.error('编辑奖品失败：奖品ID不存在或无效', rowData);
+                layui.layer.msg('奖品数据异常，无法编辑', { icon: 2 });
+                return;
+            }
+            var self = this;
+            var hasImage = rowData.imageid || rowData.image;
             layui.layer.open({
-                type: 1, title: '编辑奖品', area: ['500px', '480px'],
-                content: '<div style="padding:20px;"><form class="layui-form" lay-filter="editPrize">' +
-                    '<div class="layui-form-item"><label class="layui-form-label">奖品名称</label><div class="layui-input-block"><input type="text" name="prizename" class="layui-input" value="' + (rowData.prizename || '') + '"></div></div>' +
-                    '<div class="layui-form-item"><label class="layui-form-label">奖品级别</label><div class="layui-input-block"><select name="type">' +
-                    [1,2,3,4,5].map(function(v) { return '<option value="' + v + '"' + (String(rowData.type) === String(v) ? ' selected' : '') + '>' + ['','一等奖','二等奖','三等奖','四等奖','五等奖'][v] + '</option>'; }).join('') +
-                    '</select></div></div>' +
-                    '<div class="layui-form-item"><label class="layui-form-label">数量</label><div class="layui-input-inline"><input type="number" name="num" class="layui-input" value="' + (rowData.num || 1) + '" min="1"></div></div>' +
-                    '<div class="layui-form-item"><label class="layui-form-label">每次抽取</label><div class="layui-input-inline"><input type="number" name="draw_count" class="layui-input" value="' + (rowData.draw_count || 1) + '" min="1"></div></div>' +
-                    '<div class="layui-form-item"><label class="layui-form-label">奖品图片</label><div class="layui-input-block"><input type="text" name="imageid" class="layui-input" value="' + (rowData.imageid || rowData.image || '') + '"></div></div>' +
-                    '<div class="layui-form-item"><div class="layui-input-block"><button type="button" class="btn btn-primary" id="btn-update-prize"><i class="fas fa-save"></i> 保存</button></div></div>' +
-                    '</form></div>',
+                type: 1, title: '奖品信息', area: ['520px', '640px'],
+                content: this._prizeModalCSS + '<div style="padding:25px 30px 15px;"><form class="layui-form" lay-filter="editPrize">' +
+                    '<div class="prize-form-item"><label class="prize-form-label">抽奖顺序</label><div class="prize-form-input"><input type="number" name="sort" class="layui-input" placeholder="请输入数字" min="0" value="' + (rowData.sort || 0) + '"></div></div>' +
+                    '<div class="prize-form-item"><label class="prize-form-label">奖品级别</label><div class="prize-form-input"><select name="type_text" class="layui-select"><option value="0"' + (rowData.type == '0' ? ' selected' : '') + '>普通奖品（无级别）</option><option value="1"' + (rowData.type == '1' ? ' selected' : '') + '>一等奖</option><option value="2"' + (rowData.type == '2' ? ' selected' : '') + '>二等奖</option><option value="3"' + (rowData.type == '3' ? ' selected' : '') + '>三等奖</option><option value="4"' + (rowData.type == '4' ? ' selected' : '') + '>四等奖</option><option value="5"' + (rowData.type == '5' ? ' selected' : '') + '>五等奖</option></select></div></div>' +
+                    '<div class="prize-form-item"><label class="prize-form-label">奖品名称</label><div class="prize-form-input"><input type="text" name="prizename" class="layui-input" placeholder="请输入奖品名称" value="' + (rowData.prizename || '') + '"></div></div>' +
+                    '<div class="prize-form-item"><label class="prize-form-label">奖品数量</label><div class="prize-form-input"><input type="number" name="num" class="layui-input" placeholder="请输入奖品数量" value="' + (rowData.num || 1) + '" min="1"></div></div>' +
+                    '<div class="prize-form-item"><label class="prize-form-label">每次抽取人数</label><div class="prize-form-input">' +
+                        '<input type="number" name="draw_count" class="layui-input" placeholder="请输入每次抽奖的抽取数量" value="' + (rowData.draw_count || 1) + '" min="1">' +
+                        '<div class="prize-draw-hint"><span class="prize-hint-icon">ⓘ</span><span class="prize-hint-text">例：假设该奖品有100份，分5次抽取，则每次抽取人数为20</span></div>' +
+                    '</div></div>' +
+                    '<div class="prize-form-item"><label class="prize-form-label">奖品图片</label><div class="prize-form-input">' +
+                        '<input type="file" id="prize-edit-file" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="LotteryPage._handlePrizeImageUpload(this, \'edit\')">' +
+                        (hasImage
+                            ? '<div id="prize-edit-preview" class="prize-preview-wrap" style="display:inline-block;">' +
+                                '<img id="prize-edit-preview-img" class="prize-preview-img" src="' + (rowData.imageid || rowData.image) + '">' +
+                                '<span class="prize-preview-remove" onclick="LotteryPage._removePrizeImage(\'edit\')">×</span>' +
+                              '</div>'
+                            : '<div id="prize-edit-upload-area" class="prize-upload-area" onclick="document.getElementById(\'prize-edit-file\').click()">' +
+                                '<i class="fas fa-cloud-upload-alt prize-upload-icon"></i>' +
+                                '<div class="prize-upload-text">点击此处选择图片</div>' +
+                              '</div>'
+                        ) +
+                        '<input type="hidden" name="imageid" id="prize-edit-imageid" value="' + (rowData.imageid || rowData.image || '') + '">' +
+                        '<div class="prize-upload-tip">尺寸400x400像素，图片大小请勿超过2M</div>' +
+                    '</div></div>' +
+                    '<div class="prize-footer">' +
+                        '<button type="button" class="btn-prize-cancel" onclick="layui.layer.closeAll()">取消</button>' +
+                        '<button type="button" class="btn-prize-save" id="btn-update-prize"><i class="fas fa-check"></i> 保存</button>' +
+                    '</div>' +
+                '</form></div>',
                 success: function(layero) {
                     layui.form.render(null, 'editPrize');
                     layero.find('#btn-update-prize').on('click', function() {
                         var data = {
+                            sort: parseInt(layero.find('[name="sort"]').val()) || 0,
+                            type: layero.find('[name="type_text"]').val(),
                             prizename: layero.find('[name="prizename"]').val(),
-                            type: layero.find('[name="type"]').val(),
                             num: parseInt(layero.find('[name="num"]').val()) || 1,
                             draw_count: parseInt(layero.find('[name="draw_count"]').val()) || 1,
                             imageid: layero.find('[name="imageid"]').val()
                         };
+                        if (!data.prizename) return layui.layer.msg('请输入奖品名称', { icon: 2 });
                         Api.updateLotteryPrize(actId, rowData.id, data).then(function() {
                             layui.layer.closeAll();
                             layui.table.reload('lottery-prizes-table');
+                            try { layui.table.reload('screen-prizes-table'); } catch(e) {}
                             layui.layer.msg('更新成功', { icon: 1 });
                         });
                     });
                 }
             });
+        },
+
+        _addScreenPrize: function() {
+            console.log('_addScreenPrize called');
+            try {
+                LotteryPage._addPrize();
+            } catch (err) {
+                console.error('Error in _addScreenPrize:', err);
+                layui.layer.msg('添加奖品失败: ' + err.message, { icon: 2 });
+            }
+        },
+
+        // ========== 奖品图片上传辅助方法 ==========
+        _handlePrizeImageUpload: function(input, mode) {
+            mode = mode || 'add';
+            var file = input.files[0];
+            if (!file) return;
+
+            if (!file.type.match('image/jpeg') && !file.type.match('image/png') && !file.type.match('image/gif') && !file.type.match('image/webp')) {
+                layui.layer.msg('请上传 JPEG、PNG、GIF 或 WebP 格式的图片', { icon: 2 });
+                input.value = '';
+                return;
+            }
+            if (file.size > 2 * 1024 * 1024) {
+                layui.layer.msg('图片大小不能超过2M', { icon: 2 });
+                input.value = '';
+                return;
+            }
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var uploadArea = document.getElementById('prize-' + mode + '-upload-area');
+                var previewWrap = document.getElementById('prize-' + mode + '-preview');
+                var previewImg = document.getElementById('prize-' + mode + '-preview-img');
+                var imageidInput = document.getElementById('prize-' + mode + '-imageid');
+
+                if (uploadArea) uploadArea.style.display = 'none';
+                previewImg.src = e.target.result;
+                previewWrap.style.display = 'inline-block';
+
+                var formData = new FormData();
+                formData.append('file', file);
+                Api.uploadImage(formData).then(function(res) {
+                    if (res.data && res.data.url) {
+                        imageidInput.value = res.data.url;
+                    } else {
+                        imageidInput.value = e.target.result;
+                    }
+                }).catch(function() {
+                    imageidInput.value = e.target.result;
+                    layui.layer.msg('图片已选择，将使用本地预览', { icon: 0, time: 1500 });
+                });
+            };
+            reader.readAsDataURL(file);
+        },
+
+        _removePrizeImage: function(mode) {
+            var previewWrap = document.getElementById('prize-' + mode + '-preview');
+            var previewImg = document.getElementById('prize-' + mode + '-preview-img');
+            var uploadArea = document.getElementById('prize-' + mode + '-upload-area');
+            var imageidInput = document.getElementById('prize-' + mode + '-imageid');
+            var fileInput = document.getElementById('prize-' + mode + '-file');
+
+            if (previewImg) previewImg.src = '';
+            if (previewWrap) previewWrap.style.display = 'none';
+            if (uploadArea) uploadArea.style.display = '';
+            if (imageidInput) imageidInput.value = '';
+            if (fileInput) fileInput.value = '';
         },
 
         // ========== 中奖名单 ==========
@@ -602,7 +812,7 @@
                 type: 1, title: '添加奖品', area: ['500px', '480px'],
                 content: '<div style="padding:20px;"><form class="layui-form" lay-filter="addChoujiangPrize">' +
                     '<div class="layui-form-item"><label class="layui-form-label">奖品名称</label><div class="layui-input-block"><input type="text" name="prizename" class="layui-input" required></div></div>' +
-                    '<div class="layui-form-item"><label class="layui-form-label">奖品级别</label><div class="layui-input-block"><select name="type"><option value="1">一等奖</option><option value="2">二等奖</option><option value="3">三等奖</option><option value="4">四等奖</option><option value="5">五等奖</option></select></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">奖品级别</label><div class="layui-input-block"><select name="type"><option value="0">普通奖品（无级别）</option><option value="1">一等奖</option><option value="2">二等奖</option><option value="3">三等奖</option><option value="4">四等奖</option><option value="5">五等奖</option></select></div></div>' +
                     '<div class="layui-form-item"><label class="layui-form-label">数量</label><div class="layui-input-inline"><input type="number" name="num" class="layui-input" value="1" min="1"></div></div>' +
                     '<div class="layui-form-item"><label class="layui-form-label">奖品图片</label><div class="layui-input-block"><input type="text" name="imageid" class="layui-input" placeholder="图片URL"></div></div>' +
                     '<div class="layui-form-item"><div class="layui-input-block"><button type="button" class="btn btn-primary" id="btn-save-choujiang-prize"><i class="fas fa-save"></i> 保存</button></div></div>' +
@@ -1073,7 +1283,7 @@
                 type: 1, title: '添加奖品', area: ['500px', '480px'],
                 content: '<div style="padding:20px;"><form class="layui-form" lay-filter="addLuckyPhonePrize">' +
                     '<div class="layui-form-item"><label class="layui-form-label">奖品名称</label><div class="layui-input-block"><input type="text" name="prizename" class="layui-input" required></div></div>' +
-                    '<div class="layui-form-item"><label class="layui-form-label">奖品级别</label><div class="layui-input-block"><select name="type"><option value="1">一等奖</option><option value="2">二等奖</option><option value="3">三等奖</option><option value="4">四等奖</option><option value="5">五等奖</option></select></div></div>' +
+                    '<div class="layui-form-item"><label class="layui-form-label">奖品级别</label><div class="layui-input-block"><select name="type"><option value="0">普通奖品（无级别）</option><option value="1">一等奖</option><option value="2">二等奖</option><option value="3">三等奖</option><option value="4">四等奖</option><option value="5">五等奖</option></select></div></div>' +
                     '<div class="layui-form-item"><label class="layui-form-label">数量</label><div class="layui-input-inline"><input type="number" name="num" class="layui-input" value="1" min="1"></div></div>' +
                     '<div class="layui-form-item"><label class="layui-form-label">奖品图片</label><div class="layui-input-block"><input type="text" name="imageid" class="layui-input" placeholder="图片URL"></div></div>' +
                     '<div class="layui-form-item"><div class="layui-input-block"><button type="button" class="btn btn-primary" id="btn-save-lucky-phone-prize"><i class="fas fa-save"></i> 保存</button></div></div>' +
@@ -1213,17 +1423,403 @@
             var actId = App.getCurrentActivityId();
             if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
 
-            var html = '<div class="content-card"><div class="card-title">大屏抽奖设置</div>' +
-                '<form class="layui-form" lay-filter="screenSettings">' +
+            var html = '<div class="content-card"><div class="card-title">抽奖设置</div>' +
+                '<div class="two-column-layout">' +
+                // 左侧：设置表单
+                '<div class="column-left"><form class="layui-form" lay-filter="screenSettings">' +
+                '<div class="form-section"><div class="section-title">显示方式</div>' +
+                '<div class="layui-form-item"><div class="layui-input-block">' +
+                '<input type="radio" name="display_mode" value="nickname" title="昵称" lay-filter="display">' +
+                '<input type="radio" name="display_mode" value="name" title="姓名" style="margin-left:15px;">' +
+                '<input type="radio" name="display_mode" value="name_phone" title="姓名+手机号" style="margin-left:15px;">' +
+                '</div></div>' +
+                '</div>' +
+                '<div class="form-section"><div class="section-title">选择模板</div>' +
+                '<div class="layui-form-item"><div class="layui-input-block">' +
+                '<input type="radio" name="template" value="gold" title="金色" lay-filter="template" style="color:#D4AF37;">' +
+                '<input type="radio" name="template" value="red" title="红色" style="margin-left:15px;color:#E53935;">' +
+                '<input type="radio" name="template" value="blue" title="蓝色" style="margin-left:15px;color:#1E88E5;">' +
+                '<input type="radio" name="template" value="gray" title="灰色" style="margin-left:15px;color:#757575;">' +
+                '</div></div>' +
+                '</div>' +
+                '<div class="form-section"><div class="section-title">背景设置</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">背景图片</label><div class="layui-input-block">' +
+                '<button type="button" class="btn btn-default" id="btn-upload-bg" style="margin-right:8px;"><i class="fas fa-upload"></i> 上传背景</button>' +
+                '<button type="button" class="btn btn-default" id="btn-select-bg"><i class="fas fa-image"></i> 选择背景</button>' +
+                '</div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label"></label><div class="layui-input-block">' +
+                '<button type="button" class="btn btn-default" id="btn-reset-bg"><i class="fas fa-undo"></i> 恢复默认</button>' +
+                '</div></div>' +
+                '</div>' +
                 '<div class="form-section"><div class="section-title">基本设置</div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">功能开关</label><div class="layui-input-block"><input type="checkbox" name="screen_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">抽奖模式</label><div class="layui-input-block"><select name="screen_mode"><option value="normal">普通模式</option><option value="3d">3D模式</option><option value="egg">砸金蛋</option><option value="box">抽奖箱</option></select></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">动画时长</label><div class="layui-input-inline"><input type="number" name="screen_animation_duration" class="layui-input" placeholder="3000" min="1000" max="10000"></div><div class="layui-form-mid">毫秒</div></div>' +
                 '</div>' +
-                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-screen-settings"><i class="fas fa-save"></i> 保存设置</button></div>' +
-                '</form></div>';
+                '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-screen-settings" onclick="LotteryPage._saveScreenSettings()"><i class="fas fa-save"></i> 保存设置</button></div>' +
+                '</form></div>' +
+                // 右侧：预览区域
+                '<div class="column-right"><div class="section-title">预览</div>' +
+                '<div id="preview-vip-tip" style="background:#FFF3CD;color:#856404;padding:10px 16px;border-radius:6px;border:1px solid #FFEAA7;font-size:12px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">' +
+                '<span><i class="fas fa-crown" style="color:#FFC107;margin-right:6px;"></i>升级VIP后自定义背景才正式生效！</span>' +
+                '<a href="/admin/vip/upgrade" target="_blank" style="color:#1E88E5;text-decoration:none;font-weight:bold;">&lt;去升级VIP&gt;</a>' +
+                '</div>' +
+                '<div id="lottery-preview" style="background:#000;border-radius:8px;padding:30px 20px;text-align:center;border:2px solid #333;min-height:400px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;position:relative;overflow:hidden;">' +
+                '<div id="preview-background" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;opacity:0.6;"></div>' +
+                '<div id="preview-content" style="position:relative;z-index:2;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-grow:1;">' +
+                '<div id="preview-title" style="font-size:32px;font-weight:bold;margin-bottom:30px;text-shadow:0 2px 4px rgba(0,0,0,0.5);">一等奖</div>' +
+                '<div id="preview-center" style="width:180px;height:180px;border-radius:50%;border:4px solid #D4AF37;display:flex;align-items:center;justify-content:center;margin:20px 0;background:rgba(255,255,255,0.1);box-shadow:0 8px 32px rgba(0,0,0,0.3);">' +
+                '<i class="fas fa-gift" style="font-size:64px;color:#E53935;"></i>' +
+                '</div>' +
+                '<button id="preview-start-btn" style="background:#D4AF37;color:#fff;border:none;border-radius:25px;padding:12px 40px;font-size:18px;font-weight:bold;cursor:pointer;margin-top:30px;box-shadow:0 4px 15px rgba(212,175,55,0.4);transition:all 0.3s;">开始</button>' +
+                '</div>' +
+                '</div>' +
+                '<div style="margin-top:16px;font-size:12px;color:#999;text-align:center;">预览区域实时展示抽奖效果</div>' +
+                '</div>' +
+                '</div></div>';
 
             Layout.setContent(html);
+            this._initScreenSettings(actId);
+        },
+
+        _initScreenSettings: function(actId) {
+            var self = this;
+            
+            // 添加预览区域CSS动画样式
+            if (!document.getElementById('preview-styles')) {
+                var style = document.createElement('style');
+                style.id = 'preview-styles';
+                style.textContent = `
+                    @keyframes pulse {
+                        0% { opacity: 0.7; transform: scale(1); }
+                        100% { opacity: 1; transform: scale(1.02); }
+                    }
+                    @keyframes glow {
+                        0% { box-shadow: 0 0 10px var(--glow-color, #FFD700); }
+                        100% { box-shadow: 0 0 30px var(--glow-color, #FFD700); }
+                    }
+                    #preview-start-btn {
+                        transition: all 0.3s ease;
+                    }
+                    #preview-start-btn:hover {
+                        transform: translateY(-2px);
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            // 初始化表单
+            layui.form.render(null, 'screenSettings');
+            
+            // 恢复默认背景按钮事件
+            document.getElementById('btn-reset-bg')?.addEventListener('click', function() {
+                self._resetBackground(actId);
+            });
+            
+            // 上传背景按钮事件
+            document.getElementById('btn-upload-bg')?.addEventListener('click', function() {
+                self._uploadBackground(actId);
+            });
+            
+            // 选择背景按钮事件
+            document.getElementById('btn-select-bg')?.addEventListener('click', function() {
+                self._selectBackground(actId);
+            });
+            
+            // 显示方式变化时更新预览
+            layui.form.on('radio(display)', function(data) {
+                self._updatePreview();
+            });
+            
+            // 模板变化时更新预览
+            layui.form.on('radio(template)', function(data) {
+                self._updatePreview();
+            });
+            
+            // 加载现有配置
+            this._loadScreenSettings(actId);
+        },
+
+        _loadScreenSettings: function(actId) {
+            var self = this;
+            Api.getScreenSettings(actId).then(function(res) {
+                if (res.code === 0 && res.data) {
+                    var data = res.data;
+                    // 设置表单值
+                    layui.form.val('screenSettings', {
+                        display_mode: data.display_mode || 'nickname',
+                        template: data.template || 'gold',
+                        screen_enabled: data.screen_enabled === 1,
+                        screen_mode: data.screen_mode || 'normal',
+                        screen_animation_duration: data.screen_animation_duration || 3000
+                    });
+                    // 更新预览
+                    self._updatePreview();
+                }
+            }).catch(function(err) {
+                console.error('Failed to load screen settings:', err);
+            });
+        },
+
+        _updatePreview: function() {
+            // 获取当前选中的模板和显示方式
+            var template = document.querySelector('[name="template"]:checked')?.value || 'gold';
+            var displayMode = document.querySelector('[name="display_mode"]:checked')?.value || 'nickname';
+            
+            // 显示方式文本映射
+            var displayTexts = {
+                nickname: '用户昵称',
+                name: '张三',
+                name_phone: '张三 138****8888'
+            };
+            var displayText = displayTexts[displayMode] || displayTexts.nickname;
+            
+            // 模板配置
+            var templateConfigs = {
+                gold: {
+                    background: 'radial-gradient(circle at 50% 50%, #FFD700 0%, #D4AF37 30%, #B8860B 70%, #8B6914 100%)',
+                    titleColor: '#FFD700',
+                    centerBorderColor: '#D4AF37',
+                    centerBg: 'rgba(255, 215, 0, 0.1)',
+                    buttonBg: '#D4AF37',
+                    buttonShadow: 'rgba(212, 175, 55, 0.4)',
+                    buttonHoverBg: '#FFD700',
+                    effect: 'radial-gradient(circle at 50% 50%, rgba(255, 215, 0, 0.3) 0%, transparent 70%)',
+                    lightColor: '#FFD700',
+                    hasLightEffect: false,
+                    style: '奢华金色科技抽奖风格'
+                },
+                red: {
+                    background: 'radial-gradient(circle at 50% 50%, #8B0000 0%, #B22222 30%, #DC143C 70%, #FF0000 100%)',
+                    titleColor: '#FF6B6B',
+                    centerBorderColor: '#E53935',
+                    centerBg: 'rgba(229, 57, 53, 0.1)',
+                    buttonBg: '#E53935',
+                    buttonShadow: 'rgba(229, 57, 53, 0.4)',
+                    buttonHoverBg: '#FF5252',
+                    effect: 'radial-gradient(circle at 50% 50%, rgba(255, 107, 107, 0.3) 0%, transparent 70%)',
+                    lightColor: '#FF6B6B',
+                    hasLightEffect: true,
+                    style: '喜庆红色抽奖风格'
+                },
+                blue: {
+                    background: 'radial-gradient(circle at 50% 50%, #0D47A1 0%, #1565C0 30%, #1976D2 70%, #1E88E5 100%)',
+                    titleColor: '#64B5F6',
+                    centerBorderColor: '#1E88E5',
+                    centerBg: 'rgba(30, 136, 229, 0.1)',
+                    buttonBg: '#1E88E5',
+                    buttonShadow: 'rgba(30, 136, 229, 0.4)',
+                    buttonHoverBg: '#42A5F5',
+                    effect: 'radial-gradient(circle at 50% 50%, rgba(100, 181, 246, 0.3) 0%, transparent 70%)',
+                    lightColor: '#64B5F6',
+                    hasLightEffect: true,
+                    style: '科技蓝色动感抽奖风格'
+                },
+                gray: {
+                    background: 'radial-gradient(circle at 50% 50%, #000000 0%, #212121 30%, #424242 70%, #616161 100%)',
+                    titleColor: '#E0E0E0',
+                    centerBorderColor: '#BDBDBD',
+                    centerBg: 'rgba(189, 189, 189, 0.1)',
+                    buttonBg: '#757575',
+                    buttonShadow: 'rgba(117, 117, 117, 0.4)',
+                    buttonHoverBg: '#9E9E9E',
+                    effect: 'radial-gradient(circle at 50% 50%, rgba(187, 134, 252, 0.3) 0%, transparent 70%)',
+                    lightColor: '#BB86FC',
+                    hasLightEffect: false,
+                    style: '简约科技风抽奖风格'
+                }
+            };
+            
+            var config = templateConfigs[template] || templateConfigs.gold;
+            
+            // 更新背景
+            var previewBg = document.getElementById('preview-background');
+            if (previewBg) {
+                previewBg.style.background = config.background;
+                // 添加动态效果
+                previewBg.style.backgroundImage = config.background + ', ' + config.effect;
+                previewBg.style.animation = 'pulse 3s infinite alternate';
+            }
+            
+            // 更新标题颜色
+            var previewTitle = document.getElementById('preview-title');
+            if (previewTitle) {
+                previewTitle.style.color = config.titleColor;
+            }
+            
+            // 更新中心区域
+            var previewCenter = document.getElementById('preview-center');
+            if (previewCenter) {
+                previewCenter.style.borderColor = config.centerBorderColor;
+                previewCenter.style.background = config.centerBg;
+                previewCenter.style.boxShadow = '0 8px 32px rgba(0,0,0,0.3), 0 0 20px ' + config.titleColor.replace(')', ', 0.3)').replace('rgb', 'rgba');
+                
+                // 添加显示文本
+                var displayElement = document.getElementById('preview-display-text');
+                if (!displayElement) {
+                    displayElement = document.createElement('div');
+                    displayElement.id = 'preview-display-text';
+                    displayElement.style.position = 'absolute';
+                    displayElement.style.bottom = '-40px';
+                    displayElement.style.left = '0';
+                    displayElement.style.width = '100%';
+                    displayElement.style.textAlign = 'center';
+                    displayElement.style.fontSize = '14px';
+                    displayElement.style.fontWeight = 'bold';
+                    displayElement.style.color = config.titleColor;
+                    previewCenter.appendChild(displayElement);
+                }
+                displayElement.style.color = config.titleColor;
+                displayElement.textContent = displayText;
+            }
+            
+            // 更新开始按钮
+            var previewBtn = document.getElementById('preview-start-btn');
+            if (previewBtn) {
+                previewBtn.style.background = config.buttonBg;
+                previewBtn.style.boxShadow = '0 4px 15px ' + config.buttonShadow;
+                previewBtn.title = config.style;
+                // 添加悬停效果
+                previewBtn.onmouseenter = function() {
+                    this.style.background = config.buttonHoverBg;
+                    this.style.transform = 'translateY(-2px)';
+                    this.style.boxShadow = '0 6px 20px ' + config.buttonShadow;
+                };
+                previewBtn.onmouseleave = function() {
+                    this.style.background = config.buttonBg;
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = '0 4px 15px ' + config.buttonShadow;
+                };
+            }
+            
+            // 处理特效
+            this._removeParticleEffect();
+            this._removeLightEffect();
+            
+            if (template === 'gray') {
+                this._addParticleEffect();
+            } else if (config.hasLightEffect) {
+                this._addLightEffect(config.lightColor);
+            }
+        },
+        
+        _addParticleEffect: function() {
+            var previewBg = document.getElementById('preview-background');
+            if (!previewBg || previewBg.dataset.particlesAdded) return;
+            
+            // 创建粒子效果
+            var particles = document.createElement('div');
+            particles.id = 'particle-effect';
+            particles.innerHTML = `
+                <style>
+                    @keyframes particleMove {
+                        0% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+                        100% { transform: translate(var(--x, 100px), var(--y, 100px)) scale(0); opacity: 0; }
+                    }
+                </style>
+                <div style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;">
+                    ${Array.from({length: 20}, (_, i) => 
+                        `<div style="position:absolute;top:${50 + Math.sin(i)*30}%;left:${50 + Math.cos(i)*30}%;width:2px;height:2px;background:#BB86FC;border-radius:50%;animation:particleMove ${2 + i*0.2}s infinite linear;--x:${Math.sin(i)*100}px;--y:${Math.cos(i)*100}px;"></div>`
+                    ).join('')}
+                </div>
+            `;
+            previewBg.appendChild(particles);
+            previewBg.dataset.particlesAdded = 'true';
+        },
+        
+        _removeParticleEffect: function() {
+            var particles = document.getElementById('particle-effect');
+            if (particles) {
+                particles.remove();
+            }
+            var previewBg = document.getElementById('preview-background');
+            if (previewBg) {
+                delete previewBg.dataset.particlesAdded;
+            }
+        },
+        
+        _addLightEffect: function(lightColor) {
+            var previewBg = document.getElementById('preview-background');
+            if (!previewBg || previewBg.dataset.lightsAdded) return;
+            
+            // 创建放射状光线特效
+            var lights = document.createElement('div');
+            lights.id = 'light-effect';
+            
+            // 生成16条光线
+            var lightHTML = '<div style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2;">';
+            for (var i = 0; i < 16; i++) {
+                var angleDeg = i * 22.5;
+                var length = 100;
+                lightHTML += '<div style="position:absolute;top:50%;left:50%;width:2px;height:' + length + 'px;background:linear-gradient(to bottom, transparent, ' + lightColor + ');transform-origin:0 0;transform:translate(-50%, -50%) rotate(' + angleDeg + 'deg);animation:lightPulse 2s infinite linear;animation-delay:' + (i*0.1) + 's;--angle:' + angleDeg + 'deg;"></div>';
+            }
+            lightHTML += '</div>';
+            
+            lights.innerHTML = '<style>@keyframes lightPulse { 0% { opacity: 0.2; transform: translate(-50%, -50%) rotate(var(--angle)) scaleY(0.3); } 50% { opacity: 0.6; transform: translate(-50%, -50%) rotate(var(--angle)) scaleY(1); } 100% { opacity: 0.2; transform: translate(-50%, -50%) rotate(var(--angle)) scaleY(0.3); } }</style>' + lightHTML;
+            
+            previewBg.appendChild(lights);
+            previewBg.dataset.lightsAdded = 'true';
+        },
+        
+        _removeLightEffect: function() {
+            var lights = document.getElementById('light-effect');
+            if (lights) {
+                lights.remove();
+            }
+            var previewBg = document.getElementById('preview-background');
+            if (previewBg) {
+                delete previewBg.dataset.lightsAdded;
+            }
+        },
+        
+        _resetBackground: function(actId) {
+            layui.layer.confirm('确定恢复默认背景？', { icon: 3 }, function(idx) {
+                Api.resetScreenBackground(actId).then(function() {
+                    layui.layer.close(idx);
+                    layui.layer.msg('恢复默认背景成功', { icon: 1 });
+                }).catch(function(err) {
+                    layui.layer.msg('恢复失败：' + (err.message || '未知错误'), { icon: 2 });
+                });
+            });
+        },
+
+        _uploadBackground: function(actId) {
+            layui.layer.msg('上传背景功能开发中', { icon: 0 });
+            // 这里可以集成文件上传组件
+        },
+
+        _selectBackground: function(actId) {
+            layui.layer.msg('选择背景功能开发中', { icon: 0 });
+            // 这里可以打开背景库选择
+        },
+
+        _saveScreenSettings: function() {
+            var actId = App.getCurrentActivityId();
+            if (!actId) {
+                layui.layer.msg('请先选择活动', { icon: 2 });
+                return;
+            }
+            
+            var formData = {
+                display_mode: document.querySelector('[name="display_mode"]:checked')?.value || 'nickname',
+                template: document.querySelector('[name="template"]:checked')?.value || 'gold',
+                screen_enabled: document.querySelector('[name="screen_enabled"]').checked ? 1 : 0,
+                screen_mode: document.querySelector('[name="screen_mode"]').value,
+                screen_animation_duration: parseInt(document.querySelector('[name="screen_animation_duration"]').value) || 3000
+            };
+            
+            layui.layer.load(2);
+            Api.saveScreenSettings(actId, formData).then(function(res) {
+                layui.layer.closeAll('loading');
+                if (res.code === 0) {
+                    layui.layer.msg('保存成功', { icon: 1 });
+                } else {
+                    layui.layer.msg(res.msg || '保存失败', { icon: 2 });
+                }
+            }).catch(function(err) {
+                layui.layer.closeAll('loading');
+                layui.layer.msg('保存失败：' + (err.message || '网络错误'), { icon: 2 });
+            });
         },
 
         // ========== 大屏抽奖 - 奖品设置 ==========
@@ -1234,6 +1830,118 @@
             var html = '<div class="content-card"><div class="card-title"><span>大屏抽奖奖品设置</span><button class="btn btn-primary btn-sm" onclick="LotteryPage._addScreenPrize()"><i class="fas fa-plus"></i> 添加奖品</button></div>' +
                 '<table id="screen-prizes-table" lay-filter="screenPrizesTable"></table></div>';
             Layout.setContent(html);
+            this._initScreenPrizesTable(actId);
+        },
+
+        _initScreenPrizesTable: function(actId) {
+            if (!document.getElementById('screenPrizesBar')) {
+                var s = document.createElement('script');
+                s.type = 'text/html'; s.id = 'screenPrizesBar';
+                s.innerHTML = '<a class="layui-btn layui-btn-xs" lay-event="edit"><i class="fas fa-edit"></i> 编辑</a><a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del"><i class="fas fa-trash"></i> 删除</a>';
+                document.body.appendChild(s);
+            }
+
+            layui.table.render({
+                elem: '#screen-prizes-table',
+                url: '/api/hd/lottery/' + actId + '/prizes',
+                headers: { 'Authorization': 'Bearer ' + Api.getToken() },
+                parseData: function(res) {
+                    console.log('大屏奖品API响应:', res);
+                    var list = res.data ? (res.data.list || res.data) : [];
+                    console.log('处理后的奖品列表:', list);
+                    return { code: 0, msg: '', count: Array.isArray(list) ? list.length : 0, data: list };
+                },
+                cols: [[
+                    { field: 'imageid', title: '图片', width: 80, templet: function(d) {
+                        console.log('大屏奖品图片数据:', d);
+                        var img = '';
+                        // 检查可能的图片字段
+                        var possibleFields = ['imageid', 'image', 'pic', 'picurl', 'picture', 'img', 'imgurl'];
+                        for (var i = 0; i < possibleFields.length; i++) {
+                            var field = possibleFields[i];
+                            if (d[field]) {
+                                if (field === 'imageid' && !isNaN(d[field]) && d[field] > 0) {
+                                    img = '/huodong/imageproxy.php?id=' + d[field];
+                                    break;
+                                } else if (typeof d[field] === 'string' && d[field].trim() !== '') {
+                                    img = d[field];
+                                    break;
+                                }
+                            }
+                        }
+                        console.log('处理后的图片路径:', img, '原始字段值 - imageid:', d.imageid, 'image:', d.image);
+                        // 转换包含wxhd.eivie.cn域名的图片URL为相对路径
+                        if (img && typeof img === 'string') {
+                            if (img.includes('https://wxhd.eivie.cn/upload/')) {
+                                img = img.replace('https://wxhd.eivie.cn', '');
+                            } else if (img.includes('http://wxhd.eivie.cn/upload/')) {
+                                img = img.replace('http://wxhd.eivie.cn', '');
+                            }
+                        }
+                        if (img) {
+                            // 确保图片路径是完整URL
+                            if (img.startsWith('/')) {
+                                img = window.location.origin + img;
+                            } else if (!img.startsWith('http') && !img.startsWith('//')) {
+                                // 相对路径，添加基础URL
+                                img = (window.location.origin + '/') + img;
+                            }
+                            return '<img class="img-preview" src="' + img + '" onerror="console.error(\'图片加载失败:\', this.src); this.style.display=\'none\'; this.parentNode.innerHTML=\'<i class=\\\'fas fa-image\\\' style=\\\'font-size:24px;color:#ddd;\\\'></i>\'">';
+                        }
+                        return '<i class="fas fa-image" style="font-size:24px;color:#ddd;"></i>';
+                    }},
+                    { field: 'prizename', title: '奖品名称', width: 160 },
+{ field: 'type', title: '奖品级别', width: 100, templet: function(d) {
+    console.log('奖品级别数据 type:', d.type, 'raw:', d);
+    var map = { 0: '普通奖品（无级别）', 1: '一等奖', 2: '二等奖', 3: '三等奖', 4: '四等奖', 5: '五等奖' };
+    // 处理数字字符串和中文级别名称
+                        var typeValue = d.type;
+                        var result;
+                        if (typeValue === null || typeValue === undefined || typeValue === '') {
+                            result = '-';
+                        } else if (!isNaN(typeValue) && typeValue !== '') {
+                            // 数字或数字字符串
+                            result = map[parseInt(typeValue, 10)] || typeValue;
+                        } else if (typeof typeValue === 'string') {
+                            // 检查是否已经是中文级别名称
+                            var reverseMap = { '一等奖': 1, '二等奖': 2, '三等奖': 3, '四等奖': 4, '五等奖': 5 };
+                            if (reverseMap[typeValue]) {
+                                result = typeValue;
+                            } else {
+                                result = typeValue;
+                            }
+                        } else {
+                            result = typeValue || '-';
+                        }
+                        console.log('映射结果:', result);
+                        return result;
+                    }},
+                    { field: 'num', title: '数量', width: 80 },
+                    { field: 'leftnum', title: '剩余', width: 80 },
+                    { field: 'draw_count', title: '每次抽取', width: 100 },
+                    { title: '操作', width: 150, toolbar: '#screenPrizesBar' }
+                ]],
+                page: false,
+                text: { none: '暂无奖品' }
+            });
+
+            layui.table.on('tool(screenPrizesTable)', function(obj) {
+                console.log('大屏奖品表格工具事件:', obj.event, '奖品数据:', obj.data);
+                if (obj.event === 'edit') {
+                    console.log('编辑大屏奖品，ID:', obj.data.id, '活动ID:', actId);
+                    LotteryPage._editPrize(actId, obj.data);
+                }
+                else if (obj.event === 'del') {
+                    layui.layer.confirm('确定删除该奖品？', { icon: 3 }, function(idx) {
+                        console.log('删除大屏奖品: actId=' + actId + ', prizeId=' + obj.data.id);
+                        Api.deleteLotteryPrize(actId, obj.data.id).then(function() {
+                            layui.layer.close(idx);
+                            obj.del();
+                            layui.layer.msg('删除成功', { icon: 1 });
+                        });
+                    });
+                }
+            });
         },
 
         // ========== 大屏抽奖 - 中奖名单 ==========

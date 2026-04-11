@@ -5,6 +5,7 @@
 <script src="themes/meepo/assets/js/qdbase.js" type="text/javascript" charset="utf-8"></script>
 <script src="themes/meepo/assets/js/screen_qd.js" type="text/javascript" charset="utf-8"></script>
 <link rel="stylesheet" href="themes/meepo/assets/css/qd.css?v=20260402" type="text/css">
+<link rel="stylesheet" href="themes/meepo/assets/css/highlight_card.css?v=20260406c" type="text/css">
 </head>
 <body class="FUN WALL" >
 <div class="ui" style="display:none">
@@ -16,7 +17,8 @@
 <div id="container" style="display:none;opacity: 0;"></div>
 <div id="earth" style="display:none;"></div>
 <canvas class="canvas" style="display:none;opacity: 0;"></canvas>
-<div class="tuchu ">
+<div class="tuchu {$threed_card_style}" id="tuchu-container">
+  <div class="particle-container" id="particle-container"></div>
   <div class="tuchug">
     <img src="themes/meepo/assets/images/icon/bbb.png"></div>
   <div class="tuchuk">
@@ -69,6 +71,10 @@
 {/literal}
 	var idleEnabled = {$threed_idle_enabled};   // 是否启用空闲防冷场动画
 	var idleDelay = {$threed_idle_delay};       // 空闲延迟时间（毫秒）
+	var cardStyle = '{$threed_card_style}';      // 突出卡片样式
+	var highlightScale = {$threed_highlight_scale};    // 放大倍数
+	var highlightDuration = {$threed_highlight_duration}; // 停留时长（毫秒）
+	console.log('[DEBUG] cardStyle from PHP: <' + cardStyle + '>');
 {literal}
 
 	/**
@@ -77,7 +83,8 @@
 	 */
 	function showSignCard(person) {
 		isShowingSign = true;
-		console.log('[IdleAnim] showSignCard:', person.nickname, 'idle=' + isIdleAnimation);
+		console.log('[DEBUG] cardStyle at showSignCard: <{$threed_card_style}>');
+		console.log('[IdleAnim] showSignCard:', person.nickname, 'idle=' + isIdleAnimation, 'cardStyle=' + cardStyle);
 		$("#qdtx").attr("src", person.avatar);
 		$("#qdnums").html(person.signorder);
 		$("#qdname").html(person.nickname);
@@ -86,9 +93,13 @@
 		tuchuEl.classList.remove('view');
 		void tuchuEl.offsetWidth; // 强制浏览器回流
 		tuchuEl.classList.add('view');
+		// 根据卡片样式生成粒子特效
+		console.log('[CardStyle] Creating particles for style:', cardStyle);
+		createParticles(cardStyle);
 		// 9秒后清理：匹配CSS动画周期（vv 8s + vp 0.5s@8s = 8.5s，留0.5s余量）
 		window.setTimeout(function() {
 			$(".tuchu").removeClass('view');
+			clearParticles();
 			isShowingSign = false;
 			console.log('[IdleAnim] card hidden, queue=' + new_sign_arr.length);
 			// 动画结束后：优先处理真实签到队列
@@ -100,6 +111,94 @@
 			}
 			isIdleAnimation = false;
 		}, 9000);
+	}
+
+	/**
+	 * 创建粒子特效
+	 */
+	function createParticles(style) {
+		var container = document.getElementById('particle-container');
+		if (!container) return;
+		container.innerHTML = '';
+
+		var particleCount = 20;
+		switch(style) {
+			case 'sphere':
+				// 蓝色粒子爆发
+				for (var i = 0; i < 30; i++) {
+					var angle = (Math.PI * 2 / 30) * i;
+					var distance = 100 + Math.random() * 150;
+					var p = document.createElement('div');
+					p.className = 'sphere-particle';
+					p.style.setProperty('--px', Math.cos(angle) * distance + 'px');
+					p.style.setProperty('--py', Math.sin(angle) * distance + 'px');
+					p.style.animationDelay = (Math.random() * 0.3) + 's';
+					container.appendChild(p);
+				}
+				break;
+			case 'heart':
+				// 粉色花瓣飘散
+				for (var i = 0; i < 25; i++) {
+					var angle = Math.random() * Math.PI * 2;
+					var distance = 80 + Math.random() * 120;
+					var p = document.createElement('div');
+					p.className = 'petal';
+					p.style.setProperty('--px', Math.cos(angle) * distance + 'px');
+					p.style.setProperty('--py', Math.sin(angle) * distance - 50 + 'px');
+					p.style.animationDelay = (Math.random() * 0.5) + 's';
+					container.appendChild(p);
+				}
+				break;
+			case 'star':
+				// 金色星光闪烁
+				for (var i = 0; i < 35; i++) {
+					var angle = (Math.PI * 2 / 35) * i;
+					var distance = 60 + Math.random() * 100;
+					var p = document.createElement('div');
+					p.className = 'star-sparkle';
+					p.style.setProperty('--px', Math.cos(angle) * distance + 'px');
+					p.style.setProperty('--py', Math.sin(angle) * distance + 'px');
+					p.style.animationDelay = (Math.random() * 0.4) + 's';
+					container.appendChild(p);
+				}
+				break;
+			case 'helix':
+				// 橙色拖尾粒子
+				for (var i = 0; i < 40; i++) {
+					var t = i / 40;
+					var angle = t * Math.PI * 4;
+					var radius = 50 + t * 100;
+					var p = document.createElement('div');
+					p.className = 'helix-trail';
+					p.style.setProperty('--px', Math.cos(angle) * radius + 'px');
+					p.style.setProperty('--py', Math.sin(angle) * radius + 'px');
+					p.style.animationDelay = (t * 0.8) + 's';
+					container.appendChild(p);
+				}
+				break;
+			case 'cube':
+				// 立方体粒子（较少）
+				for (var i = 0; i < 20; i++) {
+					var p = document.createElement('div');
+					p.className = 'sphere-particle';
+					p.style.background = 'radial-gradient(circle, #6666ff 0%, #3333cc 100%)';
+					var d = 80 + Math.random() * 80;
+					var a = Math.random() * Math.PI * 2;
+					p.style.setProperty('--px', Math.cos(a) * d + 'px');
+					p.style.setProperty('--py', Math.sin(a) * d + 'px');
+					p.style.animationDelay = (Math.random() * 0.3) + 's';
+					container.appendChild(p);
+				}
+				break;
+		}
+	}
+
+	/**
+	 * 清除粒子
+	 */
+	function clearParticles() {
+		var container = document.getElementById('particle-container');
+		if (container) container.innerHTML = '';
 	}
 
 	/**
@@ -174,7 +273,9 @@
 	}
 
 	$(function(){
-		console.log('[IdleAnim] init: idleEnabled=' + idleEnabled + ' idleDelay=' + idleDelay + ' personArray.length=' + personArray.length);
+		console.log('[DEBUG] cardStyle loaded from PHP: <{$threed_card_style}>');
+		console.log('[IdleAnim] init: idleEnabled=' + idleEnabled + ' idleDelay=' + idleDelay + ' cardStyle=' + cardStyle + ' personArray.length=' + personArray.length);
+		console.log('[CardStyle] Container classes:', document.getElementById('tuchu-container').className);
 		setInterval(function(){shownewsign()},5000);
 		// 立即启动空闲调度，不等第一次 setInterval
 		if (idleEnabled && personArray.length > 0) {

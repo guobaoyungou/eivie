@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AI短剧工作流 - 项目列表</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .workflow-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; padding-bottom:10px; }
+    .workflow-header .left { display:flex; gap:10px; align-items:center; }
+    .mode-tag { display:inline-block; padding:2px 8px; border-radius:3px; font-size:12px; color:#fff; }
+    .mode-tag.oneclick { background:#52c41a; }
+    .mode-tag.freestyle { background:#1890ff; }
+    .mode-tag.advanced { background:#722ed1; }
+    .status-tag { display:inline-block; padding:2px 8px; border-radius:3px; font-size:12px; }
+    .status-tag.draft { background:#f0f0f0; color:#666; }
+    .status-tag.running { background:#e6f7ff; color:#1890ff; }
+    .status-tag.completed { background:#f6ffed; color:#52c41a; }
+    .status-tag.failed { background:#fff2f0; color:#ff4d4f; }
+    /* 项目卡片视图 */
+    .project-card-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px; margin-top:15px; }
+    .project-card { background:#fff; border-radius:12px; border:1px solid #e8e8e8; overflow:hidden; transition:all .25s; cursor:pointer; }
+    .project-card:hover { box-shadow:0 6px 20px rgba(0,0,0,.1); transform:translateY(-3px); }
+    .project-card .card-header { padding:16px; border-bottom:1px solid #f5f5f5; display:flex; align-items:center; justify-content:space-between; }
+    .project-card .card-title { font-size:15px; font-weight:bold; color:#333; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .project-card .card-body { padding:14px 16px; }
+    .project-card .card-meta { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+    .project-card .card-desc { font-size:12px; color:#999; line-height:1.5; max-height:36px; overflow:hidden; }
+    .project-card .card-stats { display:flex; gap:16px; margin-top:10px; font-size:12px; color:#888; }
+    .project-card .card-stats span { display:flex; align-items:center; gap:3px; }
+    .project-card .card-footer { padding:10px 16px; border-top:1px solid #f5f5f5; display:flex; justify-content:flex-end; gap:6px; }
+    .project-card .card-footer .layui-btn { height:28px; line-height:28px; padding:0 12px; }
+    .view-toggle { display:flex; gap:4px; margin-left:10px; }
+    .view-toggle .vt-btn { width:30px; height:30px; line-height:30px; text-align:center; border-radius:4px; cursor:pointer; border:1px solid #e8e8e8; background:#fff; font-size:14px; transition:all .2s; }
+    .view-toggle .vt-btn.active { background:#1890ff; color:#fff; border-color:#1890ff; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          <i class="layui-icon layui-icon-template-1"></i> AI短剧工作流 - 项目管理
+        </div>
+        <div class="layui-card-body" pad15>
+          <!-- 操作按钮 -->
+          <div class="workflow-header">
+            <div class="left">
+              <button class="layui-btn layui-btn-normal" onclick="createProject()">
+                <i class="layui-icon layui-icon-add-1"></i> 新建项目
+              </button>
+              <button class="layui-btn layui-btn-warm" onclick="createOneclickProject()">
+                <i class="layui-icon layui-icon-release"></i> 一键生成
+              </button>
+              <button class="layui-btn layui-btn-primary" onclick="importProject()">
+                <i class="layui-icon layui-icon-upload"></i> 导入项目
+              </button>
+              <div class="view-toggle">
+                <div class="vt-btn active" id="vtTable" onclick="switchView('table')" title="表格视图">≡</div>
+                <div class="vt-btn" id="vtCard" onclick="switchView('card')" title="卡片视图">▦</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 搜索区 -->
+          <div class="layui-form layui-form-search" style="margin-bottom:15px;">
+            <div class="layui-inline">
+              <label class="layui-form-label">状态</label>
+              <div class="layui-input-inline" style="width:120px">
+                <select name="status" lay-filter="searchFilter">
+                  <option value="">全部</option>
+                  <option value="draft">草稿</option>
+                  <option value="running">运行中</option>
+                  <option value="completed">已完成</option>
+                  <option value="failed">失败</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">模式</label>
+              <div class="layui-input-inline" style="width:130px">
+                <select name="creation_mode" lay-filter="searchFilter">
+                  <option value="">全部</option>
+                  <option value="oneclick">一键生成</option>
+                  <option value="freestyle">自由编排</option>
+                  <option value="advanced">高级微调</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <div class="layui-input-inline" style="width:200px">
+                <input type="text" name="keyword" class="layui-input" placeholder="搜索项目名称...">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn" lay-submit lay-filter="LAY-search">
+                <i class="layui-icon layui-icon-search"></i> 搜索
+              </button>
+            </div>
+          </div>
+
+          <!-- 数据表格 -->
+          <div id="tableViewWrap">
+            <table id="tabledata" lay-filter="tabledata"></table>
+          </div>
+
+          <!-- 卡片视图 -->
+          <div id="cardViewWrap" style="display:none;">
+            <div class="project-card-grid" id="projectCardGrid"></div>
+            <div id="cardPager" style="margin-top:15px;text-align:center;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  var table = layui.table;
+  var form = layui.form;
+
+  // 模式模板
+  function modeTpl(d) {
+    var map = {
+      'oneclick': {text:'🟢 一键生成', cls:'oneclick'},
+      'freestyle': {text:'🔵 自由编排', cls:'freestyle'},
+      'advanced': {text:'🟣 高级微调', cls:'advanced'}
+    };
+    var m = map[d.creation_mode] || {text:'未知', cls:''};
+    return '<span class="mode-tag ' + m.cls + '">' + m.text + '</span>';
+  }
+
+  // 状态模板
+  function statusTpl(d) {
+    var map = {
+      'draft': {text:'草稿', cls:'draft'},
+      'running': {text:'运行中', cls:'running'},
+      'completed': {text:'已完成', cls:'completed'},
+      'failed': {text:'失败', cls:'failed'}
+    };
+    var s = map[d.status] || {text:'未知', cls:''};
+    return '<span class="status-tag ' + s.cls + '">' + s.text + '</span>';
+  }
+
+  // 渲染表格
+  var tableIns = table.render({
+    elem: '#tabledata',
+    url: "{$Request.url}",
+    page: true,
+    cols: [[
+      {type: "checkbox", width: 50},
+      {field: "id", title: "ID", width: 70, sort: true},
+      {field: "title", title: "项目名称", minWidth: 200},
+      {field: "creation_mode", title: "创作模式", width: 140, templet: modeTpl},
+      {field: "status", title: "状态", width: 100, templet: statusTpl},
+      {field: "node_count", title: "节点数", width: 80, align: 'center'},
+      {field: "create_time_text", title: "创建时间", width: 160},
+      {field: "update_time_text", title: "更新时间", width: 160},
+      {title: "操作", width: 280, align: "center", toolbar: "#barTpl"}
+    ]],
+    done: function() { form.render(); }
+  });
+
+  // 搜索
+  form.on('submit(LAY-search)', function(data) {
+    tableIns.reload({where: data.field, page: {curr: 1}});
+    return false;
+  });
+
+  // 工具栏
+  table.on('tool(tabledata)', function(obj) {
+    var data = obj.data;
+    if (obj.event === 'canvas') {
+      window.location.href = "{:url('canvas')}&id=" + data.id;
+    } else if (obj.event === 'detail') {
+      window.location.href = "{:url('project_detail')}&id=" + data.id;
+    } else if (obj.event === 'duplicate') {
+      layer.confirm('确定复制该项目？', function(index) {
+        $.post("{:url('project_duplicate')}", {id: data.id}, function(res) {
+          layer.close(index);
+          if (res.status == 1) {
+            layer.msg(res.msg, {icon:1});
+            tableIns.reload();
+          } else {
+            layer.msg(res.msg, {icon:2});
+          }
+        });
+      });
+    } else if (obj.event === 'export') {
+      exportProject(data.id, data.title);
+    } else if (obj.event === 'delete') {
+      layer.confirm('确定删除该项目？删除后不可恢复！', {icon: 3}, function(index) {
+        $.post("{:url('project_delete')}", {id: data.id}, function(res) {
+          layer.close(index);
+          if (res.status == 1) {
+            layer.msg(res.msg, {icon:1});
+            obj.del();
+          } else {
+            layer.msg(res.msg, {icon:2});
+          }
+        });
+      });
+    }
+  });
+
+  // 新建项目
+  function createProject() {
+    layer.open({
+      type: 1,
+      title: '新建工作流项目',
+      area: ['500px', '350px'],
+      content: `
+        <div style="padding:20px;">
+          <form class="layui-form" lay-filter="createForm">
+            <div class="layui-form-item">
+              <label class="layui-form-label">项目名称</label>
+              <div class="layui-input-block">
+                <input type="text" name="title" class="layui-input" required lay-verify="required" placeholder="请输入项目名称">
+              </div>
+            </div>
+            <div class="layui-form-item">
+              <label class="layui-form-label">创作模式</label>
+              <div class="layui-input-block">
+                <select name="creation_mode">
+                  <option value="freestyle">🔵 自由编排（推荐）</option>
+                  <option value="advanced">🟣 高级微调</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-form-item">
+              <label class="layui-form-label">描述</label>
+              <div class="layui-input-block">
+                <textarea name="description" class="layui-textarea" placeholder="项目描述（可选）"></textarea>
+              </div>
+            </div>
+            <div class="layui-form-item" style="text-align:center;">
+              <button class="layui-btn" lay-submit lay-filter="submitCreate">创建项目</button>
+            </div>
+          </form>
+        </div>
+      `,
+      success: function() { form.render(); }
+    });
+
+    form.on('submit(submitCreate)', function(data) {
+      $.post("{:url('project_save')}", data.field, function(res) {
+        if (res.status == 1) {
+          layer.closeAll();
+          layer.msg('创建成功，即将跳转画布', {icon:1, time:1500}, function() {
+            window.location.href = "{:url('canvas')}&id=" + res.id;
+          });
+        } else {
+          layer.msg(res.msg, {icon:2});
+        }
+      });
+      return false;
+    });
+  }
+
+  // 一键生成
+  function createOneclickProject() {
+    layer.open({
+      type: 1,
+      title: '🟢 一键生成短剧',
+      area: ['550px', '450px'],
+      content: `
+        <div style="padding:20px;">
+          <form class="layui-form" lay-filter="oneclickForm">
+            <div class="layui-form-item">
+              <label class="layui-form-label">创意描述</label>
+              <div class="layui-input-block">
+                <textarea name="creativity" class="layui-textarea" required lay-verify="required"
+                  placeholder="输入一句话创意，如：一个穷小子意外获得时间倒流能力，逆袭成为商业大亨的故事"></textarea>
+              </div>
+            </div>
+            <div class="layui-form-item">
+              <label class="layui-form-label">集数</label>
+              <div class="layui-input-inline" style="width:100px">
+                <input type="number" name="episodes" class="layui-input" value="3" min="1" max="30">
+              </div>
+              <div class="layui-form-mid">集</div>
+            </div>
+            <div class="layui-form-item">
+              <label class="layui-form-label">每集时长</label>
+              <div class="layui-input-inline" style="width:150px">
+                <select name="duration">
+                  <option value="30">30秒</option>
+                  <option value="60" selected>60秒</option>
+                  <option value="90">90秒</option>
+                  <option value="120">120秒</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-form-item">
+              <label class="layui-form-label">预设模板</label>
+              <div class="layui-input-block">
+                <select name="template_id" id="templateSelect">
+                  <option value="0">请选择模板（可选）</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-form-item" style="text-align:center;">
+              <button class="layui-btn layui-btn-warm" lay-submit lay-filter="submitOneclick">
+                <i class="layui-icon layui-icon-release"></i> 开始生成
+              </button>
+            </div>
+          </form>
+        </div>
+      `,
+      success: function() {
+        form.render();
+        // 加载预设模板列表
+        $.get("{:url('preset_template_list')}", function(res) {
+          if (res.status == 1 && res.data.length > 0) {
+            var html = '<option value="0">请选择模板（可选）</option>';
+            res.data.forEach(function(t) {
+              html += '<option value="' + t.id + '">' + t.template_name + ' [' + t.genre + ']</option>';
+            });
+            $('#templateSelect').html(html);
+            form.render('select');
+          }
+        });
+      }
+    });
+
+    form.on('submit(submitOneclick)', function(data) {
+      var loadIdx = layer.load(2, {shade: [0.3, '#000']});
+      $.post("{:url('oneclick_generate')}", data.field, function(res) {
+        layer.close(loadIdx);
+        if (res.status == 1) {
+          layer.closeAll();
+          layer.msg('一键生成已启动！', {icon:1, time:2000}, function() {
+            if (res.project_id) {
+              window.location.href = "{:url('canvas')}&id=" + res.project_id;
+            } else {
+              tableIns.reload();
+            }
+          });
+        } else {
+          layer.msg(res.msg, {icon:2});
+        }
+      });
+      return false;
+    });
+  }
+
+  // 视图切换
+  var currentProjectView = 'table';
+  var cardPage = 1;
+  var cardLimit = 12;
+
+  function switchView(view) {
+    currentProjectView = view;
+    if (view === 'table') {
+      document.getElementById('tableViewWrap').style.display = 'block';
+      document.getElementById('cardViewWrap').style.display = 'none';
+      document.getElementById('vtTable').classList.add('active');
+      document.getElementById('vtCard').classList.remove('active');
+    } else {
+      document.getElementById('tableViewWrap').style.display = 'none';
+      document.getElementById('cardViewWrap').style.display = 'block';
+      document.getElementById('vtTable').classList.remove('active');
+      document.getElementById('vtCard').classList.add('active');
+      loadCardView(1);
+    }
+  }
+
+  function loadCardView(page) {
+    cardPage = page || 1;
+    $.get("{$Request.url}", {page: cardPage, limit: cardLimit}, function(res) {
+      var modeMap = {oneclick:{text:'🟢 一键生成',cls:'oneclick'}, freestyle:{text:'🟦 自由编排',cls:'freestyle'}, advanced:{text:'🟣 高级微调',cls:'advanced'}};
+      var statusMap = {draft:{text:'草稿',cls:'draft'}, running:{text:'运行中',cls:'running'}, completed:{text:'已完成',cls:'completed'}, failed:{text:'失败',cls:'failed'}};
+      var html = '';
+      (res.data || []).forEach(function(d) {
+        var m = modeMap[d.creation_mode] || {text:'未知',cls:''};
+        var s = statusMap[d.status] || {text:'未知',cls:''};
+        html += '<div class="project-card" onclick="window.location.href=\'{:url(\'canvas\')}&id='+d.id+'\'">' +
+          '<div class="card-header"><span class="card-title" title="'+d.title+'">'+d.title+'</span><span class="status-tag '+s.cls+'">'+s.text+'</span></div>' +
+          '<div class="card-body">' +
+          '<div class="card-meta"><span class="mode-tag '+m.cls+'">'+m.text+'</span><span style="font-size:11px;color:#bbb;">ID:'+d.id+'</span></div>' +
+          '<div class="card-desc">'+(d.description||'暂无描述')+'</div>' +
+          '<div class="card-stats"><span>📦 '+(d.node_count||0)+' 节点</span><span>📅 '+(d.create_time_text||'')+'</span></div>' +
+          '</div>' +
+          '<div class="card-footer">' +
+          '<a class="layui-btn layui-btn-xs layui-btn-normal" onclick="event.stopPropagation();window.location.href=\'{:url(\'canvas\')}&id='+d.id+'\'">画布</a>' +
+          '<a class="layui-btn layui-btn-xs" onclick="event.stopPropagation();window.location.href=\'{:url(\'project_detail\')}&id='+d.id+'\'">详情</a>' +
+          '<a class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();exportProject('+d.id+',\''+d.title.replace(/'/g,"\\'")+'\')">导出</a>' +
+          '</div></div>';
+      });
+      document.getElementById('projectCardGrid').innerHTML = html || '<div style="padding:40px;text-align:center;color:#999;">暂无项目</div>';
+
+      // 简易分页
+      var total = res.count || 0;
+      var totalPages = Math.ceil(total / cardLimit);
+      var pagerHtml = '';
+      if (totalPages > 1) {
+        for (var i = 1; i <= totalPages; i++) {
+          pagerHtml += '<a style="display:inline-block;padding:4px 12px;margin:0 3px;border-radius:4px;cursor:pointer;'+(i===cardPage?'background:#1890ff;color:#fff;':'background:#f0f0f0;color:#666;')+'" onclick="loadCardView('+i+')">'+i+'</a>';
+        }
+      }
+      document.getElementById('cardPager').innerHTML = pagerHtml;
+    });
+  }
+
+  // 导出项目
+  function exportProject(id, title) {
+    var loadIdx = layer.load(2, {shade: [0.3, '#000']});
+    $.get("{:url('project_export')}", {id: id}, function(res) {
+      layer.close(loadIdx);
+      if (res.status == 1) {
+        var json = JSON.stringify(res.data, null, 2);
+        var blob = new Blob([json], {type: 'application/json'});
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (title || 'project_'+id) + '.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        layer.msg('导出成功', {icon: 1});
+      } else {
+        layer.msg(res.msg || '导出失败', {icon: 2});
+      }
+    });
+  }
+
+  // 导入项目
+  function importProject() {
+    layer.open({
+      type: 1,
+      title: '📥 导入项目JSON',
+      area: ['550px', '400px'],
+      content: '<div style="padding:20px;">'
+        + '<div class="layui-form-item"><label class="layui-form-label">选择文件</label><div class="layui-input-block"><input type="file" id="importFileInput" accept=".json" class="layui-input"></div></div>'
+        + '<div class="layui-form-item"><label class="layui-form-label">或粘贴JSON</label><div class="layui-input-block"><textarea id="importJsonText" class="layui-textarea" rows="8" placeholder="粘贴导出的JSON内容..."></textarea></div></div>'
+        + '<div class="layui-form-item" style="text-align:center;"><button class="layui-btn" onclick="doImport()"><i class="layui-icon layui-icon-upload"></i> 开始导入</button></div>'
+        + '</div>'
+    });
+  }
+
+  function doImport() {
+    var fileInput = document.getElementById('importFileInput');
+    var textInput = document.getElementById('importJsonText');
+
+    function processImport(jsonStr) {
+      var loadIdx = layer.load(2, {shade: [0.3, '#000']});
+      $.post("{:url('project_import')}", {json_data: jsonStr}, function(res) {
+        layer.close(loadIdx);
+        if (res.status == 1) {
+          layer.closeAll();
+          layer.msg('导入成功！', {icon: 1, time: 1500}, function() {
+            if (res.project_id) {
+              window.location.href = "{:url('canvas')}&id=" + res.project_id;
+            } else {
+              tableIns.reload();
+            }
+          });
+        } else {
+          layer.msg(res.msg || '导入失败', {icon: 2});
+        }
+      });
+    }
+
+    if (fileInput.files && fileInput.files.length > 0) {
+      var reader = new FileReader();
+      reader.onload = function(e) { processImport(e.target.result); };
+      reader.readAsText(fileInput.files[0]);
+    } else if (textInput.value.trim()) {
+      processImport(textInput.value.trim());
+    } else {
+      layer.msg('请选择文件或粘贴JSON内容', {icon: 0});
+    }
+  }
+  </script>
+
+  <!-- 工具栏模板 -->
+  <script type="text/html" id="barTpl">
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="canvas">
+      <i class="layui-icon layui-icon-edit"></i> 画布
+    </a>
+    <a class="layui-btn layui-btn-xs" lay-event="detail">详情</a>
+    <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="export">导出</a>
+    <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="duplicate">复制</a>
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+  </script>
+</body>
+</html>

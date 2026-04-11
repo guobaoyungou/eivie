@@ -1,4 +1,4 @@
-、/**
+/**
  * 签到管理页面模块
  * 包含：签到设置、签到名单、白名单、手机签到页、3D签到
  */
@@ -2014,23 +2014,50 @@
             if (!actId) return Layout.setContent('<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>请先选择活动</p></div>');
 
             var html = '<div class="content-card"><div class="card-title">3D签到</div>' +
-                '<div class="layui-form" lay-filter="sign3d">' +
+                '<div class="two-column-layout">' +
+                // 左侧：3D签到设置
+                '<div class="column-left"><div class="layui-form" lay-filter="sign3d">' +
                 '<div class="form-section"><div class="section-title">3D签到设置</div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">头像数量</label><div class="layui-input-block"><input type="number" name="avatarnum" class="layui-input" placeholder="30" min="1" max="100"></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">头像大小</label><div class="layui-input-block"><input type="number" name="avatarsize" class="layui-input" placeholder="7" min="1" max="20"></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">头像间距</label><div class="layui-input-block"><input type="number" name="avatargap" class="layui-input" placeholder="15" min="1" max="50"></div></div>' +
-                '<div class="layui-form-item"><label class="layui-form-label">播放模式</label><div class="layui-input-block"><select name="play_mode"><option value="sequential">顺序播放</option><option value="random">随机播放</option></select></div></div>' +
+                '</div>' +
+
+                // 突出卡片样式选择
+                '<div class="form-section"><div class="section-title">突出卡片样式</div>' +
+                '<div class="card-style-grid">' +
+                '<div class="card-style-item selected" data-style="normal" onclick="SignPage._selectCardStyle(this)"><i class="fas fa-square"></i><span>样式一</span><em>普通卡片</em></div>' +
+                '<div class="card-style-item" data-style="sphere" onclick="SignPage._selectCardStyle(this)"><i class="fas fa-globe"></i><span>样式二</span><em>球形布局</em></div>' +
+                '<div class="card-style-item" data-style="heart" onclick="SignPage._selectCardStyle(this)"><i class="fas fa-heart"></i><span>样式三</span><em>爱心布局</em></div>' +
+                '<div class="card-style-item" data-style="star" onclick="SignPage._selectCardStyle(this)"><i class="fas fa-star"></i><span>样式四</span><em>五角星布局</em></div>' +
+                '<div class="card-style-item" data-style="helix" onclick="SignPage._selectCardStyle(this)"><i class="fas fa-dna"></i><span>样式五</span><em>螺旋布局</em></div>' +
+                '<div class="card-style-item" data-style="cube" onclick="SignPage._selectCardStyle(this)"><i class="fas fa-cube"></i><span>样式六</span><em>立方体布局</em></div>' +
+                '</div><input type="hidden" name="card_style" value="normal">' +
+                '</div>' +
+
+                // 突出卡片动态参数
+                '<div class="form-section"><div class="section-title">突出卡片动效</div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">放大倍数</label><div class="layui-input-block"><input type="number" name="highlight_scale" class="layui-input" placeholder="3" min="1" max="10" step="0.5"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">停留时长</label><div class="layui-input-block"><input type="number" name="highlight_duration" class="layui-input" placeholder="2000" min="500" max="10000"></div></div>' +
+                '</div>' +
+
+                '<div class="form-section"><div class="section-title">空闲设置</div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">空闲动画</label><div class="layui-input-block"><input type="checkbox" name="idle_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">空闲延迟</label><div class="layui-input-block"><input type="number" name="idle_delay" class="layui-input" placeholder="5000" min="1000" max="30000"></div></div>' +
                 '</div>' +
                 '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-3d-config" onclick="SignPage._save3dConfig()"><i class="fas fa-save"></i> 保存设置</button></div>' +
+                '</div></div>' +
+                // 右侧：3D效果设置
+                '<div class="column-right"><div class="section-title" style="margin-bottom:12px;"><i class="fas fa-magic" style="color:#7C4DFF;margin-right:6px;"></i>3D效果设置</div>' +
+                '<div id="effect-list-container" class="loading-state"><i class="fas fa-spinner"></i> 加载中...</div>' +
+                '</div>' +
                 '</div></div>';
 
             Layout.setContent(html);
-            
+
             // 渲染表单
             layui.form.render(null, 'sign3d');
-            
+
             // 绑定保存按钮事件
             setTimeout(function() {
                 var saveBtn = document.getElementById('btn-save-3d-config');
@@ -2038,23 +2065,33 @@
                     saveBtn.onclick = function() { SignPage._save3dConfig(); };
                 }
             }, 100);
-            
+
             // 加载数据
             this._load3dConfig(actId);
         },
         
+        // ========== 选择突出卡片样式 ==========
+        _selectCardStyle: function(el) {
+            document.querySelectorAll('.card-style-item').forEach(function(item) {
+                item.classList.remove('selected');
+            });
+            el.classList.add('selected');
+            document.querySelector('[name="card_style"]').value = el.getAttribute('data-style');
+        },
+
         // ========== 加载3D配置 ==========
         _load3dConfig: function(actId) {
             if (!actId) return;
-            
+
             layui.layer.load(2);
-            
+
             // 使用API获取3D配置
             Api.get3dConfig(actId).then(function(res) {
                 layui.layer.closeAll('loading');
                 // 后端返回格式: { code: 0, data: { config: {...}, effects: [...] } }
                 var data = res.data || {};
                 var config = data.config || {};
+                var effects = data.effects || [];
                 
                 // 填充表单数据
                 if (config.avatarnum) {
@@ -2071,12 +2108,7 @@
                     var avatarGap = document.querySelector('[name="avatargap"]');
                     if (avatarGap) avatarGap.value = config.avatargap;
                 }
-                
-                if (config.play_mode) {
-                    var playMode = document.querySelector('[name="play_mode"]');
-                    if (playMode) playMode.value = config.play_mode;
-                }
-                
+
                 if (config.idle_enabled !== undefined) {
                     var idleEnabled = document.querySelector('[name="idle_enabled"]');
                     if (idleEnabled) {
@@ -2089,7 +2121,29 @@
                     var idleDelay = document.querySelector('[name="idle_delay"]');
                     if (idleDelay) idleDelay.value = config.idle_delay;
                 }
-                
+
+                // 加载突出卡片样式
+                if (config.card_style) {
+                    document.querySelector('[name="card_style"]').value = config.card_style;
+                    document.querySelectorAll('.card-style-item').forEach(function(item) {
+                        item.classList.remove('selected');
+                        if (item.getAttribute('data-style') === config.card_style) {
+                            item.classList.add('selected');
+                        }
+                    });
+                }
+
+                // 加载突出卡片动效参数
+                if (config.highlight_scale) {
+                    var highlightScale = document.querySelector('[name="highlight_scale"]');
+                    if (highlightScale) highlightScale.value = config.highlight_scale;
+                }
+
+                if (config.highlight_duration) {
+                    var highlightDuration = document.querySelector('[name="highlight_duration"]');
+                    if (highlightDuration) highlightDuration.value = config.highlight_duration;
+                }
+
                 // 重新渲染表单
                 layui.form.render(null, 'sign3d');
                 
@@ -2097,6 +2151,9 @@
                 layui.layer.closeAll('loading');
                 console.error('加载3D配置失败:', err);
             });
+
+            // 加载效果列表到右侧
+            this._load3dEffectsPanel(actId);
         },
         
         // ========== 保存3D配置 ==========
@@ -2106,25 +2163,29 @@
                 layui.layer.msg('请先选择活动', { icon: 2 });
                 return;
             }
-            
+
             // 收集表单数据
             var formData = {
                 avatarnum: document.querySelector('[name="avatarnum"]').value || 30,
                 avatarsize: document.querySelector('[name="avatarsize"]').value || 7,
                 avatargap: document.querySelector('[name="avatargap"]').value || 15,
-                play_mode: document.querySelector('[name="play_mode"]').value || 'sequential',
                 idle_enabled: document.querySelector('[name="idle_enabled"]').checked ? 1 : 0,
-                idle_delay: document.querySelector('[name="idle_delay"]').value || 5000
+                idle_delay: document.querySelector('[name="idle_delay"]').value || 5000,
+                card_style: document.querySelector('[name="card_style"]').value || 'normal',
+                highlight_scale: document.querySelector('[name="highlight_scale"]').value || 3,
+                highlight_duration: document.querySelector('[name="highlight_duration"]').value || 2000
             };
-            
+
             // 验证数值
             formData.avatarnum = parseInt(formData.avatarnum) || 30;
             formData.avatarsize = parseInt(formData.avatarsize) || 7;
             formData.avatargap = parseInt(formData.avatargap) || 15;
             formData.idle_delay = parseInt(formData.idle_delay) || 5000;
-            
+            formData.highlight_scale = parseFloat(formData.highlight_scale) || 3;
+            formData.highlight_duration = parseInt(formData.highlight_duration) || 2000;
+
             layui.layer.load(2);
-            
+
             // 使用API保存配置
             Api.save3dConfig(actId, formData).then(function(res) {
                 layui.layer.closeAll('loading');
@@ -2245,6 +2306,384 @@
                 }
             }).catch(function(err) {
                 layui.layer.closeAll('loading');
+                layui.layer.msg(err.msg || '保存失败', { icon: 2 });
+            });
+        },
+
+        // ========== 加载3D效果列表（右侧面板） ==========
+        _load3dEffectsPanel: function(actId) {
+            Api.get3dConfig(actId).then(function(res) {
+                var config = res.data && res.data.config ? res.data.config : {};
+                var effects = res.data && res.data.effects ? res.data.effects : [];
+
+                var container = document.getElementById('effect-list-container');
+                if (!container) return;
+
+                // 预设造型图标映射
+                var shapeIcons = {
+                    'sphere': 'fa-globe',
+                    'torus': 'fa-ring',
+                    'grid': 'fa-th-large',
+                    'helix': 'fa-dna',
+                    'cylinder': 'fa-oil-can',
+                    'gene': 'fa-project-diagram'
+                };
+
+                var h = '<div class="effects-panel">' +
+
+                    // 播放模式
+                    '<div class="effects-play-mode">' +
+                    '<span class="effects-label"><i class="fas fa-play-circle"></i> 播放模式</span>' +
+                    '<select id="effect-play-mode" class="effects-select">' +
+                    '<option value="sequential"' + (config.play_mode === 'sequential' ? ' selected' : '') + '>顺序播放</option>' +
+                    '<option value="random"' + (config.play_mode === 'random' ? ' selected' : '') + '>随机播放</option>' +
+                    '</select>' +
+                    '</div>' +
+
+                    // 效果列表头部
+                    '<div class="effects-header">' +
+                    '<span class="effects-label"><i class="fas fa-magic"></i> 效果列表</span>' +
+                    '<button class="btn btn-success btn-sm" onclick="SignPage._showAddEffectDialog(' + actId + ')"><i class="fas fa-plus"></i> 添加效果</button>' +
+                    '</div>' +
+
+                    // 效果列表
+                    '<div id="effects-list" class="effects-list">';
+
+                if (effects.length === 0) {
+                    h += '<div class="effects-empty"><i class="fas fa-layer-group"></i><p>暂无效果</p></div>';
+                } else {
+                    effects.forEach(function(effect, index) {
+                        var typeName = SignPage._getEffectTypeName(effect.type);
+                        var contentDisplay = SignPage._getEffectContentDisplay(effect.type, effect.content);
+                        var isDefault = effect.is_default == 1;
+                        var canDelete = !isDefault && effects.length > 1;
+                        var icon = shapeIcons[effect.content] || 'fa-star';
+                        var effectIndex = index + 1;
+
+                        h += '<div class="effect-card" data-id="' + effect.id + '" draggable="true">' +
+                            '<div class="effect-drag"><i class="fas fa-arrows-alt"></i></div>' +
+                            '<div class="effect-icon"><i class="fas ' + icon + '"></i><span class="effect-num">' + effectIndex + '</span></div>' +
+                            '<div class="effect-info">' +
+                            '<div class="effect-name">' + typeName + '</div>' +
+                            '<div class="effect-desc">' + contentDisplay + '</div>' +
+                            '</div>';
+                        if (canDelete) {
+                            h += '<div class="effect-del" onclick="SignPage._delete3dEffect(' + actId + ',' + effect.id + ')"><i class="fas fa-trash-alt"></i></div>';
+                        } else {
+                            h += '<div class="effect-tag">默认</div>';
+                        }
+                        h += '</div>';
+                    });
+                }
+
+                h += '</div>' +
+
+                    // 底部保存
+                    '<div class="effects-footer">' +
+                    '<button class="btn btn-primary btn-block" onclick="SignPage._save3dEffects(' + actId + ')"><i class="fas fa-save"></i> 保存设置</button>' +
+                    '</div>' +
+
+                    '</div>';
+
+                container.innerHTML = h;
+
+                // 绑定拖拽排序
+                SignPage._initEffectsSortable(actId);
+
+            }).catch(function(err) {
+                var container = document.getElementById('effect-list-container');
+                if (container) container.innerHTML = '<div class="effects-empty"><i class="fas fa-exclamation-triangle"></i><p>加载失败</p></div>';
+            });
+        },
+
+        // ========== 显示添加效果弹窗 ==========
+        _showAddEffectDialog: function(actId) {
+            var self = this;
+            var html = '<div class="add-effect-dialog">' +
+                '<div class="effect-tab-nav">' +
+                '<div class="tab-item active" data-tab="preset"><i class="fas fa-cube"></i>预设造型</div>' +
+                '<div class="tab-item" data-tab="text"><i class="fas fa-font"></i>文字Logo</div>' +
+                '<div class="tab-item" data-tab="image"><i class="fas fa-image"></i>图片Logo</div>' +
+                '<div class="tab-item" data-tab="countdown"><i class="fas fa-clock"></i>倒计时</div>' +
+                '</div>' +
+
+                '<div class="tab-content">' +
+                // 预设造型
+                '<div class="tab-pane active" data-pane="preset">' +
+                '<div class="shape-grid">' +
+                '<div class="shape-item" data-shape="sphere"><i class="fas fa-globe"></i><span>球形</span></div>' +
+                '<div class="shape-item" data-shape="torus"><i class="fas fa-ring"></i><span>隧道</span></div>' +
+                '<div class="shape-item" data-shape="grid"><i class="fas fa-th-large"></i><span>方阵</span></div>' +
+                '<div class="shape-item" data-shape="helix"><i class="fas fa-dna"></i><span>螺旋</span></div>' +
+                '<div class="shape-item" data-shape="cylinder"><i class="fas fa-oil-can"></i><span>圆柱体</span></div>' +
+                '<div class="shape-item" data-shape="gene"><i class="fas fa-project-diagram"></i><span>基因</span></div>' +
+                '</div>' +
+                '</div>' +
+
+                // 文字Logo
+                '<div class="tab-pane" data-pane="text">' +
+                '<div class="pane-form"><label>文字内容</label>' +
+                '<input type="text" id="add-text-content" class="layui-input" placeholder="请输入文字（不超过20字）" maxlength="20">' +
+                '<p class="pane-tip"><i class="fas fa-info-circle"></i> 显示在3D效果中的文字</p></div>' +
+                '</div>' +
+
+                // 图片Logo
+                '<div class="tab-pane" data-pane="image">' +
+                '<div class="pane-form">' +
+                '<input type="hidden" id="add-image-path">' +
+                '<div id="logo-preview-box" class="logo-preview-box"><i class="fas fa-cloud-upload-alt"></i><p>点击上传Logo图片</p></div>' +
+                '<p class="pane-tip"><i class="fas fa-info-circle"></i> 支持PNG透明背景图片，建议尺寸200x200</p>' +
+                '</div>' +
+                '</div>' +
+
+                // 倒计时
+                '<div class="tab-pane" data-pane="countdown">' +
+                '<div class="pane-form"><label>倒计时秒数</label>' +
+                '<input type="number" id="add-countdown-seconds" class="layui-input" placeholder="3-300" min="3" max="300" value="10">' +
+                '<p class="pane-tip"><i class="fas fa-info-circle"></i> 数字越大倒计时越长</p></div>' +
+                '</div>' +
+                '</div>' +
+
+                '<div class="dialog-footer">' +
+                '<button class="btn btn-default" onclick="layer.closeAll(\'dialog\')">取消</button>' +
+                '<button class="btn btn-primary" onclick="SignPage._confirmAddEffect(' + actId + ')"><i class="fas fa-check"></i> 确认添加</button>' +
+                '</div>' +
+                '</div>';
+
+            layui.layer.open({
+                type: 1,
+                title: '<i class="fas fa-plus-circle" style="color:#43A047;margin-right:8px;"></i>添加效果',
+                area: ['500px', '420px'],
+                content: html,
+                skin: 'layui-layer-effects',
+                success: function(layero, index) {
+                    // Tab切换
+                    layero.find('.tab-item').on('click', function() {
+                        var tab = $(this).data('tab');
+                        $(this).siblings().removeClass('active');
+                        $(this).addClass('active');
+                        layero.find('.tab-pane').removeClass('active');
+                        layero.find('.tab-pane[data-pane="' + tab + '"]').addClass('active');
+                    });
+
+                    // 预设造型选择
+                    layero.find('.shape-item').on('click', function() {
+                        layero.find('.shape-item').removeClass('selected');
+                        $(this).addClass('selected');
+                    });
+
+                    // Logo上传点击
+                    layero.find('#logo-preview-box').on('click', function() {
+                        var input = $('<input type="file" accept="image/png" style="display:none">');
+                        input.on('change', function() {
+                            var file = this.files[0];
+                            if (!file) return;
+                            if (file.size > 2 * 1024 * 1024) {
+                                layui.layer.msg('文件大小不能超过2MB', { icon: 2 });
+                                return;
+                            }
+                            var formData = new FormData();
+                            formData.append('logo_file', file);
+                            var loadIdx = layui.layer.load(2);
+                            Api.upload3dLogo(actId, formData).then(function(res) {
+                                layui.layer.close(loadIdx);
+                                if (res.code === 0) {
+                                    $('#add-image-path').val(res.data.path);
+                                    $('#logo-preview-box').html('<img src="' + res.data.url + '"><i class="fas fa-times remove-logo"></i>');
+                                    layui.layer.msg('上传成功', { icon: 1 });
+                                } else {
+                                    layui.layer.msg(res.msg || '上传失败', { icon: 2 });
+                                }
+                            }).catch(function() {
+                                layui.layer.close(loadIdx);
+                                layui.layer.msg('上传失败', { icon: 2 });
+                            });
+                        });
+                        input.click();
+                    });
+
+                    // 删除Logo
+                    layero.on('click', '.remove-logo', function(e) {
+                        e.stopPropagation();
+                        $('#add-image-path').val('');
+                        $('#logo-preview-box').html('<i class="fas fa-cloud-upload-alt"></i><p>点击上传Logo图片</p>');
+                    });
+                }
+            });
+        },
+
+        // ========== 确认添加效果 ==========
+        _confirmAddEffect: function(actId) {
+            var activeTab = $('.layui-layer-effects .tab-item.active').data('tab');
+            var type = '';
+            var content = '';
+
+            if (activeTab === 'preset') {
+                var selected = $('.layui-layer-effects .shape-item.selected');
+                if (selected.length === 0) {
+                    layui.layer.msg('请选择造型', { icon: 2 });
+                    return;
+                }
+                type = 'preset_shape';
+                content = selected.data('shape');
+            } else if (activeTab === 'text') {
+                content = $('#add-text-content').val().trim();
+                if (!content || content.length > 20) {
+                    layui.layer.msg('请输入文字（不超过20字）', { icon: 2 });
+                    return;
+                }
+                type = 'text_logo';
+            } else if (activeTab === 'image') {
+                content = $('#add-image-path').val();
+                if (!content) {
+                    layui.layer.msg('请上传Logo图片', { icon: 2 });
+                    return;
+                }
+                type = 'image_logo';
+            } else if (activeTab === 'countdown') {
+                content = $('#add-countdown-seconds').val();
+                var seconds = parseInt(content) || 0;
+                if (seconds < 3 || seconds > 300) {
+                    layui.layer.msg('秒数须在3-300之间', { icon: 2 });
+                    return;
+                }
+                type = 'countdown';
+            }
+
+            var loadIdx = layui.layer.load(2);
+
+            Api.add3dEffect(actId, { type: type, content: content }).then(function(res) {
+                layui.layer.close(loadIdx);
+                if (res.code === 0) {
+                    layui.layer.closeAll('dialog');
+                    layui.layer.msg('效果已添加', { icon: 1 });
+                    SignPage._load3dEffectsPanel(actId);
+                } else {
+                    layui.layer.msg(res.msg || '添加失败', { icon: 2 });
+                }
+            }).catch(function() {
+                layui.layer.close(loadIdx);
+                layui.layer.msg('添加失败', { icon: 2 });
+            });
+        },
+
+        _getEffectTypeName: function(type) {
+            var names = {
+                'preset_shape': '预设造型',
+                'text_logo': '文字Logo',
+                'image_logo': '图片Logo',
+                'countdown': '倒计时'
+            };
+            return names[type] || type;
+        },
+
+        _getEffectContentDisplay: function(type, content) {
+            if (!content) return '-';
+            var shapeNames = {
+                'sphere': '球形',
+                'torus': '隧道',
+                'grid': '方阵',
+                'helix': '螺旋',
+                'cylinder': '圆柱体',
+                'gene': '基因'
+            };
+            if (type === 'preset_shape') {
+                return shapeNames[content] || content;
+            } else if (type === 'countdown') {
+                return content + '秒';
+            }
+            return content;
+        },
+
+        _delete3dEffect: function(actId, effectId) {
+            layui.layer.confirm('确定删除此效果？', { icon: 3 }, function(idx) {
+                layui.layer.close(idx);
+                var loadIdx = layui.layer.load(1, { shade: [0.3, '#000'] });
+
+                Api.delete3dEffect(actId, effectId).then(function(res) {
+                    layui.layer.close(loadIdx);
+                    if (res.code === 0) {
+                        layui.layer.msg('效果已删除', { icon: 1 });
+                        SignPage._load3dEffectsPanel(actId);
+                    } else {
+                        layui.layer.msg(res.msg || '删除失败', { icon: 2 });
+                    }
+                }).catch(function() {
+                    layui.layer.close(loadIdx);
+                    layui.layer.msg('删除失败', { icon: 2 });
+                });
+            });
+        },
+
+        _initEffectsSortable: function(actId) {
+            var list = document.getElementById('effects-list');
+            if (!list) return;
+
+            var draggedEl = null;
+
+            list.querySelectorAll('.effect-card').forEach(function(item) {
+                item.addEventListener('dragstart', function(e) {
+                    draggedEl = this;
+                    this.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                item.addEventListener('dragend', function() {
+                    this.classList.remove('dragging');
+                    draggedEl = null;
+                });
+
+                item.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                });
+
+                item.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    if (draggedEl && draggedEl !== this) {
+                        var allItems = Array.from(list.querySelectorAll('.effect-item'));
+                        var draggedIdx = allItems.indexOf(draggedEl);
+                        var targetIdx = allItems.indexOf(this);
+
+                        if (draggedIdx < targetIdx) {
+                            this.parentNode.insertBefore(draggedEl, this.nextSibling);
+                        } else {
+                            this.parentNode.insertBefore(draggedEl, this);
+                        }
+                    }
+                });
+            });
+        },
+
+        _save3dEffects: function(actId) {
+            var list = document.getElementById('effects-list');
+            if (!list) return;
+
+            // 获取排序后的效果ID列表
+            var effectIds = [];
+            list.querySelectorAll('.effect-card').forEach(function(item) {
+                effectIds.push(parseInt(item.getAttribute('data-id')));
+            });
+
+            if (effectIds.length === 0) {
+                layui.layer.msg('没有可保存的效果', { icon: 2 });
+                return;
+            }
+
+            // 获取播放模式
+            var playMode = document.getElementById('effect-play-mode').value;
+
+            var loadIdx = layui.layer.load(1, { shade: [0.3, '#000'] });
+
+            // 先保存播放模式
+            Api.save3dConfig(actId, { play_mode: playMode }).then(function() {
+                // 再保存排序
+                return Api.reorder3dEffects(actId, effectIds);
+            }).then(function(res) {
+                layui.layer.close(loadIdx);
+                layui.layer.msg('设置已保存', { icon: 1 });
+            }).catch(function(err) {
+                layui.layer.close(loadIdx);
                 layui.layer.msg(err.msg || '保存失败', { icon: 2 });
             });
         },

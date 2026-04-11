@@ -45,7 +45,7 @@ $qd_nums=count($flag);
 $qd_maxid=$qd_nums>0?$flag[$qd_nums-1]['signorder']:0;
 
 // ---- 从新系统数据库读取3D配置和效果列表 ----
-$threedimensional = array('avatarnum'=>30, 'avatarsize'=>7, 'avatargap'=>15, 'datastr'=>'#sphere|#torus|#grid|#helix|#cylinder|#gene', 'play_mode'=>'sequential', 'idle_enabled'=>true, 'idle_delay'=>5000);
+$threedimensional = array('avatarnum'=>30, 'avatarsize'=>7, 'avatargap'=>15, 'datastr'=>'#sphere|#torus|#grid|#helix|#cylinder|#gene', 'play_mode'=>'sequential', 'idle_enabled'=>true, 'idle_delay'=>5000, 'card_style'=>'normal', 'highlight_scale'=>3, 'highlight_duration'=>2000);
 $scfg = array();
 try {
     $newDbConfig = @include(dirname(__FILE__) . '/../../config.php');
@@ -75,6 +75,9 @@ try {
                 $threedimensional['play_mode']  = isset($scfg['threed_play_mode'])  ? $scfg['threed_play_mode'] : 'sequential';
                 $threedimensional['idle_enabled'] = isset($scfg['threed_idle_enabled']) ? (bool)$scfg['threed_idle_enabled'] : true;
                 $threedimensional['idle_delay']   = isset($scfg['threed_idle_delay'])   ? intval($scfg['threed_idle_delay']) : 5000;
+                $threedimensional['card_style']     = isset($scfg['threed_card_style'])     ? $scfg['threed_card_style'] : 'normal';
+                $threedimensional['highlight_scale']    = isset($scfg['threed_highlight_scale'])    ? floatval($scfg['threed_highlight_scale']) : 3;
+                $threedimensional['highlight_duration'] = isset($scfg['threed_highlight_duration']) ? intval($scfg['threed_highlight_duration']) : 2000;
                 // 优先使用 screen_config 中已同步的 datastr
                 if (!empty($scfg['threed_datastr'])) {
                     $threedimensional['datastr'] = $scfg['threed_datastr'];
@@ -117,6 +120,9 @@ $smarty->assign('threedimensional_config',$threedimensional);
 $smarty->assign('threedimensional_play_mode',$threedimensional['play_mode']);
 $smarty->assign('threed_idle_enabled', !empty($threedimensional['idle_enabled']) ? 'true' : 'false');
 $smarty->assign('threed_idle_delay', isset($threedimensional['idle_delay']) ? $threedimensional['idle_delay'] : 5000);
+$smarty->assign('threed_card_style', isset($threedimensional['card_style']) ? $threedimensional['card_style'] : 'normal');
+$smarty->assign('threed_highlight_scale', isset($threedimensional['highlight_scale']) ? $threedimensional['highlight_scale'] : 3);
+$smarty->assign('threed_highlight_duration', isset($threedimensional['highlight_duration']) ? $threedimensional['highlight_duration'] : 2000);
 $smarty->assign('title',"");
 $smarty->display('themes/'.$style.'/header.html');
 $smarty->display('themes/'.$style.'/3dsign.html');

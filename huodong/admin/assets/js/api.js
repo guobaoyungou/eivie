@@ -200,6 +200,7 @@
             return http.post('/lottery/' + actId + '/prizes/' + id + '/update', data);
         },
         deleteLotteryPrize: function(actId, id) {
+            console.log('[Api] deleteLotteryPrize: actId=' + actId + ', id=' + id + ', url=/lottery/' + actId + '/prizes/' + id + '/delete');
             return http.post('/lottery/' + actId + '/prizes/' + id + '/delete');
         },
         getLotteryThemes: function(actId) {
@@ -210,6 +211,16 @@
         },
         updateChoujiangConfig: function(actId, data) {
             return http.post('/lottery/' + actId + '/choujiang', data);
+        },
+        // 大屏抽奖设置API
+        getScreenSettings: function(actId) {
+            return http.get('/lottery/' + actId + '/screen/settings');
+        },
+        saveScreenSettings: function(actId, data) {
+            return http.post('/lottery/' + actId + '/screen/settings', data);
+        },
+        resetScreenBackground: function(actId) {
+            return http.post('/lottery/' + actId + '/screen/background/reset');
         },
         getImportList: function(actId) {
             return http.get('/lottery/' + actId + '/import');

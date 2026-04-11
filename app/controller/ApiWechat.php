@@ -542,6 +542,59 @@ class ApiWechat extends BaseController
 					}
 					die('success');
 				}
+				// AI旅拍用户自拍端公众号二维码处理
+				// scene格式: selfie_bid_{bid}_mdid_{mdid}
+				// 用户扫码关注/已关注扫码 → 自动注册会员 → 推送自拍端推文链接
+				if(strpos($eventKey, 'selfie_') === 0){
+					$selfieParams = \app\service\AiTravelPhotoSelfieService::parseSelfieSceneStr($eventKey);
+					$selfieBid = $selfieParams['bid'];
+					$selfieMdid = $selfieParams['mdid'];
+
+					if($selfieBid > 0 && $selfieMdid > 0){
+						// 查找或创建会员
+						$member = Db::name('member')->where('aid', aid)->where('mpopenid', $openid)->find();
+						if(!$member){
+							$rs = curl_get('https://api.weixin.qq.com/cgi-bin/user/info?access_token='.\app\common\Wechat::access_token(aid,'mp').'&openid='.$openid.'&lang=zh_CN');
+							$fansinfo = json_decode($rs, true);
+							if($fansinfo && !empty($fansinfo['unionid'])){
+								$member = Db::name('member')->where('aid', aid)->where('unionid', $fansinfo['unionid'])->find();
+								if($member){
+									Db::name('member')->where('id', $member['id'])->update(['mpopenid' => $openid, 'subscribe' => 1, 'subscribe_time' => time()]);
+								}
+							}
+							if(!$member){
+								$data = [
+									'aid' => aid,
+									'mpopenid' => $openid,
+									'nickname' => ($fansinfo && isset($fansinfo['nickname']) && $fansinfo['nickname']) ? $fansinfo['nickname'] : '微信用户',
+									'sex' => ($fansinfo && isset($fansinfo['sex'])) ? $fansinfo['sex'] : 3,
+									'headimg' => ($fansinfo && isset($fansinfo['headimgurl']) && $fansinfo['headimgurl']) ? $fansinfo['headimgurl'] : PRE_URL.'/static/img/touxiang.png',
+									'unionid' => ($fansinfo && !empty($fansinfo['unionid'])) ? $fansinfo['unionid'] : '',
+									'subscribe' => 1,
+									'subscribe_time' => time(),
+									'createtime' => time(),
+									'last_visittime' => time(),
+									'platform' => 'mp'
+								];
+								$mid = \app\model\Member::add(aid, $data);
+								$member = Db::name('member')->where('id', $mid)->find();
+							}
+						}
+						if($member && $postObj->Event == 'subscribe'){
+							Db::name('member')->where('id', $member['id'])->update(['subscribe' => 1, 'subscribe_time' => time()]);
+						}
+
+						// 推送自拍端推文
+						try {
+							$selfieService = new \app\service\AiTravelPhotoSelfieService();
+							$isSubscribe = (strval($postObj->Event) == 'subscribe');
+							$selfieService->handleScanEvent(aid, $openid, $selfieBid, $selfieMdid, $isSubscribe);
+						} catch (\Throwable $e) {
+							Log::error('[Selfie] 推送自拍端推文异常: ' . $e->getMessage());
+						}
+					}
+					die('success');
+				}
 				// XPD大屏公众号二维码处理
 				// scene格式: portraitId_{ID}-bid_{bid}
 				// 用户扫码关注/已关注扫码 → 自动注册会员 → 回复选片链接

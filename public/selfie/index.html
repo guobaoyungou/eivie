@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI旅拍 · 自拍找照片</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;}
+.page{width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;position:absolute;top:0;left:0;}
+.page.active{display:flex;}
+/* 加载页 */
+#page-loading{background:#000;color:#fff;}
+#page-loading .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#page-loading .text{margin-top:15px;font-size:14px;color:#ccc;}
+.retry-btn{display:none;margin-top:20px;padding:10px 28px;border-radius:20px;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;font-size:14px;cursor:pointer;}
+.retry-btn:active{background:rgba(255,255,255,.1);}
+/* 摄像头页 */
+#page-camera{background:#000;}
+#video-container{width:100%;height:100%;position:relative;overflow:hidden;}
+#video-container video{width:100%;height:100%;object-fit:cover;}
+.face-guide{position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);width:220px;height:280px;border:2px dashed rgba(255,255,255,.6);border-radius:50%;pointer-events:none;transition:border-color .3s;}
+.face-guide.detected{border-color:#4CAF50;border-style:solid;box-shadow:0 0 20px rgba(76,175,80,.4);}
+.camera-tip{position:absolute;bottom:80px;left:0;right:0;text-align:center;color:#fff;font-size:14px;text-shadow:0 1px 3px rgba(0,0,0,.5);}
+.camera-switch{position:absolute;top:20px;right:20px;width:44px;height:44px;background:rgba(0,0,0,.4);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;}
+.camera-switch svg{width:24px;height:24px;fill:#fff;}
+.flash-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:#fff;opacity:0;pointer-events:none;transition:opacity .15s;}
+.flash-overlay.flash{opacity:1;}
+.store-info{position:absolute;top:20px;left:20px;color:#fff;font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,.5);z-index:10;}
+/* 比对中 */
+#page-matching{background:rgba(0,0,0,.9);color:#fff;}
+#page-matching .icon{font-size:48px;margin-bottom:15px;}
+#page-matching .text{font-size:16px;}
+/* 结果页 - 未命中 */
+#page-nomatch{background:#f5f5f5;color:#333;padding:30px;}
+.result-card{background:#fff;border-radius:12px;padding:25px;width:100%;max-width:360px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.1);}
+.result-card h3{font-size:18px;margin-bottom:12px;}
+.result-card p{font-size:14px;color:#666;margin-bottom:20px;line-height:1.6;}
+.btn{display:inline-block;padding:12px 30px;border-radius:25px;font-size:15px;border:none;cursor:pointer;margin:5px;}
+.btn-primary{background:linear-gradient(135deg,#1E9FFF,#0078D7);color:#fff;}
+.btn-secondary{background:#f0f0f0;color:#666;}
+.btn-success{background:linear-gradient(135deg,#4CAF50,#2E7D32);color:#fff;}
+/* 等待页 */
+#page-waiting{background:#f5f5f5;padding:30px;}
+.progress-ring{width:120px;height:120px;margin:0 auto 20px;}
+.progress-ring circle{transition:stroke-dashoffset .5s;}
+.countdown{font-size:24px;font-weight:bold;color:#1E9FFF;}
+.progress-text{font-size:13px;color:#999;margin-top:5px;}
+/* 通知注册完成 */
+#page-notify-done{background:#f5f5f5;padding:30px;}
+.success-icon{font-size:64px;color:#4CAF50;margin-bottom:15px;}
+</style>
+</head>
+<body>
+
+<!-- 页面1：加载中 -->
+<div class="page active" id="page-loading">
+  <div class="spinner"></div>
+  <div class="text">正在初始化摄像头...</div>
+  <button class="retry-btn" id="retryBtn" onclick="retryInit()">重试</button>
+</div>
+
+<!-- 页面2：摄像头预览+人脸检测 -->
+<div class="page" id="page-camera">
+  <div id="video-container">
+    <video id="video" autoplay playsinline muted></video>
+    <div class="face-guide" id="faceGuide"></div>
+    <div class="flash-overlay" id="flashOverlay"></div>
+    <div class="store-info" id="storeInfo"></div>
+    <div class="camera-switch" id="switchCamera" onclick="toggleCamera()">
+      <svg viewBox="0 0 24 24"><path d="M20 5h-3.17L15 3H9L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-5 11c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z"/></svg>
+    </div>
+    <div class="camera-tip" id="cameraTip">请将面部放入框内</div>
+  </div>
+</div>
+
+<!-- 页面3：比对中 -->
+<div class="page" id="page-matching">
+  <div class="spinner"></div>
+  <div class="text" style="margin-top:15px;">正在搜索您的旅拍照片...</div>
+</div>
+
+<!-- 页面4：未命中 - 选择等待/通知 -->
+<div class="page" id="page-nomatch">
+  <div class="result-card">
+    <h3>📸 照片正在生成中</h3>
+    <p>暂未找到您的旅拍成片，系统正在为您生成，预计需要 <span id="estimatedTime">--</span> 秒</p>
+    <button class="btn btn-primary" onclick="startWaiting()">继续等待</button>
+    <button class="btn btn-secondary" onclick="registerNotify()">找到后通知我</button>
+  </div>
+</div>
+
+<!-- 页面5：等待合成 -->
+<div class="page" id="page-waiting">
+  <div class="result-card">
+    <h3>⏳ 合成中，请稍候</h3>
+    <div class="progress-ring">
+      <svg width="120" height="120">
+        <circle cx="60" cy="60" r="54" fill="none" stroke="#e0e0e0" stroke-width="6"/>
+        <circle id="progressCircle" cx="60" cy="60" r="54" fill="none" stroke="#1E9FFF" stroke-width="6" stroke-linecap="round" stroke-dasharray="339.29" stroke-dashoffset="339.29" transform="rotate(-90 60 60)"/>
+      </svg>
+    </div>
+    <div class="countdown" id="progressPercent">0%</div>
+    <div class="progress-text" id="progressDetail">正在处理中...</div>
+    <div style="margin-top:20px;">
+      <button class="btn btn-secondary" onclick="registerNotify()">找到后通知我</button>
+    </div>
+  </div>
+</div>
+
+<!-- 页面6：通知注册完成 -->
+<div class="page" id="page-notify-done">
+  <div class="result-card">
+    <div class="success-icon">✅</div>
+    <h3>通知已注册</h3>
+    <p>照片准备好后，我们将通过公众号消息通知您，届时可直接选片付费下载。</p>
+    <p style="font-size:12px;color:#999;">您可以关闭此页面</p>
+  </div>
+</div>
+
+<!-- face-api.js 本地优先，CDN回退 -->
+<script>
+(function(){
+  var localSrc = '/static/face-api/face-api.min.js';
+  var cdnSrc = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+  function loadScript(src, onOk, onErr) {
+    var s = document.createElement('script');
+    s.src = src; s.onload = onOk; s.onerror = onErr;
+    document.head.appendChild(s);
+  }
+  // 尝试本地 → CDN回退
+  loadScript(localSrc, function(){ console.log('face-api.js 本地加载成功'); }, function(){
+    console.log('face-api.js 本地加载失败，尝试CDN');
+    loadScript(cdnSrc, function(){ console.log('face-api.js CDN加载成功'); }, function(){
+      console.error('face-api.js 加载失败');
+    });
+  });
+})();
+</script>
+<script>
+(function(){
+  // ===== 全局状态 =====
+  var STATE = {
+    aid: 0, bid: 0, mdid: 0,
+    openid: '',
+    portraitId: 0,
+    facingMode: 'user', // 前置
+    stream: null,
+    detecting: false,
+    captured: false,
+    pollTimer: null
+  };
+
+  var API_BASE = '/index.php?s=/api/ai_travel_photo/selfie/';
+
+  // ===== 工具函数 =====
+  function getUrlParam(key) {
+    var reg = new RegExp('(^|&)' + key + '=([^&]*)(&|$)');
+    var r = window.location.search.substr(1).match(reg);
+    return r ? decodeURIComponent(r[2]) : '';
+  }
+
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
+  }
+
+  function apiGet(action, params) {
+    var qs = '';
+    if(params) {
+      var arr = [];
+      for(var k in params) arr.push(k + '=' + encodeURIComponent(params[k]));
+      qs = '&' + arr.join('&');
+    }
+    return fetch(API_BASE + action + qs, {credentials: 'include'}).then(function(r){return r.json();});
+  }
+
+  function apiPost(action, data) {
+    return fetch(API_BASE + action, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      credentials: 'include',
+      body: typeof data === 'string' ? data : Object.keys(data).map(function(k){return k+'='+encodeURIComponent(data[k]);}).join('&')
+    }).then(function(r){return r.json();});
+  }
+
+  // ===== 初始化 =====
+  function init() {
+    STATE.aid = parseInt(getUrlParam('aid')) || 0;
+    STATE.bid = parseInt(getUrlParam('bid')) || 0;
+    STATE.mdid = parseInt(getUrlParam('mdid')) || 0;
+
+    if(!STATE.aid || !STATE.bid || !STATE.mdid) {
+      showError('参数错误，请重新扫码');
+      return;
+    }
+
+    // 检查浏览器是否支持摄像头
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showError('您的浏览器不支持摄像头访问，请使用微信打开');
+      return;
+    }
+
+    // 检查授权
+    apiGet('index', {aid: STATE.aid, bid: STATE.bid, mdid: STATE.mdid}).then(function(res){
+      if(res.code === 302) {
+        // 需要OAuth授权
+        window.location.href = API_BASE + 'start_oauth&aid=' + STATE.aid + '&bid=' + STATE.bid + '&mdid=' + STATE.mdid;
+        return;
+      }
+      if(res.code !== 200) {
+        showError(res.msg || '加载失败');
+        return;
+      }
+
+      STATE.openid = res.data.openid;
+      document.getElementById('storeInfo').textContent = res.data.store_name || '';
+
+      // 等待face-api.js加载完成后再加载模型
+      waitForFaceApi(function(){
+        loadModelsAndStart();
+      });
+    }).catch(function(e){
+      showError('网络错误，请检查网络后重试', true);
+    });
+  }
+
+  // 等待face-api.js库加载完成
+  function waitForFaceApi(callback) {
+    if(typeof faceapi !== 'undefined') {
+      callback();
+      return;
+    }
+    var waited = 0;
+    var timer = setInterval(function(){
+      waited += 100;
+      if(typeof faceapi !== 'undefined') {
+        clearInterval(timer);
+        callback();
+      } else if(waited > 15000) {
+        clearInterval(timer);
+        showError('人脸检测库加载超时，请刷新重试', true);
+      }
+    }, 100);
+  }
+
+  // 显示错误并可选显示重试按钮
+  function showError(msg, showRetry) {
+    document.querySelector('#page-loading .text').textContent = msg;
+    document.querySelector('#page-loading .spinner').style.display = 'none';
+    if(showRetry) {
+      document.getElementById('retryBtn').style.display = 'inline-block';
+    }
+  }
+
+  // 重试初始化
+  window.retryInit = function() {
+    document.querySelector('#page-loading .spinner').style.display = 'block';
+    document.getElementById('retryBtn').style.display = 'none';
+    document.querySelector('#page-loading .text').textContent = '正在重新初始化...';
+    init();
+  };
+
+  // ===== 加载face-api模型（本地优先，CDN回退） =====
+  function loadModelsAndStart() {
+    document.querySelector('#page-loading .text').textContent = '正在加载人脸检测模型...';
+
+    var localUrl = '/static/face-api/models';
+    var cdnUrl = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+
+    loadModelsFromUrl(localUrl).then(function(){
+      console.log('本地模型加载成功');
+      startCamera();
+    }).catch(function(e1){
+      console.log('本地模型加载失败，尝试CDN:', e1.message);
+      document.querySelector('#page-loading .text').textContent = '正在从CDN加载模型...';
+      loadModelsFromUrl(cdnUrl).then(function(){
+        console.log('CDN模型加载成功');
+        startCamera();
+      }).catch(function(e){
+        showError('模型加载失败，请检查网络后刷新重试', true);
+        console.error('模型加载失败:', e2.message);
+      });
+    });
+  }
+
+  function loadModelsFromUrl(url) {
+    return Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(url),
+      faceapi.nets.faceLandmark68Net.loadFromUri(url),
+      faceapi.nets.faceRecognitionNet.loadFromUri(url)
+    ]);
+  }
+
+  // ===== 摄像头 =====
+  function startCamera() {
+    var constraints = {
+      video: { facingMode: STATE.facingMode, width: {ideal: 640}, height: {ideal: 480} },
+      audio: false
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints).then(function(stream){
+      STATE.stream = stream;
+      var video = document.getElementById('video');
+      video.srcObject = stream;
+      video.onloadedmetadata = function(){
+        video.play();
+        showPage('page-camera');
+        startDetection();
+      };
+    }).catch(function(e){
+      showError('无法访问摄像头，请检查摄像头权限', true);
+    });
+  }
+
+  window.toggleCamera = function() {
+    STATE.facingMode = STATE.facingMode === 'user' ? 'environment' : 'user';
+    if(STATE.stream) {
+      STATE.stream.getTracks().forEach(function(t){t.stop();});
+    }
+    STATE.detecting = false;
+    startCamera();
+  };
+
+  // ===== 人脸检测 =====
+  function startDetection() {
+    STATE.detecting = true;
+    STATE.captured = false;
+    detectLoop();
+  }
+
+  function detectLoop() {
+    if(!STATE.detecting || STATE.captured) return;
+
+    var video = document.getElementById('video');
+    var options = new faceapi.TinyFaceDetectorOptions({inputSize: 320, scoreThreshold: 0.7});
+
+    faceapi.detectSingleFace(video, options)
+      .withFaceLandmarks()
+      .withFaceDescriptor()
+      .then(function(result){
+        if(!STATE.detecting || STATE.captured) return;
+
+        var guide = document.getElementById('faceGuide');
+        var tip = document.getElementById('cameraTip');
+
+        if(result) {
+          var box = result.detection.box;
+          var vpWidth = video.videoWidth || video.clientWidth;
+          var minFaceSize = vpWidth * 0.25;
+
+          if(box.width >= minFaceSize && result.detection.score >= 0.7) {
+            guide.classList.add('detected');
+            tip.textContent = '检测到面部，请保持不动...';
+
+            // 延迟一小段时间后自动抓拍（确保稳定）
+            setTimeout(function(){
+              if(!STATE.captured && STATE.detecting) {
+                captureAndMatch(result.descriptor);
+              }
+            }, 600);
+            return;
+          } else {
+            guide.classList.remove('detected');
+            tip.textContent = '请将面部靠近一些';
+          }
+        } else {
+          guide.classList.remove('detected');
+          tip.textContent = '请将面部放入框内';
+        }
+
+        requestAnimationFrame(detectLoop);
+      }).catch(function(){
+        if(STATE.detecting && !STATE.captured) {
+          setTimeout(detectLoop, 200);
+        }
+      });
+  }
+
+  // ===== 抓拍+比对 =====
+  function captureAndMatch(descriptor) {
+    STATE.captured = true;
+    STATE.detecting = false;
+
+    // 快门动效
+    var flash = document.getElementById('flashOverlay');
+    flash.classList.add('flash');
+    setTimeout(function(){ flash.classList.remove('flash'); }, 200);
+
+    // 截取画面
+    var video = document.getElementById('video');
+    var canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    var imageBase64 = canvas.toDataURL('image/jpeg', 0.85);
+
+    // 停止摄像头
+    if(STATE.stream) {
+      STATE.stream.getTracks().forEach(function(t){t.stop();});
+    }
+
+    showPage('page-matching');
+
+    // 发送到服务器比对
+    var embeddingArr = Array.from(descriptor);
+
+    apiPost('capture', {
+      image: imageBase64,
+      face_embedding: JSON.stringify(embeddingArr),
+      bid: STATE.bid,
+      mdid: STATE.mdid
+    }).then(function(res){
+      if(res.code === 302) {
+        window.location.href = API_BASE + 'start_oauth&aid=' + STATE.aid + '&bid=' + STATE.bid + '&mdid=' + STATE.mdid;
+        return;
+      }
+      if(res.code !== 200) {
+        alert(res.msg || '处理失败');
+        showPage('page-camera');
+        STATE.captured = false;
+        startCamera();
+        return;
+      }
+
+      if(res.data.matched) {
+        // 命中 → 跳转付费选片页
+        window.location.href = res.data.pick_url;
+      } else {
+        // 未命中 → 显示选择页
+        STATE.portraitId = res.data.portrait_id;
+        document.getElementById('estimatedTime').textContent = res.data.estimated_seconds || 60;
+        showPage('page-nomatch');
+      }
+    }).catch(function(e){
+      alert('网络错误: ' + e.message);
+      showPage('page-camera');
+      STATE.captured = false;
+      startCamera();
+    });
+  }
+
+  // ===== 等待模式 =====
+  window.startWaiting = function() {
+    showPage('page-waiting');
+    pollProgress();
+  };
+
+  function pollProgress() {
+    if(STATE.pollTimer) clearInterval(STATE.pollTimer);
+    STATE.pollTimer = setInterval(function(){
+      apiGet('progress', {portrait_id: STATE.portraitId}).then(function(res){
+        if(res.code !== 200) return;
+        var d = res.data;
+        var pct = d.progress || 0;
+        var circle = document.getElementById('progressCircle');
+        var circumference = 339.29;
+        circle.style.strokeDashoffset = circumference - (pct / 100 * circumference);
+        document.getElementById('progressPercent').textContent = pct + '%';
+
+        if(d.status === 3 && d.pick_url) {
+          // 合成完成
+          clearInterval(STATE.pollTimer);
+          document.getElementById('progressDetail').textContent = '合成完成！正在跳转...';
+          setTimeout(function(){ window.location.href = d.pick_url; }, 1000);
+        } else if(d.status === 4) {
+          clearInterval(STATE.pollTimer);
+          document.getElementById('progressDetail').textContent = '合成失败，请稍后重试';
+        } else {
+          var remaining = d.remaining_seconds || 0;
+          document.getElementById('progressDetail').textContent = '预计还需 ' + remaining + ' 秒';
+        }
+      });
+    }, 3000);
+  }
+
+  // ===== 通知模式 =====
+  window.registerNotify = function() {
+    if(STATE.pollTimer) clearInterval(STATE.pollTimer);
+
+    apiPost('notify_me', {
+      portrait_id: STATE.portraitId,
+      openid: STATE.openid
+    }).then(function(res){
+      if(res.code === 200) {
+        showPage('page-notify-done');
+      } else {
+        alert(res.msg || '注册通知失败');
+      }
+    }).catch(function(e){
+      alert('网络错误');
+    });
+  };
+
+  // ===== 启动 =====
+  if(document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

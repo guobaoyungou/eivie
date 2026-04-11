@@ -9,6 +9,7 @@ use app\model\AiTravelPhotoResult;
 use app\model\AiTravelPhotoQrcode;
 use app\model\ApiConfig;
 use app\common\Pic;
+use app\service\AiTravelPhotoSelfieService;
 
 /**
  * AI旅拍合成服务
@@ -188,6 +189,20 @@ class AiTravelPhotoSynthesisService
             // 存入选片表（qrcode表）
             if (!empty($generatedResults)) {
                 $this->saveToQrcode($portraitId, $bid, $generatedResults, $aid);
+
+                // 自拍端通知：检查人像是否来自用户自拍(source_type=3)，如有待通知记录则推送
+                try {
+                    $sourceType = $portrait['source_type'] ?? 0;
+                    if ($sourceType == 3) {
+                        $selfieService = new AiTravelPhotoSelfieService();
+                        $sentCount = $selfieService->sendSynthesisCompleteNotify($portraitId);
+                        if ($sentCount > 0) {
+                            Log::info("自拍端合成完成通知：人像ID={$portraitId}，推送{$sentCount}条");
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('自拍端合成完成通知异常: ' . $e->getMessage());
+                }
             }
 
             // M6: 确认扣费

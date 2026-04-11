@@ -71,6 +71,8 @@ class ScreenInteractionPlan extends Common
                 'max_participants' => 100,
                 'features' => '',
                 'is_recommended' => 0,
+                'allow_custom_wx' => 0,
+                'allow_custom_display' => 0,
                 'sort' => 0,
                 'status' => 1,
             ];
@@ -107,6 +109,8 @@ class ScreenInteractionPlan extends Common
             'max_activities' => intval(input('post.max_activities', 5)),
             'max_participants' => intval(input('post.max_participants', 100)),
             'is_recommended' => intval(input('post.is_recommended', 0)),
+            'allow_custom_wx' => intval(input('post.allow_custom_wx', 0)),
+            'allow_custom_display' => intval(input('post.allow_custom_display', 0)),
             'sort' => intval(input('post.sort', 0)),
             'status' => intval(input('post.status', 1)),
         ];

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AI短剧工作流 - 资源管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .res-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; padding-bottom:10px; }
+    .res-header .left { display:flex; gap:10px; align-items:center; }
+    .type-tag { display:inline-block; padding:2px 8px; border-radius:3px; font-size:12px; color:#fff; }
+    .type-tag.character { background:#722ed1; }
+    .type-tag.style { background:#1890ff; }
+    .type-tag.voice { background:#52c41a; }
+    .type-tag.material { background:#fa8c16; }
+    .system-badge { display:inline-block; padding:1px 6px; border-radius:3px; font-size:11px; background:#f0f0f0; color:#999; }
+    .system-badge.yes { background:#e6f7ff; color:#1890ff; }
+    .res-card-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:15px; margin-top:15px; }
+    .res-card { background:#fff; border-radius:10px; border:1px solid #e8e8e8; padding:16px; transition:all .2s; cursor:pointer; }
+    .res-card:hover { box-shadow:0 4px 15px rgba(0,0,0,.1); transform:translateY(-2px); }
+    .res-card .card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .res-card .card-name { font-size:15px; font-weight:bold; color:#333; }
+    .res-card .card-desc { font-size:12px; color:#999; line-height:1.5; max-height:40px; overflow:hidden; }
+    .res-card .card-meta { display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:12px; color:#bbb; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">
+          <i class="layui-icon layui-icon-file"></i> AI短剧工作流 - 资源管理
+        </div>
+        <div class="layui-card-body" pad15>
+          <!-- 操作按钮 -->
+          <div class="res-header">
+            <div class="left">
+              <button class="layui-btn layui-btn-normal" onclick="createResource()">
+                <i class="layui-icon layui-icon-add-1"></i> 新增资源
+              </button>
+              <button class="layui-btn layui-btn-warm" onclick="uploadResource()">
+                <i class="layui-icon layui-icon-upload-drag"></i> 上传文件
+              </button>
+              <a href="{:url('project_list')}" class="layui-btn layui-btn-primary">
+                <i class="layui-icon layui-icon-return"></i> 返回项目
+              </a>
+            </div>
+          </div>
+
+          <!-- 搜索区 -->
+          <div class="layui-form layui-form-search" style="margin-bottom:15px;">
+            <div class="layui-inline">
+              <label class="layui-form-label">类型</label>
+              <div class="layui-input-inline" style="width:130px">
+                <select name="resource_type" lay-filter="searchFilter">
+                  <option value="">全部</option>
+                  <option value="character">🎭 角色资源</option>
+                  <option value="style">🎨 风格资源</option>
+                  <option value="voice">🔊 音色资源</option>
+                  <option value="material">📦 素材资源</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <div class="layui-input-inline" style="width:200px">
+                <input type="text" name="keyword" class="layui-input" placeholder="搜索资源名称...">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn" lay-submit lay-filter="LAY-search">
+                <i class="layui-icon layui-icon-search"></i> 搜索
+              </button>
+              <button class="layui-btn layui-btn-primary" onclick="toggleView()">
+                <i class="layui-icon layui-icon-tabs" id="viewIcon"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 表格视图 -->
+          <div id="tableView">
+            <table id="tabledata" lay-filter="tabledata"></table>
+          </div>
+
+          <!-- 卡片视图 -->
+          <div id="cardView" style="display:none;">
+            <div class="res-card-grid" id="cardGrid"></div>
+            <div id="cardPager" style="margin-top:15px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {include file="public/js"/}
+  <script>
+  var table = layui.table;
+  var form = layui.form;
+  var currentView = 'table';
+
+  // 类型模板
+  function typeTpl(d) {
+    var map = {'character':{text:'🎭 角色', cls:'character'},'style':{text:'🎨 风格', cls:'style'},'voice':{text:'🔊 音色', cls:'voice'},'material':{text:'📦 素材', cls:'material'}};
+    var t = map[d.resource_type] || {text:'未知', cls:''};
+    return '<span class="type-tag ' + t.cls + '">' + t.text + '</span>';
+  }
+
+  function systemTpl(d) {
+    return d.is_system == 1 ? '<span class="system-badge yes">系统</span>' : '<span class="system-badge">自定义</span>';
+  }
+
+  // 渲染表格
+  var tableIns = table.render({
+    elem: '#tabledata',
+    url: "{$Request.url}",
+    page: true,
+    cols: [[
+      {type: "checkbox", width: 50},
+      {field: "id", title: "ID", width: 60, sort: true},
+      {field: "name", title: "资源名称", minWidth: 180},
+      {field: "resource_type", title: "类型", width: 120, templet: typeTpl},
+      {field: "is_system", title: "来源", width: 80, templet: systemTpl},
+      {field: "usage_count", title: "使用次数", width: 90, align: 'center'},
+      {field: "create_time_text", title: "创建时间", width: 160},
+      {title: "操作", width: 200, align: "center", toolbar: "#barTpl"}
+    ]],
+    done: function() { form.render(); }
+  });
+
+  // 搜索
+  form.on('submit(LAY-search)', function(data) {
+    tableIns.reload({where: data.field, page: {curr: 1}});
+    return false;
+  });
+
+  // 工具栏
+  table.on('tool(tabledata)', function(obj) {
+    var data = obj.data;
+    if (obj.event === 'edit') {
+      if (data.is_system == 1) { layer.msg('系统预置资源不可编辑', {icon:0}); return; }
+      editResource(data);
+    } else if (obj.event === 'delete') {
+      if (data.is_system == 1) { layer.msg('系统预置资源不可删除', {icon:0}); return; }
+      layer.confirm('确定删除该资源？', {icon:3}, function(index) {
+        $.post("{:url('resource_delete')}", {id: data.id}, function(res) {
+          layer.close(index);
+          if (res.status == 1) { layer.msg(res.msg, {icon:1}); obj.del(); }
+          else { layer.msg(res.msg, {icon:2}); }
+        });
+      });
+    } else if (obj.event === 'view') {
+      viewResource(data);
+    }
+  });
+
+  // 切换视图
+  function toggleView() {
+    if (currentView === 'table') {
+      currentView = 'card';
+      $('#tableView').hide();
+      $('#cardView').show();
+      loadCardView();
+    } else {
+      currentView = 'table';
+      $('#cardView').hide();
+      $('#tableView').show();
+    }
+  }
+
+  function loadCardView() {
+    $.get("{$Request.url}", {page:1, limit:50}, function(res) {
+      var html = '';
+      var typeIcons = {'character':'🎭','style':'🎨','voice':'🔊','material':'📦'};
+      (res.data || []).forEach(function(d) {
+        var desc = '';
+        if (d.content_data) {
+          if (typeof d.content_data === 'string') try { d.content_data = JSON.parse(d.content_data); } catch(e) {}
+          desc = d.content_data.description || d.content_data.prompt_prefix || d.content_data.voice_style || '';
+        }
+        html += '<div class="res-card" onclick="viewResource('+JSON.stringify(d).replace(/"/g,'&quot;')+')">' +
+          '<div class="card-top"><span class="card-name">'+(typeIcons[d.resource_type]||'')+' '+d.name+'</span>' +
+          (d.is_system==1?'<span class="system-badge yes">系统</span>':'')+'</div>' +
+          '<div class="card-desc">'+(desc||'暂无描述')+'</div>' +
+          '<div class="card-meta"><span>使用 '+d.usage_count+' 次</span><span>'+d.resource_type_text+'</span></div></div>';
+      });
+      $('#cardGrid').html(html || '<div style="padding:40px;text-align:center;color:#999;">暂无资源</div>');
+    });
+  }
+
+  // 查看资源详情
+  function viewResource(data) {
+    var content = data.content_data || {};
+    if (typeof content === 'string') try { content = JSON.parse(content); } catch(e) { content = {}; }
+    var html = '<div style="padding:20px;">';
+    html += '<div style="margin-bottom:10px;"><b>名称：</b>' + data.name + '</div>';
+    html += '<div style="margin-bottom:10px;"><b>类型：</b>' + (data.resource_type_text || data.resource_type) + '</div>';
+    html += '<div style="margin-bottom:10px;"><b>来源：</b>' + (data.is_system==1?'系统预置':'自定义') + '</div>';
+    html += '<div style="margin-bottom:10px;"><b>使用次数：</b>' + data.usage_count + '</div>';
+    html += '<div style="margin-bottom:10px;"><b>详细数据：</b></div>';
+    html += '<pre style="background:#f5f5f5;padding:12px;border-radius:5px;max-height:300px;overflow-y:auto;font-size:12px;">'+JSON.stringify(content, null, 2)+'</pre>';
+    html += '</div>';
+    layer.open({type:1, title:'资源详情 - '+data.name, area:['550px','500px'], content:html});
+  }
+
+  // 新增资源
+  function createResource() {
+    openResourceForm({});
+  }
+
+  // 上传文件资源
+  function uploadResource() {
+    layer.open({
+      type: 1,
+      title: '📤 上传资源文件',
+      area: ['520px', '480px'],
+      content: '<div style="padding:20px;">' +
+        '<div class="layui-form-item"><label class="layui-form-label">资源名称</label><div class="layui-input-block"><input type="text" id="uploadName" class="layui-input" placeholder="资源名称"></div></div>' +
+        '<div class="layui-form-item"><label class="layui-form-label">资源类型</label><div class="layui-input-block"><select id="uploadType" class="layui-input">' +
+        '<option value="material">📦 素材资源</option><option value="character">🎭 角色资源</option>' +
+        '<option value="style">🎨 风格资源</option><option value="voice">🔊 音色资源</option>' +
+        '</select></div></div>' +
+        '<div class="layui-form-item"><label class="layui-form-label">选择文件</label><div class="layui-input-block">' +
+        '<input type="file" id="uploadFileInput" class="layui-input" accept="image/*,audio/*,video/*" onchange="previewUploadFile()">' +
+        '<div style="margin-top:8px;font-size:12px;color:#999;">支持: JPG/PNG/GIF/WebP/MP3/WAV/MP4/WebM, 最大 50MB</div>' +
+        '</div></div>' +
+        '<div id="uploadPreview" style="padding:0 16px 10px 110px;"></div>' +
+        '<div class="layui-form-item"><label class="layui-form-label">描述</label><div class="layui-input-block"><textarea id="uploadDesc" class="layui-textarea" rows="2" placeholder="资源描述（可选）"></textarea></div></div>' +
+        '</div>',
+      btn: ['上传并保存', '取消'],
+      yes: function(idx) {
+        var fileInput = document.getElementById('uploadFileInput');
+        var name = document.getElementById('uploadName').value;
+        if (!fileInput.files || fileInput.files.length === 0) { layer.msg('请选择文件', {icon:2}); return; }
+        if (!name) { name = fileInput.files[0].name.replace(/\.[^.]+$/, ''); }
+        var loadIdx = layer.load(2, {shade:[0.3,'#000']});
+        var formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        $.ajax({
+          url: "{:url('resource_upload')}",
+          type: 'POST',
+          data: formData,
+          processData: false,
+          contentType: false,
+          success: function(res) {
+            if (res.status == 1) {
+              // 保存资源记录
+              var contentData = JSON.stringify({url: res.url, filename: res.filename, type: res.type, description: document.getElementById('uploadDesc').value});
+              $.post("{:url('resource_save')}", {
+                name: name,
+                resource_type: document.getElementById('uploadType').value,
+                thumbnail: res.type === 'image' ? res.url : '',
+                content_data: contentData
+              }, function(r) {
+                layer.close(loadIdx); layer.close(idx);
+                if (r.status == 1) {
+                  layer.msg('上传成功', {icon:1});
+                  tableIns.reload();
+                  if (currentView === 'card') loadCardView();
+                } else {
+                  layer.msg(r.msg||'保存失败', {icon:2});
+                }
+              });
+            } else {
+              layer.close(loadIdx);
+              layer.msg(res.msg||'上传失败', {icon:2});
+            }
+          },
+          error: function() { layer.close(loadIdx); layer.msg('上传请求失败', {icon:2}); }
+        });
+      }
+    });
+  }
+
+  function previewUploadFile() {
+    var input = document.getElementById('uploadFileInput');
+    var preview = document.getElementById('uploadPreview');
+    if (!input.files || !input.files[0]) { preview.innerHTML = ''; return; }
+    var file = input.files[0];
+    var type = file.type.split('/')[0];
+    // 自动填充名称
+    if (!document.getElementById('uploadName').value) {
+      document.getElementById('uploadName').value = file.name.replace(/\.[^.]+$/, '');
+    }
+    if (type === 'image') {
+      var reader = new FileReader();
+      reader.onload = function(e) { preview.innerHTML = '<img src="'+e.target.result+'" style="max-height:100px;border-radius:6px;">'; };
+      reader.readAsDataURL(file);
+    } else if (type === 'video') {
+      preview.innerHTML = '<span style="color:#52c41a;">🎥 视频文件: '+file.name+' ('+(file.size/1024/1024).toFixed(1)+'MB)</span>';
+    } else if (type === 'audio') {
+      preview.innerHTML = '<span style="color:#1890ff;">🎵 音频文件: '+file.name+' ('+(file.size/1024).toFixed(0)+'KB)</span>';
+    } else {
+      preview.innerHTML = '<span style="color:#999;">📄 '+file.name+'</span>';
+    }
+  }
+
+  // 编辑资源
+  function editResource(data) {
+    openResourceForm(data);
+  }
+
+  function openResourceForm(data) {
+    var isEdit = !!data.id;
+    var content = data.content_data || {};
+    if (typeof content === 'string') try { content = JSON.parse(content); } catch(e) { content = {}; }
+
+    layer.open({
+      type: 1,
+      title: isEdit ? '编辑资源' : '新增资源',
+      area: ['550px', '500px'],
+      content: '<div style="padding:20px;">' +
+        '<form class="layui-form" lay-filter="resForm">' +
+        '<div class="layui-form-item"><label class="layui-form-label">资源名称</label><div class="layui-input-block"><input type="text" name="name" class="layui-input" value="'+(data.name||'')+'" required lay-verify="required"></div></div>' +
+        '<div class="layui-form-item"><label class="layui-form-label">资源类型</label><div class="layui-input-block"><select name="resource_type">' +
+          '<option value="character"'+(data.resource_type==='character'?' selected':'')+'> 角色资源</option>' +
+          '<option value="style"'+(data.resource_type==='style'?' selected':'')+'> 风格资源</option>' +
+          '<option value="voice"'+(data.resource_type==='voice'?' selected':'')+'> 音色资源</option>' +
+          '<option value="material"'+(data.resource_type==='material'?' selected':'')+'> 素材资源</option>' +
+        '</select></div></div>' +
+        '<div class="layui-form-item"><label class="layui-form-label">缩略图URL</label><div class="layui-input-block"><input type="text" name="thumbnail" class="layui-input" value="'+(data.thumbnail||'')+'"></div></div>' +
+        '<div class="layui-form-item"><label class="layui-form-label">内容数据</label><div class="layui-input-block"><textarea name="content_data" class="layui-textarea" rows="6" placeholder="JSON格式的内容数据">'+JSON.stringify(content, null, 2)+'</textarea></div></div>' +
+        '<input type="hidden" name="id" value="'+(data.id||0)+'">' +
+        '<div class="layui-form-item" style="text-align:center;"><button class="layui-btn" lay-submit lay-filter="submitRes">保存</button></div>' +
+        '</form></div>',
+      success: function() { form.render(); }
+    });
+
+    form.on('submit(submitRes)', function(d) {
+      $.post("{:url('resource_save')}", d.field, function(res) {
+        if (res.status == 1) {
+          layer.closeAll();
+          layer.msg(res.msg, {icon:1});
+          tableIns.reload();
+        } else {
+          layer.msg(res.msg, {icon:2});
+        }
+      });
+      return false;
+    });
+  }
+  </script>
+
+  <!-- 工具栏模板 -->
+  <script type="text/html" id="barTpl">
+    <a class="layui-btn layui-btn-xs" lay-event="view"><i class="layui-icon layui-icon-about"></i> 查看</a>
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit"><i class="layui-icon layui-icon-edit"></i> 编辑</a>
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+  </script>
+</body>
+</html>
