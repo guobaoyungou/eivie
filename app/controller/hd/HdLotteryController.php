@@ -36,6 +36,7 @@ class HdLotteryController extends HdBaseController
 
     public function deletePrize(int $activity_id, int $id)
     {
+        error_log("[HdLotteryController] deletePrize: method=" . request()->method() . " activity_id={$activity_id} id={$id} aid={$this->getAid()} bid={$this->getBid()} post_data=" . json_encode(input('post.')));
         return json($this->lotteryService->deletePrize($this->getAid(), $this->getBid(), $activity_id, $id));
     }
 

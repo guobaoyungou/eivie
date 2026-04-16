@@ -4,19 +4,19 @@
 <nav class="mobile-tabbar">
     <div class="tabbar-inner">
         <button class="tabbar-item active" data-action="home">
-            <span class="tabbar-icon">🏠</span>
+            <span class="tabbar-icon"><i data-lucide="home" style="width:20px;height:20px"></i></span>
             <span>首页</span>
         </button>
         <button class="tabbar-item" data-action="create">
-            <span class="tabbar-icon">✨</span>
+            <span class="tabbar-icon"><i data-lucide="sparkles" style="width:20px;height:20px"></i></span>
             <span>创作</span>
         </button>
         <button class="tabbar-item" data-action="assets">
-            <span class="tabbar-icon">📚</span>
+            <span class="tabbar-icon"><i data-lucide="library" style="width:20px;height:20px"></i></span>
             <span>资产</span>
         </button>
         <button class="tabbar-item" data-action="profile">
-            <span class="tabbar-icon">👤</span>
+            <span class="tabbar-icon"><i data-lucide="user" style="width:20px;height:20px"></i></span>
             <span>我的</span>
         </button>
     </div>
@@ -26,12 +26,16 @@
 <div class="create-panel">
     <div class="cp-title">选择创作类型</div>
     <a class="cp-item" href="javascript:;" onclick="document.querySelector('[data-tab=photo]').click();document.querySelector('.create-panel').classList.remove('show');window.scrollTo({top:document.querySelector('.tab-section').offsetTop-60,behavior:'smooth'})">
-        <span class="cp-icon">🖼</span>
+        <span class="cp-icon"><i data-lucide="image" style="width:24px;height:24px"></i></span>
         <span class="cp-label">图片生成</span>
     </a>
     <a class="cp-item" href="javascript:;" onclick="document.querySelector('[data-tab=video]').click();document.querySelector('.create-panel').classList.remove('show');window.scrollTo({top:document.querySelector('.tab-section').offsetTop-60,behavior:'smooth'})">
-        <span class="cp-icon">🎬</span>
+        <span class="cp-icon"><i data-lucide="film" style="width:24px;height:24px"></i></span>
         <span class="cp-label">视频生成</span>
+    </a>
+    <a class="cp-item" href="/?s=/Index/short_drama">
+        <span class="cp-icon"><i data-lucide="clapperboard" style="width:24px;height:24px"></i></span>
+        <span class="cp-label">短剧创作</span>
     </a>
 </div>
 

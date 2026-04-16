@@ -26,10 +26,10 @@
     <img class="dl-logo" src="{$set.logo}" alt="">
     <div class="dl-name">{$set.name}</div>
     {if $androidurl}
-    <a class="dl-btn" href="{$androidurl}">📱 安卓下载</a>
+    <a class="dl-btn" href="{$androidurl}"><i data-lucide="smartphone"></i> 安卓下载</a>
     {/if}
     {if $iosurl}
-    <a class="dl-btn" href="{$iosurl}">🍎 iOS下载</a>
+    <a class="dl-btn" href="{$iosurl}"><i data-lucide="smartphone"></i> iOS下载</a>
     {/if}
 </div>
 
@@ -40,5 +40,8 @@
     <p style="margin-top:24px;font-size:13px;color:#aaa">点击任意位置关闭提示</p>
 </div>
 {/if}
+<script>
+    if(typeof lucide!=='undefined'){lucide.createIcons();}
+</script>
 </body>
 </html>

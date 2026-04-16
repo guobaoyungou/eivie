@@ -152,7 +152,7 @@ class Menu
 			$ai_travel_photo_child[] = ['name'=>'套餐管理','path'=>'AiTravelPhoto/package_list','authdata'=>'AiTravelPhoto/package_list,AiTravelPhoto/package_edit,AiTravelPhoto/package_delete,AiTravelPhoto/package_batch'];
 			
 			// 人像管理
-			$ai_travel_photo_child[] = ['name'=>'人像管理','path'=>'AiTravelPhoto/portrait_list','authdata'=>'AiTravelPhoto/portrait_list,AiTravelPhoto/portrait_delete,AiTravelPhoto/portrait_batch,AiTravelPhoto/getPackages,AiTravelPhoto/createPayOrder,AiTravelPhoto/checkPayStatus,AiTravelPhoto/payReturn,AiTravelPhoto/portrait_upload'];
+			$ai_travel_photo_child[] = ['name'=>'人像管理','path'=>'AiTravelPhoto/portrait_list','authdata'=>'AiTravelPhoto/portrait_list,AiTravelPhoto/portrait_delete,AiTravelPhoto/portrait_batch,AiTravelPhoto/getPackages,AiTravelPhoto/createPayOrder,AiTravelPhoto/checkPayStatus,AiTravelPhoto/payReturn,AiTravelPhoto/portrait_upload,AiTravelPhoto/balance_log,AiTravelPhoto/synthesis_settings,AiTravelPhoto/synthesis_settings_save,AiTravelPhoto/synthesis_get_pending,AiTravelPhoto/portrait_batch_delete,AiTravelPhoto/smile_capture_page'];
 
 			// 合成模板
 			$ai_travel_photo_child[] = ['name'=>'合成模板','path'=>'AiTravelPhoto/synthesis_template_list','authdata'=>'AiTravelPhoto/synthesis_template_list,AiTravelPhoto/synthesis_template_edit,AiTravelPhoto/synthesis_template_save,AiTravelPhoto/synthesis_template_delete'];
@@ -192,7 +192,7 @@ class Menu
 				$ai_travel_photo_child[] = ['name'=>'套餐管理','path'=>'AiTravelPhoto/package_list','authdata'=>'AiTravelPhoto/package_list,AiTravelPhoto/package_edit,AiTravelPhoto/package_delete,AiTravelPhoto/package_batch'];
 
 				// 人像管理
-				$ai_travel_photo_child[] = ['name'=>'人像管理','path'=>'AiTravelPhoto/portrait_list','authdata'=>'AiTravelPhoto/portrait_list,AiTravelPhoto/portrait_delete,AiTravelPhoto/portrait_batch,AiTravelPhoto/getPackages,AiTravelPhoto/createPayOrder,AiTravelPhoto/checkPayStatus,AiTravelPhoto/payReturn,AiTravelPhoto/portrait_upload'];
+				$ai_travel_photo_child[] = ['name'=>'人像管理','path'=>'AiTravelPhoto/portrait_list','authdata'=>'AiTravelPhoto/portrait_list,AiTravelPhoto/portrait_delete,AiTravelPhoto/portrait_batch,AiTravelPhoto/getPackages,AiTravelPhoto/createPayOrder,AiTravelPhoto/checkPayStatus,AiTravelPhoto/payReturn,AiTravelPhoto/portrait_upload,AiTravelPhoto/balance_log,AiTravelPhoto/synthesis_settings,AiTravelPhoto/synthesis_settings_save,AiTravelPhoto/synthesis_get_pending,AiTravelPhoto/portrait_batch_delete,AiTravelPhoto/smile_capture_page'];
 
 				// 合成模板
 				$ai_travel_photo_child[] = ['name'=>'合成模板','path'=>'AiTravelPhoto/synthesis_template_list','authdata'=>'AiTravelPhoto/synthesis_template_list,AiTravelPhoto/synthesis_template_edit,AiTravelPhoto/synthesis_template_save,AiTravelPhoto/synthesis_template_delete'];
@@ -340,6 +340,7 @@ class Menu
 		if($isadmin){
 			$finance_child = [];
 			$finance_child[] = ['name'=>'消费明细','path'=>'Payorder/index','authdata'=>'Payorder/*'];
+			$finance_child[] = ['name'=>'AI消费明细','path'=>'AiTravelPhoto/balance_log','authdata'=>'AiTravelPhoto/balance_log'];
 			$finance_child[] = ['name'=>t('余额').'明细','path'=>'Money/moneylog','authdata'=>'Money/moneylog,Money/moneylogexcel,Money/moneylogsetst,Money/moneylogdel'];
             $finance_child[] = ['name'=>'充值记录','path'=>'Money/rechargelog','authdata'=>'Money/rechargelog,Money/rechargelogexcel,Money/rechargelogdel'];
 			$finance_child[] = ['name'=>t('余额').'提现','path'=>'Money/withdrawlog','authdata'=>'Money/*'];
@@ -371,6 +372,7 @@ class Menu
             //多商户
 			$finance_child = [];
 			$finance_child[] = ['name'=>'余额明细','path'=>'BusinessMoney/moneylog','authdata'=>'BusinessMoney/moneylog,BusinessMoney/moneylogexcel,BusinessMoney/moneylogsetst,BusinessMoney/moneylogdel'];
+			$finance_child[] = ['name'=>'AI消费明细','path'=>'AiTravelPhoto/balance_log','authdata'=>'AiTravelPhoto/balance_log'];
             $finance_child[] = ['name'=>'余额提现','path'=>'BusinessMoney/withdraw','authdata'=>'BusinessMoney/*'];
 			$finance_child[] = ['name'=>'提现记录','path'=>'BusinessMoney/withdrawlog','authdata'=>'BusinessMoney/*'];
             $finance_childC = [];

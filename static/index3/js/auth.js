@@ -173,7 +173,7 @@ var Auth = (function(){
 
         var levelHtml = levelIcon
             ? '<img class="ud-level-icon" src="' + escapeHtml(levelIcon) + '" alt="">'
-            : '<span class="ud-level-emoji">👑</span>';
+            : '<span class="ud-level-emoji"><i data-lucide="crown" style="width:14px;height:14px"></i></span>';
 
         dropdown.innerHTML =
             '<!-- 用户信息区 -->' +
@@ -209,25 +209,25 @@ var Auth = (function(){
             '<!-- 菜单项区 -->' +
             '<div class="ud-menu-section">' +
                 '<a class="ud-menu-item" href="/?s=/index/user_center" data-action="profile">' +
-                    '<span class="ud-menu-icon">👤</span><span>个人中心</span>' +
+                    '<span class="ud-menu-icon"><i data-lucide="user" style="width:16px;height:16px"></i></span><span>个人中心</span>' +
                 '</a>' +
                 '<a class="ud-menu-item" href="/?s=/PhotoGeneration/order_list" data-action="photo_order">' +
-                    '<span class="ud-menu-icon">📄</span><span>图片订单管理</span>' +
+                    '<span class="ud-menu-icon"><i data-lucide="file-image" style="width:16px;height:16px"></i></span><span>图片订单管理</span>' +
                 '</a>' +
                 '<a class="ud-menu-item" href="/?s=/VideoGeneration/order_list" data-action="video_order">' +
-                    '<span class="ud-menu-icon">📋</span><span>视频订单管理</span>' +
+                    '<span class="ud-menu-icon"><i data-lucide="clipboard-list" style="width:16px;height:16px"></i></span><span>视频订单管理</span>' +
                 '</a>' +
                 '<a class="ud-menu-item" href="/?s=/index/member_level" data-action="level">' +
-                    '<span class="ud-menu-icon">👑</span><span>我的等级</span>' +
+                    '<span class="ud-menu-icon"><i data-lucide="crown" style="width:16px;height:16px"></i></span><span>我的等级</span>' +
                 '</a>' +
                 '<a class="ud-menu-item" href="/?s=/index/recharge" data-action="wallet">' +
-                    '<span class="ud-menu-icon">📦</span><span>余额充值</span>' +
+                    '<span class="ud-menu-icon"><i data-lucide="package" style="width:16px;height:16px"></i></span><span>余额充值</span>' +
                 '</a>' +
             '</div>' +
             '<div class="ud-divider"></div>' +
             '<!-- 退出登录 -->' +
             '<div class="ud-logout-section">' +
-                '<button class="ud-logout" id="udLogoutBtn">🚪 退出登录</button>' +
+                '<button class="ud-logout" id="udLogoutBtn"><i data-lucide="log-out" style="width:14px;height:14px"></i> 退出登录</button>' +
             '</div>';
 
         // 绑定退出登录
@@ -336,7 +336,7 @@ var Auth = (function(){
         userInfo.innerHTML =
             '<img class="drawer-user-avatar" src="' + escapeHtml(user.headimg || DEFAULT_AVATAR) + '" alt="" onerror="this.src=\'' + DEFAULT_AVATAR + '\'">' +
             '<span class="drawer-user-name">' + escapeHtml(user.nickname || '用户') + '</span>' +
-            '<span class="ud-level-tag"><span class="ud-level-emoji">👑</span>' + escapeHtml(user.level_name || '普通会员') + '</span>';
+            '<span class="ud-level-tag"><span class="ud-level-emoji"><i data-lucide="crown" style="width:14px;height:14px"></i></span>' + escapeHtml(user.level_name || '普通会员') + '</span>';
         userInfo.style.display = 'flex';
     }
 
@@ -395,7 +395,7 @@ var Auth = (function(){
         drawer.innerHTML = renderUserDropdown_html(user) +
             '<div class="ud-divider"></div>' +
             '<div class="ud-logout-section">' +
-                '<button class="ud-logout" id="mobileLogoutBtn">🚪 退出登录</button>' +
+                '<button class="ud-logout" id="mobileLogoutBtn"><i data-lucide="log-out" style="width:14px;height:14px"></i> 退出登录</button>' +
             '</div>';
         document.body.appendChild(drawer);
 
@@ -441,7 +441,7 @@ var Auth = (function(){
                 '<div class="ud-nickname">' + nickname + '</div>' +
                 '<div class="ud-meta">' +
                     '<span class="ud-mid">ID: ' + mid + '</span>' +
-                    '<a class="ud-level-tag" href="/?s=/index/member_level" style="text-decoration:none;color:inherit"><span class="ud-level-emoji">👑</span>' + levelName + '</a>' +
+                    '<a class="ud-level-tag" href="/?s=/index/member_level" style="text-decoration:none;color:inherit"><span class="ud-level-emoji"><i data-lucide="crown" style="width:14px;height:14px"></i></span>' + levelName + '</a>' +
                 '</div>' +
             '</div>' +
         '</div>' +
@@ -464,13 +464,13 @@ var Auth = (function(){
         buildSubscriptionCard(user) +
         '<div class="ud-menu-section">' +
             '<a class="ud-menu-item" href="/?s=/index/user_center" data-action="profile">' +
-                '<span class="ud-menu-icon">👤</span><span>个人中心</span>' +
+                '<span class="ud-menu-icon"><i data-lucide="user" style="width:16px;height:16px"></i></span><span>个人中心</span>' +
             '</a>' +
             '<a class="ud-menu-item" href="/?s=/index/member_level" data-action="level">' +
-                '<span class="ud-menu-icon">👑</span><span>我的等级</span>' +
+                '<span class="ud-menu-icon"><i data-lucide="crown" style="width:16px;height:16px"></i></span><span>我的等级</span>' +
             '</a>' +
             '<a class="ud-menu-item" href="/?s=/index/recharge" data-action="wallet">' +
-                '<span class="ud-menu-icon">📦</span><span>余额充值</span>' +
+                '<span class="ud-menu-icon"><i data-lucide="package" style="width:16px;height:16px"></i></span><span>余额充值</span>' +
             '</a>' +
         '</div>';
     }

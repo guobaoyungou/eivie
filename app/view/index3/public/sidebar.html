@@ -1,4 +1,4 @@
-<!-- sidebar.html — 左侧导航栏组件 v2.0 (2026-03-12) -->
+<!-- sidebar.html — 左侧导航栏组件 v3.0 (2026-04-13) Lucide Icons 升级版 -->
 <!-- 去除菜单重复问题，4大功能分区：核心功能/AI创作/营销推广/我的空间 -->
 <div class="sidebar-overlay"></div>
 <aside class="sidebar" id="sidebar">
@@ -6,13 +6,13 @@
     <div class="sidebar-logo">
         <img src="{$webinfo.logo}" alt="logo">
         <span class="sys-name">{$webinfo.webname}</span>
-        <span class="collapse-btn" title="折叠">☰</span>
-        <span class="drawer-close-btn" style="display:none;margin-left:auto;cursor:pointer;font-size:18px;color:var(--text-tertiary);width:28px;height:28px;align-items:center;justify-content:center;border-radius:6px;">✕</span>
+        <span class="collapse-btn" title="折叠"><i data-lucide="panel-left-close" style="width:18px;height:18px"></i></span>
+        <span class="drawer-close-btn" style="display:none;margin-left:auto;cursor:pointer;font-size:18px;color:var(--text-tertiary);width:28px;height:28px;align-items:center;justify-content:center;border-radius:6px;"><i data-lucide="x" style="width:18px;height:18px"></i></span>
     </div>
 
     <!-- 移动端用户区 -->
     <div class="drawer-user">
-        <button class="login-btn" onclick="location.href='{:url(\'Backstage/index\')}'">商家登录/注册</button>
+        <button class="login-btn" onclick="location.href='{:url(\'Backstage/index\')}'"><i data-lucide="log-in" style="width:16px;height:16px"></i> 商家登录/注册</button>
         <!-- 已登录态由 auth.js 动态插入 .drawer-user-info -->
     </div>
 
@@ -21,9 +21,16 @@
         <!-- 核心导航 -->
         <div class="nav-section-title">核心功能</div>
         
+        <div class="nav-item" data-tooltip="首页">
+            <a class="nav-link" href="/?s=/index/home">
+                <span class="nav-icon"><i data-lucide="home" style="width:20px;height:20px"></i></span>
+                <span class="nav-text">首页</span>
+            </a>
+        </div>
+        
         <div class="nav-item" data-tooltip="工作台">
             <a class="nav-link active" href="/">
-                <span class="nav-icon">🏠</span>
+                <span class="nav-icon"><i data-lucide="layout-dashboard" style="width:20px;height:20px"></i></span>
                 <span class="nav-text">工作台</span>
             </a>
         </div>
@@ -35,20 +42,20 @@
         
         <div class="nav-item has-sub" data-tooltip="图像创作">
             <a class="nav-link nav-toggle" href="javascript:;">
-                <span class="nav-icon">🎨</span>
+                <span class="nav-icon"><i data-lucide="palette" style="width:20px;height:20px"></i></span>
                 <span class="nav-text">图像创作</span>
-                <span class="nav-arrow">▸</span>
+                <span class="nav-arrow"><i data-lucide="chevron-right" style="width:14px;height:14px"></i></span>
             </a>
             <div class="nav-sub">
                 <a class="nav-link" href="{:url('Index/photo_generation')}">
-                    <span class="nav-text">AI绘画</span>
+                    <span class="nav-text"><i data-lucide="sparkles" style="width:16px;height:16px"></i> AI绘画</span>
                 </a>
                 <a class="nav-link disabled" href="javascript:;">
-                    <span class="nav-text">图像编辑</span>
+                    <span class="nav-text"><i data-lucide="image" style="width:16px;height:16px"></i> 图像编辑</span>
                     <span class="dev-badge">即将上线</span>
                 </a>
                 <a class="nav-link disabled" href="javascript:;">
-                    <span class="nav-text">风格转换</span>
+                    <span class="nav-text"><i data-lucide="wand-2" style="width:16px;height:16px"></i> 风格转换</span>
                     <span class="dev-badge">即将上线</span>
                 </a>
             </div>
@@ -56,42 +63,58 @@
 
         <div class="nav-item has-sub" data-tooltip="视频创作">
             <a class="nav-link nav-toggle" href="javascript:;">
-                <span class="nav-icon">🎬</span>
+                <span class="nav-icon"><i data-lucide="clapperboard" style="width:20px;height:20px"></i></span>
                 <span class="nav-text">视频创作</span>
-                <span class="nav-arrow">▸</span>
+                <span class="nav-arrow"><i data-lucide="chevron-right" style="width:14px;height:14px"></i></span>
             </a>
             <div class="nav-sub">
                 <a class="nav-link" href="{:url('Index/video_generation')}">
-                    <span class="nav-text">AI视频</span>
+                    <span class="nav-text"><i data-lucide="video" style="width:16px;height:16px"></i> AI视频</span>
                 </a>
                 <a class="nav-link disabled" href="javascript:;">
-                    <span class="nav-text">视频剪辑</span>
+                    <span class="nav-text"><i data-lucide="scissors" style="width:16px;height:16px"></i> 视频剪辑</span>
                     <span class="dev-badge">即将上线</span>
                 </a>
                 <a class="nav-link disabled" href="javascript:;">
-                    <span class="nav-text">数字人</span>
+                    <span class="nav-text"><i data-lucide="user-round" style="width:16px;height:16px"></i> 数字人</span>
                     <span class="dev-badge">即将上线</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="nav-item has-sub" data-tooltip="短剧创作">
+            <a class="nav-link nav-toggle" href="javascript:;">
+                <span class="nav-icon"><i data-lucide="film" style="width:20px;height:20px"></i></span>
+                <span class="nav-text">短剧创作</span>
+                <span class="nav-arrow"><i data-lucide="chevron-right" style="width:14px;height:14px"></i></span>
+            </a>
+            <div class="nav-sub">
+                <a class="nav-link" href="/?s=/Index/short_drama">
+                    <span class="nav-text"><i data-lucide="clapperboard" style="width:16px;height:16px"></i> 短剧项目</span>
+                </a>
+                <a class="nav-link" href="/?s=/Index/short_drama_canvas">
+                    <span class="nav-text"><i data-lucide="workflow" style="width:16px;height:16px"></i> 创作画布</span>
                 </a>
             </div>
         </div>
 
         <div class="nav-item has-sub" data-tooltip="内容创作">
             <a class="nav-link nav-toggle" href="javascript:;">
-                <span class="nav-icon">✍️</span>
+                <span class="nav-icon"><i data-lucide="pen-tool" style="width:20px;height:20px"></i></span>
                 <span class="nav-text">内容创作</span>
-                <span class="nav-arrow">▸</span>
+                <span class="nav-arrow"><i data-lucide="chevron-right" style="width:14px;height:14px"></i></span>
             </a>
             <div class="nav-sub">
                 <a class="nav-link disabled" href="javascript:;">
-                    <span class="nav-text">智能写作</span>
+                    <span class="nav-text"><i data-lucide="file-text" style="width:16px;height:16px"></i> 智能写作</span>
                     <span class="dev-badge">即将上线</span>
                 </a>
                 <a class="nav-link disabled" href="javascript:;">
-                    <span class="nav-text">文案优化</span>
+                    <span class="nav-text"><i data-lucide="message-square-text" style="width:16px;height:16px"></i> 文案优化</span>
                     <span class="dev-badge">即将上线</span>
                 </a>
                 <a class="nav-link disabled" href="javascript:;">
-                    <span class="nav-text">多语翻译</span>
+                    <span class="nav-text"><i data-lucide="languages" style="width:16px;height:16px"></i> 多语翻译</span>
                     <span class="dev-badge">即将上线</span>
                 </a>
             </div>
@@ -104,29 +127,29 @@
         
         <div class="nav-item" data-tooltip="AI商城">
             <a class="nav-link" href="{:url('ShopProduct/index')}">
-                <span class="nav-icon">🛍️</span>
+                <span class="nav-icon"><i data-lucide="shopping-bag" style="width:20px;height:20px"></i></span>
                 <span class="nav-text">AI商城</span>
             </a>
         </div>
 
         <div class="nav-item has-sub" data-tooltip="营销活动">
             <a class="nav-link nav-toggle" href="javascript:;">
-                <span class="nav-icon">🎯</span>
+                <span class="nav-icon"><i data-lucide="target" style="width:20px;height:20px"></i></span>
                 <span class="nav-text">营销活动</span>
-                <span class="nav-arrow">▸</span>
+                <span class="nav-arrow"><i data-lucide="chevron-right" style="width:14px;height:14px"></i></span>
             </a>
             <div class="nav-sub">
                 <a class="nav-link" href="{:url('KanjiaProduct/index')}">
-                    <span class="nav-text">砍价活动</span>
+                    <span class="nav-text"><i data-lucide="trending-down" style="width:16px;height:16px"></i> 砍价活动</span>
                 </a>
                 <a class="nav-link" href="{:url('SeckillProduct/index')}">
-                    <span class="nav-text">限时秒杀</span>
+                    <span class="nav-text"><i data-lucide="zap" style="width:16px;height:16px"></i> 限时秒杀</span>
                 </a>
                 <a class="nav-link" href="{:url('TuangouProduct/index')}">
-                    <span class="nav-text">拼团优惠</span>
+                    <span class="nav-text"><i data-lucide="users" style="width:16px;height:16px"></i> 拼团优惠</span>
                 </a>
                 <a class="nav-link disabled" href="javascript:;">
-                    <span class="nav-text">优惠券</span>
+                    <span class="nav-text"><i data-lucide="ticket" style="width:16px;height:16px"></i> 优惠券</span>
                     <span class="dev-badge">即将上线</span>
                 </a>
             </div>
@@ -139,37 +162,37 @@
         
         <div class="nav-item" data-tooltip="我的资产">
             <a class="nav-link" href="/?s=/index/user_storage">
-                <span class="nav-icon">💎</span>
+                <span class="nav-icon"><i data-lucide="gem" style="width:20px;height:20px"></i></span>
                 <span class="nav-text">我的资产</span>
             </a>
         </div>
 
         <div class="nav-item" data-tooltip="创作中心">
             <a class="nav-link" href="/?s=/index/creative_center">
-                <span class="nav-icon">📚</span>
+                <span class="nav-icon"><i data-lucide="library" style="width:20px;height:20px"></i></span>
                 <span class="nav-text">创作中心</span>
             </a>
         </div>
 
         <div class="nav-item has-sub" data-tooltip="订单管理">
             <a class="nav-link nav-toggle" href="javascript:;">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i data-lucide="scroll-text" style="width:20px;height:20px"></i></span>
                 <span class="nav-text">订单管理</span>
-                <span class="nav-arrow">▸</span>
+                <span class="nav-arrow"><i data-lucide="chevron-right" style="width:14px;height:14px"></i></span>
             </a>
             <div class="nav-sub">
                 <a class="nav-link" href="/?s=/PhotoGeneration/order_list">
-                    <span class="nav-text">图片订单</span>
+                    <span class="nav-text"><i data-lucide="image" style="width:16px;height:16px"></i> 图片订单</span>
                 </a>
                 <a class="nav-link" href="/?s=/VideoGeneration/order_list">
-                    <span class="nav-text">视频订单</span>
+                    <span class="nav-text"><i data-lucide="film" style="width:16px;height:16px"></i> 视频订单</span>
                 </a>
             </div>
         </div>
 
         <div class="nav-item" data-tooltip="个人中心">
             <a class="nav-link" href="/?s=/index/user_center">
-                <span class="nav-icon">⚙️</span>
+                <span class="nav-icon"><i data-lucide="settings" style="width:20px;height:20px"></i></span>
                 <span class="nav-text">个人中心</span>
             </a>
         </div>
@@ -186,13 +209,13 @@
     <div class="sidebar-toolbar">
         <!-- 主题切换（单按钮切换） -->
         <button class="theme-toggle-btn" id="themeToggleBtn" title="切换主题">
-            <span class="btn-icon" id="themeIcon">☀</span>
+            <span class="btn-icon" id="themeIcon"><i data-lucide="sun" style="width:16px;height:16px"></i></span>
             <span class="btn-text" id="themeText">浅色</span>
         </button>
 
         <!-- APP下载 -->
         <div class="toolbar-btn" style="position:relative">
-            <span class="btn-icon">📱</span>
+            <span class="btn-icon"><i data-lucide="smartphone" style="width:16px;height:16px"></i></span>
             <span class="btn-text">APP</span>
             <div class="toolbar-popup qr-popup">
                 {if $webinfo['appqrcode']}
@@ -206,7 +229,7 @@
 
         <!-- 更多菜单 -->
         <div class="toolbar-btn" style="position:relative">
-            <span class="btn-icon">⋯</span>
+            <span class="btn-icon"><i data-lucide="ellipsis" style="width:16px;height:16px"></i></span>
             <span class="btn-text">更多</span>
             <div class="toolbar-popup more-menu">
                 <a class="menu-link" href="javascript:;">用户协议</a>
@@ -217,9 +240,9 @@
                 <a class="menu-link" href="javascript:;">联系客服</a>
                 <div class="popup-divider"></div>
                 <div class="popup-share-row">
-                    <a href="javascript:;" title="微信">💬</a>
-                    <a href="javascript:;" title="小红书">📕</a>
-                    <a href="javascript:;" title="抖音">🎵</a>
+                    <a href="javascript:;" title="微信"><i data-lucide="message-circle" style="width:16px;height:16px"></i></a>
+                    <a href="javascript:;" title="小红书"><i data-lucide="bookmark" style="width:16px;height:16px"></i></a>
+                    <a href="javascript:;" title="抖音"><i data-lucide="music" style="width:16px;height:16px"></i></a>
                 </div>
             </div>
         </div>

@@ -13,12 +13,13 @@
     <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
     <!-- 组件CSS -->
     <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=6">
-    <link rel="stylesheet" href="/static/index3/css/index.css?v=10">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=12">
     <link rel="stylesheet" href="/static/index3/css/generation.css?v=4">
     <link rel="stylesheet" href="/static/index3/css/pay.css?v=9">
     <link rel="stylesheet" href="/static/index3/css/responsive.css?v=3">
     <!-- 主题JS（提前加载防闪烁） -->
     <script src="/static/index3/js/theme.js?v=1"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 </head>
 <body>
 <div class="layout-wrapper">
@@ -54,7 +55,7 @@
                                 <label class="gf-label">参考图片（可选）</label>
                                 <div class="gf-image-upload" id="imageUpload">
                                     <div class="gf-upload-placeholder">
-                                        <span class="gf-upload-icon">📷</span>
+                                        <span class="gf-upload-icon"><i data-lucide="camera"></i></span>
                                         <span class="gf-upload-text">点击上传参考图片</span>
                                     </div>
                                 </div>
@@ -123,7 +124,7 @@
 
                         <!-- ④ 生成按钮 -->
                         <button class="gf-submit" id="generateBtn">
-                            <span class="gf-submit-text">✨ 立即生成</span>
+                            <span class="gf-submit-text"><i data-lucide="sparkles"></i> 立即生成</span>
                         </button>
                     </div>
                 </div>
@@ -134,7 +135,7 @@
             <div class="generation-template-bar" id="templateBar">
                 <div class="template-bar-header">
                     <div class="template-bar-title">
-                        <span class="gt-icon">🔥</span>
+                        <span class="gt-icon"><i data-lucide="flame"></i></span>
                         <span>来试试一键模版吧</span>
                     </div>
                     <button class="template-bar-close" id="templateBarClose" title="收起">&times;</button>
@@ -154,7 +155,7 @@
                         </div>
                         {/foreach}
                         {else}
-                        <div class="template-bar-empty">📭 暂无推荐模板</div>
+                        <div class="template-bar-empty"><i data-lucide="inbox"></i> 暂无推荐模板</div>
                         {/if}
                     </div>
                     <button class="template-bar-arrow right" id="tplArrowRight">›</button>
@@ -163,7 +164,7 @@
 
             <!-- 模板栏折叠态展开按钮 -->
             <div class="template-bar-toggle" id="templateBarToggle">
-                <button class="template-bar-toggle-btn">📋 模板</button>
+                <button class="template-bar-toggle-btn"><i data-lucide="layout-grid"></i> 模板</button>
             </div>
 
             <!-- 模型选择弹窗 -->
@@ -193,6 +194,9 @@
 <script src="/static/index3/js/pay.js?v=4"></script>
 <script src="/static/index3/js/auth.js?v=3"></script>
 <script src="/static/index3/js/sidebar.js?v=6"></script>
-<script src="/static/index3/js/generation.js?v=6"></script>
+<script src="/static/index3/js/generation.js?v=7"></script>
+<script>
+    if(typeof lucide!=='undefined'){lucide.createIcons();}
+</script>
 </body>
 </html>

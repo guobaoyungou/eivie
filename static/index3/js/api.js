@@ -194,6 +194,10 @@ var Api = (function(){
         },
         getGenerationWorks: function(params, cb){
             request('GET', '/?s=/index/generation_works', params, cb);
+        },
+        // ===== 模板图片幻灯片相关 =====
+        getTemplateImages: function(params, cb){
+            request('GET', '/?s=/index/template_images', params, cb);
         }
     };
 })();

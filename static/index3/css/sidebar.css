@@ -388,3 +388,141 @@
     font-size: 13px;
     cursor: pointer;
 }
+
+/* =========================================
+   侧边栏UI升级增强 (v2.0)
+   Glassmorphism + 渐变主义 + 微交互
+   ========================================= */
+
+/* --- 侧边栏容器毛玻璃效果 --- */
+.sidebar {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur-sm);
+    -webkit-backdrop-filter: var(--glass-blur-sm);
+    border-right: 1px solid var(--glass-border);
+    box-shadow: none;
+}
+
+/* --- Logo区增强 --- */
+.sidebar-logo img {
+    box-shadow: 0 2px 8px rgba(var(--accent-color-rgb), 0.15);
+}
+
+/* --- 分组标题渐变色 --- */
+.nav-section-title {
+    background: var(--accent-gradient-text);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 700;
+    letter-spacing: 1px;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+/* --- 导航项增强 --- */
+.nav-link {
+    border: 1px solid transparent;
+    border-radius: 10px;
+}
+.nav-link::before {
+    background: var(--accent-gradient);
+    width: 3px;
+    border-radius: 0 4px 4px 0;
+    box-shadow: 0 0 6px rgba(var(--accent-color-rgb), 0.3);
+}
+.nav-link:hover {
+    background: var(--accent-light);
+    border-color: rgba(var(--accent-color-rgb), 0.08);
+    transform: translateX(2px);
+}
+.nav-link.active {
+    background: var(--accent-gradient-subtle);
+    color: var(--accent-color);
+    font-weight: 600;
+    border-color: rgba(var(--accent-color-rgb), 0.12);
+    box-shadow: 0 2px 8px rgba(var(--accent-color-rgb), 0.1);
+}
+.nav-link.active::before {
+    height: 70%;
+    box-shadow: 0 0 10px rgba(var(--accent-color-rgb), 0.4);
+}
+
+/* --- 导航图标SVG着色 --- */
+.nav-link .nav-icon svg {
+    stroke-width: 1.8;
+    transition: all .25s cubic-bezier(.4,0,.2,1);
+}
+.nav-link:hover .nav-icon svg {
+    stroke: var(--accent-color);
+    transform: scale(1.1);
+}
+.nav-link.active .nav-icon svg {
+    stroke: var(--accent-color);
+    filter: drop-shadow(0 0 4px rgba(var(--accent-color-rgb), 0.3));
+}
+
+/* --- 子菜单增强 --- */
+.nav-sub .nav-link {
+    position: relative;
+    transition: all .2s cubic-bezier(.4,0,.2,1);
+}
+.nav-sub .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 32px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--text-quaternary);
+    transition: all .25s;
+}
+.nav-sub .nav-link:hover::after,
+.nav-sub .nav-link.active::after {
+    background: var(--accent-gradient);
+    box-shadow: 0 0 6px rgba(var(--accent-color-rgb), 0.4);
+    width: 6px; height: 6px;
+}
+.nav-sub .nav-link:hover {
+    background: var(--accent-light);
+    color: var(--accent-color);
+}
+
+/* --- 底部工具栏增强 --- */
+.sidebar-footer {
+    border-top: 1px solid var(--glass-border);
+    padding: 8px;
+}
+.sidebar-footer .btn-icon {
+    color: var(--text-tertiary);
+    transition: all .25s cubic-bezier(.4,0,.2,1);
+    border-radius: 8px;
+}
+.sidebar-footer .btn-icon:hover {
+    background: var(--accent-light);
+    color: var(--accent-color);
+}
+.sidebar-footer .btn-icon.active {
+    color: var(--accent-color);
+    background: var(--accent-gradient-subtle);
+}
+.sidebar-footer .btn-icon svg {
+    stroke-width: 1.8;
+}
+
+/* --- 移动端登录按钮渐变 --- */
+.drawer-user .login-btn {
+    background: var(--accent-gradient);
+    box-shadow: 0 2px 8px rgba(var(--accent-color-rgb), 0.25);
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all .25s cubic-bezier(.4,0,.2,1);
+}
+.drawer-user .login-btn:hover {
+    box-shadow: 0 4px 14px rgba(var(--accent-color-rgb), 0.35);
+    transform: translateY(-1px);
+}
+.drawer-user .login-btn svg {
+    stroke-width: 1.8;
+}

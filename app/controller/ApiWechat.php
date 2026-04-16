@@ -584,11 +584,15 @@ class ApiWechat extends BaseController
 							Db::name('member')->where('id', $member['id'])->update(['subscribe' => 1, 'subscribe_time' => time()]);
 						}
 
-						// 推送自拍端推文
+						// 推送自拍端推文（被动回复图文消息，保证必达）
 						try {
 							$selfieService = new \app\service\AiTravelPhotoSelfieService();
 							$isSubscribe = (strval($postObj->Event) == 'subscribe');
-							$selfieService->handleScanEvent(aid, $openid, $selfieBid, $selfieMdid, $isSubscribe);
+							$articleData = $selfieService->handleScanEvent(aid, $openid, $selfieBid, $selfieMdid, $isSubscribe);
+							if ($articleData) {
+								// 使用被动回复图文消息，与 pick_/portraitId_ 保持一致
+								$this->response_article(aid, [$articleData], $postObj);
+							}
 						} catch (\Throwable $e) {
 							Log::error('[Selfie] 推送自拍端推文异常: ' . $e->getMessage());
 						}

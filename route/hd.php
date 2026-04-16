@@ -270,9 +270,9 @@ Route::group('api/hd/sign', function () {
 Route::group('api/hd/lottery', function () {
     // 奖品管理
     Route::get(':activity_id/prizes', 'hd.HdLotteryController/prizes');
-    Route::post(':activity_id/prizes', 'hd.HdLotteryController/createPrize');
-    Route::post(':activity_id/prizes/:id/update', 'hd.HdLotteryController/updatePrize');
     Route::post(':activity_id/prizes/:id/delete', 'hd.HdLotteryController/deletePrize');
+    Route::post(':activity_id/prizes/:id/update', 'hd.HdLotteryController/updatePrize');
+    Route::post(':activity_id/prizes', 'hd.HdLotteryController/createPrize');
     // 抽奖轮次
     Route::get(':activity_id/rounds', 'hd.HdLotteryController/rounds');
     Route::post(':activity_id/rounds', 'hd.HdLotteryController/createRound');

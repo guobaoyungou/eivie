@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="/static/index3/css/index.css?v=10">
     <link rel="stylesheet" href="/static/index3/css/responsive.css?v=6">
     <script src="/static/index3/js/theme.js?v=1"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 </head>
 <body>
 <div class="layout-wrapper">
@@ -65,6 +66,10 @@
 <script src="/static/index3/js/auth.js?v=3"></script>
 <script src="/static/index3/js/sidebar.js?v=6"></script>
 <script>
+    // Lucide Icons 初始化
+    if(typeof lucide!=='undefined'){lucide.createIcons();}
+</script>
+<script>
 (function(){
     var state = {
         currentStatus: 'all',
@@ -117,7 +122,7 @@
             if(container.querySelector('.creative-loading')) container.querySelector('.creative-loading').style.display = 'none';
 
             if(err || !res || res.code !== 0){
-                if(replace) container.innerHTML = '<div class="creative-empty"><div class="empty-icon">⚠️</div><p>加载失败，请重试</p></div>';
+                if(replace) container.innerHTML = '<div class="creative-empty"><div class="empty-icon"><i data-lucide="alert-triangle"></i></div><p>加载失败，请重试</p></div>';
                 return;
             }
 
@@ -127,7 +132,7 @@
             if(replace) container.innerHTML = '';
 
             if(list.length === 0 && replace){
-                container.innerHTML = '<div class="creative-empty"><div class="empty-icon">📋</div><p>暂无任务</p><div class="empty-hint">开始创作您的第一个作品吧</div></div>';
+                container.innerHTML = '<div class="creative-empty"><div class="empty-icon"><i data-lucide="clipboard-list"></i></div><p>暂无任务</p><div class="empty-hint">开始创作您的第一个作品吧</div></div>';
                 return;
             }
 
@@ -135,7 +140,7 @@
                 var taskItem = document.createElement('div');
                 taskItem.className = 'task-item';
                 taskItem.innerHTML = `
-                    <div class="task-icon">${task.generation_type === 1 ? '🖼️' : '🎬'}</div>
+                    <div class="task-icon"><i data-lucide="${task.generation_type === 1 ? 'image' : 'video'}"></i></div>
                     <div class="task-info">
                         <div class="task-title">${esc(task.prompt || '无标题')}</div>
                         <div class="task-meta">
@@ -172,7 +177,7 @@
             if(container.querySelector('.creative-loading')) container.querySelector('.creative-loading').style.display = 'none';
 
             if(err || !res || res.code !== 0){
-                if(replace) container.innerHTML = '<div class="creative-empty"><div class="empty-icon">⚠️</div><p>加载失败，请重试</p></div>';
+                if(replace) container.innerHTML = '<div class="creative-empty"><div class="empty-icon"><i data-lucide="alert-triangle"></i></div><p>加载失败，请重试</p></div>';
                 return;
             }
 
@@ -182,7 +187,7 @@
             if(replace) container.innerHTML = '';
 
             if(list.length === 0 && replace){
-                container.innerHTML = '<div class="creative-empty"><div class="empty-icon">🖼️</div><p>暂无作品</p><div class="empty-hint">完成任务后，作品将显示在这里</div></div>';
+                container.innerHTML = '<div class="creative-empty"><div class="empty-icon"><i data-lucide="image-off"></i></div><p>暂无作品</p><div class="empty-hint">完成任务后，作品将显示在这里</div></div>';
                 return;
             }
 

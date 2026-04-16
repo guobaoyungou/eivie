@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能商业解决方案 - 助力企业数字化转型</title>
+    <meta name="keywords" content="智能商业解决方案,AI商城,AI旅拍,短剧创作,互动大屏,营销系统,多商户多门店,会员系统,餐饮系统,企业数字化转型,B端商家,智能工具,商业AI">
+    <meta name="description" content="智能商业解决方案平台，为企业提供AI商城、旅拍、短剧创作、互动大屏、营销系统、多商户多门店、会员系统、餐饮等智能工具，助力企业数字化转型，提升业务效率与竞争力。">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="智能商业解决方案">
+    <meta name="copyright" content="智能商业解决方案">
+    <meta name="revisit-after" content="7 days">
+    <link rel="canonical" href="/">
+    <meta property="og:title" content="智能商业解决方案 - 助力企业数字化转型">
+    <meta property="og:description" content="智能商业解决方案平台，为企业提供AI商城、旅拍、短剧创作、互动大屏、营销系统、多商户多门店、会员系统、餐饮等智能工具，助力企业数字化转型，提升业务效率与竞争力。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="/">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="智能商业解决方案 - 助力企业数字化转型">
+    <meta name="twitter:description" content="智能商业解决方案平台，为企业提供AI商城、旅拍、短剧创作、互动大屏、营销系统、多商户多门店、会员系统、餐饮等智能工具，助力企业数字化转型，提升业务效率与竞争力。">
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css">
+    <link rel="stylesheet" href="/static/index3/css/index.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        /* =========================================
+           科技风格首页样式 - AI创作平台
+           Glassmorphism + Cyberpunk渐变 + 微交互
+           ========================================= */
+        
+        :root {
+            /* 主题主色调 - 复刻hd_landing配色 */
+            --primary-color: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #a5b4fc;
+            --primary-bg: #e0e7ff;
+            
+            /* 深色主题 */
+            --dark-primary: #1e1b4b;
+            --dark-secondary: #302b63;
+            --dark-bg: #0f0c29;
+            
+            /* 阴影系统 */
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+            --shadow-md: 0 8px 24px rgba(0,0,0,0.08);
+            --shadow-lg: 0 16px 40px rgba(0,0,0,0.1);
+            --shadow-glow: 0 0 30px rgba(99,102,241,0.2);
+            --shadow-glow-sm: 0 0 15px rgba(99,102,241,0.15);
+            
+            /* 玻璃拟态 */
+            --glass-bg: rgba(255,255,255,0.95);
+            --glass-border: rgba(255,255,255,0.8);
+            --glass-blur: blur(10px);
+            --glass-blur-sm: blur(8px);
+            
+            /* 功能色 */
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            
+            /* 文字色 */
+            --text-primary: #1e1b4b;
+            --text-secondary: #6b7280;
+            --text-tertiary: #9ca3af;
+            --text-light: #d1d5db;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-card: #ffffff;
+            --border-color: #e5e7eb;
+            --border-radius: 12px;
+            --transition: all 0.3s;
+        }
+        
+        /* 动画关键帧 */
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(2deg); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(99,102,241,0.3); }
+            50% { box-shadow: 0 0 40px rgba(99,102,241,0.5), 0 0 60px rgba(99,102,241,0.2); }
+        }
+        
+        @keyframes gradientFlow {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+        
+        @keyframes particleFloat {
+            0% { transform: translateY(0) translateX(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100vh) translateX(20px); opacity: 0; }
+        }
+        
+        @keyframes borderGlow {
+            0%, 100% { border-color: rgba(99,102,241,0.3); }
+            50% { border-color: rgba(99,102,241,0.6); }
+        }
+        
+        @keyframes techScan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100vh); }
+        }
+        
+        /* 全局样式 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--bg-primary);
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* 科技感网格背景 */
+        .tech-grid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        /* 科技粒子效果 */
+        .tech-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            animation: particleFloat linear infinite;
+            opacity: 0;
+        }
+        
+        /* 导航栏样式 - 毛玻璃效果 */
+        .navbar {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid var(--glass-border);
+            box-shadow: 0 4px 20px rgba(99,102,241,0.08);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            transition: var(--transition);
+        }
+        
+        .navbar.scrolled {
+            background: rgba(255,255,255,0.85);
+            box-shadow: 0 8px 30px rgba(99,102,241,0.12);
+            padding: 8px 0;
+        }
+        
+        .navbar .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo img {
+            height: 40px;
+            width: auto;
+        }
+        
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary-color);
+            position: relative;
+        }
+        
+        .logo-text::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--primary-color);
+            border-radius: 2px;
+            opacity: 0.5;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+        
+        .nav-links a {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+            position: relative;
+            padding: 8px 0;
+        }
+        
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 2px;
+            background: var(--primary-color);
+            transition: var(--transition);
+            border-radius: 2px;
+        }
+        
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+        
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+        
+        /* 按钮样式 - 纯色发光 */
+        .btn-primary {
+            display: inline-block;
+            padding: 12px 28px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition);
+            border: none;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(99,102,241,0.3);
+        }
+        
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: 0.5s;
+        }
+        
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            background: var(--primary-dark);
+            box-shadow: 0 8px 25px rgba(99,102,241,0.4);
+        }
+        
+        .btn-secondary {
+            display: inline-block;
+            padding: 12px 28px;
+            background: transparent;
+            color: white;
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(8px);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: white;
+            transform: translateY(-3px);
+        }
+        
+        .btn-link {
+            display: inline-block;
+            padding: 10px 24px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(99,102,241,0.25);
+        }
+        
+        .btn-link::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: 0.5s;
+        }
+        
+        .btn-link:hover::before {
+            left: 100%;
+        }
+        
+        .btn-link:hover {
+            transform: translateY(-3px);
+            background: var(--primary-dark);
+            box-shadow: 0 8px 25px rgba(99,102,241,0.35);
+        }
+        
+        .btn-nav {
+            display: inline-block;
+            padding: 10px 24px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.3s;
+            border: none;
+        }
+        
+        .btn-nav:hover {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99,102,241,0.3);
+        }
+        
+        /* 首屏 Hero 样式 */
+        .hero {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            color: white;
+            padding: 160px 0 100px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            margin-top: 70px;
+            min-height: 80vh;
+            display: flex;
+            align-items: center;
+        }
+        
+        /* 动态背景 */
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        }
+        
+        /* 扫描线效果 */
+        .hero::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary-color);
+            animation: techScan 4s linear infinite;
+            opacity: 0.5;
+        }
+        
+        /* 科技网格线 */
+        .hero-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(rgba(99,102,241,0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99,102,241,0.05) 1px, transparent 1px);
+            background-size: 60px 60px;
+            perspective: 500px;
+            transform-style: preserve-3d;
+        }
+        
+        .hero-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 24px;
+            line-height: 1.1;
+            letter-spacing: -0.5px;
+            color: #FFFFFF;
+        }
+        
+        .hero p {
+            font-size: 1.4rem;
+            margin-bottom: 48px;
+            opacity: 0.9;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            color: rgba(255,255,255,0.85);
+        }
+        
+        .cta-buttons {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        /* 通用 section 样式 */
+        .features, .advantages, .cases, .pricing, .faq {
+            padding: 120px 0;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .features, .cases, .faq {
+            background: var(--bg-primary);
+        }
+        
+        .advantages, .pricing {
+            background: var(--bg-secondary);
+        }
+        
+        /* 标题样式 */
+        h2 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+            position: relative;
+            display: inline-block;
+        }
+        
+        .section-underline {
+            width: 80px;
+            height: 4px;
+            background: var(--primary-color);
+            border-radius: 2px;
+            margin: 16px auto 0;
+            box-shadow: 0 0 20px rgba(99,102,241,0.3);
+        }
+        
+        .features h2, .advantages h2, .cases h2, .pricing h2, .faq h2 {
+            text-align: center;
+            display: block;
+        }
+        
+        .features p, .advantages p, .cases p, .pricing p {
+            text-align: center;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            max-width: 800px;
+            margin: 0 auto 60px;
+        }
+        
+        /* 功能模块样式 - 科技卡片 */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+        
+        .feature-card {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            padding: 40px 30px;
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            border: 1px solid rgba(99,102,241,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* 卡片顶部渐变条 */
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-color);
+        }
+        
+        /* 悬浮光晕效果 */
+        .feature-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(99,102,241,0.08);
+            opacity: 0;
+            transition: var(--transition);
+            pointer-events: none;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-12px);
+            box-shadow: var(--shadow-lg);
+            border-color: rgba(99,102,241,0.3);
+        }
+        
+        .feature-card:hover::after {
+            opacity: 1;
+        }
+        
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100px;
+            height: 100px;
+            color: var(--primary-color);
+            border-radius: 50%;
+            transition: var(--transition);
+            position: relative;
+            border: 2px solid rgba(99,102,241,0.3);
+            background: rgba(99,102,241,0.05);
+        }
+        
+        .feature-icon::before {
+            content: '';
+            position: absolute;
+            inset: -6px;
+            border-radius: 50%;
+            border: 1px solid rgba(99,102,241,0.15);
+            transition: var(--transition);
+        }
+        
+        .feature-card:hover .feature-icon {
+            color: var(--primary-dark);
+            transform: scale(1.1);
+            border-color: rgba(99,102,241,0.5);
+            background: rgba(99,102,241,0.1);
+        }
+        
+        .feature-card:hover .feature-icon::before {
+            inset: -12px;
+            border-color: rgba(99,102,241,0.2);
+        }
+        
+        .feature-card h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+        
+        .feature-card p {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 24px;
+            font-size: 1rem;
+            text-align: center;
+        }
+        
+        /* 优势样式 - 悬浮动画卡片 */
+        .advantages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+        
+        .advantage-item {
+            text-align: center;
+            padding: 40px 30px;
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            border: 1px solid rgba(99,102,241,0.08);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .advantage-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary-color);
+            transform: scaleX(0);
+            transition: var(--transition);
+        }
+        
+        .advantage-item:hover {
+            transform: translateY(-10px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .advantage-item:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .advantage-icon {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 80px;
+            height: 80px;
+            background: rgba(99,102,241,0.1);
+            border-radius: 24px;
+            transition: var(--transition);
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .advantage-item:nth-child(2) .advantage-icon { animation-delay: 0.5s; }
+        .advantage-item:nth-child(3) .advantage-icon { animation-delay: 1s; }
+        .advantage-item:nth-child(4) .advantage-icon { animation-delay: 1.5s; }
+        .advantage-item:nth-child(5) .advantage-icon { animation-delay: 2s; }
+        .advantage-item:nth-child(6) .advantage-icon { animation-delay: 2.5s; }
+        
+        .advantage-item:hover .advantage-icon {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: 0 8px 30px rgba(99,102,241,0.3);
+            animation: none;
+        }
+        
+        .advantage-item h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+        
+        .advantage-item p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            text-align: center;
+        }
+        
+        /* 案例样式 - 玻璃拟态卡片 */
+        .cases-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+        }
+        
+        .case-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur-sm);
+            -webkit-backdrop-filter: var(--glass-blur-sm);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius);
+            padding: 40px 30px;
+            box-shadow: var(--shadow-md);
+            transition: var(--transition);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .case-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(99,102,241,0.1);
+            opacity: 0;
+            transition: var(--transition);
+        }
+        
+        .case-card:hover {
+            transform: translateY(-12px);
+            box-shadow: var(--shadow-lg), var(--shadow-glow-sm);
+            border-color: rgba(99,102,241,0.3);
+        }
+        
+        .case-card:hover::before {
+            opacity: 1;
+        }
+        
+        .case-logo {
+            font-size: 2.2rem;
+            margin-bottom: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 90px;
+            height: 90px;
+            color: var(--primary-color);
+            border-radius: 24px;
+            transition: var(--transition);
+            position: relative;
+        }
+        
+        .case-card:hover .case-logo {
+            color: var(--primary-dark);
+        }
+        
+        .case-card h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+        
+        .case-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .case-testimonial {
+            background: rgba(99,102,241,0.08);
+            padding: 20px;
+            border-radius: 16px;
+            font-style: italic;
+            color: var(--text-secondary);
+            border: 1px solid rgba(99,102,241,0.1);
+            position: relative;
+        }
+        
+        .case-testimonial::before {
+            content: '"';
+            position: absolute;
+            top: 8px;
+            left: 12px;
+            font-size: 2rem;
+            color: rgba(99,102,241,0.2);
+            font-family: Georgia, serif;
+        }
+        
+        /* 价格样式 - 发光边框卡片 */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .pricing-card {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            padding: 50px 30px;
+            box-shadow: var(--shadow-md);
+            transition: var(--transition);
+            text-align: center;
+            position: relative;
+            border: 1px solid rgba(99,102,241,0.1);
+        }
+        
+        .pricing-card.featured {
+            transform: scale(1.05);
+            background: #0F172A;
+            border: 2px solid rgba(99,102,241,0.4);
+            box-shadow: var(--shadow-lg), 0 0 40px rgba(99,102,241,0.2);
+            animation: borderGlow 3s ease-in-out infinite;
+        }
+        
+        .pricing-card.featured::before {
+            content: '推荐';
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary-color);
+            color: white;
+            padding: 8px 28px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(99,102,241,0.3);
+        }
+        
+        .pricing-card:hover {
+            transform: translateY(-10px);
+            box-shadow: var(--shadow-lg);
+            border-color: rgba(99,102,241,0.3);
+        }
+        
+        .pricing-card.featured:hover {
+            transform: scale(1.05) translateY(-10px);
+        }
+        
+        .pricing-card h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+        
+        .pricing-card.featured h3 {
+            color: white;
+        }
+        
+        .price {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+        }
+
+        .pricing-card.featured .price {
+            color: var(--primary-light);
+        }
+        
+        .price span {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        
+        .pricing-card.featured .price span {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .features-list {
+            list-style: none;
+            margin-bottom: 40px;
+        }
+        
+        .features-list li {
+            padding: 12px 0;
+            color: var(--text-secondary);
+            position: relative;
+            padding-left: 30px;
+            border-bottom: 1px solid rgba(99,102,241,0.05);
+        }
+        
+        .features-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .pricing-card.featured .features-list li {
+            color: rgba(255,255,255,0.85);
+        }
+        
+        .features-list li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .features-list li::after {
+            content: '✓';
+            position: absolute;
+            left: 4px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-weight: bold;
+            font-size: 10px;
+        }
+        
+        /* FAQ样式 - 手风琴动画 */
+        .faq-list {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .faq-item {
+            margin-bottom: 16px;
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            border: 1px solid rgba(99,102,241,0.08);
+            transition: var(--transition);
+        }
+        
+        .faq-item:hover {
+            border-color: rgba(99,102,241,0.2);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .faq-question {
+            padding: 20px 24px;
+            background: var(--bg-card);
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-primary);
+            transition: var(--transition);
+            border-bottom: 1px solid rgba(99,102,241,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .faq-question::after {
+            content: '+';
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            transition: var(--transition);
+            flex-shrink: 0;
+        }
+        
+        .faq-item.active .faq-question::after {
+            transform: rotate(45deg);
+        }
+        
+        .faq-item.active .faq-question {
+            color: var(--primary-color);
+            background: rgba(99,102,241,0.05);
+        }
+        
+        .faq-answer {
+            padding: 0 24px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .faq-item.active .faq-answer {
+            padding: 20px 24px;
+            max-height: 200px;
+        }
+        
+        /* 底部样式 */
+        .footer {
+            background: #1e1b4b;
+            color: #d1d5db;
+            padding: 60px 0 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: rgba(99,102,241,0.5);
+        }
+        
+        .footer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        
+        .footer-section h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #ffffff;
+        }
+        
+        .footer-section p {
+            color: #9ca3af;
+            line-height: 1.6;
+        }
+        
+        .footer-section ul {
+            list-style: none;
+        }
+        
+        .footer-section ul li {
+            margin-bottom: 12px;
+        }
+        
+        .footer-section ul li a {
+            color: #9ca3af;
+            text-decoration: none;
+            transition: var(--transition);
+            position: relative;
+        }
+        
+        .footer-section ul li a:hover {
+            color: var(--primary-light);
+            padding-left: 8px;
+        }
+        
+        .social-links {
+            display: flex;
+            gap: 16px;
+            margin-top: 20px;
+        }
+        
+        .social-links a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            background: rgba(99,102,241,0.1);
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+            transition: var(--transition);
+        }
+        
+        .social-links a:hover {
+            background: var(--primary-color);
+            border-color: transparent;
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(99,102,241,0.3);
+        }
+        
+        .footer-bottom {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            color: #6b7280;
+        }
+        
+        .footer-bottom a {
+            color: #6b7280;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+        
+        .footer-bottom a:hover {
+            color: var(--primary-light);
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .navbar .container {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 16px;
+            }
+            
+            .hero {
+                padding: 140px 0 100px;
+                margin-top: 100px;
+            }
+            
+            .hero h1 {
+                font-size: 2.4rem;
+            }
+            
+            .hero p {
+                font-size: 1.1rem;
+            }
+            
+            .cta-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn-primary, .btn-secondary {
+                width: 100%;
+                max-width: 280px;
+                text-align: center;
+            }
+            
+            .features, .advantages, .cases, .pricing, .faq {
+                padding: 80px 0;
+            }
+            
+            h2 {
+                font-size: 2rem;
+            }
+            
+            .features-grid, .advantages-grid, .cases-grid, .pricing-grid {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+            
+            .pricing-card.featured {
+                transform: none;
+            }
+            
+            .footer-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+                text-align: center;
+            }
+            
+            .social-links {
+                justify-content: center;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+            
+            .hero p {
+                font-size: 1rem;
+            }
+            
+            h2 {
+                font-size: 1.6rem;
+            }
+            
+            .feature-card, .advantage-item, .case-card, .pricing-card {
+                padding: 30px 20px;
+            }
+            
+            .price {
+                font-size: 2.2rem;
+            }
+        }
+        
+        /* Lucide图标样式 */
+        [data-lucide] svg {
+            stroke: currentColor;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="/" class="logo">
+                {if $webinfo.logo}
+                <img src="{$webinfo.logo}" alt="{$webinfo.webname}">
+                {/if}
+                <span class="logo-text">{$webinfo.webname}</span>
+            </a>
+            <div class="nav-links">
+                <a href="#features">功能</a>
+                <a href="#advantages">优势</a>
+                <a href="#cases">案例</a>
+                <a href="#pricing">价格</a>
+                <a href="#faq">常见问题</a>
+                <a href="/Backstage/index" class="btn-nav">登录 / 注册</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 首屏 -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>智能商业解决方案</h1>
+                <p>助力企业数字化转型，提升业务效率与竞争力</p>
+                <div class="cta-buttons">
+                    <a href="/Backstage/index" class="btn-primary">立即注册</a>
+                    <a href="#features" class="btn-secondary">了解更多</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 功能模块 -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2>核心功能</h2>
+            <p>我们提供多种智能商业解决方案，满足不同行业的需求</p>
+            <div class="features-grid">
+                <!-- AI商城 -->
+                <div class="feature-card">
+                    <div class="feature-icon"><i data-lucide="shopping-cart" style="width:48px;height:48px"></i></div>
+                    <h3>AI商城</h3>
+                    <p>智能电商平台，集成AI推荐、智能客服、自动化营销等功能，提升转化率和客户满意度</p>
+                    <a href="#" class="btn-link">了解详情</a>
+                </div>
+                
+                <!-- AI旅拍 -->
+                <div class="feature-card">
+                    <div class="feature-icon"><i data-lucide="camera" style="width:48px;height:48px"></i></div>
+                    <h3>AI旅拍</h3>
+                    <p>为旅游行业B端商家打造的智能摄影解决方案，提供智能人像拍摄、实时风格化、云端存储等功能</p>
+                    <a href="/Index/travel_photo" class="btn-link">了解详情</a>
+                </div>
+                
+                <!-- 短剧创作 -->
+                <div class="feature-card">
+                    <div class="feature-icon"><i data-lucide="film" style="width:48px;height:48px"></i></div>
+                    <h3>短剧创作</h3>
+                    <p>AI辅助短剧创作平台，提供剧本生成、角色设计、场景布置等功能，快速制作高质量短剧</p>
+                    <a href="/?s=/Index/short_drama" class="btn-link">了解详情</a>
+                </div>
+                
+                <!-- 互动大屏 -->
+                <div class="feature-card">
+                    <div class="feature-icon"><i data-lucide="tv" style="width:48px;height:48px"></i></div>
+                    <h3>互动大屏</h3>
+                    <p>智能互动大屏系统，支持触控交互、实时数据展示、多人协作等功能，适用于展会、活动等场景</p>
+                    <a href="https://wxhd.eivie.cn/" class="btn-link">了解详情</a>
+                </div>
+                
+                <!-- 营销系统 -->
+                <div class="feature-card">
+                    <div class="feature-icon"><i data-lucide="megaphone" style="width:48px;height:48px"></i></div>
+                    <h3>营销系统</h3>
+                    <p>全渠道营销解决方案，集成社交媒体营销、邮件营销、短信营销等功能，提升品牌曝光和转化率</p>
+                    <a href="#" class="btn-link">了解详情</a>
+                </div>
+                
+                <!-- 多商户多门店 -->
+                <div class="feature-card">
+                    <div class="feature-icon"><i data-lucide="store" style="width:48px;height:48px"></i></div>
+                    <h3>多商户多门店</h3>
+                    <p>支持多商户入驻和多门店管理的系统，提供统一后台、数据分析、库存管理等功能</p>
+                    <a href="#" class="btn-link">了解详情</a>
+                </div>
+                
+                <!-- 会员系统 -->
+                <div class="feature-card">
+                    <div class="feature-icon"><i data-lucide="crown" style="width:48px;height:48px"></i></div>
+                    <h3>会员系统</h3>
+                    <p>智能会员管理系统，提供会员等级、积分管理、优惠券、会员画像等功能，提升客户忠诚度</p>
+                    <a href="#" class="btn-link">了解详情</a>
+                </div>
+                
+                <!-- 餐饮系统 -->
+                <div class="feature-card">
+                    <div class="feature-icon"><i data-lucide="utensils" style="width:48px;height:48px"></i></div>
+                    <h3>餐饮系统</h3>
+                    <p>智能餐饮管理系统，支持在线点餐、外卖配送、库存管理、餐桌预订等功能，提升运营效率</p>
+                    <a href="#" class="btn-link">了解详情</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 核心优势 -->
+    <section class="advantages" id="advantages">
+        <div class="container">
+            <h2>核心优势</h2>
+            <p>我们的解决方案为企业带来显著的商业价值</p>
+            <div class="advantages-grid">
+                <div class="advantage-item">
+                    <div class="advantage-icon"><i data-lucide="refresh-cw" style="width:32px;height:32px"></i></div>
+                    <h3>一站式解决方案</h3>
+                    <p>集成多种智能工具，满足企业多方面需求，避免多系统切换的繁琐</p>
+                </div>
+                <div class="advantage-item">
+                    <div class="advantage-icon"><i data-lucide="bot" style="width:32px;height:32px"></i></div>
+                    <h3>AI驱动</h3>
+                    <p>利用人工智能技术提升业务效率和用户体验，实现智能化运营</p>
+                </div>
+                <div class="advantage-item">
+                    <div class="advantage-icon"><i data-lucide="palette" style="width:32px;height:32px"></i></div>
+                    <h3>定制化服务</h3>
+                    <p>根据不同行业需求提供定制化解决方案，满足企业个性化需求</p>
+                </div>
+                <div class="advantage-item">
+                    <div class="advantage-icon"><i data-lucide="plug" style="width:32px;height:32px"></i></div>
+                    <h3>易于集成</h3>
+                    <p>与现有系统无缝对接，降低实施成本和时间</p>
+                </div>
+                <div class="advantage-item">
+                    <div class="advantage-icon"><i data-lucide="shield" style="width:32px;height:32px"></i></div>
+                    <h3>数据安全</h3>
+                    <p>严格的隐私保护和数据安全措施，保障企业数据安全</p>
+                </div>
+                <div class="advantage-item">
+                    <div class="advantage-icon"><i data-lucide="trending-up" style="width:32px;height:32px"></i></div>
+                    <h3>持续更新</h3>
+                    <p>不断迭代升级，引入最新技术和功能，保持竞争力</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 客户案例 -->
+    <section class="cases" id="cases">
+        <div class="container">
+            <h2>成功案例</h2>
+            <p>我们的解决方案已帮助众多企业实现数字化转型</p>
+            <div class="cases-grid">
+                <div class="case-card">
+                    <div class="case-logo"><i data-lucide="smartphone" style="width:36px;height:36px"></i></div>
+                    <h3>某知名电商平台</h3>
+                    <p>使用AI商城解决方案，转化率提升35%，客户满意度提高28%</p>
+                    <div class="case-testimonial">
+                        "智能推荐系统帮助我们精准匹配用户需求，大幅提升了销售业绩。"
+                    </div>
+                </div>
+                <div class="case-card">
+                    <div class="case-logo"><i data-lucide="mountain" style="width:36px;height:36px"></i></div>
+                    <h3>某5A级景区</h3>
+                    <p>使用AI旅拍解决方案，游客体验提升45%，额外收入增加200%</p>
+                    <div class="case-testimonial">
+                        "AI旅拍服务成为我们景区的特色亮点，游客纷纷点赞分享。"
+                    </div>
+                </div>
+                <div class="case-card">
+                    <div class="case-logo"><i data-lucide="utensils" style="width:36px;height:36px"></i></div>
+                    <h3>某连锁餐饮品牌</h3>
+                    <p>使用餐饮系统解决方案，运营效率提升60%，客单价提高20%</p>
+                    <div class="case-testimonial">
+                        "在线点餐和智能库存管理让我们的运营更加高效，顾客等待时间大幅减少。"
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 价格方案 -->
+    <section class="pricing" id="pricing">
+        <div class="container">
+            <h2>价格方案</h2>
+            <p>选择适合您企业的解决方案</p>
+            <div class="pricing-grid">
+                <!-- 基础版 -->
+                <div class="pricing-card">
+                    <h3>基础版</h3>
+                    <div class="price">¥999<span>/月</span></div>
+                    <ul class="features-list">
+                        <li>AI商城基础功能</li>
+                        <li>会员系统基础功能</li>
+                        <li>营销系统基础功能</li>
+                        <li>5GB存储空间</li>
+                        <li>基础技术支持</li>
+                    </ul>
+                    <a href="/Backstage/index" class="btn-primary">立即购买</a>
+                </div>
+                
+                <!-- 专业版 -->
+                <div class="pricing-card featured">
+                    <h3>专业版</h3>
+                    <div class="price">¥2999<span>/月</span></div>
+                    <ul class="features-list">
+                        <li>包含基础版所有功能</li>
+                        <li>AI旅拍功能</li>
+                        <li>短剧创作功能</li>
+                        <li>互动大屏功能</li>
+                        <li>20GB存储空间</li>
+                        <li>优先技术支持</li>
+                    </ul>
+                    <a href="/Backstage/index" class="btn-primary">立即购买</a>
+                </div>
+                
+                <!-- 企业版 -->
+                <div class="pricing-card">
+                    <h3>企业版</h3>
+                    <div class="price">定制<span>/月</span></div>
+                    <ul class="features-list">
+                        <li>包含专业版所有功能</li>
+                        <li>多商户多门店功能</li>
+                        <li>餐饮系统功能</li>
+                        <li>无限存储空间</li>
+                        <li>专属技术顾问</li>
+                        <li>定制化开发</li>
+                    </ul>
+                    <a href="/Index/lianxi" class="btn-primary">联系我们</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 常见问题 -->
+    <section class="faq" id="faq">
+        <div class="container">
+            <h2>常见问题</h2>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <div class="faq-question">系统是否兼容现有业务系统？</div>
+                    <div class="faq-answer">
+                        是的，我们的系统设计为模块化架构，可以与现有业务系统无缝集成，降低迁移成本和风险。
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question">数据安全如何保障？</div>
+                    <div class="faq-answer">
+                        我们采用银行级别的数据加密技术，定期备份数据，严格的访问权限控制，确保您的数据安全。
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question">技术支持如何提供？</div>
+                    <div class="faq-answer">
+                        我们提供7×24小时技术支持，包括在线客服、电话支持、远程协助等多种方式，确保系统稳定运行。
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question">实施周期需要多长时间？</div>
+                    <div class="faq-answer">
+                        根据企业规模和需求复杂度，实施周期一般为1-4周，我们会提供详细的实施计划和时间表。
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question">是否提供免费试用？</div>
+                    <div class="faq-answer">
+                        是的，我们提供14天免费试用期，让您充分体验系统功能后再决定是否购买。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 底部 -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-section">
+                    <h3>{$webinfo.webname}</h3>
+                    <p>{$webinfo.description}</p>
+                </div>
+                <div class="footer-section">
+                    <h3>产品</h3>
+                    <ul>
+                        <li><a href="#">AI商城</a></li>
+                        <li><a href="/Index/travel_photo">AI旅拍</a></li>
+                        <li><a href="/?s=/Index/short_drama">短剧创作</a></li>
+                        <li><a href="https://wxhd.eivie.cn/">互动大屏</a></li>
+                        <li><a href="#">营销系统</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>支持</h3>
+                    <ul>
+                        <li><a href="#">帮助中心</a></li>
+                        <li><a href="#">技术文档</a></li>
+                        <li><a href="/Index/lianxi">联系我们</a></li>
+                        <li><a href="#">服务条款</a></li>
+                        <li><a href="#">隐私政策</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>联系方式</h3>
+                    <ul>
+                        {if $webinfo.tel}
+                        <li>电话：{$webinfo.tel}</li>
+                        {/if}
+                        {if $webinfo.email}
+                        <li>邮箱：{$webinfo.email}</li>
+                        {/if}
+                        {if $webinfo.address}
+                        <li>地址：{$webinfo.address}</li>
+                        {/if}
+                    </ul>
+                    <div class="social-links">
+                        {if $webinfo.weixin}
+                        <a href="{$webinfo.weixin}" title="微信"><i data-lucide="message-circle" style="width:20px;height:20px"></i></a>
+                        {/if}
+                        {if $webinfo.weibo}
+                        <a href="{$webinfo.weibo}" title="微博"><i data-lucide="globe" style="width:20px;height:20px"></i></a>
+                        {/if}
+                        {if $webinfo.linkedin}
+                        <a href="{$webinfo.linkedin}" title="LinkedIn"><i data-lucide="linkedin" style="width:20px;height:20px"></i></a>
+                        {/if}
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; {:date('Y')} {$webinfo.webname}. 保留所有权利.</p>
+                {if $webinfo.icp}
+                <p><a href="https://beian.miit.gov.cn/" target="_blank">{$webinfo.icp}</a></p>
+                {/if}
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // 平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+        
+        // FAQ交互
+        document.querySelectorAll('.faq-item').forEach(item => {
+            item.querySelector('.faq-question').addEventListener('click', function() {
+                // 关闭其他已展开的FAQ
+                document.querySelectorAll('.faq-item.active').forEach(activeItem => {
+                    if (activeItem !== item) {
+                        activeItem.classList.remove('active');
+                    }
+                });
+                // 切换当前FAQ
+                item.classList.toggle('active');
+            });
+        });
+        
+        // 导航栏滚动效果
+        window.addEventListener('scroll', function() {
+            const navbar = document.querySelector('.navbar');
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+    </script>
+    <!-- Lucide Icons 初始化 -->
+    <script>if(typeof lucide!=='undefined'){lucide.createIcons();}</script>
+</body>
+</html>

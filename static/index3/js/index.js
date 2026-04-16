@@ -34,7 +34,14 @@
         popupSubmitting: false,
         popupRatioOptions: [],
         popupQuantityOptions: [1,2,3,4,5,6,7,8,9],
-        loginPendingCallback: null
+        loginPendingCallback: null,
+        // 幻灯片弹窗状态
+        slideshowImages: [],
+        slideshowIndex: 0,
+        slideshowPlaying: false,
+        slideshowTimer: null,
+        slideshowInterval: 3000,
+        slideshowTemplateName: ''
     };
 
     document.addEventListener('DOMContentLoaded', function(){
@@ -56,6 +63,7 @@
         initKeyboardNavigation();
         initSceneCards();
         initScenePopup();
+        initSlideshow();
     });
     
     // === 键盘导航支持 ===
@@ -693,7 +701,7 @@
             state.providerLoading[providerId] = false;
 
             if(err || !res || res.code !== 0){
-                scroll.innerHTML = '<div class="empty-state"><div class="empty-icon">😔</div><p>加载失败，请重试</p></div>';
+                scroll.innerHTML = '<div class="empty-state"><div class="empty-icon"><i data-lucide="alert-circle" style="width:48px;height:48px"></i></div><p>加载失败，请重试</p></div>';
                 showToast('加载模型失败', 'error');
                 return;
             }
@@ -714,7 +722,7 @@
         if(!scroll) return;
         
         if(list.length === 0){
-            scroll.innerHTML = '<div class="empty-state"><div class="empty-icon">🤖</div><p>该供应商暂无可用模型</p></div>';
+            scroll.innerHTML = '<div class="empty-state"><div class="empty-icon"><i data-lucide="bot" style="width:48px;height:48px"></i></div><p>该供应商暂无可用模型</p></div>';
             return;
         }
 
@@ -775,7 +783,7 @@
                         '<div class="mc-name">' + escapeHtml(item.model_name) + '</div>' +
                         '<div class="mc-provider">' + escapeHtml(item.provider_name || '') + '</div>' +
                     '</div>' +
-                    (item.is_recommend == 1 ? '<span class="mc-recommend-badge">🔥</span>' : '') +
+                    (item.is_recommend == 1 ? '<span class="mc-recommend-badge"><i data-lucide="flame" style="width:16px;height:16px;color:#f97316"></i></span>' : '') +
                 '</div>' +
                 '<div class="mc-desc">' + escapeHtml(item.description || '') + '</div>' +
                 capabilitiesHtml +
@@ -843,7 +851,7 @@
 
         Api.getModelDetail({id: modelId}, function(err, res){
             if(err || !res || res.code !== 0){
-                row1.innerHTML = '<div class="empty-state" style="padding:24px"><div class="empty-icon">😔</div><p>加载失败</p></div>';
+                row1.innerHTML = '<div class="empty-state" style="padding:24px"><div class="empty-icon"><i data-lucide="alert-circle" style="width:48px;height:48px"></i></div><p>加载失败</p></div>';
                 showToast('加载模型详情失败', 'error');
                 return;
             }
@@ -854,22 +862,22 @@
 
             // === Row 1: 模型类型信息 ===
             var typeIconMap = {
-                'image_generation': '🖼️',
-                'video_generation': '🎬',
-                'text_generation': '✍️',
-                'deep_thinking': '🧠',
-                'speech_model': '🎙️',
-                'embedding': '🧩'
+                'image_generation': '<i data-lucide="image" style="width:16px;height:16px"></i>',
+                'video_generation': '<i data-lucide="video" style="width:16px;height:16px"></i>',
+                'text_generation': '<i data-lucide="pen-tool" style="width:16px;height:16px"></i>',
+                'deep_thinking': '<i data-lucide="brain" style="width:16px;height:16px"></i>',
+                'speech_model': '<i data-lucide="mic" style="width:16px;height:16px"></i>',
+                'embedding': '<i data-lucide="puzzle" style="width:16px;height:16px"></i>'
             };
-            var typeEmoji = typeIconMap[data.type_code] || '🤖';
+            var typeEmoji = typeIconMap[data.type_code] || '<i data-lucide="bot" style="width:16px;height:16px"></i>';
 
             var ioHtml = '';
             var inputTypes = data.type_input_types || [];
             var outputTypes = data.type_output_types || [];
             if(inputTypes.length || outputTypes.length){
                 ioHtml = '<div class="tmt-io">';
-                inputTypes.forEach(function(t){ ioHtml += '<span class="tmt-io-tag">⬆ ' + escapeHtml(t) + '</span>'; });
-                outputTypes.forEach(function(t){ ioHtml += '<span class="tmt-io-tag">⬇ ' + escapeHtml(t) + '</span>'; });
+                inputTypes.forEach(function(t){ ioHtml += '<span class="tmt-io-tag"><i data-lucide="arrow-up" style="width:12px;height:12px"></i> ' + escapeHtml(t) + '</span>'; });
+                outputTypes.forEach(function(t){ ioHtml += '<span class="tmt-io-tag"><i data-lucide="arrow-down" style="width:12px;height:12px"></i> ' + escapeHtml(t) + '</span>'; });
                 ioHtml += '</div>';
             }
 
@@ -951,7 +959,7 @@
                 });
                 input += '</select>';
             } else if(param.type === 'image' || param.type === 'mixed'){
-                input = '<div class="tf-image-upload">📷 点击上传图片</div>';
+                input = '<div class="tf-image-upload"><i data-lucide="camera" style="width:14px;height:14px"></i> 点击上传图片</div>';
             } else if(param.type === 'boolean'){
                 var checked = param.default ? ' checked' : '';
                 input = '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" name="' + name + '"' + checked + ' style="width:16px;height:16px;accent-color:var(--accent-color)"><span style="font-size:13px;color:var(--text-secondary)">' + escapeHtml(param.description || '') + '</span></label>';
@@ -968,11 +976,11 @@
     function renderSceneTemplates(container, scenes){
         container.innerHTML = '';
         if(!scenes || scenes.length === 0){
-            container.innerHTML = '<div class="tm-scenes-empty">💭 暂无推荐场景模板</div>';
+            container.innerHTML = '<div class="tm-scenes-empty"><i data-lucide="lightbulb" style="width:16px;height:16px"></i> 暂无推荐场景模板</div>';
             return;
         }
 
-        var title = '<div class="tms-title"><span class="tms-icon">✨</span>推荐场景模板</div>';
+        var title = '<div class="tms-title"><span class="tms-icon"><i data-lucide="sparkles" style="width:16px;height:16px"></i></span>推荐场景模板</div>';
         var scroll = document.createElement('div');
         scroll.className = 'tms-scroll';
 
@@ -1094,7 +1102,7 @@
             }
 
             if(list.length === 0 && replace){
-                grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><p>暂无场景模板</p></div>';
+                grid.innerHTML = '<div class="empty-state"><div class="empty-icon"><i data-lucide="inbox" style="width:48px;height:48px"></i></div><p>暂无场景模板</p></div>';
                 return;
             }
 
@@ -1185,7 +1193,7 @@
             grid.innerHTML = '';
             var list = res.data || [];
             if(list.length === 0){
-                grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><p>未找到相关内容</p></div>';
+                grid.innerHTML = '<div class="empty-state"><div class="empty-icon"><i data-lucide="search-x" style="width:48px;height:48px"></i></div><p>未找到相关内容</p></div>';
                 return;
             }
             list.forEach(function(item){
@@ -1341,13 +1349,13 @@
             return '<div class="sc-cover-wrap">' +
                 '<img class="sc-cover" src="' + gifCover + '" alt="' + altText + '" loading="lazy">' +
                 '<video class="sc-video" src="' + coverUrl + '" muted loop playsinline preload="none"></video>' +
-                '<span class="sc-video-badge">▶ 视频</span>' +
+                '<span class="sc-video-badge"><i data-lucide="play" style="width:12px;height:12px"></i> 视频</span>' +
             '</div>';
         } else if(isVideo && !gifCover){
             // 视频模板但无GIF，用cover_image作为video源，首帧会显示为poster
             return '<div class="sc-cover-wrap">' +
                 '<video class="sc-cover" src="' + coverUrl + '" muted loop playsinline preload="metadata" style="object-fit:cover"></video>' +
-                '<span class="sc-video-badge">▶ 视频</span>' +
+                '<span class="sc-video-badge"><i data-lucide="play" style="width:12px;height:12px"></i> 视频</span>' +
             '</div>';
         }
         return '<img class="sc-cover" src="' + coverUrl + '" alt="' + altText + '" loading="lazy">';
@@ -1371,6 +1379,18 @@
                 var genType = (type === 'video') ? 2 : 1;
                 openScenePopup(id, genType);
             });
+        }
+        // 图片模板Tab下，点击封面图片区域触发幻灯片弹窗
+        var type = card.getAttribute('data-type');
+        if(type === 'photo'){
+            var cover = card.querySelector('.sc-cover-wrap') || card.querySelector('.sc-cover');
+            if(cover){
+                cover.addEventListener('click', function(e){
+                    e.stopPropagation();
+                    var id = card.getAttribute('data-id');
+                    if(id) openSlideshow(id);
+                });
+            }
         }
         // 卡片自身点击也打开弹窗
         card.addEventListener('click', function(){
@@ -1516,7 +1536,7 @@
             }
 
             // Row 1: 类型标题
-            var typeText = (generationType === 2) ? '🎬 视频生成' : '🖼️ 图片生成';
+            var typeText = (generationType === 2) ? '<i data-lucide="video" style="width:16px;height:16px"></i> 视频生成' : '<i data-lucide="image" style="width:16px;height:16px"></i> 图片生成';
             var rowType = document.getElementById('spRowType');
             rowType.innerHTML = '<span class="sp-type-badge">' + typeText + '</span>' +
                 '<span class="sp-template-name">' + escapeHtml(data.template_name) + '</span>';
@@ -1776,6 +1796,299 @@
         return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    // =================================================================
+    // 幻灯片弹窗模块 (Slideshow Modal)
+    // =================================================================
+
+    function initSlideshow(){
+        var modal = document.getElementById('slideshowModal');
+        if(!modal) return;
+
+        // 点击遮罩层关闭
+        modal.addEventListener('click', function(e){
+            if(e.target === modal) closeSlideshow();
+        });
+
+        // 关闭按钮
+        var closeBtn = document.getElementById('slideshowClose');
+        if(closeBtn) closeBtn.addEventListener('click', closeSlideshow);
+
+        // 左右箭头
+        var prevBtn = document.getElementById('slideshowPrev');
+        var nextBtn = document.getElementById('slideshowNext');
+        if(prevBtn) prevBtn.addEventListener('click', function(e){
+            e.stopPropagation();
+            slideshowPrev();
+        });
+        if(nextBtn) nextBtn.addEventListener('click', function(e){
+            e.stopPropagation();
+            slideshowNext();
+        });
+
+        // 播放/暂停按钮
+        var playBtn = document.getElementById('slideshowPlayBtn');
+        if(playBtn) playBtn.addEventListener('click', function(e){
+            e.stopPropagation();
+            toggleSlideshowPlay();
+        });
+
+        // 键盘支持
+        document.addEventListener('keydown', function(e){
+            var modal = document.getElementById('slideshowModal');
+            if(!modal || modal.style.display === 'none') return;
+            if(e.key === 'Escape'){
+                closeSlideshow();
+            } else if(e.key === 'ArrowLeft'){
+                e.preventDefault();
+                slideshowPrev();
+            } else if(e.key === 'ArrowRight'){
+                e.preventDefault();
+                slideshowNext();
+            }
+        });
+    }
+
+    function openSlideshow(templateId){
+        var modal = document.getElementById('slideshowModal');
+        if(!modal) return;
+
+        // 重置状态
+        state.slideshowImages = [];
+        state.slideshowIndex = 0;
+        state.slideshowPlaying = false;
+        clearSlideshowTimer();
+
+        // 显示弹窗 + loading
+        modal.style.display = 'flex';
+        // Force reflow for transition
+        void modal.offsetWidth;
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+
+        var imgEl = document.getElementById('slideshowImage');
+        var loadingEl = document.getElementById('slideshowLoading');
+        var titleEl = document.getElementById('slideshowTitle');
+        var counterEl = document.getElementById('slideshowCounter');
+        var controlsEl = document.getElementById('slideshowControls');
+        var thumbsEl = document.getElementById('slideshowThumbs');
+        var prevBtn = document.getElementById('slideshowPrev');
+        var nextBtn = document.getElementById('slideshowNext');
+
+        imgEl.classList.remove('loaded');
+        imgEl.src = '';
+        loadingEl.style.display = 'flex';
+        titleEl.textContent = '加载中...';
+        counterEl.textContent = '';
+        controlsEl.style.display = 'none';
+        thumbsEl.innerHTML = '';
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+
+        // 请求数据
+        Api.getTemplateImages({template_id: templateId}, function(err, res){
+            if(err || !res || res.status !== 1){
+                closeSlideshow();
+                showToast(res && res.msg ? res.msg : '获取图片失败', 'error');
+                return;
+            }
+            var data = res.data;
+            if(!data.images || data.images.length === 0){
+                closeSlideshow();
+                showToast('暂无生成图片', 'info');
+                return;
+            }
+
+            state.slideshowImages = data.images;
+            state.slideshowTemplateName = data.template_name || '';
+            state.slideshowIndex = 0;
+
+            titleEl.textContent = escapeHtml(data.template_name);
+
+            var count = data.images.length;
+            if(count > 1){
+                // 显示控件
+                prevBtn.style.display = '';
+                nextBtn.style.display = '';
+                controlsEl.style.display = 'flex';
+                renderSlideshowDots();
+                renderSlideshowThumbs();
+                // 开始自动播放
+                startSlideshowAutoplay();
+            } else {
+                // 单张图片，隐藏控件
+                prevBtn.style.display = 'none';
+                nextBtn.style.display = 'none';
+                controlsEl.style.display = 'none';
+            }
+
+            showSlideshowImage(0);
+        });
+    }
+
+    function closeSlideshow(){
+        var modal = document.getElementById('slideshowModal');
+        if(!modal) return;
+        clearSlideshowTimer();
+        state.slideshowPlaying = false;
+        modal.classList.remove('show');
+        setTimeout(function(){
+            modal.style.display = 'none';
+        }, 300);
+        document.body.style.overflow = '';
+    }
+
+    function showSlideshowImage(index){
+        var images = state.slideshowImages;
+        if(!images.length) return;
+        if(index < 0) index = images.length - 1;
+        if(index >= images.length) index = 0;
+        state.slideshowIndex = index;
+
+        var img = images[index];
+        var imgEl = document.getElementById('slideshowImage');
+        var loadingEl = document.getElementById('slideshowLoading');
+        var counterEl = document.getElementById('slideshowCounter');
+
+        counterEl.textContent = '第' + (index + 1) + '张 / 共' + images.length + '张';
+
+        // 淡出当前图片
+        imgEl.classList.remove('loaded');
+        loadingEl.style.display = 'flex';
+
+        var newImg = new Image();
+        newImg.onload = function(){
+            imgEl.src = img.output_url;
+            loadingEl.style.display = 'none';
+            // 强制reflow后淡入
+            void imgEl.offsetWidth;
+            imgEl.classList.add('loaded');
+        };
+        newImg.onerror = function(){
+            // 加载失败，尝试缩略图
+            imgEl.src = img.thumbnail_url || img.output_url;
+            loadingEl.style.display = 'none';
+            void imgEl.offsetWidth;
+            imgEl.classList.add('loaded');
+        };
+        newImg.src = img.output_url;
+
+        // 更新dots和thumbs高亮
+        updateSlideshowDots(index);
+        updateSlideshowThumbs(index);
+    }
+
+    function slideshowPrev(){
+        pauseSlideshowAutoplay();
+        showSlideshowImage(state.slideshowIndex - 1);
+    }
+
+    function slideshowNext(){
+        pauseSlideshowAutoplay();
+        showSlideshowImage(state.slideshowIndex + 1);
+    }
+
+    function toggleSlideshowPlay(){
+        if(state.slideshowPlaying){
+            pauseSlideshowAutoplay();
+        } else {
+            startSlideshowAutoplay();
+        }
+    }
+
+    function startSlideshowAutoplay(){
+        clearSlideshowTimer();
+        state.slideshowPlaying = true;
+        updatePlayBtnIcon();
+        state.slideshowTimer = setInterval(function(){
+            showSlideshowImage(state.slideshowIndex + 1);
+        }, state.slideshowInterval);
+    }
+
+    function pauseSlideshowAutoplay(){
+        clearSlideshowTimer();
+        state.slideshowPlaying = false;
+        updatePlayBtnIcon();
+    }
+
+    function clearSlideshowTimer(){
+        if(state.slideshowTimer){
+            clearInterval(state.slideshowTimer);
+            state.slideshowTimer = null;
+        }
+    }
+
+    function updatePlayBtnIcon(){
+        var icon = document.getElementById('slideshowPlayIcon');
+        if(!icon) return;
+        // Update Lucide icon by changing data-lucide attribute and re-creating
+        var btn = document.getElementById('slideshowPlayBtn');
+        if(!btn) return;
+        var iconName = state.slideshowPlaying ? 'pause' : 'play';
+        btn.innerHTML = '<i data-lucide="' + iconName + '" style="width:18px;height:18px"></i>';
+        if(typeof lucide !== 'undefined') lucide.createIcons({nodes: [btn]});
+    }
+
+    function renderSlideshowDots(){
+        var dotsEl = document.getElementById('slideshowDots');
+        if(!dotsEl) return;
+        var html = '';
+        for(var i = 0; i < state.slideshowImages.length; i++){
+            html += '<span class="slideshow-dot' + (i === 0 ? ' active' : '') + '" data-index="' + i + '"></span>';
+        }
+        dotsEl.innerHTML = html;
+        // 绑定点击
+        dotsEl.querySelectorAll('.slideshow-dot').forEach(function(dot){
+            dot.addEventListener('click', function(e){
+                e.stopPropagation();
+                var idx = parseInt(this.getAttribute('data-index'));
+                pauseSlideshowAutoplay();
+                showSlideshowImage(idx);
+            });
+        });
+    }
+
+    function updateSlideshowDots(index){
+        var dotsEl = document.getElementById('slideshowDots');
+        if(!dotsEl) return;
+        dotsEl.querySelectorAll('.slideshow-dot').forEach(function(dot, i){
+            dot.classList.toggle('active', i === index);
+        });
+    }
+
+    function renderSlideshowThumbs(){
+        var thumbsEl = document.getElementById('slideshowThumbs');
+        if(!thumbsEl) return;
+        var html = '';
+        for(var i = 0; i < state.slideshowImages.length; i++){
+            var img = state.slideshowImages[i];
+            var src = img.thumbnail_url || img.output_url;
+            html += '<img class="slideshow-thumb' + (i === 0 ? ' active' : '') + '" src="' + src + '" data-index="' + i + '" loading="lazy" alt="">';
+        }
+        thumbsEl.innerHTML = html;
+        // 绑定点击
+        thumbsEl.querySelectorAll('.slideshow-thumb').forEach(function(thumb){
+            thumb.addEventListener('click', function(e){
+                e.stopPropagation();
+                var idx = parseInt(this.getAttribute('data-index'));
+                pauseSlideshowAutoplay();
+                showSlideshowImage(idx);
+            });
+        });
+    }
+
+    function updateSlideshowThumbs(index){
+        var thumbsEl = document.getElementById('slideshowThumbs');
+        if(!thumbsEl) return;
+        var thumbs = thumbsEl.querySelectorAll('.slideshow-thumb');
+        thumbs.forEach(function(thumb, i){
+            thumb.classList.toggle('active', i === index);
+        });
+        // 滚动到当前缩略图可见
+        if(thumbs[index]){
+            thumbs[index].scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'});
+        }
+    }
+
     // 暴露给外部
     window.Index3 = { 
         loadScenes: loadScenes, 
@@ -1785,6 +2098,8 @@
         showToast: showToast,
         openScenePopup: openScenePopup,
         closeScenePopup: closeScenePopup,
-        showLoginModal: showLoginModal
+        showLoginModal: showLoginModal,
+        openSlideshow: openSlideshow,
+        closeSlideshow: closeSlideshow
     };
 })();

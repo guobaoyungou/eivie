@@ -37,7 +37,7 @@
             }
             .info-card:hover::before { opacity: 1; }
             .info-card.card-space { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
-            .info-card.card-balance { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+            .info-card.card-balance { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); cursor: pointer; }
             .info-card.card-recharge { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
             .info-card.card-expire { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
             .info-card.card-expire.warning {
@@ -89,13 +89,13 @@
                 </div>
               </div>
               <div class="layui-col-xs6 {:$is_admin ? 'layui-col-sm3' : 'layui-col-sm4'}">
-                <div class="info-card card-balance">
+                <div class="info-card card-balance" onclick="window.location.href='{:url(\'AiTravelPhoto/balance_log\')}';">
                   <i class="layui-icon layui-icon-survey info-card-icon"></i>
                   <div class="info-card-label">账户余额</div>
                   <div class="info-card-value" id="accountBalanceDisplay">￥{:number_format($business_info['account_balance'] ?? 0, 2)}</div>
-                  <div class="info-card-progress-text">可用于支付旅拍订单</div>
+                  <div class="info-card-progress-text">查看明细 →</div>
                   <div class="info-card-action">
-                    <button class="layui-btn layui-btn-sm" onclick="openPackageModal('balance')"><i class="layui-icon layui-icon-rmb"></i> 充值</button>
+                    <button class="layui-btn layui-btn-sm" onclick="event.stopPropagation();openPackageModal('balance')"><i class="layui-icon layui-icon-rmb"></i> 充值</button>
                   </div>
                 </div>
               </div>

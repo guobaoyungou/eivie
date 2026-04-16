@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>短剧创作画布 - {$webinfo.webname}</title>
+    <meta name="keywords" content="{$webinfo.webname},短剧创作,工作流画布,AI短剧">
+    <meta name="description" content="{$webinfo.webname} - 短剧创作可视化画布，拖拽节点编排工作流。">
+    {if $webinfo.ico}<link rel="shortcut icon" type="image/x-icon" href="{$webinfo.ico}">{/if}
+    <!-- 主题CSS -->
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
+    <!-- 组件CSS -->
+    <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=6">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=12">
+    <link rel="stylesheet" href="/static/index3/css/short_drama.css?v=1">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=3">
+    <!-- 主题JS（提前加载防闪烁） -->
+    <script src="/static/index3/js/theme.js?v=1"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+<div class="layout-wrapper">
+    <!-- 侧边栏 -->
+    {include file="index3/public/sidebar"/}
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+        <!-- 顶部栏 -->
+        {include file="index3/public/header"/}
+
+        <!-- 画布页面内容 -->
+        <div class="page-content" style="padding:0;overflow:hidden;">
+            <div class="sd-canvas-page">
+
+                <!-- 顶部工具栏 -->
+                <div class="sd-canvas-toolbar">
+                    <div class="sd-canvas-toolbar-left">
+                        <button class="sd-btn" id="sdBackBtn" title="返回项目列表">
+                            <i data-lucide="arrow-left"></i>
+                        </button>
+                        <input class="sd-project-name-input" id="sdProjectNameInput" value="{$project.title|default='未命名项目'}" placeholder="项目名称">
+                        {if $project.genre}
+                        <span class="sd-card-genre">{$project.genre}</span>
+                        {/if}
+                    </div>
+                    <div class="sd-canvas-toolbar-right">
+                        <button class="sd-btn" id="sdSaveBtn" title="保存">
+                            <i data-lucide="save"></i> <span class="hide-mobile">保存</span>
+                        </button>
+                        <button class="sd-btn primary" id="sdRunBtn" title="运行全部">
+                            <i data-lucide="play"></i> <span class="hide-mobile">运行</span>
+                        </button>
+                        <button class="sd-btn" id="sdStopBtn" title="停止">
+                            <i data-lucide="square"></i> <span class="hide-mobile">停止</span>
+                        </button>
+                        <button class="sd-btn" id="sdExportBtn" title="导出成片">
+                            <i data-lucide="download"></i> <span class="hide-mobile">导出</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 主工作区 -->
+                <div class="sd-canvas-main">
+                    <!-- 左侧节点面板 -->
+                    <div class="sd-node-panel">
+                        <div class="sd-node-panel-title">节点类型</div>
+                        <p style="font-size:12px;color:var(--text-tertiary);margin-bottom:12px">双击添加节点到画布</p>
+
+                        <div class="sd-node-type" data-type="script" data-label="剧本生成">
+                            <span class="nt-icon script"><i data-lucide="file-text"></i></span>
+                            <span class="nt-label">剧本生成</span>
+                        </div>
+
+                        <div class="sd-node-type" data-type="character" data-label="角色生成">
+                            <span class="nt-icon character"><i data-lucide="user-round"></i></span>
+                            <span class="nt-label">角色生成</span>
+                        </div>
+
+                        <div class="sd-node-type" data-type="storyboard" data-label="分镜生成">
+                            <span class="nt-icon storyboard"><i data-lucide="layout-grid"></i></span>
+                            <span class="nt-label">分镜生成</span>
+                        </div>
+
+                        <div class="sd-node-type" data-type="video" data-label="视频生成">
+                            <span class="nt-icon video"><i data-lucide="video"></i></span>
+                            <span class="nt-label">视频生成</span>
+                        </div>
+
+                        <div class="sd-node-type" data-type="voice" data-label="配音生成">
+                            <span class="nt-icon voice"><i data-lucide="mic"></i></span>
+                            <span class="nt-label">配音生成</span>
+                        </div>
+
+                        <div class="sd-node-type" data-type="compose" data-label="成片合成">
+                            <span class="nt-icon compose"><i data-lucide="layers"></i></span>
+                            <span class="nt-label">成片合成</span>
+                        </div>
+                    </div>
+
+                    <!-- 中央画布区 -->
+                    <div class="sd-canvas-area" id="sdCanvasArea">
+                        <svg class="sd-canvas-svg" id="sdCanvasSvg"></svg>
+                        <div class="sd-canvas-inner" id="sdCanvasInner">
+                            <!-- 节点由JS动态渲染 -->
+                        </div>
+                    </div>
+
+                    <!-- 右侧配置面板 -->
+                    <div class="sd-config-panel">
+                        <div id="sdConfigContent">
+                            <div class="sd-config-panel-empty">
+                                <i data-lucide="mouse-pointer-2"></i>
+                                <p>点击节点查看配置</p>
+                                <p style="font-size:12px;margin-top:4px">每个节点都支持自选AI模型</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 底部进度条 -->
+                <div class="sd-progress-bar">
+                    <div class="sd-progress-info">
+                        <span>工作流执行进度</span>
+                        <span id="sdProgressText">0%</span>
+                    </div>
+                    <div class="sd-progress-track">
+                        <div class="sd-progress-fill" id="sdProgressFill"></div>
+                    </div>
+                </div>
+
+            </div><!-- .sd-canvas-page end -->
+        </div><!-- .page-content end -->
+    </div><!-- .main-content end -->
+</div><!-- .layout-wrapper end -->
+
+<!-- 移动端组件 -->
+{include file="index3/public/tabbar"/}
+
+<!-- JS -->
+<script src="/static/index3/js/api.js?v=3"></script>
+<script src="/static/index3/js/auth.js?v=3"></script>
+<script src="/static/index3/js/sidebar.js?v=6"></script>
+<script src="/static/index3/js/short_drama.js?v=1"></script>
+<script>
+    if(typeof lucide!=='undefined'){lucide.createIcons();}
+    // 初始化画布
+    (function(){
+        var params = new URLSearchParams(window.location.search);
+        var projectId = params.get('project_id') || '{$project.id|default=0}';
+        if(window.ShortDrama && ShortDrama.canvas){
+            ShortDrama.canvas.init(parseInt(projectId) || 0);
+        }
+    })();
+</script>
+</body>
+</html>

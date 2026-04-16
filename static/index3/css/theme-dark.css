@@ -1,62 +1,98 @@
-/* 深色主题变量 */
+/* 深色主题变量 — 升级版 */
 [data-theme="dark"] {
-    --bg-primary: #17171A;
-    --bg-sidebar: #1E1E22;
-    --bg-card: #232328;
-    --bg-header: #1E1E22;
-    --bg-tabbar: #1E1E22;
-    --bg-input: #2A2A30;
-    --bg-tag: #2A2A30;
-    --bg-tag-active: #4A90D9;
+    --bg-primary: #0F0F14;
+    --bg-sidebar: #16161D;
+    --bg-card: #1C1C26;
+    --bg-header: rgba(22,22,29,0.85);
+    --bg-tabbar: rgba(22,22,29,0.92);
+    --bg-input: #25252F;
+    --bg-tag: #25252F;
+    --bg-tag-active: #818CF8;
     --bg-overlay: rgba(0, 0, 0, 0.6);
     --bg-tooltip: #4E5969;
-    --bg-hover-menu: #2A2A30;
+    --bg-hover-menu: #25252F;
 
-    --text-primary: #E5E6EB;
+    --text-primary: #EDE9FE;
     --text-secondary: #A9AEB8;
     --text-tertiary: #6B7785;
     --text-tag: #A9AEB8;
     --text-tag-active: #FFFFFF;
     --text-inverse: #FFFFFF;
-    --text-link: #53A8FF;
+    --text-link: #818CF8;
 
-    --border-color: #333338;
-    --border-light: #2A2A30;
+    --border-color: #2D2D3A;
+    --border-light: #25252F;
 
-    --accent-color: #53A8FF;
-    --accent-hover: #409EFF;
-    --accent-light: rgba(83, 168, 255, 0.1);
+    /* 主色调 — 更亮的紫蓝 */
+    --accent-color: #818CF8;
+    --accent-hover: #6366F1;
+    --accent-light: rgba(129, 140, 248, 0.1);
+    --accent-color-rgb: 129, 140, 248;
 
-    --hover-bg: #2A2A30;
-    --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.2);
-    --shadow-card-hover: 0 6px 20px rgba(0, 0, 0, 0.35);
+    --hover-bg: #25252F;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.15);
+    --shadow-card-hover: 0 12px 28px rgba(0,0,0,0.35), 0 4px 12px rgba(129,140,248,0.06);
     --shadow-sidebar: 1px 0 0 var(--border-color);
     --shadow-header: 0 1px 0 var(--border-color);
-    --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.3);
+    --shadow-dropdown: 0 8px 24px rgba(0,0,0,0.35);
 
-    --scrollbar-thumb: #4E5969;
+    --scrollbar-thumb: #3D3D4A;
     --scrollbar-track: transparent;
 
-    --dropdown-bg: #2a2a2a;
-    --dropdown-border: #3a3a3a;
+    --dropdown-bg: #1c1c26;
+    --dropdown-border: #2d2d3a;
     --dropdown-shadow: rgba(0,0,0,0.4);
-    --asset-bg: #1e1e1e;
+    --asset-bg: #16161D;
 
     /* Functional colors */
     --color-primary: #818cf8;
-    --color-primary-light: rgba(129,140,248,.12);
-    --color-purple: #818cf8;
-    --color-purple-light: rgba(129,140,248,.12);
+    --color-primary-light: rgba(129,140,248,.1);
+    --color-purple: #A78BFA;
+    --color-purple-light: rgba(167,139,250,.1);
     --color-green: #34d399;
-    --color-green-light: rgba(52,211,153,.12);
+    --color-green-light: rgba(52,211,153,.1);
     --color-amber: #fbbf24;
-    --color-amber-light: rgba(251,191,36,.12);
+    --color-amber-light: rgba(251,191,36,.1);
     --color-red: #f87171;
+    --color-red-light: rgba(248,113,113,.08);
 
     /* Card & surface */
-    --bg-secondary: #1e1e22;
-    --card-shadow: 0 1px 3px rgba(0,0,0,.2), 0 1px 2px rgba(0,0,0,.15);
-    --card-shadow-hover: 0 10px 25px rgba(0,0,0,.3), 0 4px 10px rgba(0,0,0,.2);
-    --card-inset-border: rgba(255,255,255,.06);
-    --glass-bg: rgba(30,30,34,.8);
+    --bg-secondary: #16161D;
+    --card-shadow: 0 1px 3px rgba(0,0,0,.25), 0 1px 2px rgba(0,0,0,.2);
+    --card-shadow-hover: 0 16px 32px rgba(0,0,0,.35), 0 6px 16px rgba(129,140,248,.06);
+    --card-inset-border: rgba(255,255,255,.04);
+    --glass-bg: rgba(28,28,38,.78);
+
+    /* === 新增：渐变 & 玻璃拟态变量 === */
+    --accent-gradient: linear-gradient(135deg, #818CF8 0%, #A78BFA 50%, #C4B5FD 100%);
+    --accent-gradient-subtle: linear-gradient(135deg, rgba(129,140,248,0.08) 0%, rgba(167,139,250,0.05) 100%);
+    --accent-gradient-hover: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+    --accent-gradient-text: linear-gradient(135deg, #818CF8, #C4B5FD);
+
+    /* Glassmorphism */
+    --glass-border: rgba(255,255,255,0.06);
+    --glass-blur: blur(16px);
+    --glass-blur-sm: blur(8px);
+    --glass-shadow: 0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04);
+
+    /* 多层阴影系统 */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.15);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.12);
+    --shadow-lg: 0 12px 28px rgba(0,0,0,0.3), 0 4px 12px rgba(129,140,248,0.04);
+    --shadow-xl: 0 20px 48px rgba(0,0,0,0.35), 0 8px 20px rgba(129,140,248,0.06);
+    --shadow-glow: 0 0 24px rgba(129,140,248,0.12);
+    --shadow-glow-sm: 0 0 14px rgba(129,140,248,0.08);
+
+    /* 卡片渐变边框 */
+    --card-gradient-border: linear-gradient(135deg, rgba(129,140,248,0.15) 0%, rgba(167,139,250,0.08) 50%, rgba(196,181,253,0.15) 100%);
+    --card-gradient-border-hover: linear-gradient(135deg, #818CF8 0%, #A78BFA 50%, #C4B5FD 100%);
+
+    /* 功能色渐变 */
+    --green-gradient: linear-gradient(135deg, #34d399, #6ee7b7);
+    --amber-gradient: linear-gradient(135deg, #fbbf24, #fcd34d);
+    --red-gradient: linear-gradient(135deg, #f87171, #fca5a5);
+
+    /* 图标容器 */
+    --icon-bg: linear-gradient(135deg, rgba(129,140,248,0.12) 0%, rgba(167,139,250,0.08) 100%);
+    --icon-bg-hover: linear-gradient(135deg, rgba(129,140,248,0.2) 0%, rgba(167,139,250,0.14) 100%);
 }

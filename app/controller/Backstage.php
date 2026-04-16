@@ -1480,6 +1480,29 @@ class Backstage extends Common
 		            	}
 	            	}
 	            }
+				// 保存自动标签识别配置到 sysset 表
+				$autoTaggingPost = input('post.auto_tagging/a');
+				if($autoTaggingPost){
+					$autoTaggingData = [
+						'fairface_api_url' => $autoTaggingPost['fairface_api_url'] ?? 'http://127.0.0.1:8867',
+						'fairface_timeout' => intval($autoTaggingPost['fairface_timeout'] ?? 30),
+						'auto_tag_enabled' => intval($autoTaggingPost['auto_tag_enabled'] ?? 0),
+						'auto_tag_confidence_threshold' => floatval($autoTaggingPost['auto_tag_confidence_threshold'] ?? 0.7),
+						'auto_tag_queue' => $autoTaggingPost['auto_tag_queue'] ?? 'auto_image_tagging',
+						'auto_tag_max_retry' => intval($autoTaggingPost['auto_tag_max_retry'] ?? 2),
+						'auto_tag_retry_delay' => intval($autoTaggingPost['auto_tag_retry_delay'] ?? 60),
+						'batch_limit' => intval($autoTaggingPost['batch_limit'] ?? 50),
+						'detect_body_type' => intval($autoTaggingPost['detect_body_type'] ?? 1),
+					];
+					$autoTaggingJson = json_encode($autoTaggingData, JSON_UNESCAPED_UNICODE);
+					$existAutoTag = Db::name('sysset')->where('name', 'auto_tagging')->find();
+					if($existAutoTag){
+						Db::name('sysset')->where('name', 'auto_tagging')->update(['value' => $autoTaggingJson]);
+					}else{
+						Db::name('sysset')->insert(['name' => 'auto_tagging', 'value' => $autoTaggingJson]);
+					}
+				}
+
 				\app\common\System::plog('系统设置');
 				return json(['status'=>1,'msg'=>'设置成功','url'=>true]);
 			}
@@ -2130,6 +2153,28 @@ class Backstage extends Common
             	$xianjininfo = Db::name('admin_set_xianjin')->where('aid',aid)->find();
             	View::assign('xianjininfo',$xianjininfo);
             }
+
+			// 加载自动标签识别配置
+			$autoTaggingConfig = [];
+			$autoTaggingRow = Db::name('sysset')->where('name', 'auto_tagging')->value('value');
+			if($autoTaggingRow){
+				$autoTaggingConfig = json_decode($autoTaggingRow, true) ?: [];
+			}
+			// 设置默认值
+			$autoTaggingDefaults = [
+				'fairface_api_url' => 'http://127.0.0.1:8867',
+				'fairface_timeout' => 30,
+				'auto_tag_enabled' => 0,
+				'auto_tag_confidence_threshold' => 0.7,
+				'auto_tag_queue' => 'auto_image_tagging',
+				'auto_tag_max_retry' => 2,
+				'auto_tag_retry_delay' => 60,
+				'batch_limit' => 50,
+				'detect_body_type' => 1,
+			];
+			$autoTaggingConfig = array_merge($autoTaggingDefaults, $autoTaggingConfig);
+			View::assign('auto_tagging', $autoTaggingConfig);
+
 			return View::fetch();
 		}
 		else{

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小智直播管理中心</title>
+    <style>
+        :root {
+            --bg-primary: #0A0E17;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1A2332;
+            --text-primary: #E2E8F0;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --accent-cyan: #00F0FF;
+            --accent-purple: #7B61FF;
+            --accent-green: #10B981;
+            --accent-red: #EF4444;
+            --accent-orange: #F59E0B;
+            --glass-bg: rgba(26, 35, 50, 0.7);
+            --glass-border: rgba(0, 240, 255, 0.15);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
+            background: var(--bg-primary); color: var(--text-primary);
+            min-height: 100vh; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle at 20% 30%, rgba(0,240,255,.03) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 70%, rgba(123,97,255,.04) 0%, transparent 50%);
+            animation: bgFloat 20s ease-in-out infinite;
+            pointer-events: none; z-index: 0;
+        }
+        @keyframes bgFloat { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-2%,-2%)} }
+        .app-layout { display:flex; min-height:100vh; position:relative; z-index:1; }
+        
+        /* 侧边栏 */
+        .sidebar { width:260px; background:var(--bg-secondary); border-right:1px solid var(--glass-border);
+            display:flex; flex-direction:column; position:fixed; top:0;left:0;bottom:0; z-index:100; }
+        .sidebar-logo { padding:24px 20px; display:flex; align-items:center; gap:12px;
+            border-bottom:1px solid var(--glass-border); }
+        .logo-icon { width:40px;height:40px; background:linear-gradient(135deg,var(--accent-cyan),var(--accent-purple));
+            border-radius:10px; display:flex; align-items:center; justify-content:center;
+            font-size:20px; font-weight:800; color:#fff; box-shadow:0 4px 20px rgba(0,240,255,.25); }
+        .logo-text { font-size:18px; font-weight:700;
+            background:linear-gradient(90deg,var(--accent-cyan),var(--accent-purple)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .nav-menu { flex:1; padding:12px 8px; overflow-y:auto; }
+        .nav-item { padding:14px 18px; border-radius:10px; cursor:pointer; transition:all .2s;
+            display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px; margin-bottom:4px; }
+        .nav-item:hover { color:var(--text-primary); background:rgba(255,255,255,.03); }
+        .nav-item.active { color:var(--accent-cyan); background:rgba(0,240,255,.06); box-shadow:inset 3px 0 0 var(--accent-cyan); }
+
+        /* 主区域 */
+        .main-content { flex:1; margin-left:260px; display:flex; flex-direction:column; min-height:100vh; }
+        .topbar { height:60px; background:var(--glass-bg); backdrop-filter:blur(16px);
+            border-bottom:1px solid var(--glass-border); display:flex; align-items:center; justify-content:space-between;
+            padding:0 28px; position:sticky; top:0; z-index:50; }
+        .page-title { font-size:17px; font-weight:600; }
+        .status-badge { padding:5px 14px; border-radius:20px; font-size:12px; font-weight:600;
+            background:rgba(16,185,129,.12); color:var(--accent-green); border:1px solid rgba(16,185,129,.25); display:flex; align-items:center; gap:6px; }
+        .status-dot { width:7px;height:7px; border-radius:50%; background:var(--accent-green); animation:pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+        .content-area { flex:1; padding:24px 28px; max-width:1600px; }
+
+        /* 统计卡 */
+        .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px; margin-bottom:28px; }
+        .stat-card { background:var(--glass-bg); backdrop-filter:blur(12px); border:1px solid var(--glass-border);
+            border-radius:14px; padding:20px 22px; position:relative; overflow:hidden; transition:all .25s; }
+        .stat-card:hover { border-color:rgba(0,240,255,.3); transform:translateY(-2px); }
+        .stat-label { font-size:13px; color:var(--text-muted); font-weight:500; margin-bottom:8px; }
+        .stat-value { font-size:30px; font-weight:700; line-height:1.1;
+            background:linear-gradient(135deg,#fff,var(--accent-cyan)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+
+        /* 面板 */
+        .data-panel { background:var(--glass-bg); backdrop-filter:blur(12px); border:1px solid var(--glass-border); border-radius:14px; overflow:hidden; }
+        .panel-header { padding:18px 22px; border-bottom:1px solid var(--glass-border); display:flex; align-items:center; justify-content:space-between; }
+        .panel-title { font-size:15px; font-weight:600; }
+
+        .btn { padding:9px 18px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s;
+            border:none; display:inline-flex; align-items:center; gap:6px; }
+        .btn-primary { background:linear-gradient(135deg,var(--accent-cyan),var(--accent-purple)); color:#fff;
+            box-shadow:0 4px 16px rgba(0,240,255,.2); }
+        .btn-primary:hover { box-shadow:0 6px 24px rgba(0,240,255,.35); transform:translateY(-1px); }
+        .btn-secondary { background:rgba(255,255,255,.05); color:var(--text-secondary); border:1px solid var(--glass-border); }
+        .btn-danger { background:rgba(239,68,68,.1); color:var(--accent-red); border:1px solid rgba(239,68,68,.2); }
+
+        /* 表格 */
+        .data-table { width:100%; border-collapse:collapse; }
+        .data-table th { padding:14px 18px; text-align:left; font-size:12px; font-weight:600; color:var(--text-muted);
+            text-transform:uppercase; letter-spacing:.8px; border-bottom:1px solid var(--glass-border); background:rgba(0,0,0,.15); }
+        .data-table td { padding:14px 18px; font-size:14px; border-bottom:1px solid rgba(255,255,255,.04); }
+        .data-table tr:hover td { background:rgba(255,255,255,.02); }
+
+        .tag { display:inline-flex; align-items:center; padding:4px 12px; border-radius:6px; font-size:12px; font-weight:600; }
+        .tag-online { background:rgba(16,185,129,.1); color:var(--accent-green); }
+        .tag-offline { background:rgba(107,114,128,.1); color:var(--text-muted); }
+        .tag-live { background:rgba(239,68,68,.1); color:var(--accent-red); }
+
+        /* 弹幕流 */
+        .danmaku-stream { background:rgba(0,0,0,.25); border-radius:12px; padding:16px; height:300px; overflow-y:auto;
+            font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.8; }
+        .dm-item { padding:6px 10px; border-radius:6px; margin-bottom:4px; display:flex; gap:10px; animation:dmSlideIn .3s ease-out; }
+        @keyframes dmSlideIn { from{opacity:0; transform:translateX(-10px)} to{opacity:1; transform:translateX(0)} }
+        .dm-time{color:var(--text-muted);font-size:11px;flex-shrink:0}
+        .dm-user{color:var(--accent-cyan);font-weight:600;flex-shrink:0}
+
+        /* 模态框 */
+        .modal-overlay { position:fixed;inset:0; background:rgba(0,0,0,.65); backdrop-filter:blur(6px);
+            display:flex; align-items:center; justify-content:center; z-index:1000;
+            opacity:0; visibility:hidden; transition:all .25s; }
+        .modal-overlay.active{opacity:1;visibility:visible}
+        .modal-box{background:var(--bg-secondary);border:1px solid var(--glass-border); border-radius:16px;
+            width:90%;max-width:720px;max-height:85vh; overflow-y:auto; transform:translateY(20px) scale(.97); transition:transform .25s;
+            box-shadow:0 24px 64px rgba(0,0,0,.4);}
+        .modal-overlay.active .modal-box{transform:translateY(0) scale(1)}
+        .modal-header{padding:22px 26px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;justify-content:space-between}
+        .modal-body{padding:24px 26px}
+        .modal-close{width:32px;height:32px;border:none;background:rgba(255,255,255,.05);color:var(--text-secondary);
+            border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+        .form-group{margin-bottom:18px}
+        .form-label{display:block;font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:8px}
+        .form-input,.form-select,.form-textarea{width:100%;padding:11px 14px;border:1px solid var(--glass-border);
+            border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-size:14px;outline:none}
+        .form-input:focus,.form-select:focus{border-color:var(--accent-cyan);box-shadow:0 0 0 3px rgba(0,240,255,.1)}
+
+        ::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+        @media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main-content{margin-left:0}}
+    </style>
+</head>
+<body>
+<div class="app-layout">
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo"><div class="logo-icon">智</div><span class="logo-text">小智云端</span></div>
+    <nav class="nav-menu" id="navMenu">
+        <div class="nav-item active" data-page="dashboard">&#x2302; 工作台</div>
+        <div class="nav-item" data-page="rooms">&#x25B6; 直播间</div>
+        <div class="nav-item" data-page="devices">&#x2609; 设备管理</div>
+        <div class="nav-item" data-page="models">&#x2726; 模型广场</div>
+        <div class="nav-item" data-page="knowledge">&#x1F4DA; 知识库</div>
+        <div class="nav-item" data-page="danmaku">&#x2605; 弹幕设置</div>
+        <div class="nav-item" data-page="stores">&#x1F3E0; 门店管理</div>
+    </nav>
+</aside>
+
+<main class="main-content">
+<header class="topbar">
+    <h1 class="page-title" id="pageTitle">工作台</h1>
+    <div style="display:flex;align-items:center;gap:16px">
+        <div class="status-badge"><span class="status-dot"></span>Go服务运行中</div>
+        <button class="btn btn-secondary" onclick="loadCurrentPage()">&#x21BB; 刷新</button>
+    </div>
+</header>
+<div class="content-area" id="contentArea"></div>
+</main>
+</div>
+
+<!-- 编辑弹窗 -->
+<div class="modal-overlay" id="editModal">
+<div class="modal-box">
+    <div class="modal-header"><h3 id="modalTitle" class="modal-title">编辑</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body" id="modalBody"></div>
+</div>
+</div>
+
+<script>
+const API = '/xiaozhiLive';
+let currentPage = 'dashboard';
+
+async function apiGet(p){try{const r=await fetch(`${API}/${p}`);return await r.json()}catch(e){return{code:-1,msg:e.message}}}
+async function apiPost(p,d){try{const r=await fetch(`${API}/${p}`,{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});return await r.json()}catch(e){return{code:-1}}}
+
+async function loadPage(page){
+    const area=document.getElementById('contentArea');
+    area.innerHTML='<div style="text-align:center;padding:80px;color:var(--text-muted)">加载中...</div>';
+    
+    if(page==='dashboard'){
+        const [sr,rr]=await Promise.all([apiGet('stats'),apiGet('rooms')]);
+        const s=sr.data||{}, rooms=rr.data||[];
+        
+        area.innerHTML=`
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-label">在线设备数</div><div class="stat-value">${s.online_devices||0}</div></div>
+            <div class="stat-card"><div class="stat-label">活跃直播间</div><div class="stat-value">${rooms.filter(r=>r.status===1).length||0}</div></div>
+            <div class="stat-card"><div class="stat-label">今日弹幕量</div><div class="stat-value">${(s.total_danmaku||0).toLocaleString()}</div></div>
+            <div class="stat-card"><div class="stat-label">AI回复次数</div><div class="stat-value">${(s.ai_replies||0).toLocaleString()}</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 380px;gap:18px">
+            <div class="data-panel">
+                <div class="panel-header"><span class="panel-title">直播间列表</span><button class="btn btn-primary" onclick="showCreateRoom()">+ 创建直播间</button></div>
+                <table class="data-table"><thead><tr><th>名称</th><th>状态</th><th>设备</th><th>操作</th></tr></thead><tbody>
+                ${!rooms.length?'<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--text-muted)">暂无直播间</td></tr>'
+                :rooms.map(r=>`<tr><td><b>${r.name||'-'}</b></td>
+                    <td><span class="tag ${r.status===1?'tag-live':'tag-offline'}">${r.status===1?'直播中':'离线'}</span></td>
+                    <td>${r.devices?.length||0}台</td>
+                    <td><button class="btn btn-sm btn-secondary" onclick="editRoom(${r.id})">编辑</button>
+                    <button class="btn btn-sm ${r.status===1?'btn-danger':'btn-primary'}" onclick="${r.status===1?`stopLive(${r.id})`:`startLive(${r.id})`}">${r.status===1?'停止':'启动'}</button></td>
+                </tr>`).join('')}
+                </tbody></table>
+            </div>
+            <div class="data-panel" style="display:flex;flex-direction:column">
+                <div class="panel-header"><span class="panel-title">实时弹幕流</span><span style="font-size:11px;color:var(--text-muted)">WebSocket连接</span></div>
+                <div class="danmaku-stream" id="dmStream"><div style="color:var(--text-muted);padding:20px;text-align:center">等待弹幕数据...</div></div>
+            </div>
+        </div>`;
+    } else if (page === 'devices') {
+        const dr = await apiGet('devices');
+        area.innerHTML=`<div class="data-panel"><div class="panel-header"><span class="panel-title">Xmini-C3 设备列表</span>
+            <button class="btn btn-primary" onclick="showRegisterDevice()">+ 注册设备</button></div>
+        <table class="data-table"><thead><tr><th>设备编码</th><th>名称</th><th>固件版本</th><th>状态</th><th>所属房间</th><th>操作</th></tr></thead><tbody>
+        ${(dr.data||[]).map(d=>`<tr><td><code>${d.device_code}</code></td><td>${d.device_name||'-'}</td>
+            <td>${d.firmware_version||'-'}</td><td><span class="tag ${d.online_status===1?'tag-online':'tag-offline'}">${d.online_status===1?'在线':'离线'}</span></td>
+            <td>${d.room_id||'未绑定'}</td><td><button class="btn btn-sm btn-secondary" onclick="bindDevice('${d.device_code}')">绑定房间</button></td>
+        </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-muted)">暂无设备</td></tr>'}
+        </tbody></table></div>`;
+    } else if (page === 'models') {
+        const mr = await apiGet('models');
+        area.innerHTML=`<div class="data-panel"><div class="panel-header"><span class="panel-title">LLM 模型广场</span></div>
+        <div style="padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+        ${(mr.data||[]).map(m=>`<div class="stat-card"><div class="stat-label">${m.provider||''} · ${m.display_name||m.model_id}</div>
+            <div class="stat-value" style="font-size:20px;margin:10px 0">${m.display_name||m.model_id}</div>
+            <div style="font-size:12px;color:var(--text-muted)">
+                MaxTokens: ${(m.max_tokens||0).toLocaleString()} | 流式:${m.supports_stream?'✓':'✗'}
+                | 输入:${(m.cost_per_1k_input*10000||0).toFixed(4)}/万tok
+            </div>
+            <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="selectModel('${m.id}')">选择使用</button>
+        </div>`).join('') || '<p style="color:var(--text-muted);grid-column:1/-1;text-align:center">暂无可用模型，请在配置文件中添加 LLM Provider</p>'}
+        </div></div>`;
+    } else if (page === 'knowledge') {
+        area.innerHTML=`<div class="data-panel"><div class="panel-header"><span class="panel-title">知识库管理</span><button class="btn btn-primary" onclick="showCreateKB()">+ 创建知识库</button></div>
+        <p style="padding:40px;text-align:center;color:var(--text-muted)">RAG 知识库功能需要 Milvus 向量数据库支持。请确认 Milvus 服务已启动。</p></div>`;
+    } else if (page === 'danmaku') {
+        area.innerHTML=`<div class="data-panel"><div class="panel-header"><span class="panel-title">弹幕过滤设置</span></div>
+        <p style="padding:40px;text-align:center;color:var(--text-muted)">请先选择一个直播间进行配置。</p></div>`;
+    } else if (page === 'stores') {
+        const sr = await apiGet('stores');
+        area.innerHTML=`<div class="data-panel"><div class="panel-header"><span class="panel-title">门店管理</span><button class="btn btn-primary" onclick="showCreateStore()">+ 创建门店</button></div>
+        <table class="data-table"><thead><tr><th>门店名称</th><th>地址</th><th>联系人</th><th>状态</th><th>操作</th></tr></thead><tbody>
+        ${(sr.data||[]).map(s=>`<tr><td><b>${s.name}</b></td><td>${s.address||'-'}</td>
+            <td>${s.contact_name||'-'} / ${s.contact_phone||'-'}</td>
+            <td><span class="tag ${s.status===1?'tag-online':'tag-offline'}">${s.status===1?'启用':'停用'}</span></td>
+            <td><button class="btn btn-sm btn-secondary" onclick="editStore(${s.id})">编辑</button></td></tr>`).join('')
+        || '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-muted)">暂无门店</td></tr>'}
+        </tbody></table></div>`;
+    } else if (page === 'rooms') { loadPage('dashboard'); return; }
+}
+
+function loadCurrentPage(){loadPage(currentPage);}
+
+document.getElementById('navMenu').addEventListener('click',e=>{
+    const item=e.target.closest('.nav-item');if(!item)return;
+    document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+    item.classList.add('active');
+    currentPage=item.dataset.page;
+    document.getElementById('pageTitle').textContent=item.textContent.trim();
+    loadPage(currentPage);
+});
+
+// 操作函数
+function closeModal(){document.getElementById('editModal').classList.remove('active')}
+async function showCreateRoom(){
+    document.getElementById('modalTitle').textContent='创建直播间';
+    document.getElementById('modalBody').innerHTML=`<form onsubmit="submitRoom(event)">
+        <div class="form-group"><label class="form-label">直播间名称 *</label><input class="form-input" name="name" required placeholder="如：XX店一号直播间"></div>
+        <div class="form-group"><label class="form-label">系统提示词</label><textarea class="form-textarea" name="system_prompt" placeholder="设定AI助手的行为规范..."></textarea></div>
+        <div style="display:flex;gap:12px;margin-top:24px">
+            <button type="submit" class="btn btn-primary">创建</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+        </div></form>`;
+    document.getElementById('editModal').classList.add('active');
+}
+async function submitRoom(e){
+    e.preventDefault();
+    const d=Object.fromEntries(new FormData(e.target));
+    const r=await apiPost('createRoom',d);
+    if(r.code===0){closeModal();loadCurrentPage();alert('创建成功！')}else alert(r.message||'创建失败');
+}
+async function startLive(id){const r=await apiPost(`startLive/${id}`);if(r.code===0)loadCurrentPage()}
+async function stopLive(id){const r=await apiPost(`stopLive/${id}`);if(r.code===0)loadCurrentPage()}
+
+async function showCreateStore(){
+    document.getElementById('modalTitle').textContent='创建门店';
+    document.getElementById('modalBody').innerHTML=`<form onsubmit="submitStore(event)">
+        <div class="form-group"><label class="form-label">门店名称 *</label><input class="form-input" name="name" required placeholder="XX旗舰店"></div>
+        <div class="form-group"><label class="form-label">地址</label><input class="form-input" name="address" placeholder="详细地址"></div>
+        <div class="form-group"><label class="form-label">联系人</label><input class="form-input" name="contact_name"></div>
+        <div class="form-group"><label class="form-label">联系电话</label><input class="form-input" name="contact_phone"></div>
+        <div style="display:flex;gap:12px;margin-top:24px"><button type="submit" class="btn btn-primary">创建</button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button></div></form>`;
+    document.getElementById('editModal').classList.add('active');
+}
+async function submitStore(e){
+    e.preventDefault();
+    const d=Object.fromEntries(new FormData(e.target));
+    const r=await apiPost('stores',d);
+    if(r.code===0){closeModal();loadCurrentPage();alert('创建成功！')}else alert(r.message||'失败');
+}
+function editRoom(id){alert('编辑功能：'+id)}
+function editStore(id){alert('编辑门店：'+id)}
+function selectModel(id){alert('选择模型：'+id)}
+function showRegisterDevice(){alert('注册新设备：请输入 Xmini-C3 的设备码')}
+function bindDevice(code){alert('绑定设备 '+code+' 到直播间')}
+function showCreateKB(){alert('创建知识库（需 Milvus）')}
+
+// 初始化
+loadPage('dashboard');
+</script>
+</body>
+</html>

@@ -25,7 +25,7 @@
             <div class="cm-hero">
                 <div class="cm-hero-bg"></div>
                 <div class="cm-hero-inner">
-                    <div class="cm-hero-badge">✨ CREATIVE MEMBER</div>
+                    <div class="cm-hero-badge"><i data-lucide="sparkles"></i> CREATIVE MEMBER</div>
                     <h1 class="cm-hero-title">创作会员</h1>
                     <p class="cm-hero-subtitle">解锁无限AI创作能力，专属积分加赠，尊享云端空间</p>
                     <!-- 当前订阅状态 -->
@@ -94,6 +94,9 @@
 <script src="/static/index3/js/pay.js?v=4"></script>
 <script src="/static/index3/js/sidebar.js?v=6"></script>
 <script>
+    if(typeof lucide!=='undefined'){lucide.createIcons();}
+</script>
+<script>
 (function(){
     var plansData = null;
     var groupedPlans = {};
@@ -137,7 +140,7 @@
         if(!sub){ el.style.display = 'none'; return; }
         el.style.display = 'flex';
         el.innerHTML =
-            '<div class="cm-status-badge">👑 当前已开通</div>' +
+            '<div class="cm-status-badge"><i data-lucide="crown" style="width:14px;height:14px"></i> 当前已开通</div>' +
             '<div class="cm-status-name">' + esc(sub.version_name || '') + '</div>' +
             '<div class="cm-status-expire">到期：' + esc(sub.expire_text || '--') + '</div>';
     }
@@ -206,9 +209,9 @@
 
             // 权益
             var featHtml = '<ul class="cm-feat-list">';
-            featHtml += '<li><span class="cm-feat-icon">🎨</span>每月 <strong>' + defaultPlan.monthly_score + '</strong> 创作积分</li>';
+            featHtml += '<li><span class="cm-feat-icon"><i data-lucide="palette"></i></span>每月 <strong>' + defaultPlan.monthly_score + '</strong> 创作积分</li>';
             if(defaultPlan.daily_login_score > 0){
-                featHtml += '<li><span class="cm-feat-icon">🎁</span>每日登录赠 <strong>' + defaultPlan.daily_login_score + '</strong> 积分</li>';
+                featHtml += '<li><span class="cm-feat-icon"><i data-lucide="gift"></i></span>每日登录赠 <strong>' + defaultPlan.daily_login_score + '</strong> 积分</li>';
             }
             if(defaultPlan.max_concurrency > 0 && defaultPlan.max_concurrency < 999){
                 featHtml += '<li><span class="cm-feat-icon">⚡</span>同时 <strong>' + defaultPlan.max_concurrency + '</strong> 个任务并发</li>';
@@ -216,7 +219,7 @@
                 featHtml += '<li><span class="cm-feat-icon">⚡</span><strong>无限</strong>任务并发</li>';
             }
             if(defaultPlan.cloud_storage_gb > 0){
-                featHtml += '<li><span class="cm-feat-icon">☁️</span><strong>' + defaultPlan.cloud_storage_gb + 'GB</strong> 云存储空间</li>';
+                featHtml += '<li><span class="cm-feat-icon"><i data-lucide="cloud" style="width:16px;height:16px"></i></span><strong>' + defaultPlan.cloud_storage_gb + 'GB</strong> 云存储空间</li>';
             }
             if(defaultPlan.features && defaultPlan.features.length){
                 for(var fi = 0; fi < defaultPlan.features.length; fi++){
@@ -235,7 +238,7 @@
 
             html +=
                 '<div class="' + cardClass + '" data-version="' + ver.code + '">' +
-                    (isRecommended ? '<div class="cm-plan-badge">🔥 推荐</div>' : '') +
+                    (isRecommended ? '<div class="cm-plan-badge"><i data-lucide="flame"></i> 推荐</div>' : '') +
                     (isCurrentVersion ? '<div class="cm-plan-badge current-badge">当前套餐</div>' : '') +
                     '<div class="cm-plan-name">' + esc(ver.name) + '</div>' +
                     modeTabsHtml +

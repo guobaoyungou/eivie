@@ -220,16 +220,17 @@ class AiTravelPhotoSelfieService
     }
 
     /**
-     * 处理扫码事件：推送自拍端推文给用户
+     * 处理扫码事件：更新统计并返回自拍端推文图文数据
+     * 不再通过客服消息推送（易失败），改为返回图文数据由 ApiWechat 被动回复
      *
      * @param int $aid 平台ID
      * @param string $openid 用户openid
      * @param int $bid 商家ID
      * @param int $mdid 门店ID
      * @param bool $isSubscribe 是否为关注事件
-     * @return bool
+     * @return array|false  返回图文数据 ['title','description','pic','url'] 或 false
      */
-    public function handleScanEvent(int $aid, string $openid, int $bid, int $mdid, bool $isSubscribe = false): bool
+    public function handleScanEvent(int $aid, string $openid, int $bid, int $mdid, bool $isSubscribe = false)
     {
         // 检查门店是否启用自拍端
         $mendian = Db::name('mendian')->where('id', $mdid)->find();
@@ -256,23 +257,24 @@ class AiTravelPhotoSelfieService
         $pushConfig = $this->getPushConfig($aid, $bid, $mdid);
 
         // 构建自拍页URL
-        $selfieUrl = request()->domain() . '/public/selfie/index.html?aid=' . $aid . '&bid=' . $bid . '&mdid=' . $mdid;
+        $domain = $this->getSiteDomain();
+        $selfieUrl = $domain . '/public/selfie/index.html?aid=' . $aid . '&bid=' . $bid . '&mdid=' . $mdid;
 
         // 获取封面图
         $picUrl = $pushConfig['push_cover'];
         if (empty($picUrl)) {
-            $picUrl = request()->domain() . '/static/img/ai_travel_photo_selfie_cover.png';
+            $picUrl = $domain . '/static/img/ai_travel_photo_selfie_cover.png';
         }
 
-        // 通过客服消息接口推送图文链接
-        $this->sendKefuNewsMessage($aid, $openid, [
+        Log::info('[Selfie] 扫码事件处理完成: openid=' . $openid . ', bid=' . $bid . ', mdid=' . $mdid . ', selfieUrl=' . $selfieUrl);
+
+        // 返回图文数据，由调用方使用被动回复发送
+        return [
             'title' => $pushConfig['push_title'],
             'description' => $pushConfig['push_desc'],
+            'pic' => $picUrl,
             'url' => $selfieUrl,
-            'picurl' => $picUrl,
-        ]);
-
-        return true;
+        ];
     }
 
     /**
@@ -283,13 +285,13 @@ class AiTravelPhotoSelfieService
      * @param array $article 图文内容 ['title', 'description', 'url', 'picurl']
      * @return bool
      */
-    public function sendKefuNewsMessage(int $aid, string $openid, array $article): bool
+    public function sendKefuNewsMessage(int $aid, string $openid, array $article): array
     {
         try {
             $accessToken = Wechat::access_token($aid, 'mp');
             if (!$accessToken) {
-                Log::error('自拍端推文推送失败：access_token获取失败', ['aid' => $aid]);
-                return false;
+                Log::error('自拍端推文推送失败：access_token获取失败 aid=' . $aid);
+                return ['success' => false, 'errcode' => -1, 'errmsg' => 'access_token获取失败'];
             }
 
             $url = 'https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=' . $accessToken;
@@ -301,29 +303,180 @@ class AiTravelPhotoSelfieService
                 ]
             ];
 
+            $postBody = json_encode($data, JSON_UNESCAPED_UNICODE);
+            Log::info('自拍端推文推送请求: openid=' . $openid . ', url=' . ($article['url'] ?? '') . ', data=' . $postBody);
+
             $ch = curl_init();
             curl_setopt_array($ch, [
                 CURLOPT_URL => $url,
                 CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => json_encode($data, JSON_UNESCAPED_UNICODE),
+                CURLOPT_POSTFIELDS => $postBody,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_SSL_VERIFYPEER => false,
                 CURLOPT_TIMEOUT => 10,
                 CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
             ]);
             $result = curl_exec($ch);
+            $curlError = curl_error($ch);
             curl_close($ch);
+
+            if ($result === false) {
+                Log::error('自拍端推文推送失败：curl错误 ' . $curlError);
+                return ['success' => false, 'errcode' => -2, 'errmsg' => 'curl错误: ' . $curlError];
+            }
 
             $res = json_decode($result, true);
             if (isset($res['errcode']) && $res['errcode'] != 0) {
-                Log::error('自拍端推文推送失败', ['error' => $res, 'openid' => $openid]);
+                $errcode = (int)($res['errcode'] ?? 0);
+                $errmsg = $res['errmsg'] ?? '';
+                Log::error('自拍端推文推送失败：errcode=' . $errcode . ', errmsg=' . $errmsg . ', openid=' . $openid . ', response=' . $result);
+                return ['success' => false, 'errcode' => $errcode, 'errmsg' => $errmsg];
+            }
+
+            Log::info('自拍端推文推送成功: openid=' . $openid . ', aid=' . $aid);
+            return ['success' => true, 'errcode' => 0, 'errmsg' => 'ok'];
+        } catch (\Exception $e) {
+            Log::error('自拍端推文推送异常: ' . $e->getMessage());
+            return ['success' => false, 'errcode' => -3, 'errmsg' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * 发送模板消息通知（客服消息48小时窗口过期时的回退方案）
+     * 优先用 tmpl_shenhe（审核结果通知），其次 tmpl_formsub（表单提交通知）
+     *
+     * @param int $aid 平台ID
+     * @param string $openid 用户openid
+     * @param string $pickUrl 选片链接
+     * @param string $storeName 门店名称
+     * @return bool
+     */
+    public function sendTemplateNotification(int $aid, string $openid, string $pickUrl, string $storeName = ''): bool
+    {
+        try {
+            $accessToken = Wechat::access_token($aid, 'mp');
+            if (!$accessToken) {
+                Log::error('模板消息回退失败：access_token获取失败 aid=' . $aid);
                 return false;
             }
 
-            Log::info('自拍端推文推送成功', ['openid' => $openid, 'aid' => $aid]);
-            return true;
+            // 获取模板配置
+            $tmplSet = Db::name('mp_tmplset')->where('aid', $aid)->find();
+            if (!$tmplSet) {
+                Log::warning('模板消息回退失败：未找到模板配置 aid=' . $aid);
+                return false;
+            }
+
+            // 构建候选模板列表（按优先级），某个模板可能已从微信后台删除(40037)，依次尝试
+            // 注意：微信模板标题由模板库固定，无法修改。通过优化内容字段弥补，让用户明确知道这是选片通知
+            $storeText = $storeName ? '在「' . $storeName . '」' : '';
+            $remarkText = '👆 点击此消息即可浏览您' . $storeText . '的精美旅拍照片，挑选心仪的照片购买收藏！';
+            $candidates = [];
+
+            // 候选1: tmpl_formsub（表单提交通知）- 字段：first, keyword1(表单来源), keyword2(提交时间), remark
+            if (!empty($tmplSet['tmpl_formsub'])) {
+                $candidates[] = [
+                    'template_id' => trim($tmplSet['tmpl_formsub']),
+                    'name' => 'tmpl_formsub',
+                    'data' => [
+                        'first' => ['value' => '🎉 您的旅拍照片已合成完成，快来选片吧！', 'color' => '#FF6B35'],
+                        'keyword1' => ['value' => 'AI旅拍选片通知'],
+                        'keyword2' => ['value' => date('Y-m-d H:i')],
+                        'remark' => ['value' => $remarkText, 'color' => '#173177'],
+                    ],
+                ];
+            }
+
+            // 候选2: tmpl_shenhe（审核结果通知）- 字段：first, keyword1, keyword2, remark
+            if (!empty($tmplSet['tmpl_shenhe'])) {
+                $candidates[] = [
+                    'template_id' => trim($tmplSet['tmpl_shenhe']),
+                    'name' => 'tmpl_shenhe',
+                    'data' => [
+                        'first' => ['value' => '🎉 您的旅拍照片已合成完成，快来选片吧！', 'color' => '#FF6B35'],
+                        'keyword1' => ['value' => 'AI旅拍选片通知'],
+                        'keyword2' => ['value' => '已完成'],
+                        'remark' => ['value' => $remarkText, 'color' => '#173177'],
+                    ],
+                ];
+            }
+
+            // 候选3: tmpl_collagesuccess（拼团成功通知）- 字段：first, keyword1(商品名称), keyword2(团长), keyword3(成团人数), remark
+            if (!empty($tmplSet['tmpl_collagesuccess'])) {
+                $candidates[] = [
+                    'template_id' => trim($tmplSet['tmpl_collagesuccess']),
+                    'name' => 'tmpl_collagesuccess',
+                    'data' => [
+                        'first' => ['value' => '🎉 您的旅拍照片已合成完成，快来选片吧！', 'color' => '#FF6B35'],
+                        'keyword1' => ['value' => 'AI旅拍选片通知'],
+                        'keyword2' => ['value' => $storeName ?: '旅拍门店'],
+                        'keyword3' => ['value' => '1'],
+                        'remark' => ['value' => $remarkText, 'color' => '#173177'],
+                    ],
+                ];
+            }
+
+            if (empty($candidates)) {
+                Log::warning('模板消息回退失败：未配置可用的模板 ID');
+                return false;
+            }
+
+            $apiUrl = 'https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=' . $accessToken;
+
+            // 依次尝试每个候选模板，直到成功或全部失败
+            foreach ($candidates as $candidate) {
+                $templateId = $candidate['template_id'];
+                $data = [
+                    'touser' => $openid,
+                    'template_id' => $templateId,
+                    'url' => $pickUrl,
+                    'data' => $candidate['data'],
+                ];
+
+                $postBody = json_encode($data, JSON_UNESCAPED_UNICODE);
+                Log::info('模板消息回退请求: openid=' . $openid . ', template=' . $candidate['name'] . ', template_id=' . $templateId . ', url=' . $pickUrl);
+
+                $ch = curl_init();
+                curl_setopt_array($ch, [
+                    CURLOPT_URL => $apiUrl,
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => $postBody,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_TIMEOUT => 10,
+                    CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                ]);
+                $result = curl_exec($ch);
+                $curlError = curl_error($ch);
+                curl_close($ch);
+
+                if ($result === false) {
+                    Log::error('模板消息回退curl错误: ' . $curlError . ', template=' . $candidate['name']);
+                    continue;
+                }
+
+                $res = json_decode($result, true);
+                $errcode = (int)($res['errcode'] ?? 0);
+
+                if ($errcode == 0) {
+                    Log::info('模板消息回退成功: openid=' . $openid . ', template=' . $candidate['name'] . ', template_id=' . $templateId);
+                    return true;
+                }
+
+                // 40037=invalid template_id, 40036=invalid template_id size - 模板已删除，尝试下一个
+                if ($errcode == 40037 || $errcode == 40036) {
+                    Log::warning('模板消息回退: 模板ID无效(已从微信后台删除), template=' . $candidate['name'] . ', errcode=' . $errcode . ', 尝试下一个模板');
+                    continue;
+                }
+
+                // 其他错误（如47001格式错误等），也尝试下一个
+                Log::error('模板消息回退失败: template=' . $candidate['name'] . ', errcode=' . $errcode . ', errmsg=' . ($res['errmsg'] ?? '') . ', response=' . $result);
+            }
+
+            Log::error('模板消息回退: 所有候选模板均失败, openid=' . $openid);
+            return false;
         } catch (\Exception $e) {
-            Log::error('自拍端推文推送异常', ['error' => $e->getMessage()]);
+            Log::error('模板消息回退异常: ' . $e->getMessage());
             return false;
         }
     }
@@ -409,7 +562,8 @@ class AiTravelPhotoSelfieService
             $qrcodeStr = $qrcode->qrcode;
         }
 
-        $pickUrl = request()->domain() . '/public/pick/index.html?qr=' . urlencode($qrcodeStr);
+        $domain = $this->getSiteDomain();
+        $pickUrl = $domain . '/public/pick/index.html?qr=' . urlencode($qrcodeStr);
 
         return [
             'portrait_ids' => $matchedPortraitIds,
@@ -467,6 +621,132 @@ class AiTravelPhotoSelfieService
     }
 
     /**
+     * 防重检测：同一门店同一用户同一人脸当天只能首次合成
+     * 有人脸特征时通过人脸相似度精确匹配
+     *
+     * @param array $faceEmbedding 128维人脸特征向量
+     * @param int $bid 商家ID
+     * @param int $mdid 门店ID
+     * @param string $openid 用户openid
+     * @return array|null 存在重复则返回 ['portrait_id'=>int, 'pick_url'=>string, 'synthesis_status'=>int]，否则返回null
+     */
+    public function checkSelfieDedup(array $faceEmbedding, int $bid, int $mdid, string $openid): ?array
+    {
+        $distanceThreshold = 0.20; // L2距离阈值，与 matchFaceInStore 一致
+        $sinceTime = strtotime('today'); // 当天0点开始
+
+        // 查询该用户在该门店当天提交的自拍人像
+        $recentPortraits = Db::name('ai_travel_photo_portrait')
+            ->where('user_openid', $openid)
+            ->where('bid', $bid)
+            ->where('mdid', $mdid)
+            ->where('source_type', 3) // 用户自拍
+            ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL)
+            ->where('create_time', '>=', $sinceTime)
+            ->field('id, face_embedding, synthesis_status, aid')
+            ->order('id', 'desc')
+            ->select()
+            ->toArray();
+
+        if (empty($recentPortraits)) {
+            return null;
+        }
+
+        foreach ($recentPortraits as $portrait) {
+            $storedEmbedding = json_decode($portrait['face_embedding'] ?? '', true);
+            if (!is_array($storedEmbedding) || count($storedEmbedding) < 64) {
+                continue;
+            }
+
+            $distance = $this->euclideanDistance($faceEmbedding, $storedEmbedding);
+            if ($distance <= $distanceThreshold) {
+                return $this->buildDedupResult($portrait, $openid, $bid, $mdid, $distance);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 防重检测（无人脸特征版本）：同一用户同一门店当天只能首次合成
+     * 手动拍摄模式下无face_embedding时，基于openid+mdid+当天进行防重
+     *
+     * @param int $bid 商家ID
+     * @param int $mdid 门店ID
+     * @param string $openid 用户openid
+     * @return array|null 存在重复则返回 ['portrait_id'=>int, 'pick_url'=>string, 'synthesis_status'=>int]，否则返回null
+     */
+    public function checkSelfieDedupByOpenid(int $bid, int $mdid, string $openid): ?array
+    {
+        $sinceTime = strtotime('today'); // 当天0点开始
+
+        // 查询该用户在该门店当天提交的自拍人像（不论是否有embedding）
+        $existingPortrait = Db::name('ai_travel_photo_portrait')
+            ->where('user_openid', $openid)
+            ->where('bid', $bid)
+            ->where('mdid', $mdid)
+            ->where('source_type', 3) // 用户自拍
+            ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL)
+            ->where('create_time', '>=', $sinceTime)
+            ->field('id, face_embedding, synthesis_status, aid')
+            ->order('id', 'desc')
+            ->find();
+
+        if (empty($existingPortrait)) {
+            return null;
+        }
+
+        return $this->buildDedupResult($existingPortrait, $openid, $bid, $mdid, -1);
+    }
+
+    /**
+     * 构造防重检测结果
+     *
+     * @param array $portrait 匹配到的人像记录
+     * @param string $openid 用户openid
+     * @param int $bid 商家ID
+     * @param int $mdid 门店ID
+     * @param float $distance L2距离（-1表示基于openid的防重，无距离值）
+     * @return array ['portrait_id'=>int, 'pick_url'=>string, 'synthesis_status'=>int]
+     */
+    private function buildDedupResult(array $portrait, string $openid, int $bid, int $mdid, float $distance): array
+    {
+        $portraitId = (int)$portrait['id'];
+        $synthesisStatus = (int)($portrait['synthesis_status'] ?? 0);
+        $pickUrl = '';
+
+        if ($synthesisStatus == 3) {
+            // 合成已完成，查找选片二维码
+            $qrcode = Db::name('ai_travel_photo_qrcode')
+                ->where('portrait_id', $portraitId)
+                ->where('status', 1)
+                ->find();
+            if ($qrcode) {
+                $pickUrl = $this->getSiteDomain() . '/public/pick/index.html?qr=' . urlencode($qrcode['qrcode']);
+            }
+        }
+
+        $logData = [
+            'openid' => $openid,
+            'bid' => $bid,
+            'mdid' => $mdid,
+            'existing_portrait_id' => $portraitId,
+            'synthesis_status' => $synthesisStatus,
+            'dedup_mode' => $distance >= 0 ? 'face_similarity' : 'openid_only',
+        ];
+        if ($distance >= 0) {
+            $logData['distance'] = $distance;
+        }
+        Log::info('自拍端防重检测命中（当天仅首次合成）', $logData);
+
+        return [
+            'portrait_id' => $portraitId,
+            'pick_url' => $pickUrl,
+            'synthesis_status' => $synthesisStatus,
+        ];
+    }
+
+    /**
      * 创建自拍人像记录并投递合成任务
      *
      * @param string $imageBase64 图片base64
@@ -480,30 +760,47 @@ class AiTravelPhotoSelfieService
     public function createSelfiePortraitAndSynthesize(
         string $imageBase64, array $faceEmbedding, int $aid, int $bid, int $mdid, string $openid
     ): array {
-        // 保存图片到临时目录
+        // ===== 保存图片（与 SmileCapture 上传流程对齐） =====
         $imageData = base64_decode($imageBase64);
         if (!$imageData) {
             throw new \Exception('图片数据无效');
         }
 
-        $dateDir = date('Ymd');
-        $dir = app()->getRootPath() . 'upload/selfie/' . $dateDir . '/';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0777, true);
+        // 确保 aid 常量已定义，供 Pic::uploadoss 识别云存储配置
+        if (!defined('aid')) {
+            define('aid', $aid);
         }
-        $filename = 'selfie_' . time() . '_' . mt_rand(1000, 9999) . '.jpg';
-        $filepath = $dir . $filename;
-        file_put_contents($filepath, $imageData);
 
-        // 上传到OSS（如果配置了的话）
-        $originalUrl = request()->domain() . '/upload/selfie/' . $dateDir . '/' . $filename;
-        try {
-            $ossUrl = \app\common\Pic::uploadoss($originalUrl, false, false);
-            if ($ossUrl) {
-                $originalUrl = $ossUrl;
-            }
-        } catch (\Exception $e) {
-            // OSS上传失败，使用本地路径
+        // 使用标准上传路径：upload/{aid}/{date}/（与 SmileCapture 一致）
+        $dateDir = date('Ymd');
+        $uniqueName = md5(uniqid((string)mt_rand(), true)) . '.jpg';
+        $savePath = 'upload/' . $aid . '/' . $dateDir . '/';
+
+        if (!is_dir(ROOT_PATH . $savePath)) {
+            mk_dir(ROOT_PATH . $savePath);
+        }
+
+        $originalPath = $savePath . 'selfie_' . $uniqueName;
+        $writeResult = file_put_contents(ROOT_PATH . $originalPath, $imageData);
+        if ($writeResult === false) {
+            throw new \Exception('图片保存失败，请检查上传目录权限');
+        }
+
+        // 通过系统云存储配置上传（OSS/七牛/腾讯云/本地）
+        $uploadPath = PRE_URL . '/' . $originalPath;
+        $originalUrl = \app\common\Pic::uploadoss($uploadPath, false, false);
+
+        if (!$originalUrl) {
+            // 云存储上传失败，使用本地路径作为备用
+            Log::warning('自拍端OSS上传失败，使用本地存储', [
+                'uploadPath' => $uploadPath, 'aid' => $aid
+            ]);
+            $originalUrl = '/' . $originalPath;
+        }
+
+        // OSS上传成功后删除本地文件（如果URL已是远程地址）
+        if (strpos($originalUrl, 'http') === 0 && strpos($originalUrl, PRE_URL) !== 0) {
+            @unlink(ROOT_PATH . $originalPath);
         }
 
         // 创建人像记录
@@ -515,7 +812,7 @@ class AiTravelPhotoSelfieService
             'device_id' => 0,
             'original_url' => $originalUrl,
             'cutout_url' => $originalUrl, // 自拍不需要抠图
-            'face_embedding' => json_encode($faceEmbedding),
+            'face_embedding' => !empty($faceEmbedding) ? json_encode($faceEmbedding) : '[]',
             'type' => AiTravelPhotoPortrait::TYPE_USER,
             'source_type' => 3, // 用户自拍
             'user_openid' => $openid,
@@ -524,43 +821,157 @@ class AiTravelPhotoSelfieService
             'update_time' => time(),
         ]);
 
-        // 保存到Milvus
-        try {
-            $milvusService = new MilvusService();
-            if ($milvusService->isHealthy()) {
-                $milvusService->insert([$faceEmbedding], ['portrait_id' => $portraitId]);
+        // 保存到Milvus（仅在有有效embedding时）
+        if (!empty($faceEmbedding)) {
+            try {
+                $milvusService = new MilvusService();
+                if ($milvusService->isHealthy()) {
+                    $milvusService->insert([$faceEmbedding], ['portrait_id' => $portraitId]);
+                }
+            } catch (\Exception $e) {
+                Log::warning('Milvus插入失败', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
             }
-        } catch (\Exception $e) {
-            Log::warning('Milvus插入失败', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+        } else {
+            Log::info('自拍端：手动拍摄模式无face_embedding，跳过Milvus插入', ['portrait_id' => $portraitId]);
         }
 
-        // 获取门店合成模板
-        $synthesisService = new AiTravelPhotoSynthesisService();
-        $templates = $synthesisService->getTemplateList($aid, $bid);
+        // ===== 获取合成设置和模板（与 SmileCapture 保持一致） =====
+        // 从 ai_travel_photo_synthesis_setting 表获取已配置的模板ID
+        $setting = Db::name('ai_travel_photo_synthesis_setting')
+            ->where('portrait_id', 0)
+            ->where('aid', $aid)
+            ->where('bid', $bid)
+            ->find();
+
+        $templates = [];
+        $generateCount = 4; // 默认生成数量
+
+        if ($setting && !empty($setting['template_ids'])) {
+            $templateIds = explode(',', $setting['template_ids']);
+            $generateCount = (int)($setting['generate_count'] ?? 4);
+            $generateMode = (int)($setting['generate_mode'] ?? 1);
+
+            // 从 generation_scene_template 表查询模板（与 SmileCapture 一致）
+            $availableTemplates = Db::name('generation_scene_template')
+                ->whereIn('id', $templateIds)
+                ->where('generation_type', 1) // 照片生成
+                ->where('status', 1)
+                ->field('id, template_name, model_id, cover_image, default_params, output_quantity, description, category')
+                ->select()
+                ->toArray();
+
+            // 根据生成模式选择模板
+            if (!empty($availableTemplates)) {
+                if ($generateMode == 1) {
+                    // 顺序模式
+                    for ($i = 0; $i < $generateCount; $i++) {
+                        $templates[] = $availableTemplates[$i % count($availableTemplates)];
+                    }
+                } else {
+                    // 随机模式
+                    $pool = [];
+                    for ($i = 0; $i < $generateCount; $i++) {
+                        if (empty($pool)) {
+                            $pool = $availableTemplates;
+                            shuffle($pool);
+                        }
+                        $templates[] = array_shift($pool);
+                    }
+                }
+            }
+        }
+
         $templateCount = count($templates);
 
         // 计算预估等待时间
         $queuePending = $this->getQueuePendingCount();
         $estimatedSeconds = $templateCount * 15 + $queuePending * 5;
 
-        // 投递合成任务到队列
+        // ===== 投递合成任务到队列（与 SmileCapture triggerAsyncTasks 保持一致） =====
         if (!empty($templates)) {
-            $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
-            try {
-                \think\facade\Queue::push('app\job\ImageGenerationJob', [
-                    'portrait' => $portrait,
-                    'templates' => $templates,
-                    'operator' => 'selfie_auto',
-                ], 'ai_travel_photo_synthesis');
-            } catch (\Exception $e) {
-                Log::error('自拍合成任务投递失败', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
-                // 降级：直接同步生成
+            // 更新人像合成状态为「处理中」
+            Db::name('ai_travel_photo_portrait')
+                ->where('id', $portraitId)
+                ->update([
+                    'synthesis_status' => 2,
+                    'synthesis_error' => '',
+                    'update_time' => time()
+                ]);
+
+            $queuedCount = 0;
+            foreach ($templates as $template) {
                 try {
-                    $synthesisService->generate($portrait, $templates, 'selfie_auto');
-                } catch (\Exception $ex) {
-                    Log::error('自拍同步合成也失败', ['error' => $ex->getMessage()]);
+                    // 创建 generation 记录（与 SmileCapture 一致）
+                    $generationId = Db::name('ai_travel_photo_generation')->insertGetId([
+                        'aid' => $aid,
+                        'portrait_id' => $portraitId,
+                        'scene_id' => 0,
+                        'template_id' => $template['id'],
+                        'uid' => 0,
+                        'bid' => $bid,
+                        'mdid' => $mdid,
+                        'type' => 1,
+                        'generation_type' => 1,
+                        'status' => 0, // 待处理
+                        'create_time' => time(),
+                        'update_time' => time(),
+                        'queue_time' => time()
+                    ]);
+
+                    // 推送到正确的队列（ai_image_generation，格式: generation_id）
+                    \think\facade\Queue::push(
+                        'app\\job\\ImageGenerationJob',
+                        ['generation_id' => $generationId],
+                        'ai_image_generation'
+                    );
+
+                    $queuedCount++;
+                    Log::info('自拍端合成任务已推送', [
+                        'portrait_id' => $portraitId,
+                        'template_id' => $template['id'],
+                        'generation_id' => $generationId
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('自拍端合成任务推送失败', [
+                        'portrait_id' => $portraitId,
+                        'template_id' => $template['id'] ?? 0,
+                        'error' => $e->getMessage()
+                    ]);
                 }
             }
+
+            // 如果所有任务都推送失败，降级为同步合成
+            if ($queuedCount === 0) {
+                Log::warning('自拍端所有队列任务推送失败，尝试同步合成', ['portrait_id' => $portraitId]);
+                try {
+                    $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
+                    $synthesisService = new AiTravelPhotoSynthesisService();
+                    $result = $synthesisService->generate($portrait, $templates, 'selfie_auto');
+                    $resultCount = $result['data']['count'] ?? 0;
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'synthesis_status' => $resultCount > 0 ? 3 : 4,
+                        'synthesis_count' => $resultCount,
+                        'synthesis_time' => time(),
+                        'synthesis_error' => $resultCount > 0 ? '' : ($result['msg'] ?? '合成失败'),
+                        'update_time' => time()
+                    ]);
+                } catch (\Exception $ex) {
+                    Log::error('自拍端同步合成也失败', ['portrait_id' => $portraitId, 'error' => $ex->getMessage()]);
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'synthesis_status' => 4,
+                        'synthesis_error' => $ex->getMessage(),
+                        'update_time' => time()
+                    ]);
+                }
+            }
+        } else {
+            Log::warning('自拍端：未找到可用的合成模板', ['aid' => $aid, 'bid' => $bid, 'portrait_id' => $portraitId]);
+            // 无模板可用，标记为失败
+            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                'synthesis_status' => 4,
+                'synthesis_error' => '未配置合成模板，请管理员先在合成设置中关联模板',
+                'update_time' => time()
+            ]);
         }
 
         // 更新二维码统计
@@ -583,7 +994,7 @@ class AiTravelPhotoSelfieService
     private function getQueuePendingCount(): int
     {
         try {
-            return (int)Db::name('jobs')->where('queue', 'ai_travel_photo_synthesis')->count();
+            return (int)Db::name('jobs')->where('queue', 'ai_image_generation')->count();
         } catch (\Exception $e) {
             return 0;
         }
@@ -603,6 +1014,54 @@ class AiTravelPhotoSelfieService
 
         if (!$portrait) {
             throw new \Exception('人像不存在');
+        }
+
+        // ===== 超时恢复机制 =====
+        // synthesis_status=2（处理中）超过10分钟未更新，自动检查并标记为失败
+        if (($portrait['synthesis_status'] ?? 0) == 2) {
+            $updateTime = (int)($portrait['update_time'] ?? 0);
+            if ($updateTime > 0 && (time() - $updateTime) > 600) {
+                // 检查是否有仍在队列中等待的 generation 记录
+                $stillPending = Db::name('ai_travel_photo_generation')
+                    ->where('portrait_id', $portraitId)
+                    ->whereIn('status', [0, 1]) // 待处理 或 处理中
+                    ->count();
+                
+                if ($stillPending > 0) {
+                    // 将超时的 generation 记录标记为失败
+                    Db::name('ai_travel_photo_generation')
+                        ->where('portrait_id', $portraitId)
+                        ->whereIn('status', [0, 1])
+                        ->update([
+                            'status' => 3,
+                            'error_msg' => '处理超时（超过10分钟）',
+                            'finish_time' => time(),
+                            'update_time' => time(),
+                        ]);
+                    Log::warning('自拍端合成超时恢复', [
+                        'portrait_id' => $portraitId,
+                        'pending_count' => $stillPending,
+                    ]);
+                }
+                
+                // 重新检查是否有成功的
+                $successCount = Db::name('ai_travel_photo_generation')
+                    ->where('portrait_id', $portraitId)
+                    ->where('status', 2) // 成功
+                    ->count();
+                
+                $newStatus = $successCount > 0 ? 3 : 4;
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'synthesis_status' => $newStatus,
+                    'synthesis_error' => $successCount > 0 ? '' : '合成超时，所有任务均失败',
+                    'update_time' => time(),
+                ]);
+                
+                // 重新加载 portrait 数据
+                $portrait = Db::name('ai_travel_photo_portrait')
+                    ->where('id', $portraitId)
+                    ->find();
+            }
         }
 
         // 查询该人像的generation记录
@@ -635,15 +1094,54 @@ class AiTravelPhotoSelfieService
         if ($completed + $failed >= $total) {
             // 所有任务已完成（成功或失败）
             if ($completed > 0) {
-                // 有成功的结果，查找选片URL
+                // 有成功的结果，查找或自动创建选片二维码
                 $qrcode = Db::name('ai_travel_photo_qrcode')
                     ->where('portrait_id', $portraitId)
                     ->where('status', 1)
                     ->find();
 
+                // 队列模式下可能还没有qrcode记录，自动创建
+                if (!$qrcode) {
+                    try {
+                        $qrcodeValue = 'synth_' . $portraitId . '_' . time();
+                        Db::name('ai_travel_photo_qrcode')->insert([
+                            'aid' => $portrait['aid'] ?? 0,
+                            'bid' => $portrait['bid'] ?? 0,
+                            'portrait_id' => $portraitId,
+                            'qrcode' => $qrcodeValue,
+                            'status' => 1,
+                            'create_time' => time(),
+                            'update_time' => time()
+                        ]);
+                        $qrcode = ['qrcode' => $qrcodeValue];
+                        Log::info('自拍端自动创建选片二维码', ['portrait_id' => $portraitId]);
+                    } catch (\Exception $e) {
+                        Log::error('自动创建选片二维码失败', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+                    }
+                }
+
                 $pickUrl = '';
                 if ($qrcode) {
-                    $pickUrl = request()->domain() . '/public/pick/index.html?qr=' . urlencode($qrcode['qrcode']);
+                    $pickUrl = $this->getSiteDomain() . '/public/pick/index.html?qr=' . urlencode($qrcode['qrcode']);
+                }
+
+                // 同步更新人像的synthesis_status为已完成
+                if (($portrait['synthesis_status'] ?? 0) != 3) {
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'synthesis_status' => 3,
+                        'synthesis_count' => $completed,
+                        'synthesis_time' => time(),
+                        'update_time' => time()
+                    ]);
+                }
+
+                // 触发自拍端通知（如果用户注册了"找到后通知我"）
+                try {
+                    if (($portrait['source_type'] ?? 0) == 3) {
+                        $this->sendSynthesisCompleteNotify($portraitId);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('自拍端合成完成通知失败', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
                 }
 
                 return [
@@ -656,6 +1154,15 @@ class AiTravelPhotoSelfieService
                     'total' => $total,
                 ];
             } else {
+                // 全部失败，更新portrait状态
+                if (($portrait['synthesis_status'] ?? 0) != 4) {
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'synthesis_status' => 4,
+                        'synthesis_error' => '所有合成任务均失败',
+                        'update_time' => time()
+                    ]);
+                }
+
                 return [
                     'status' => 4, // 全部失败
                     'progress' => 100,
@@ -723,7 +1230,140 @@ class AiTravelPhotoSelfieService
     }
 
     /**
+     * 获取站点域名（兼容 HTTP 请求和 CLI 队列上下文）
+     *
+     * @return string 如 https://ai.eivie.cn
+     */
+    public function getSiteDomain(): string
+    {
+        // 1. HTTP 上下文（排除 CLI 队列中返回的 localhost）
+        try {
+            $domain = request()->domain();
+            if (!empty($domain) && $domain !== 'http://' && $domain !== 'https://'
+                && stripos($domain, 'localhost') === false && stripos($domain, '127.0.0.1') === false) {
+                return $domain;
+            }
+        } catch (\Throwable $e) {}
+
+        // 2. PRE_URL 常量（processSingleGeneration 中已定义）
+        if (defined('PRE_URL') && !empty(PRE_URL)) {
+            return PRE_URL;
+        }
+
+        // 3. 从 admin 表获取域名
+        try {
+            $admin = Db::name('admin')->where('id', 1)->field('domain')->find();
+            if ($admin && !empty($admin['domain'])) {
+                return 'https://' . $admin['domain'];
+            }
+        } catch (\Throwable $e) {}
+
+        // 4. 从项目目录推断
+        if (defined('ROOT_PATH')) {
+            return 'https://' . basename(ROOT_PATH);
+        }
+
+        return '';
+    }
+
+    /**
+     * 合成完成后主动向自拍用户推送选片图文链接
+     * 不依赖 notify_me 注册，所有自拍端用户(source_type=3)合成完成后都会自动收到
+     *
+     * @param int $portraitId 人像ID
+     * @return bool 推送是否成功
+     */
+    public function pushPickUrlToSelfieUser(int $portraitId): bool
+    {
+        $portrait = Db::name('ai_travel_photo_portrait')
+            ->where('id', $portraitId)
+            ->find();
+
+        if (!$portrait) {
+            Log::warning('自拍端主动推送：人像不存在', ['portrait_id' => $portraitId]);
+            return false;
+        }
+
+        $openid = $portrait['user_openid'] ?? '';
+        if (empty($openid)) {
+            Log::warning('自拍端主动推送：用户openid为空', ['portrait_id' => $portraitId]);
+            return false;
+        }
+
+        $aid = (int)($portrait['aid'] ?? 0);
+        if ($aid <= 0) {
+            Log::warning('自拍端主动推送：aid为空', ['portrait_id' => $portraitId]);
+            return false;
+        }
+
+        // 获取选片二维码
+        $qrcode = Db::name('ai_travel_photo_qrcode')
+            ->where('portrait_id', $portraitId)
+            ->where('status', 1)
+            ->find();
+
+        if (!$qrcode) {
+            Log::warning('自拍端主动推送：未找到选片二维码', ['portrait_id' => $portraitId]);
+            return false;
+        }
+
+        $domain = $this->getSiteDomain();
+        if (empty($domain)) {
+            Log::error('自拍端主动推送：无法获取站点域名', ['portrait_id' => $portraitId]);
+            return false;
+        }
+
+        $pickUrl = $domain . '/public/pick/index.html?qr=' . urlencode($qrcode['qrcode']);
+
+        // 获取门店名称
+        $storeName = '';
+        if (($portrait['mdid'] ?? 0) > 0) {
+            $storeName = Db::name('mendian')->where('id', $portrait['mdid'])->value('name') ?: '';
+        }
+
+        // 获取封面图
+        $pushConfig = $this->getPushConfig($aid, (int)($portrait['bid'] ?? 0), (int)($portrait['mdid'] ?? 0));
+        $picUrl = !empty($pushConfig['push_cover']) ? $pushConfig['push_cover'] : ($domain . '/static/img/ai_travel_photo_selfie_cover.png');
+
+        $description = '您' . ($storeName ? '在' . $storeName : '') . '的旅拍照片已生成完成，点击查看并选片购买！';
+
+        Log::info('自拍端主动推送选片链接', [
+            'portrait_id' => $portraitId,
+            'openid' => $openid,
+            'pick_url' => $pickUrl,
+        ]);
+
+        // 策略：先尝试客服图文消息（富卡片形式，最佳UX），如果48小时窗口已过期(45015)则回退到模板消息
+        $kefuResult = $this->sendKefuNewsMessage($aid, $openid, [
+            'title' => '您的旅拍照片已准备就绪！',
+            'description' => $description,
+            'url' => $pickUrl,
+            'picurl' => $picUrl,
+        ]);
+
+        if ($kefuResult['success']) {
+            Log::info('自拍端主动推送成功(客服消息)', ['portrait_id' => $portraitId, 'openid' => $openid]);
+            return true;
+        }
+
+        // 客服消息失败，检查是否为48小时窗口过期
+        $errcode = $kefuResult['errcode'] ?? 0;
+        if ($errcode == 45015) {
+            Log::info('客服消息48小时窗口已过期，尝试模板消息回退', ['portrait_id' => $portraitId]);
+            $tmplSuccess = $this->sendTemplateNotification($aid, $openid, $pickUrl, $storeName);
+            if ($tmplSuccess) {
+                Log::info('自拍端主动推送成功(模板消息回退)', ['portrait_id' => $portraitId, 'openid' => $openid]);
+                return true;
+            }
+        }
+
+        Log::error('自拍端主动推送失败: errcode=' . $errcode . ', portrait_id=' . $portraitId . ', openid=' . $openid);
+        return false;
+    }
+
+    /**
      * 合成完成后推送通知给注册了"找到后通知我"的用户
+     * （补充推送：处理额外注册了通知的其他用户，如通过人脸匹配找到的用户）
      *
      * @param int $portraitId 人像ID
      * @return int 成功推送数
@@ -749,7 +1389,13 @@ class AiTravelPhotoSelfieService
             return 0;
         }
 
-        $pickUrl = request()->domain() . '/public/pick/index.html?qr=' . urlencode($qrcode['qrcode']);
+        $domain = $this->getSiteDomain();
+        if (empty($domain)) {
+            Log::error('合成完成通知：无法获取站点域名');
+            return 0;
+        }
+
+        $pickUrl = $domain . '/public/pick/index.html?qr=' . urlencode($qrcode['qrcode']);
 
         // 获取门店名称
         $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
@@ -763,12 +1409,18 @@ class AiTravelPhotoSelfieService
             try {
                 $description = '点击查看您' . ($storeName ? '在' . $storeName : '') . '的精美旅拍照片，快来选片吧！';
                 
-                $success = $this->sendKefuNewsMessage($record->aid, $record->openid, [
+                $kefuResult = $this->sendKefuNewsMessage($record->aid, $record->openid, [
                     'title' => '您的旅拍照片已准备就绪',
                     'description' => $description,
                     'url' => $pickUrl,
-                    'picurl' => request()->domain() . '/static/img/ai_travel_photo_selfie_cover.png',
+                    'picurl' => $domain . '/static/img/ai_travel_photo_selfie_cover.png',
                 ]);
+
+                $success = $kefuResult['success'];
+                // 客服消息48小时窗口过期，回退到模板消息
+                if (!$success && ($kefuResult['errcode'] ?? 0) == 45015) {
+                    $success = $this->sendTemplateNotification($record->aid, $record->openid, $pickUrl, $storeName);
+                }
 
                 $record->notify_status = $success ? AiTravelPhotoSelfieNotify::STATUS_SENT : AiTravelPhotoSelfieNotify::STATUS_FAILED;
                 $record->notify_time = time();
@@ -797,16 +1449,22 @@ class AiTravelPhotoSelfieService
      * @param int $mdid 门店ID（0=全部门店）
      * @return array
      */
-    public function getStats(int $aid, int $bid, int $mdid = 0): array
+    public function getStats(int $aid, int $bid, int $mdid = 0, bool $isAdmin = false): array
     {
-        // 兼容bid=0公共门店场景：查询当前商家的二维码和公共二维码
-        $query = AiTravelPhotoSelfieQrcode::where('aid', $aid)
-            ->where(function($q) use ($bid) {
+        // 数据隔离：商家只能看到自己bid的数据，超级管理员可以看到目标商家+公共数据
+        $query = AiTravelPhotoSelfieQrcode::where('aid', $aid);
+        if ($isAdmin) {
+            // 超级管理员：查看目标商家 + 公共数据(bid=0)
+            $query->where(function($q) use ($bid) {
                 $q->whereOr([
                     ['bid', '=', $bid],
                     ['bid', '=', 0]
                 ]);
             });
+        } else {
+            // 普通商家：仅查看自己的数据，不包含公共数据
+            $query->where('bid', $bid);
+        }
         if ($mdid > 0) {
             $query->where('mdid', $mdid);
         }
@@ -823,14 +1481,18 @@ class AiTravelPhotoSelfieService
         // 合成触发数 = 自拍数 - 命中数
         $synthesisTrigger = max(0, $totalSelfie - $totalMatch);
 
-        // 通知统计
-        $notifyQuery = AiTravelPhotoSelfieNotify::where('aid', $aid)
-            ->where(function($q) use ($bid) {
+        // 通知统计 - 同样按bid隔离
+        $notifyQuery = AiTravelPhotoSelfieNotify::where('aid', $aid);
+        if ($isAdmin) {
+            $notifyQuery->where(function($q) use ($bid) {
                 $q->whereOr([
                     ['bid', '=', $bid],
                     ['bid', '=', 0]
                 ]);
             });
+        } else {
+            $notifyQuery->where('bid', $bid);
+        }
         if ($mdid > 0) {
             $notifyQuery->where('mdid', $mdid);
         }

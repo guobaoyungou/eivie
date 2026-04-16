@@ -10,6 +10,7 @@ use app\model\AiTravelPhotoQrcode;
 use app\model\ApiConfig;
 use app\common\Pic;
 use app\service\AiTravelPhotoSelfieService;
+use app\service\ImagePersistService;
 
 /**
  * AI旅拍合成服务
@@ -276,6 +277,195 @@ class AiTravelPhotoSynthesisService
     }
 
     /**
+     * 处理单条generation记录（队列任务专用入口）
+     * 与管理员 generate() 走相同的 callAiModel → saveResult → updateGenerationStatus 路径
+     *
+     * @param int $generationId generation 记录 ID
+     * @return bool 成功返回 true
+     */
+    public function processSingleGeneration(int $generationId): bool
+    {
+        // CLI队列上下文缺少 ROOT_PATH / PRE_URL / aid 常量，在此补充定义
+        if (!defined('ROOT_PATH')) {
+            define('ROOT_PATH', dirname(dirname(__DIR__)) . '/');
+        }
+        if (!defined('PRE_URL')) {
+            // 从数据库获取域名，否则使用项目目录名推断
+            $siteUrl = '';
+            try {
+                $admin = Db::name('admin')->where('id', 1)->field('domain')->find();
+                if ($admin && !empty($admin['domain'])) {
+                    $siteUrl = 'https://' . $admin['domain'];
+                }
+            } catch (\Throwable $e) {}
+            if (empty($siteUrl)) {
+                // 从项目目录名推断域名： /home/www/ai.eivie.cn -> ai.eivie.cn
+                $siteUrl = 'https://' . basename(ROOT_PATH);
+            }
+            define('PRE_URL', $siteUrl);
+        }
+        // 1. 加载 generation 记录
+        $generation = Db::name('ai_travel_photo_generation')
+            ->where('id', $generationId)
+            ->find();
+
+        if (!$generation) {
+            throw new \Exception('generation记录不存在: ' . $generationId);
+        }
+
+        // 定义 aid 常量（Pic::uploadoss 可能需要）
+        if (!defined('aid')) {
+            define('aid', (int)($generation['aid'] ?? 0));
+        }
+
+        // 2. 更新状态为处理中
+        Db::name('ai_travel_photo_generation')->where('id', $generationId)->update([
+            'status' => 1,
+            'start_time' => time(),
+            'update_time' => time(),
+        ]);
+
+        // 3. 加载人像记录
+        $portrait = Db::name('ai_travel_photo_portrait')
+            ->where('id', $generation['portrait_id'])
+            ->find();
+
+        if (!$portrait) {
+            throw new \Exception('人像记录不存在: ' . $generation['portrait_id']);
+        }
+
+        $portraitUrl = $portrait['original_url'] ?? $portrait['cutout_url'] ?? '';
+        if (empty($portraitUrl)) {
+            throw new \Exception('人像图片URL为空');
+        }
+
+        // 4. 加载模板记录
+        $template = Db::name('generation_scene_template')
+            ->where('id', $generation['template_id'])
+            ->find();
+
+        if (!$template) {
+            throw new \Exception('模板记录不存在: ' . $generation['template_id']);
+        }
+
+        // 补充 aid / bid / mdid，让 callAiModel 的 getApiConfigByModelId 能正确查找配置
+        $template['aid'] = $generation['aid'] ?? $portrait['aid'] ?? 0;
+        $template['bid'] = $generation['bid'] ?? $portrait['bid'] ?? 0;
+        $template['mdid'] = $generation['mdid'] ?? $portrait['mdid'] ?? 0;
+
+        Log::info('processSingleGeneration 开始', [
+            'generation_id' => $generationId,
+            'portrait_id' => $portrait['id'],
+            'template_id' => $template['id'],
+            'model_id' => $template['model_id'] ?? 0,
+        ]);
+
+        // 5. 调用 AI 模型生成图片（与管理员 generate() 相同路径）
+        $generatedUrl = $this->callAiModel($portraitUrl, $template);
+
+        if (empty($generatedUrl)) {
+            $this->updateGenerationStatus($generationId, 3, '生成结果为空');
+            throw new \Exception('生成结果为空');
+        }
+
+        // 6. 更新 generation 状态为成功
+        Db::name('ai_travel_photo_generation')->where('id', $generationId)->update([
+            'status' => 2,
+            'finish_time' => time(),
+            'update_time' => time(),
+        ]);
+
+        // 7. 保存结果到 result 表
+        $bid = $generation['bid'] ?? $portrait['bid'] ?? 0;
+        $this->saveResult($portrait['id'], $bid, $template, $generatedUrl, $generationId);
+
+        // 8. 添加水印（可选）
+        if ($this->watermarkEnabled) {
+            try {
+                $business = Db::name('business')->where('id', $bid)->find();
+                if ($business && !empty($business['ai_logo_watermark'])) {
+                    $resultRecord = Db::name('ai_travel_photo_result')
+                        ->where('generation_id', $generationId)
+                        ->order('id DESC')
+                        ->find();
+                    if ($resultRecord) {
+                        $watermarkResult = $this->watermarkService->addWatermark($resultRecord['id']);
+                        $watermarkedUrl = $watermarkResult['watermark_url'] ?? '';
+                        if (!empty($watermarkedUrl)) {
+                            Db::name('ai_travel_photo_result')
+                                ->where('id', $resultRecord['id'])
+                                ->update(['result_url_watermark' => $watermarkedUrl]);
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning('processSingleGeneration 水印失败: ' . $e->getMessage());
+            }
+        }
+
+        // 9. 检查该 portrait 下所有 generation 是否都已完成
+        $pendingCount = Db::name('ai_travel_photo_generation')
+            ->where('portrait_id', $portrait['id'])
+            ->whereIn('status', [0, 1])
+            ->count();
+
+        if ($pendingCount == 0) {
+            // 所有 generation 都已完成
+            $successCount = Db::name('ai_travel_photo_generation')
+                ->where('portrait_id', $portrait['id'])
+                ->where('status', 2)
+                ->count();
+
+            $synthesisStatus = $successCount > 0 ? 3 : 4;
+            Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])->update([
+                'synthesis_status' => $synthesisStatus,
+                'synthesis_count' => $successCount,
+                'synthesis_time' => time(),
+                'synthesis_error' => $successCount > 0 ? '' : '所有合成任务均失败',
+                'update_time' => time(),
+            ]);
+
+            // 存入选片表
+            if ($successCount > 0) {
+                $aid = $portrait['aid'] ?? 0;
+                $results = Db::name('ai_travel_photo_result')
+                    ->where('portrait_id', $portrait['id'])
+                    ->select()->toArray();
+                $resultsMapped = [];
+                foreach ($results as $r) {
+                    $resultsMapped[] = [
+                        'result_url' => $r['url'] ?? '',
+                        'watermarked_url' => $r['result_url_watermark'] ?? $r['url'] ?? '',
+                    ];
+                }
+                $this->saveToQrcode($portrait['id'], $bid, $resultsMapped, $aid);
+
+                // 自拍端通知：合成完成后主动向自拍用户推送选片图文链接
+                $sourceType = $portrait['source_type'] ?? 0;
+                if ($sourceType == 3) {
+                    try {
+                        $selfieService = new AiTravelPhotoSelfieService();
+                        // 1. 主动推送：向拍照用户本人推送选片链接（不依赖 notify_me 注册）
+                        $selfieService->pushPickUrlToSelfieUser($portrait['id']);
+                        // 2. 补充推送：处理额外注册了"找到后通知我"的其他用户
+                        $selfieService->sendSynthesisCompleteNotify($portrait['id']);
+                    } catch (\Throwable $e) {
+                        Log::warning('自拍端合成完成通知异常: ' . $e->getMessage());
+                    }
+                }
+            }
+
+            Log::info('processSingleGeneration portrait完成', [
+                'portrait_id' => $portrait['id'],
+                'synthesis_status' => $synthesisStatus,
+                'success_count' => $successCount,
+            ]);
+        }
+
+        return true;
+    }
+
+    /**
      * 更新generation记录状态
      *
      * @param int $generationId
@@ -374,6 +564,11 @@ class AiTravelPhotoSynthesisService
 
         // 5. 调用AI图生图API，传入模板预设参数
         $resultUrl = $this->callImageGenerationApi($portraitUrl, $referenceImage, $prompt, $apiConfig, $defaultParams);
+
+        // 6. 统一 WebP 压缩转存：确保成片 URL 为永久 WebP 格式
+        if (!empty($resultUrl)) {
+            $resultUrl = $this->persistImageUrl($resultUrl);
+        }
 
         return $resultUrl;
     }
@@ -866,16 +1061,7 @@ class AiTravelPhotoSynthesisService
         }
 
         // 调试：记录完整的请求参数
-        Log::info('火山方舟SeeDream图生图请求', [
-            'endpoint' => $endpointUrl,
-            'model' => $requestParams['model'],
-            'prompt' => $textPrompt,
-            'has_image' => !empty($imageUrls),
-            'image_count' => count($imageUrls),
-            'has_portrait' => !empty($portraitUrl),
-            'has_reference' => !empty($referenceImage),
-            'request_params' => $requestParams
-        ]);
+        Log::info('火山方舟SeeDream图生图请求: endpoint=' . $endpointUrl . ', model=' . $model . ', image_count=' . count($imageUrls) . ', request_params=' . json_encode($requestParams, JSON_UNESCAPED_UNICODE));
 
         try {
             $client = new \GuzzleHttp\Client([
@@ -895,11 +1081,11 @@ class AiTravelPhotoSynthesisService
 
             // SSE格式兜底：如果json_decode失败，尝试解析SSE流式响应
             if ($result === null && json_last_error() !== JSON_ERROR_NONE && !empty($responseBody)) {
-                Log::info('火山方舟响应非JSON，尝试SSE解析', ['body_preview' => substr($responseBody, 0, 500)]);
+                Log::info('火山方舟响应非JSON，尝试SSE解析: body_preview=' . substr($responseBody, 0, 500));
                 $result = $this->parseSSEResponse($responseBody);
             }
 
-            Log::info('火山方舟图生图响应', ['result' => $result]);
+            Log::info('火山方舟图生图响应: ' . json_encode($result, JSON_UNESCAPED_UNICODE));
 
             // 解析响应 - 提取图片URL
             $imageUrl = null;
@@ -927,7 +1113,7 @@ class AiTravelPhotoSynthesisService
             // 关键修复：将API返回的临时签名URL持久化到本地/OSS
             // 火山方舟TOS返回的URL是临时签名的，会很快过期
             $persistedUrl = $this->persistImageUrl($imageUrl);
-            Log::info('火山方舟图片持久化完成', ['temp_url' => substr($imageUrl, 0, 120), 'persisted_url' => $persistedUrl]);
+            Log::info('火山方舟图片持久化完成: temp_url=' . substr($imageUrl, 0, 120) . ', persisted_url=' . $persistedUrl);
 
             $this->releaseKey($keyId);
             return $persistedUrl;
@@ -936,7 +1122,7 @@ class AiTravelPhotoSynthesisService
             $this->releaseKey($keyId);
             $response = $e->getResponse();
             $body = $response ? json_decode($response->getBody()->getContents(), true) : [];
-            $errorMsg = $body['error']['message'] ?? $e->getMessage();
+            $errorMsg = is_array($body['error']['message'] ?? null) ? json_encode($body['error']['message']) : ($body['error']['message'] ?? $e->getMessage());
             
             if ($response && $response->getStatusCode() === 401) {
                 throw new \Exception('API Key无效，请检查火山方舟Ark API Key配置');
@@ -948,7 +1134,7 @@ class AiTravelPhotoSynthesisService
             throw new \Exception('火山方舟API调用失败: ' . $errorMsg);
         } catch (\Exception $e) {
             $this->releaseKey($keyId);
-            throw new \Exception('火山方舟API调用异常: ' . $e->getMessage());
+            throw new \Exception('火山方舟API调用异常: ' . $e->getMessage() . ' [at ' . $e->getFile() . ':' . $e->getLine() . ']');
         }
     }
 
@@ -1127,17 +1313,12 @@ class AiTravelPhotoSynthesisService
     protected function persistImageUrl(string $tempUrl): string
     {
         try {
-            // 使用Pic::uploadoss 下载远程图片并上传到OSS（或保存到本地）
-            $persistedUrl = Pic::uploadoss($tempUrl);
+            // 使用 ImagePersistService 统一执行：下载 → WebP 压缩 → 云存储上传
+            $aid = defined('aid') ? aid : 0;
+            $persistService = new ImagePersistService();
+            $persistedUrl = $persistService->persistAndCompress($tempUrl, $aid, 'ai_travel_photo');
             if (!empty($persistedUrl)) {
                 return $persistedUrl;
-            }
-
-            // OSS上传失败时，退回到仅保存本地
-            Log::warning('OSS上传失败，尝试保存到本地', ['url' => substr($tempUrl, 0, 120)]);
-            $localUrl = Pic::tolocal($tempUrl);
-            if (!empty($localUrl)) {
-                return $localUrl;
             }
 
             // 如果都失败了，返回原始临时URL（虽然会过期）
@@ -1150,18 +1331,57 @@ class AiTravelPhotoSynthesisService
     }
 
     /**
-     * 保存Base64图片到OSS
+     * 保存Base64图片到OSS（含WebP压缩）
      */
     protected function saveBase64Image(string $base64Data): string
     {
-        // 简单处理：保存到临时目录
-        $imageData = base64_decode($base64Data);
-        $filename = 'synthesis_' . date('YmdHis') . '_' . uniqid() . '.png';
-        $filepath = public_path() . 'upload/' . $filename;
-        
-        file_put_contents($filepath, $imageData);
-        
-        return '/upload/' . $filename;
+        try {
+            $imageData = base64_decode($base64Data);
+            if (!$imageData) {
+                return '';
+            }
+
+            // 保存到临时目录
+            $tempDir = runtime_path() . 'temp/persist_webp/';
+            if (!is_dir($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+            $filename = 'synth_b64_' . date('YmdHis') . '_' . uniqid() . '.png';
+            $tempPath = $tempDir . $filename;
+            file_put_contents($tempPath, $imageData);
+
+            // WebP 压缩
+            $uploadPath = $tempPath;
+            $webpPath = Pic::convertToWebp($tempPath, ImagePersistService::DEFAULT_QUALITY);
+            if ($webpPath && $webpPath !== $tempPath) {
+                $uploadPath = $webpPath;
+            }
+
+            // 复制到上传目录并通过 Pic::uploadoss 上传
+            $aid = defined('aid') ? aid : 0;
+            $ext = pathinfo($uploadPath, PATHINFO_EXTENSION) ?: 'webp';
+            $subDir = "upload/{$aid}/" . date('Ymd');
+            $targetDir = ROOT_PATH . $subDir;
+            if (!is_dir($targetDir)) {
+                mkdir($targetDir, 0755, true);
+            }
+            $targetFile = 'synth_' . substr(md5(uniqid((string)mt_rand(), true)), 0, 10) . '.' . $ext;
+            copy($uploadPath, $targetDir . '/' . $targetFile);
+
+            $localUrl = PRE_URL . '/' . $subDir . '/' . $targetFile;
+            $ossUrl = Pic::uploadoss($localUrl, false, false);
+
+            // 清理临时文件
+            @unlink($tempPath);
+            if ($webpPath && $webpPath !== $tempPath) {
+                @unlink($webpPath);
+            }
+
+            return $ossUrl ?: $localUrl;
+        } catch (\Exception $e) {
+            Log::error('saveBase64Image 失败: ' . $e->getMessage());
+            return '';
+        }
     }
 
     /**
@@ -1259,8 +1479,8 @@ class AiTravelPhotoSynthesisService
         // 获取人像信息中的aid
         $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
 
-        // 通过 HTTP HEAD 获取COS文件实际大小
-        $fileSize = SpaceCheckService::getRemoteFileSize($resultUrl);
+        // 获取文件大小：优先通过 ImagePersistService 获取压缩后的实际大小
+        $fileSize = ImagePersistService::getFileSize($resultUrl);
 
         // ai_travel_photo_result表字段保存
         $data = [
@@ -1313,7 +1533,7 @@ class AiTravelPhotoSynthesisService
 
         if (!$qrcode) {
             // 生成唯一的qrcode值
-            $qrcodeValue = '合成_' . $portraitId . '_' . time();
+            $qrcodeValue = 'synth_' . $portraitId . '_' . time();
 
             // 创建新的选片记录
             $qrcodeId = Db::name('ai_travel_photo_qrcode')->insertGetId([

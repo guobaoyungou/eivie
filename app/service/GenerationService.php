@@ -13,6 +13,8 @@ use app\model\GenerationOutput;
 use app\model\GenerationSceneTemplate;
 use app\service\VolcengineVideoService;
 use app\service\AttachmentTransferService;
+use app\service\ImagePersistService;
+use app\service\AutoTaggingService;
 
 class GenerationService
 {
@@ -267,6 +269,8 @@ class GenerationService
                 
                 // 同步结果：直接保存输出
                 if (!empty($result['outputs'])) {
+                    // 对图片类型的输出执行 WebP 压缩转存
+                    $result['outputs'] = $this->persistImageOutputs($result['outputs'], $record->aid ?? 0);
                     GenerationOutput::createOutputs($record->id, $result['outputs']);
                 }
                 
@@ -1276,6 +1280,8 @@ class GenerationService
                 }
                 
                 if (!empty($outputs)) {
+                    // 对图片类型的输出执行 WebP 压缩转存
+                    $outputs = $this->persistImageOutputs($outputs, $record['aid'] ?? 0);
                     GenerationOutput::createOutputs($record['id'], $outputs);
                 }
                 
@@ -2605,22 +2611,41 @@ class GenerationService
                 return '';
             }
             
-            // 生成文件名
-            $filename = 'generation/' . date('Ymd') . '/' . md5(uniqid()) . '.png';
-            $localPath = ROOT_PATH . 'upload/' . $filename;
+            // 保存到临时目录
+            $tempDir = runtime_path() . 'temp/persist_webp/';
+            if (!is_dir($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+            $tempFilename = 'gen_b64_' . date('YmdHis') . '_' . substr(md5(uniqid((string)mt_rand(), true)), 0, 8) . '.png';
+            $tempPath = $tempDir . $tempFilename;
+            file_put_contents($tempPath, $imageData);
             
-            // 确保目录存在
-            $dir = dirname($localPath);
-            if (!is_dir($dir)) {
-                mkdir($dir, 0755, true);
+            // WebP 压缩
+            $uploadPath = $tempPath;
+            $webpPath = \app\common\Pic::convertToWebp($tempPath, ImagePersistService::DEFAULT_QUALITY);
+            if ($webpPath && $webpPath !== $tempPath) {
+                $uploadPath = $webpPath;
             }
             
-            // 保存到本地
-            file_put_contents($localPath, $imageData);
+            // 复制到上传目录并通过 Pic::uploadoss 上传
+            $ext = pathinfo($uploadPath, PATHINFO_EXTENSION) ?: 'webp';
+            $subDir = 'upload/generation/' . date('Ymd');
+            $targetDir = ROOT_PATH . $subDir;
+            if (!is_dir($targetDir)) {
+                mkdir($targetDir, 0755, true);
+            }
+            $targetFilename = substr(md5(uniqid((string)mt_rand(), true)), 0, 10) . '.' . $ext;
+            copy($uploadPath, $targetDir . '/' . $targetFilename);
             
             // 上传到OSS
-            $localUrl = PRE_URL . '/upload/' . $filename;
-            $ossUrl = \app\common\Pic::uploadoss($localUrl);
+            $localUrl = PRE_URL . '/' . $subDir . '/' . $targetFilename;
+            $ossUrl = \app\common\Pic::uploadoss($localUrl, false, false);
+            
+            // 清理临时文件
+            @unlink($tempPath);
+            if ($webpPath && $webpPath !== $tempPath) {
+                @unlink($webpPath);
+            }
             
             return $ossUrl ?: $localUrl;
         } catch (\Exception $e) {
@@ -2635,6 +2660,40 @@ class GenerationService
     protected function generateTaskId()
     {
         return 'GEN_' . date('YmdHis') . '_' . strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 8));
+    }
+
+    /**
+     * 对输出数组中的图片类型进行 WebP 压缩转存
+     * 视频/音频类型保持现有逻辑不变
+     *
+     * @param array $outputs 输出数组
+     * @param int   $aid     平台 ID
+     * @return array 处理后的输出数组
+     */
+    protected function persistImageOutputs(array $outputs, int $aid = 0): array
+    {
+        $persistService = new ImagePersistService();
+        foreach ($outputs as &$output) {
+            $type = $output['type'] ?? '';
+            $url = $output['url'] ?? '';
+            if ($type === 'image' && !empty($url)) {
+                try {
+                    $persistedUrl = $persistService->persistAndCompress($url, $aid, 'generation');
+                    if (!empty($persistedUrl)) {
+                        $output['url'] = $persistedUrl;
+                        // 更新 file_size 为压缩后的实际大小
+                        $output['file_size'] = ImagePersistService::getFileSize($persistedUrl);
+                    }
+                } catch (\Exception $e) {
+                    \think\facade\Log::warning('persistImageOutputs: 单张转存失败 - ' . $e->getMessage(), [
+                        'url' => substr($url, 0, 120),
+                    ]);
+                    // 失败时保留原 URL
+                }
+            }
+        }
+        unset($output);
+        return $outputs;
     }
     
     /**
@@ -3107,6 +3166,8 @@ class GenerationService
                 }
                 
                 if (!empty($outputs)) {
+                    // 对图片类型的输出执行 WebP 压缩转存
+                    $outputs = $this->persistImageOutputs($outputs, $record['aid'] ?? 0);
                     GenerationOutput::createOutputs($record['id'], $outputs);
                     \think\facade\Log::info('pollDashScopeTaskStatus 已保存outputs', [
                         'record_id' => $record['id'],
@@ -3965,6 +4026,35 @@ class GenerationService
                     'error' => $e->getMessage()
                 ]);
             }
+        }
+        
+        // 自动标签识别：异步推入队列（不阻塞保存主流程）
+        try {
+            // 从 sysset 表读取配置，优先于 config 文件
+            $autoTagEnabled = false;
+            $autoTagRow = Db::name('sysset')->where('name', 'auto_tagging')->value('value');
+            if ($autoTagRow) {
+                $autoTagConfig = json_decode($autoTagRow, true) ?: [];
+                $autoTagEnabled = !empty($autoTagConfig['auto_tag_enabled']);
+            } else {
+                // 回退到 config 文件
+                $autoTagConfig = \think\facade\Config::get('auto_tagging', []);
+                $autoTagEnabled = !empty($autoTagConfig['auto_tag_enabled']);
+            }
+            if ($autoTagEnabled) {
+                $autoTagService = new AutoTaggingService();
+                $sourceImageUrl = $autoTagService->getSourceImageUrl(array_merge($saveData, [
+                    'original_images' => $data['original_images'] ?? '',
+                ]));
+                if (!empty($sourceImageUrl)) {
+                    $autoTagService->triggerAutoTagging($id, $sourceImageUrl);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('saveTemplate: 自动标签识别触发失败（不影响保存）', [
+                'template_id' => $id,
+                'error' => $e->getMessage()
+            ]);
         }
         
         return ['status' => 1, 'msg' => '保存成功', 'id' => $id];

@@ -75,10 +75,32 @@
           <div class="layui-form-item">
             <label class="layui-form-label">分类标签</label>
             <div class="layui-input-block">
-              <input type="text" name="info[category]" value="{$info.category|default=''}" class="layui-input" placeholder="如：人像、风景、艺术等（可选）">
-              <div class="layui-form-mid layui-word-aux">文本标签，用于前端筛选显示</div>
+              <input type="text" name="info[category]" id="categoryInput" value="{$info.category|default=''}" class="layui-input" placeholder="如：人像、风景、艺术等（可选）">
+              <div class="layui-form-mid layui-word-aux">文本标签，用于前端筛选显示（自动识别的标签会自动追加）</div>
             </div>
           </div>
+          
+          <!-- ========== 自动标签识别区域 ========== -->
+          {if $info.id}
+          <div class="layui-form-item">
+            <label class="layui-form-label">自动标签</label>
+            <div class="layui-input-block">
+              <div id="autoTagArea" style="min-height:38px;padding:8px 10px;border:1px solid #e6e6e6;border-radius:4px;background:#fafafa;line-height:30px">
+                <span style="color:#999;font-size:13px" id="autoTagLoading">加载中...</span>
+              </div>
+              <div style="margin-top:8px">
+                <button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="triggerAutoTag()">
+                  <i class="layui-icon layui-icon-refresh"></i> 重新识别
+                </button>
+                <span id="autoTagStatusBadge" style="margin-left:10px;font-size:13px"></span>
+              </div>
+              <div class="layui-form-mid layui-word-aux">
+                <i class="layui-icon layui-icon-about" style="color:#1E9FFF"></i>
+                基于 InsightFace + FairFace 自动识别人物属性（性别、年龄、人种、体型），识别结果自动追加到分类标签
+              </div>
+            </div>
+          </div>
+          {/if}
           
           <div class="layui-form-item">
             <label class="layui-form-label">封面图</label>
@@ -986,6 +1008,96 @@
     }
     renderGroupTags();
     layer.closeAll();
+  }
+  
+  // ===== 自动标签相关 =====
+  var currentTemplateId = {$info.id|default=0};
+  
+  // 页面加载时获取自动标签状态
+  if (currentTemplateId > 0) {
+    loadAutoTags();
+  }
+  
+  function loadAutoTags() {
+    $.get("{:url('get_auto_tags')}", {id: currentTemplateId}, function(res) {
+      if (res.status == 1 && res.data) {
+        renderAutoTags(res.data);
+      } else {
+        $('#autoTagLoading').text('未识别');
+      }
+    }).fail(function() {
+      $('#autoTagLoading').text('加载失败');
+    });
+  }
+  
+  function renderAutoTags(data) {
+    var statusMap = {0: '未识别', 1: '识别中...', 2: '已完成', 3: '识别失败'};
+    var statusColorMap = {0: '#999', 1: '#1E9FFF', 2: '#009688', 3: '#FF5722'};
+    var status = data.auto_tag_status || 0;
+    
+    // 状态徽章
+    var badgeHtml = '<span style="color:' + (statusColorMap[status]||'#999') + ';font-weight:bold">' + (statusMap[status]||'未知') + '</span>';
+    if (data.auto_tag_time_text && data.auto_tag_time_text !== '-') {
+      badgeHtml += ' <span style="color:#999;font-size:12px">(' + data.auto_tag_time_text + ')</span>';
+    }
+    $('#autoTagStatusBadge').html(badgeHtml);
+    
+    // 标签展示
+    var autoTags = data.auto_tags || {};
+    var primaryTags = autoTags.primary_tags || [];
+    var html = '';
+    
+    if (status === 1) {
+      html = '<span style="color:#1E9FFF"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 正在识别中，请稍候刷新...</span>';
+    } else if (primaryTags.length > 0) {
+      var tagColors = {'#5FB878': ['男性','女性'], '#1E9FFF': ['婴幼儿','儿童','少年','青年','中青年','中年','中老年','老年','高龄'], '#FFB800': ['东亚','东南亚','南亚','非裔','欧美','中东','拉丁裔'], '#FF5722': ['纤细','匀称','健壮','丰满']};
+      for (var i = 0; i < primaryTags.length; i++) {
+        var tag = primaryTags[i];
+        var color = '#5FB878';
+        for (var c in tagColors) {
+          if (tagColors[c].indexOf(tag) >= 0) { color = c; break; }
+        }
+        html += '<span style="display:inline-block;padding:2px 10px;margin:2px 5px 2px 0;background:' + color + ';color:#fff;border-radius:3px;font-size:12px">' + tag + '</span>';
+      }
+      if (autoTags.face_count) {
+        html += '<span style="display:inline-block;padding:2px 8px;margin:2px 5px 2px 0;background:#e2e2e2;color:#666;border-radius:3px;font-size:12px">检测到 ' + autoTags.face_count + ' 张人脸</span>';
+      }
+    } else if (status === 3) {
+      var errMsg = (autoTags.error) ? autoTags.error : '识别失败';
+      html = '<span style="color:#FF5722;font-size:13px"><i class="layui-icon layui-icon-close-fill"></i> ' + errMsg + '</span>';
+    } else {
+      html = '<span style="color:#999;font-size:13px">尚未进行自动识别，点击「重新识别」触发</span>';
+    }
+    
+    $('#autoTagArea').html(html);
+    
+    // 如果正在识别中，5秒后自动刷新
+    if (status === 1) {
+      setTimeout(function() { loadAutoTags(); }, 5000);
+    }
+  }
+  
+  function triggerAutoTag() {
+    if (currentTemplateId <= 0) {
+      layer.msg('请先保存模板', {icon: 0});
+      return;
+    }
+    layer.confirm('确定要重新识别自动标签吗？识别结果会追加到分类标签中。', {icon: 3, title: '自动标签识别'}, function(idx) {
+      layer.close(idx);
+      var loadIdx = layer.load(2, {shade: [0.3,'#000']});
+      $.post("{:url('auto_tag')}", {id: currentTemplateId}, function(res) {
+        layer.close(loadIdx);
+        if (res.status == 1) {
+          layer.msg('识别任务已提交，请稍候刷新', {icon: 1});
+          setTimeout(function() { loadAutoTags(); }, 2000);
+        } else {
+          layer.msg(res.msg || '提交失败', {icon: 2});
+        }
+      }).fail(function() {
+        layer.close(loadIdx);
+        layer.msg('请求失败', {icon: 2});
+      });
+    });
   }
   </script>
 </body>

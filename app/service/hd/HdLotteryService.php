@@ -4,9 +4,7 @@ declare(strict_types=1);
 namespace app\service\hd;
 
 use think\facade\Db;
-use think\facade\Log;
 use app\model\hd\HdActivity;
-use app\model\hd\HdActivityFeature;
 use app\model\hd\HdPrize;
 use app\model\hd\HdLotteryConfig;
 use app\model\hd\HdLotteryTheme;
@@ -29,7 +27,7 @@ class HdLotteryService
     /**
      * 奖品列表
      */
-    public function getPrizes(int $aid, int $bid, int $activityId, array $params = []): array
+    public function getPrizes(int $aid, int $bid, int $activityId): array
     {
         $where = [['aid', '=', $aid], ['bid', '=', $bid], ['activity_id', '=', $activityId]];
         $list = HdPrize::where($where)->order('sort asc, id asc')->select()->toArray();
@@ -97,20 +95,22 @@ class HdLotteryService
      */
     public function createPrize(int $aid, int $bid, int $activityId, array $data): array
     {
-        error_log("[HdLotteryService] createPrize called: aid={$aid}, bid={$bid}, activityId={$activityId}, data=" . json_encode($data));
+        error_log("[HdLotteryService] createPrize called: aid={$aid}, bid={$bid}, activityId={$activityId}");
         $typeValue = $data['type'] ?? 1;
         // 转换中文级别名称为数字
         $type = $this->convertPrizeType($typeValue);
         
-        // 检查同一活动中奖品级别是否已存在
-        $exists = HdPrize::where('aid', $aid)->where('bid', $bid)
-            ->where('activity_id', $activityId)
-            ->where('type', $type)
-            ->find();
-        if ($exists) {
-            // 获取中文级别名称用于提示
-            $typeName = $this->convertPrizeTypeToName($type);
-            return ['code' => 1, 'msg' => '奖品级别 ' . $typeName . ' 已存在，请勿重复添加'];
+        // 检查同一活动中奖品级别是否已存在（普通奖品type=0允许多个）
+        if ($type != 0) {
+            $exists = HdPrize::where('aid', $aid)->where('bid', $bid)
+                ->where('activity_id', $activityId)
+                ->where('type', $type)
+                ->find();
+            if ($exists) {
+                // 获取中文级别名称用于提示
+                $typeName = $this->convertPrizeTypeToName($type);
+                return ['code' => 1, 'msg' => '奖品级别 ' . $typeName . ' 已存在，请勿重复添加'];
+            }
         }
         
         $prize = new HdPrize();
@@ -146,11 +146,11 @@ class HdLotteryService
             return ['code' => 1, 'msg' => '奖品不存在'];
         }
 
-        // 如果type字段被修改，检查奖品级别是否重复
+        // 如果type字段被修改，检查奖品级别是否重复（普通奖品type=0允许多个）
         if (isset($data['type'])) {
             $newType = $this->convertPrizeType($data['type']);
-            // 只有在type确实变化时才检查
-            if ($newType != $prize->type) {
+            // 只有在type确实变化时才检查，且普通奖品不检查重复
+            if ($newType != $prize->type && $newType != 0) {
                 $exists = HdPrize::where('aid', $aid)->where('bid', $bid)
                     ->where('activity_id', $activityId)
                     ->where('type', $newType)
@@ -188,15 +188,16 @@ class HdLotteryService
      */
     public function deletePrize(int $aid, int $bid, int $activityId, int $id): array
     {
-        error_log("[HdLotteryService] deletePrize called: aid={$aid}, bid={$bid}, activityId={$activityId}, id={$id}");
         $prize = HdPrize::where('aid', $aid)->where('bid', $bid)
             ->where('activity_id', $activityId)->where('id', $id)->find();
         if (!$prize) {
-            error_log("[HdLotteryService] deletePrize: prize not found");
             return ['code' => 1, 'msg' => '奖品不存在'];
         }
+        // 检查奖品是否已被使用（已有中奖记录）
+        if ($prize->used_num > 0) {
+            return ['code' => 1, 'msg' => '奖品已有中奖记录，无法删除'];
+        }
         $prize->delete();
-        error_log("[HdLotteryService] deletePrize: success");
         return ['code' => 0, 'msg' => '删除成功'];
     }
 

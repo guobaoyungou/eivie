@@ -322,7 +322,7 @@
         var html = '<div class="gf-upload-preview">';
         html += '<img src="' + src + '">';
         if(isVideo){
-            html += '<span class="gf-video-play-icon">▶</span>';
+            html += '<span class="gf-video-play-icon"><i data-lucide="play" style="width:16px;height:16px"></i></span>';
         }
         html += '<button class="gf-upload-remove" title="删除">&times;</button>';
         html += '</div>';
@@ -338,7 +338,7 @@
     function resetUpload(container){
         state.uploadedFile = null;
         var isMedia = container.getAttribute('data-accept');
-        var icon = isMedia ? '📷/🎬' : '📷';
+        var icon = isMedia ? '<i data-lucide="camera" style="width:32px;height:32px"></i><i data-lucide="video" style="width:20px;height:20px;margin-left:-8px"></i>' : '<i data-lucide="camera" style="width:32px;height:32px"></i>';
         var text = isMedia ? '点击上传图片或视频' : '点击上传参考图片';
         container.innerHTML = '<div class="gf-upload-placeholder"><span class="gf-upload-icon">' + icon + '</span><span class="gf-upload-text">' + text + '</span></div>';
     }

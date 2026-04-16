@@ -94,14 +94,14 @@ var Pay = (function(){
         overlay.className = 'pay-modal-overlay show';
 
         var typesHtml = '';
-        var icons = { wxpay: '💚', alipay: '🔵' };
+        var icons = { wxpay: '<i data-lucide="message-circle" style="width:20px;height:20px;color:#07c160"></i>', alipay: '<i data-lucide="credit-card" style="width:20px;height:20px;color:#1677ff"></i>' };
         var iconClass = { wxpay: 'wxpay', alipay: 'alipay' };
         for(var i = 0; i < payTypes.length; i++){
             var pt = payTypes[i];
             var activeClass = i === 0 ? ' active' : '';
             typesHtml +=
                 '<div class="pay-type-item' + activeClass + '" data-paytype="' + pt.id + '">' +
-                    '<div class="pay-type-icon ' + (iconClass[pt.id] || '') + '">' + (icons[pt.id] || '💳') + '</div>' +
+                    '<div class="pay-type-icon ' + (iconClass[pt.id] || '') + '">' + (icons[pt.id] || '<i data-lucide="wallet" style="width:20px;height:20px"></i>') + '</div>' +
                     '<div class="pay-type-name">' + escapeHtml(pt.name) + '</div>' +
                     '<div class="pay-type-check"></div>' +
                 '</div>';

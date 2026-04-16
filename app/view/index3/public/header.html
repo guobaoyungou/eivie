@@ -1,7 +1,7 @@
-<!-- header.html — 顶部固定栏组件 -->
+<!-- header.html — 顶部固定栏组件 v2.0 Lucide Icons -->
 <header class="header">
     <!-- 汉堡菜单（平板/手机可见） -->
-    <button class="header-hamburger" aria-label="菜单">☰</button>
+    <button class="header-hamburger" aria-label="菜单"><i data-lucide="menu" style="width:20px;height:20px"></i></button>
 
     <!-- 移动端Logo -->
     {if $webinfo.logo}
@@ -10,37 +10,37 @@
 
     <!-- 搜索框（PC端） -->
     <div class="header-search">
-        <span class="search-icon">🔍</span>
+        <span class="search-icon"><i data-lucide="search" style="width:14px;height:14px"></i></span>
         <input type="text" placeholder="搜索模型、场景模板..." id="headerSearchInput">
     </div>
 
     <!-- 搜索图标（移动端） -->
-    <button class="header-search-icon-mobile" aria-label="搜索">🔍</button>
+    <button class="header-search-icon-mobile" aria-label="搜索"><i data-lucide="search" style="width:18px;height:18px"></i></button>
 
     <!-- 右侧按钮组 -->
     <div class="header-actions">
         <a class="header-btn hide-mobile hide-tablet" href="javascript:;">
-            <span>🎁</span>
+            <i data-lucide="gift" style="width:16px;height:16px"></i>
             <span class="btn-label">邀请有礼</span>
         </a>
         <!-- 未登录态：会员中心 -->
         <a class="header-btn header-btn-vip hide-mobile" href="javascript:;" onclick="if(window.Index3&&Index3.showLoginModal){Index3.showLoginModal()}else{location.href='/?s=/Backstage/index'}">
-            <span>👑</span>
+            <i data-lucide="crown" style="width:16px;height:16px"></i>
             <span class="btn-label">会员中心</span>
         </a>
         <!-- 已登录态：余额积分摘要（默认隐藏） -->
         <div class="header-balance-info hide-mobile" id="headerBalanceInfo" style="display:none">
-            <a class="header-balance-item" href="/?s=/index/recharge" title="点击充值">💰 <span class="header-balance-money">¥0.00</span></a>
-            <a class="header-balance-item" href="/?s=/index/score_shop" title="点击购买积分">⭐ <span class="header-balance-score">0分</span></a>
+            <a class="header-balance-item" href="/?s=/index/recharge" title="点击充值"><i data-lucide="wallet" style="width:14px;height:14px"></i> <span class="header-balance-money">¥0.00</span></a>
+            <a class="header-balance-item" href="/?s=/index/score_shop" title="点击购买积分"><i data-lucide="star" style="width:14px;height:14px"></i> <span class="header-balance-score">0分</span></a>
         </div>
         <!-- 已登录态：消息图标占位（默认隐藏） -->
         <button class="header-btn header-msg-icon hide-mobile" id="headerMsgIcon" style="display:none" title="消息功能开发中" disabled>
-            <span>🔔</span>
+            <i data-lucide="bell" style="width:16px;height:16px"></i>
         </button>
         <!-- 未登录态：登录/注册按钮 -->
         <a class="header-btn primary" id="headerLoginBtn" href="{:url('Backstage/index')}">
             <span class="btn-label">商家登录/注册</span>
-            <span class="btn-icon-only" style="display:none">👤</span>
+            <span class="btn-icon-only" style="display:none"><i data-lucide="user" style="width:16px;height:16px"></i></span>
         </a>
         <!-- 已登录态：用户头像（默认隐藏） -->
         <div class="header-avatar-wrap" id="headerAvatarWrap" style="display:none">

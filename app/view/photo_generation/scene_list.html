@@ -22,6 +22,9 @@
               <i class="layui-icon layui-icon-add-1"></i> 新增模板
             </a>
             <button class="layui-btn layui-btn-primary layuiadmin-btn-list" onclick="datadel(0)">批量删除</button>
+            <button class="layui-btn layui-btn-normal layuiadmin-btn-list" onclick="openBatchAutoTag()">
+              <i class="layui-icon layui-icon-auz"></i> 批量自动标签
+            </button>
             <button class="layui-btn layui-btn-warm layuiadmin-btn-list" onclick="openMigrateWebp()">
               <i class="layui-icon layui-icon-refresh-3"></i> 封面迁移WebP
             </button>
@@ -48,6 +51,18 @@
                   <option value="">全部</option>
                   <option value="1">启用</option>
                   <option value="0">禁用</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">标签状态</label>
+              <div class="layui-input-inline" style="width:110px">
+                <select name="auto_tag_status">
+                  <option value="">全部</option>
+                  <option value="0">未识别</option>
+                  <option value="1">识别中</option>
+                  <option value="2">已完成</option>
+                  <option value="3">识别失败</option>
                 </select>
               </div>
             </div>
@@ -87,6 +102,23 @@
       }},
       {field: 'template_name', title: '模板名称', minWidth: 150},
       {field: 'category', title: '分类', width: 100},
+      {field: 'auto_tag_status', title: '标签状态', width: 90, templet: function(d) {
+        var s = parseInt(d.auto_tag_status) || 0;
+        var map = {0:'<span class="layui-badge layui-bg-gray">未识别</span>', 1:'<span class="layui-badge layui-bg-blue">识别中</span>', 2:'<span class="layui-badge layui-bg-green">已完成</span>', 3:'<span class="layui-badge">失败</span>'};
+        return map[s] || map[0];
+      }},
+      {field: 'auto_tags_display', title: '自动标签', minWidth: 140, templet: function(d) {
+        var tags = d.auto_tags;
+        if (!tags) return '<span style="color:#ccc">-</span>';
+        if (typeof tags === 'string') { try { tags = JSON.parse(tags); } catch(e) { return '-'; } }
+        var pts = tags.primary_tags || [];
+        if (pts.length === 0) return '<span style="color:#ccc">-</span>';
+        var html = '';
+        for (var i = 0; i < pts.length; i++) {
+          html += '<span style="display:inline-block;padding:1px 6px;margin:1px 2px;background:#e8f4f8;color:#1E9FFF;border-radius:2px;font-size:11px">' + pts[i] + '</span>';
+        }
+        return html;
+      }},
       {field: 'model_name', title: '绑定模型', width: 150},
       {field: 'use_count', title: '使用次数', width: 90, sort: true, templet: function(d) {
         return '<span class="layui-badge layui-bg-gray">' + (d.use_count || 0) + '次</span>';
@@ -392,6 +424,65 @@
     }).fail(function() {
       $(layero).find('.layui-layer-btn a').removeClass('layui-btn-disabled');
       $log.append('<p style="color:red">❌ 请求失败，请检查网络</p>');
+    });
+  }
+
+  // ===== 批量自动标签 =====
+  function openBatchAutoTag() {
+    var loadIndex = layer.load(2, {shade: [0.3, '#000']});
+    $.get("{:url('auto_tag_stats')}", function(res) {
+      layer.close(loadIndex);
+      if (res.status != 1) {
+        layer.msg('获取统计信息失败', {icon: 2});
+        return;
+      }
+      var stats = res.data;
+      var content = '<div style="padding:20px">' +
+        '<div style="margin-bottom:20px;padding:15px;background:#f8f8f8;border-radius:8px;">' +
+          '<h4 style="margin:0 0 12px 0;font-size:16px;"><i class="layui-icon layui-icon-auz" style="color:#1E9FFF"></i> 自动标签统计</h4>' +
+          '<p style="margin:6px 0;font-size:14px;">⭕ 未识别：<b style="color:#999">' + stats.pending + '</b> 个</p>' +
+          '<p style="margin:6px 0;font-size:14px;">🔄 识别中：<b style="color:#1E9FFF">' + stats.processing + '</b> 个</p>' +
+          '<p style="margin:6px 0;font-size:14px;">✅ 已完成：<b style="color:#009688">' + stats.completed + '</b> 个</p>' +
+          '<p style="margin:6px 0;font-size:14px;">❌ 识别失败：<b style="color:#FF5722">' + stats.failed + '</b> 个</p>' +
+        '</div>' +
+        '<div class="layui-form-item">' +
+          '<label class="layui-form-label">每批数量</label>' +
+          '<div class="layui-input-inline" style="width:120px">' +
+            '<input type="number" id="batchTagLimit" value="50" min="1" max="200" class="layui-input">' +
+          '</div>' +
+          '<div class="layui-form-mid">条/批（最多200）</div>' +
+        '</div>' +
+        '<p style="margin:10px 0;color:#999;font-size:12px;">提示：仅对「未识别」状态且有可用图片的已启用模板推入识别队列</p>' +
+      '</div>';
+
+      layer.open({
+        type: 1,
+        title: '批量自动标签识别',
+        area: ['480px', '380px'],
+        content: content,
+        btn: ['开始批量识别', '关闭'],
+        yes: function(index, layero) {
+          var limit = parseInt($('#batchTagLimit').val()) || 50;
+          if (limit < 1) limit = 1;
+          if (limit > 200) limit = 200;
+          $(layero).find('.layui-layer-btn a').addClass('layui-btn-disabled');
+          $.post("{:url('batch_auto_tag')}", {limit: limit}, function(res) {
+            $(layero).find('.layui-layer-btn a').removeClass('layui-btn-disabled');
+            if (res.status == 1) {
+              layer.msg(res.msg, {icon: 1, time: 3000});
+              tableIns.reload();
+            } else {
+              layer.msg(res.msg || '提交失败', {icon: 2});
+            }
+          }).fail(function() {
+            $(layero).find('.layui-layer-btn a').removeClass('layui-btn-disabled');
+            layer.msg('请求失败', {icon: 2});
+          });
+        }
+      });
+    }).fail(function() {
+      layer.close(loadIndex);
+      layer.msg('请求失败', {icon: 2});
     });
   }
 

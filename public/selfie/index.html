@@ -20,14 +20,35 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
 #page-camera{background:#000;}
 #video-container{width:100%;height:100%;position:relative;overflow:hidden;}
 #video-container video{width:100%;height:100%;object-fit:cover;}
-.face-guide{position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);width:220px;height:280px;border:2px dashed rgba(255,255,255,.6);border-radius:50%;pointer-events:none;transition:border-color .3s;}
-.face-guide.detected{border-color:#4CAF50;border-style:solid;box-shadow:0 0 20px rgba(76,175,80,.4);}
-.camera-tip{position:absolute;bottom:80px;left:0;right:0;text-align:center;color:#fff;font-size:14px;text-shadow:0 1px 3px rgba(0,0,0,.5);}
-.camera-switch{position:absolute;top:20px;right:20px;width:44px;height:44px;background:rgba(0,0,0,.4);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;}
-.camera-switch svg{width:24px;height:24px;fill:#fff;}
-.flash-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:#fff;opacity:0;pointer-events:none;transition:opacity .15s;}
-.flash-overlay.flash{opacity:1;}
-.store-info{position:absolute;top:20px;left:20px;color:#fff;font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,.5);z-index:10;}
+/* 动态人脸框：圆角矩形 + 呼吸动画 + 平滑跟随 */
+.face-guide{position:absolute;pointer-events:none;border:1.5px solid rgba(255,255,255,0.8);border-radius:12px;transition:left .15s ease-out,top .15s ease-out,width .15s ease-out,height .15s ease-out,border-color .3s ease;animation:faceBreath 2.5s ease-in-out infinite;opacity:0;z-index:5;}
+.face-guide.detected{border-color:rgba(255,255,255,0.8);opacity:1;}
+.face-guide.ready{border-color:rgba(34,217,119,0.75);opacity:1;}
+@keyframes faceBreath{0%,100%{transform:scale(1);}50%{transform:scale(1.02);}}
+/* 摄像头切换按钮 */
+.camera-switch{position:absolute;top:60px;right:20px;width:44px;height:44px;background:rgba(0,0,0,0.25);border-radius:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;transition:transform .15s ease,opacity .3s ease;-webkit-tap-highlight-color:transparent;}
+.camera-switch:active{transform:scale(0.9);}
+.camera-switch svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+/* 底部渐变遮罩 + 拍摄控制区 */
+.bottom-controls{position:absolute;bottom:0;left:0;right:0;height:160px;background:linear-gradient(to top,rgba(0,0,0,0.6),rgba(0,0,0,0));display:flex;align-items:flex-end;justify-content:center;padding-bottom:50px;z-index:10;pointer-events:none;}
+.capture-btn{width:72px;height:72px;border-radius:36px;border:2.5px solid #FFFFFF;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;pointer-events:auto;transition:transform .15s ease;-webkit-tap-highlight-color:transparent;}
+.capture-btn:active{transform:scale(0.9);}
+.capture-btn .inner{width:56px;height:56px;border-radius:28px;background:rgba(255,255,255,0.9);}
+.capture-btn.disabled{opacity:0.35;pointer-events:none;}
+/* 闪白 */
+.flash-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:#fff;opacity:0;pointer-events:none;transition:opacity .1s ease-out;z-index:20;}
+.flash-overlay.flash{opacity:0.85;}
+/* 预览确认页 */
+#page-preview{background:#000;}
+#page-preview .preview-container{width:100%;height:100%;position:relative;}
+#page-preview .preview-img{width:100%;height:100%;object-fit:cover;}
+#page-preview .preview-bottom{position:absolute;bottom:0;left:0;right:0;height:140px;background:linear-gradient(to top,rgba(0,0,0,0.7),rgba(0,0,0,0));display:flex;align-items:center;justify-content:center;gap:40px;padding-bottom:40px;}
+#page-preview .preview-btn{display:flex;flex-direction:column;align-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+#page-preview .preview-btn .icon-circle{width:60px;height:60px;border-radius:30px;display:flex;align-items:center;justify-content:center;font-size:24px;transition:transform .15s ease;}
+#page-preview .preview-btn .icon-circle:active{transform:scale(0.9);}
+#page-preview .preview-btn .btn-label{color:#fff;font-size:13px;margin-top:8px;}
+#page-preview .btn-retake .icon-circle{background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.5);}
+#page-preview .btn-confirm .icon-circle{background:rgba(34,217,119,0.85);border:1.5px solid rgba(34,217,119,0.95);}
 /* 比对中 */
 #page-matching{background:rgba(0,0,0,.9);color:#fff;}
 #page-matching .icon{font-size:48px;margin-bottom:15px;}
@@ -57,7 +78,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
 <!-- 页面1：加载中 -->
 <div class="page active" id="page-loading">
   <div class="spinner"></div>
-  <div class="text">正在初始化摄像头...</div>
+  <div class="text">正在启动摄像头...</div>
   <button class="retry-btn" id="retryBtn" onclick="retryInit()">重试</button>
 </div>
 
@@ -67,11 +88,35 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     <video id="video" autoplay playsinline muted></video>
     <div class="face-guide" id="faceGuide"></div>
     <div class="flash-overlay" id="flashOverlay"></div>
-    <div class="store-info" id="storeInfo"></div>
+    <!-- 右上角摄像头切换 -->
     <div class="camera-switch" id="switchCamera" onclick="toggleCamera()">
-      <svg viewBox="0 0 24 24"><path d="M20 5h-3.17L15 3H9L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-5 11c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z"/></svg>
+      <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2" ry="2"/><circle cx="12" cy="13" r="3.5"/><polyline points="7 3 9 6 15 6 17 3"/><path d="M19 10h2M3 10H1"/></svg>
     </div>
-    <div class="camera-tip" id="cameraTip">请将面部放入框内</div>
+    <!-- 底部拍摄控制区 -->
+    <div class="bottom-controls">
+      <div class="capture-btn" id="captureBtn" onclick="manualCapture()">
+        <div class="inner"></div>
+      </div>
+    </div>
+    <!-- 笑脸自动抓拍指示器 -->
+    <div id="smileIndicator" style="position:absolute;top:60px;left:20px;padding:5px 12px;background:rgba(34,217,119,0.75);border-radius:14px;font-size:12px;color:#fff;z-index:10;display:none;">😊 笑脸自动抓拍已就绪</div>
+  </div>
+</div>
+
+<!-- 页面2.5：拍摄预览确认 -->
+<div class="page" id="page-preview">
+  <div class="preview-container">
+    <img id="previewImg" class="preview-img" src="" alt="预览">
+    <div class="preview-bottom">
+      <div class="preview-btn btn-retake" onclick="retakeCapture()">
+        <div class="icon-circle">↺</div>
+        <span class="btn-label">重拍</span>
+      </div>
+      <div class="preview-btn btn-confirm" onclick="confirmCapture()">
+        <div class="icon-circle">✓</div>
+        <span class="btn-label">确定</span>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -119,25 +164,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
   </div>
 </div>
 
-<!-- face-api.js 本地优先，CDN回退 -->
-<script>
-(function(){
-  var localSrc = '/static/face-api/face-api.min.js';
-  var cdnSrc = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
-  function loadScript(src, onOk, onErr) {
-    var s = document.createElement('script');
-    s.src = src; s.onload = onOk; s.onerror = onErr;
-    document.head.appendChild(s);
-  }
-  // 尝试本地 → CDN回退
-  loadScript(localSrc, function(){ console.log('face-api.js 本地加载成功'); }, function(){
-    console.log('face-api.js 本地加载失败，尝试CDN');
-    loadScript(cdnSrc, function(){ console.log('face-api.js CDN加载成功'); }, function(){
-      console.error('face-api.js 加载失败');
-    });
-  });
-})();
-</script>
+<!-- face-api.js 延迟加载：不在页面初始化时加载，30秒后静默加载 -->
 <script>
 (function(){
   // ===== 全局状态 =====
@@ -145,11 +172,19 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     aid: 0, bid: 0, mdid: 0,
     openid: '',
     portraitId: 0,
-    facingMode: 'user', // 前置
+    facingMode: 'user',
     stream: null,
-    detecting: false,
     captured: false,
-    pollTimer: null
+    pollTimer: null,
+    capturedImage: null,
+    capturedDescriptor: null,
+    // 模型相关状态
+    modelsLoaded: false,
+    modelsLoading: false,
+    detecting: false,
+    lastDescriptor: null,
+    faceReady: false,
+    smileAutoEnabled: false
   };
 
   var API_BASE = '/index.php?s=/api/ai_travel_photo/selfie/';
@@ -185,7 +220,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     }).then(function(r){return r.json();});
   }
 
-  // ===== 初始化 =====
+  // ===== 初始化：立即启动摄像头，不等模型 =====
   function init() {
     STATE.aid = parseInt(getUrlParam('aid')) || 0;
     STATE.bid = parseInt(getUrlParam('bid')) || 0;
@@ -196,7 +231,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
       return;
     }
 
-    // 检查浏览器是否支持摄像头
     if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       showError('您的浏览器不支持摄像头访问，请使用微信打开');
       return;
@@ -205,7 +239,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     // 检查授权
     apiGet('index', {aid: STATE.aid, bid: STATE.bid, mdid: STATE.mdid}).then(function(res){
       if(res.code === 302) {
-        // 需要OAuth授权
         window.location.href = API_BASE + 'start_oauth&aid=' + STATE.aid + '&bid=' + STATE.bid + '&mdid=' + STATE.mdid;
         return;
       }
@@ -213,101 +246,51 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
         showError(res.msg || '加载失败');
         return;
       }
-
       STATE.openid = res.data.openid;
-      document.getElementById('storeInfo').textContent = res.data.store_name || '';
-
-      // 等待face-api.js加载完成后再加载模型
-      waitForFaceApi(function(){
-        loadModelsAndStart();
-      });
+      // 立即启动摄像头，无需等待模型加载
+      startCamera();
+      // 30秒后静默加载笑脸检测模型
+      setTimeout(function(){ silentLoadModels(); }, 30000);
     }).catch(function(e){
       showError('网络错误，请检查网络后重试', true);
     });
   }
 
-  // 等待face-api.js库加载完成
-  function waitForFaceApi(callback) {
-    if(typeof faceapi !== 'undefined') {
-      callback();
-      return;
-    }
-    var waited = 0;
-    var timer = setInterval(function(){
-      waited += 100;
-      if(typeof faceapi !== 'undefined') {
-        clearInterval(timer);
-        callback();
-      } else if(waited > 15000) {
-        clearInterval(timer);
-        showError('人脸检测库加载超时，请刷新重试', true);
-      }
-    }, 100);
-  }
-
-  // 显示错误并可选显示重试按钮
   function showError(msg, showRetry) {
     document.querySelector('#page-loading .text').textContent = msg;
     document.querySelector('#page-loading .spinner').style.display = 'none';
-    if(showRetry) {
-      document.getElementById('retryBtn').style.display = 'inline-block';
-    }
+    if(showRetry) document.getElementById('retryBtn').style.display = 'inline-block';
   }
 
-  // 重试初始化
   window.retryInit = function() {
     document.querySelector('#page-loading .spinner').style.display = 'block';
     document.getElementById('retryBtn').style.display = 'none';
-    document.querySelector('#page-loading .text').textContent = '正在重新初始化...';
+    document.querySelector('#page-loading .text').textContent = '正在重新启动...';
     init();
   };
 
-  // ===== 加载face-api模型（本地优先，CDN回退） =====
-  function loadModelsAndStart() {
-    document.querySelector('#page-loading .text').textContent = '正在加载人脸检测模型...';
-
-    var localUrl = '/static/face-api/models';
-    var cdnUrl = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
-
-    loadModelsFromUrl(localUrl).then(function(){
-      console.log('本地模型加载成功');
-      startCamera();
-    }).catch(function(e1){
-      console.log('本地模型加载失败，尝试CDN:', e1.message);
-      document.querySelector('#page-loading .text').textContent = '正在从CDN加载模型...';
-      loadModelsFromUrl(cdnUrl).then(function(){
-        console.log('CDN模型加载成功');
-        startCamera();
-      }).catch(function(e){
-        showError('模型加载失败，请检查网络后刷新重试', true);
-        console.error('模型加载失败:', e2.message);
-      });
-    });
-  }
-
-  function loadModelsFromUrl(url) {
-    return Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri(url),
-      faceapi.nets.faceLandmark68Net.loadFromUri(url),
-      faceapi.nets.faceRecognitionNet.loadFromUri(url)
-    ]);
-  }
-
-  // ===== 摄像头 =====
+  // ===== 摄像头：立即启动，无需模型 =====
   function startCamera() {
     var constraints = {
       video: { facingMode: STATE.facingMode, width: {ideal: 640}, height: {ideal: 480} },
       audio: false
     };
-
     navigator.mediaDevices.getUserMedia(constraints).then(function(stream){
       STATE.stream = stream;
       var video = document.getElementById('video');
       video.srcObject = stream;
       video.onloadedmetadata = function(){
         video.play();
+        video.style.transform = (STATE.facingMode === 'user') ? 'scaleX(-1)' : 'none';
         showPage('page-camera');
-        startDetection();
+        STATE.captured = false;
+        // 手动拍摄按钮立即可用，无需等待模型
+        var btn = document.getElementById('captureBtn');
+        btn.classList.remove('disabled');
+        // 如果模型已加载，启动人脸检测循环
+        if(STATE.modelsLoaded) {
+          startDetection();
+        }
       };
     }).catch(function(e){
       showError('无法访问摄像头，请检查摄像头权限', true);
@@ -316,22 +299,110 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
 
   window.toggleCamera = function() {
     STATE.facingMode = STATE.facingMode === 'user' ? 'environment' : 'user';
-    if(STATE.stream) {
-      STATE.stream.getTracks().forEach(function(t){t.stop();});
-    }
+    if(STATE.stream) STATE.stream.getTracks().forEach(function(t){t.stop();});
     STATE.detecting = false;
+    STATE.lastDescriptor = null;
+    STATE.faceReady = false;
+    var switchBtn = document.getElementById('switchCamera');
+    switchBtn.style.opacity = '0.5';
+    setTimeout(function(){ switchBtn.style.opacity = '1'; }, 400);
     startCamera();
   };
 
-  // ===== 人脸检测 =====
+  // ===== 静默加载 face-api.js + 模型（30秒后触发） =====
+  function silentLoadModels() {
+    if(STATE.modelsLoaded || STATE.modelsLoading) return;
+    STATE.modelsLoading = true;
+    console.log('[Selfie] 30秒已到，开始静默加载face-api.js...');
+
+    var localSrc = '/static/face-api/face-api.min.js';
+    var cdnSrc = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+
+    function loadScript(src, onOk, onErr) {
+      var s = document.createElement('script');
+      s.src = src; s.onload = onOk; s.onerror = onErr;
+      document.head.appendChild(s);
+    }
+
+    function onLibLoaded() {
+      console.log('[Selfie] face-api.js库加载成功，开始加载模型...');
+      loadFaceModels();
+    }
+
+    // 本地优先，CDN回退
+    loadScript(localSrc, onLibLoaded, function(){
+      console.log('[Selfie] 本地face-api.js加载失败，尝试CDN');
+      loadScript(cdnSrc, onLibLoaded, function(){
+        console.error('[Selfie] face-api.js加载失败');
+        STATE.modelsLoading = false;
+      });
+    });
+  }
+
+  function loadFaceModels() {
+    var localUrl = '/static/face-api/models';
+    var cdnUrl = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+
+    loadModelsFromUrl(localUrl).then(function(){
+      console.log('[Selfie] 本地模型加载成功');
+      onModelsReady();
+    }).catch(function(){
+      console.log('[Selfie] 本地模型失败，尝试CDN');
+      loadModelsFromUrl(cdnUrl).then(function(){
+        console.log('[Selfie] CDN模型加载成功');
+        onModelsReady();
+      }).catch(function(){
+        console.error('[Selfie] 模型加载失败，笑脸检测不可用');
+        STATE.modelsLoading = false;
+      });
+    });
+  }
+
+  function loadModelsFromUrl(url) {
+    return Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(url),
+      faceapi.nets.faceLandmark68Net.loadFromUri(url),
+      faceapi.nets.faceRecognitionNet.loadFromUri(url),
+      faceapi.nets.faceExpressionNet.loadFromUri(url)  // 笑脸检测需要
+    ]);
+  }
+
+  // 模型加载完成后的回调
+  function onModelsReady() {
+    STATE.modelsLoaded = true;
+    STATE.modelsLoading = false;
+    STATE.smileAutoEnabled = true;
+    console.log('[Selfie] 模型就绪，笑脸自动抓拍已启用');
+    // 显示笑脸指示器
+    var indicator = document.getElementById('smileIndicator');
+    if(indicator) {
+      indicator.style.display = 'block';
+      setTimeout(function(){ indicator.style.display = 'none'; }, 5000);
+    }
+    // 如果当前在摄像头页面且未拍摄，启动检测
+    if(!STATE.captured && document.getElementById('page-camera').classList.contains('active')) {
+      startDetection();
+    }
+  }
+
+  // ===== 人脸检测 + 笑脸自动抓拍（模型加载后才运行） =====
+  var guideTarget = { x: 0, y: 0, w: 0, h: 0 };
+  var guideCurrent = { x: 0, y: 0, w: 0, h: 0 };
+  var guideVisible = false;
+  var readyTimer = null;
+  var smileCooldown = false;
+
   function startDetection() {
+    if(!STATE.modelsLoaded) return;
     STATE.detecting = true;
-    STATE.captured = false;
+    STATE.lastDescriptor = null;
+    STATE.faceReady = false;
     detectLoop();
   }
 
   function detectLoop() {
     if(!STATE.detecting || STATE.captured) return;
+    if(!STATE.modelsLoaded) return;
 
     var video = document.getElementById('video');
     var options = new faceapi.TinyFaceDetectorOptions({inputSize: 320, scoreThreshold: 0.7});
@@ -339,35 +410,92 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     faceapi.detectSingleFace(video, options)
       .withFaceLandmarks()
       .withFaceDescriptor()
+      .withFaceExpressions()
       .then(function(result){
         if(!STATE.detecting || STATE.captured) return;
 
         var guide = document.getElementById('faceGuide');
-        var tip = document.getElementById('cameraTip');
+        var btn = document.getElementById('captureBtn');
 
         if(result) {
           var box = result.detection.box;
-          var vpWidth = video.videoWidth || video.clientWidth;
-          var minFaceSize = vpWidth * 0.25;
+          var videoEl = video;
+          var vpWidth = videoEl.videoWidth || videoEl.clientWidth;
+          var vpHeight = videoEl.videoHeight || videoEl.clientHeight;
+          var dispWidth = videoEl.clientWidth;
+          var dispHeight = videoEl.clientHeight;
+          var minFaceSize = vpWidth * 0.15;
+
+          var videoRatio = vpWidth / vpHeight;
+          var dispRatio = dispWidth / dispHeight;
+          var scaleX, scaleY, offsetX = 0, offsetY = 0;
+          if(videoRatio > dispRatio) {
+            scaleY = dispHeight / vpHeight; scaleX = scaleY;
+            offsetX = (dispWidth - vpWidth * scaleX) / 2;
+          } else {
+            scaleX = dispWidth / vpWidth; scaleY = scaleX;
+            offsetY = (dispHeight - vpHeight * scaleY) / 2;
+          }
+
+          var faceX;
+          if(STATE.facingMode === 'user') {
+            faceX = dispWidth - (box.x + box.width) * scaleX - offsetX;
+          } else {
+            faceX = box.x * scaleX + offsetX;
+          }
+          var faceW = box.width * scaleX;
+          var faceY = box.y * scaleY + offsetY;
+          var faceH = box.height * scaleY;
+
+          var pad = 0.2;
+          guideTarget.x = faceX - faceW * pad;
+          guideTarget.y = faceY - faceH * pad;
+          guideTarget.w = faceW * (1 + pad * 2);
+          guideTarget.h = faceH * (1 + pad * 2);
+
+          var lerp = guideVisible ? 0.35 : 1;
+          guideCurrent.x += (guideTarget.x - guideCurrent.x) * lerp;
+          guideCurrent.y += (guideTarget.y - guideCurrent.y) * lerp;
+          guideCurrent.w += (guideTarget.w - guideCurrent.w) * lerp;
+          guideCurrent.h += (guideTarget.h - guideCurrent.h) * lerp;
+          guideVisible = true;
+
+          guide.style.left = guideCurrent.x + 'px';
+          guide.style.top = guideCurrent.y + 'px';
+          guide.style.width = guideCurrent.w + 'px';
+          guide.style.height = guideCurrent.h + 'px';
 
           if(box.width >= minFaceSize && result.detection.score >= 0.7) {
             guide.classList.add('detected');
-            tip.textContent = '检测到面部，请保持不动...';
+            guide.classList.add('ready');
+            STATE.lastDescriptor = result.descriptor;
+            STATE.faceReady = true;
 
-            // 延迟一小段时间后自动抓拍（确保稳定）
-            setTimeout(function(){
-              if(!STATE.captured && STATE.detecting) {
-                captureAndMatch(result.descriptor);
+            // 笑脸自动抓拍：检测 happy 表情大于 0.7
+            if(STATE.smileAutoEnabled && !smileCooldown && result.expressions) {
+              var happy = result.expressions.happy || 0;
+              if(happy > 0.7) {
+                console.log('[Selfie] 笑脸检测触发自动抓拍, happy=' + happy.toFixed(2));
+                smileCooldown = true;
+                setTimeout(function(){ smileCooldown = false; }, 3000);
+                captureAndPreview(result.descriptor);
+                return;
               }
-            }, 600);
-            return;
+            }
           } else {
-            guide.classList.remove('detected');
-            tip.textContent = '请将面部靠近一些';
+            guide.classList.add('detected');
+            guide.classList.remove('ready');
+            STATE.faceReady = false;
+            if(readyTimer) { clearTimeout(readyTimer); readyTimer = null; }
           }
         } else {
           guide.classList.remove('detected');
-          tip.textContent = '请将面部放入框内';
+          guide.classList.remove('ready');
+          guide.style.opacity = '0';
+          guideVisible = false;
+          STATE.lastDescriptor = null;
+          STATE.faceReady = false;
+          if(readyTimer) { clearTimeout(readyTimer); readyTimer = null; }
         }
 
         requestAnimationFrame(detectLoop);
@@ -378,15 +506,28 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
       });
   }
 
-  // ===== 抓拍+比对 =====
-  function captureAndMatch(descriptor) {
+  // ===== 手动拍摄：立即可用，无需模型 =====
+  window.manualCapture = function() {
+    if(STATE.captured) return;
+    // 如果模型已加载且有人脸特征，携带embedding
+    var descriptor = STATE.modelsLoaded && STATE.lastDescriptor ? STATE.lastDescriptor : null;
+    captureAndPreview(descriptor);
+  };
+
+  // ===== 拍照 → 预览确认 =====
+  function captureAndPreview(descriptor) {
     STATE.captured = true;
     STATE.detecting = false;
+    STATE.faceReady = false;
 
-    // 快门动效
+    var btn = document.getElementById('captureBtn');
+    btn.classList.add('disabled');
+
+    // 快门动效：闪白 + 震动
     var flash = document.getElementById('flashOverlay');
     flash.classList.add('flash');
-    setTimeout(function(){ flash.classList.remove('flash'); }, 200);
+    setTimeout(function(){ flash.classList.remove('flash'); }, 180);
+    if(navigator.vibrate) { try { navigator.vibrate(30); } catch(e){} }
 
     // 截取画面
     var video = document.getElementById('video');
@@ -397,22 +538,38 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     ctx.drawImage(video, 0, 0);
     var imageBase64 = canvas.toDataURL('image/jpeg', 0.85);
 
-    // 停止摄像头
-    if(STATE.stream) {
-      STATE.stream.getTracks().forEach(function(t){t.stop();});
-    }
+    STATE.capturedImage = imageBase64;
+    STATE.capturedDescriptor = descriptor; // 可能为null（模型未加载时）
+
+    if(STATE.stream) STATE.stream.getTracks().forEach(function(t){t.stop();});
+
+    var previewImg = document.getElementById('previewImg');
+    previewImg.src = imageBase64;
+    previewImg.style.transform = (STATE.facingMode === 'user') ? 'scaleX(-1)' : 'none';
+    showPage('page-preview');
+  }
+
+  // ===== 预览 → 确认提交 =====
+  window.confirmCapture = function() {
+    if(!STATE.capturedImage) return;
 
     showPage('page-matching');
 
-    // 发送到服务器比对
-    var embeddingArr = Array.from(descriptor);
-
-    apiPost('capture', {
-      image: imageBase64,
-      face_embedding: JSON.stringify(embeddingArr),
+    var postData = {
+      image: STATE.capturedImage,
       bid: STATE.bid,
       mdid: STATE.mdid
-    }).then(function(res){
+    };
+
+    // 有人脸特征时携带embedding，无则不传（后端兼容处理）
+    if(STATE.capturedDescriptor) {
+      postData.face_embedding = JSON.stringify(Array.from(STATE.capturedDescriptor));
+    }
+
+    apiPost('capture', postData).then(function(res){
+      STATE.capturedImage = null;
+      STATE.capturedDescriptor = null;
+
       if(res.code === 302) {
         window.location.href = API_BASE + 'start_oauth&aid=' + STATE.aid + '&bid=' + STATE.bid + '&mdid=' + STATE.mdid;
         return;
@@ -426,21 +583,30 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
       }
 
       if(res.data.matched) {
-        // 命中 → 跳转付费选片页
         window.location.href = res.data.pick_url;
       } else {
-        // 未命中 → 显示选择页
         STATE.portraitId = res.data.portrait_id;
         document.getElementById('estimatedTime').textContent = res.data.estimated_seconds || 60;
         showPage('page-nomatch');
       }
     }).catch(function(e){
+      STATE.capturedImage = null;
+      STATE.capturedDescriptor = null;
       alert('网络错误: ' + e.message);
       showPage('page-camera');
       STATE.captured = false;
       startCamera();
     });
-  }
+  };
+
+  // ===== 预览 → 重拍 =====
+  window.retakeCapture = function() {
+    STATE.capturedImage = null;
+    STATE.capturedDescriptor = null;
+    STATE.captured = false;
+    document.getElementById('previewImg').src = '';
+    startCamera();
+  };
 
   // ===== 等待模式 =====
   window.startWaiting = function() {
@@ -461,7 +627,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
         document.getElementById('progressPercent').textContent = pct + '%';
 
         if(d.status === 3 && d.pick_url) {
-          // 合成完成
           clearInterval(STATE.pollTimer);
           document.getElementById('progressDetail').textContent = '合成完成！正在跳转...';
           setTimeout(function(){ window.location.href = d.pick_url; }, 1000);
@@ -469,8 +634,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
           clearInterval(STATE.pollTimer);
           document.getElementById('progressDetail').textContent = '合成失败，请稍后重试';
         } else {
-          var remaining = d.remaining_seconds || 0;
-          document.getElementById('progressDetail').textContent = '预计还需 ' + remaining + ' 秒';
+          var detail = '正在处理中...';
+          if(d.total && d.total > 0) {
+            var done = (d.completed || 0) + (d.failed || 0);
+            detail = '已完成 ' + done + '/' + d.total;
+            if(d.remaining_seconds > 0) detail += '，预计还需 ' + d.remaining_seconds + ' 秒';
+          } else if(d.remaining_seconds > 0) {
+            detail = '预计还需 ' + d.remaining_seconds + ' 秒';
+          }
+          document.getElementById('progressDetail').textContent = detail;
         }
       });
     }, 3000);
@@ -479,16 +651,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
   // ===== 通知模式 =====
   window.registerNotify = function() {
     if(STATE.pollTimer) clearInterval(STATE.pollTimer);
-
     apiPost('notify_me', {
       portrait_id: STATE.portraitId,
       openid: STATE.openid
     }).then(function(res){
-      if(res.code === 200) {
-        showPage('page-notify-done');
-      } else {
-        alert(res.msg || '注册通知失败');
-      }
+      if(res.code === 200) showPage('page-notify-done');
+      else alert(res.msg || '注册通知失败');
     }).catch(function(e){
       alert('网络错误');
     });

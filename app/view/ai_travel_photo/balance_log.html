@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AI消费明细</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+  <style>
+    .balance-summary-card {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      border-radius: 12px; padding: 20px 24px; color: #fff;
+      margin-bottom: 20px; position: relative; overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .balance-summary-card::before {
+      content: ''; position: absolute; top: -50%; right: -50%;
+      width: 200%; height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .balance-summary-card .label { font-size: 14px; opacity: 0.9; margin-bottom: 6px; }
+    .balance-summary-card .value { font-size: 28px; font-weight: bold; }
+    .balance-summary-card .icon {
+      font-size: 50px; opacity: 0.2; position: absolute; right: 24px; top: 50%; transform: translateY(-50%);
+      pointer-events: none;
+    }
+    .type-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 12px; color: #fff; }
+    .type-tag.deduct { background: #FF5722; }
+    .type-tag.refund { background: #FF9800; }
+    .type-tag.recharge { background: #4CAF50; }
+    .amount-deduct { color: #FF5722; font-weight: bold; }
+    .amount-plus { color: #4CAF50; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+      <div class="layui-card layui-col-md12">
+        <div class="layui-card-header">AI消费明细</div>
+        <div class="layui-card-body" pad15>
+          <!-- 余额概览卡片 -->
+          <div class="balance-summary-card">
+            <i class="layui-icon layui-icon-survey icon"></i>
+            <div class="label">当前账户余额</div>
+            <div class="value">￥{:number_format($business_info['account_balance'] ?? 0, 2)}</div>
+          </div>
+
+          <!-- 筛选栏 -->
+          <div class="layui-form layui-form-search" style="margin-bottom: 15px;">
+            <div class="layui-inline">
+              <label class="layui-form-label">变动类型：</label>
+              <div class="layui-input-inline">
+                <select name="type" lay-filter="typeFilter">
+                  <option value="">全部类型</option>
+                  <option value="deduct">合成扣费</option>
+                  <option value="refund">退款</option>
+                  <option value="recharge">充值</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">日期范围：</label>
+              <div class="layui-input-inline">
+                <input type="text" name="start_date" id="start_date" placeholder="开始日期" autocomplete="off" class="layui-input">
+              </div>
+              <div class="layui-form-mid">-</div>
+              <div class="layui-input-inline">
+                <input type="text" name="end_date" id="end_date" placeholder="结束日期" autocomplete="off" class="layui-input">
+              </div>
+            </div>
+            <div class="layui-inline">
+              <button class="layui-btn" lay-submit lay-filter="searchBtn"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+              <button type="reset" class="layui-btn layui-btn-primary" id="resetBtn"><i class="layui-icon layui-icon-refresh"></i> 重置</button>
+            </div>
+          </div>
+
+          <!-- 数据表格 -->
+          <table class="layui-table" id="tabledata" lay-filter="tabledata"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  var datawhere = {};
+  var tableIns;
+
+  layui.use(['table', 'form', 'laydate'], function(){
+    var table = layui.table;
+    var form = layui.form;
+    var laydate = layui.laydate;
+
+    // 日期选择器
+    laydate.render({ elem: '#start_date', type: 'date' });
+    laydate.render({ elem: '#end_date', type: 'date' });
+
+    // 渲染表格
+    tableIns = table.render({
+      elem: '#tabledata',
+      url: '{:url("balance_log")}',
+      page: true,
+      limit: 20,
+      limits: [10, 20, 50, 100],
+      where: datawhere,
+      cols: [[
+        {field: 'id', title: 'ID', width: 70, sort: true},
+        {field: 'createtime', title: '时间', width: 170},
+        {field: 'type_text', title: '类型', width: 90, templet: function(d){
+          var cls = d.type || '';
+          return '<span class="type-tag ' + cls + '">' + (d.type_text || '-') + '</span>';
+        }},
+        {field: 'amount', title: '金额', width: 120, templet: function(d){
+          if (d.type === 'deduct') {
+            return '<span class="amount-deduct">-¥' + d.amount + '</span>';
+          } else {
+            return '<span class="amount-plus">+¥' + d.amount + '</span>';
+          }
+        }},
+        {field: 'balance_before', title: '变动前余额', width: 120, templet: function(d){
+          return '¥' + d.balance_before;
+        }},
+        {field: 'balance_after', title: '变动后余额', width: 120, templet: function(d){
+          return '¥' + d.balance_after;
+        }},
+        {field: 'remark', title: '备注', minWidth: 200}
+      ]],
+      text: { none: '暂无余额变动记录' }
+    });
+
+    // 搜索
+    form.on('submit(searchBtn)', function(data){
+      datawhere = data.field;
+      tableIns.reload({
+        where: datawhere,
+        page: {curr: 1}
+      });
+      return false;
+    });
+
+    // 类型下拉筛选
+    form.on('select(typeFilter)', function(data){
+      datawhere.type = data.value;
+      tableIns.reload({
+        where: datawhere,
+        page: {curr: 1}
+      });
+    });
+
+    // 重置
+    document.getElementById('resetBtn').addEventListener('click', function(){
+      datawhere = {};
+      tableIns.reload({
+        where: datawhere,
+        page: {curr: 1}
+      });
+    });
+  });
+  </script>
+  {include file="public/copyright"/}
+</body>
+</html>

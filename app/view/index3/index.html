@@ -13,11 +13,13 @@
     <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=1">
     <!-- 组件CSS -->
     <link rel="stylesheet" href="/static/index3/css/sidebar.css?v=6">
-    <link rel="stylesheet" href="/static/index3/css/index.css?v=10">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=13">
     <link rel="stylesheet" href="/static/index3/css/pay.css?v=9">
-    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=6">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=7">
     <!-- 主题JS（提前加载防闪烁） -->
     <script src="/static/index3/js/theme.js?v=1"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 </head>
 <body>
 <div class="layout-wrapper">
@@ -36,7 +38,7 @@
             <section class="model-square" aria-label="模型广场">
                 <div class="section-title"><span class="dot"></span>模型广场</div>
                 <div class="model-tab-header" role="tablist" aria-label="模型供应商分类">
-                    <button class="model-tab-card active" data-provider="recommend" role="tab" aria-selected="true" aria-controls="panel-recommend"><span class="mtc-icon">🔥</span><span class="mtc-label">热门模型</span></button>
+                    <button class="model-tab-card active" data-provider="recommend" role="tab" aria-selected="true" aria-controls="panel-recommend"><span class="mtc-icon"><i data-lucide="flame" style="width:16px;height:16px"></i></span><span class="mtc-label">热门模型</span></button>
                     {if $provider_list}
                     {foreach $provider_list as $prov}
                     <button class="model-tab-card" data-provider="{$prov.id}" role="tab" aria-selected="false" aria-controls="panel-provider-{$prov.id}">{if $prov.logo}<img class="mtc-logo" src="{$prov.logo}" alt="" loading="lazy">{/if}<span class="mtc-label">{$prov.provider_name}</span></button>
@@ -60,7 +62,7 @@
                                         <div class="mc-provider">{$model.provider_name}</div>
                                     </div>
                                     {if $model.is_recommend == 1}
-                                    <span class="mc-recommend-badge">🔥</span>
+                                    <span class="mc-recommend-badge"><i data-lucide="flame" style="width:16px;height:16px;color:#f97316"></i></span>
                                     {/if}
                                 </div>
                                 <div class="mc-desc">{$model.description}</div>
@@ -80,7 +82,7 @@
                             </div>
                             {/foreach}
                             {else}
-                            <div class="empty-state" style="flex:1" role="status" aria-live="polite"><div class="empty-icon">🤖</div><p>暂无模型数据</p></div>
+                            <div class="empty-state" style="flex:1" role="status" aria-live="polite"><div class="empty-icon"><i data-lucide="bot" style="width:48px;height:48px"></i></div><p>暂无模型数据</p></div>
                             {/if}
                         </div>
                         <button class="scroll-arrow right" aria-label="向右滚动" type="button">›</button>
@@ -136,7 +138,7 @@
                         </div>
                         {/foreach}
                         {else}
-                        <div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📭</div><p>暂无场景模板</p></div>
+                        <div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><i data-lucide="image-off" style="width:48px;height:48px"></i></div><p>暂无场景模板</p></div>
                         {/if}
                     </div>
                     <div class="load-more-wrap">
@@ -162,7 +164,7 @@
                             <div class="sc-cover-wrap">
                                 <img class="sc-cover" src="{$scene.gif_cover}" alt="{$scene.template_name}" loading="lazy">
                                 <video class="sc-video" src="{$scene.cover_image}" muted loop playsinline preload="none"></video>
-                                <span class="sc-video-badge">▶ 视频</span>
+                                <span class="sc-video-badge"><i data-lucide="play" style="width:12px;height:12px"></i> 视频</span>
                             </div>
                             {else/}
                             <img class="sc-cover" src="{$scene.cover_image|default='/static/index3/img/placeholder.png'}" alt="{$scene.template_name}" loading="lazy">
@@ -179,7 +181,7 @@
                         </div>
                         {/foreach}
                         {else}
-                        <div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📭</div><p>暂无场景模板</p></div>
+                        <div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><i data-lucide="image-off" style="width:48px;height:48px"></i></div><p>暂无场景模板</p></div>
                         {/if}
                     </div>
                     <div class="load-more-wrap">
@@ -286,13 +288,13 @@
                 <div class="login-modal-body">
                     <div class="login-form-group">
                         <div class="login-input-wrap">
-                            <span class="login-input-icon">📱</span>
+                            <span class="login-input-icon"><i data-lucide="smartphone" style="width:16px;height:16px"></i></span>
                             <input type="tel" class="login-input" id="loginPhone" placeholder="请输入手机号" maxlength="11" autocomplete="tel">
                         </div>
                     </div>
                     <div class="login-form-group">
                         <div class="login-input-wrap login-code-wrap">
-                            <span class="login-input-icon">🔒</span>
+                            <span class="login-input-icon"><i data-lucide="lock" style="width:16px;height:16px"></i></span>
                             <input type="text" class="login-input" id="loginCode" placeholder="请输入验证码" maxlength="6" autocomplete="one-time-code">
                             <button class="login-send-btn" id="loginSendBtn">获取验证码</button>
                         </div>
@@ -318,7 +320,7 @@
                         <!-- 过期遮罩 -->
                         <div class="qr-expired-overlay" id="qrExpiredOverlay" style="display:none">
                             <div class="qr-expired-content">
-                                <span class="qr-expired-icon">⚠️</span>
+                                <span class="qr-expired-icon"><i data-lucide="alert-triangle" style="width:32px;height:32px"></i></span>
                                 <span>二维码已过期</span>
                                 <button class="qr-refresh-btn" id="qrRefreshBtn">点击刷新</button>
                             </div>
@@ -338,7 +340,7 @@
     <div class="follow-guide-modal">
         <button class="follow-guide-close" id="followGuideClose">&times;</button>
         <div class="follow-guide-header">
-            <h3>🌟 欢迎加入</h3>
+            <h3><i data-lucide="sparkles"></i> 欢迎加入</h3>
             <p>关注公众号，获取更多精彩内容</p>
         </div>
         <div class="follow-guide-body">
@@ -358,11 +360,39 @@
 <!-- 移动端组件 -->
 {include file="index3/public/tabbar"/}
 
+<!-- 图片模板封面幻灯片弹窗 -->
+<div id="slideshowModal" class="slideshow-overlay" style="display:none">
+    <div class="slideshow-container">
+        <button class="slideshow-close" id="slideshowClose" title="关闭">&times;</button>
+        <div class="slideshow-header">
+            <span class="slideshow-title" id="slideshowTitle"></span>
+            <span class="slideshow-counter" id="slideshowCounter"></span>
+        </div>
+        <div class="slideshow-main">
+            <button class="slideshow-arrow slideshow-arrow-left" id="slideshowPrev" title="上一张">&#8249;</button>
+            <div class="slideshow-image-wrap">
+                <img class="slideshow-image" id="slideshowImage" src="" alt="">
+                <div class="slideshow-loading" id="slideshowLoading"><span class="sp-spinner"></span>加载中...</div>
+            </div>
+            <button class="slideshow-arrow slideshow-arrow-right" id="slideshowNext" title="下一张">&#8250;</button>
+        </div>
+        <div class="slideshow-controls" id="slideshowControls">
+            <button class="slideshow-play-btn" id="slideshowPlayBtn" title="播放/暂停">
+                <i data-lucide="pause" style="width:18px;height:18px" id="slideshowPlayIcon"></i>
+            </button>
+            <div class="slideshow-dots" id="slideshowDots"></div>
+        </div>
+        <div class="slideshow-thumbs" id="slideshowThumbs"></div>
+    </div>
+</div>
+
 <!-- JS -->
-<script src="/static/index3/js/api.js?v=9"></script>
-<script src="/static/index3/js/pay.js?v=4"></script>
-<script src="/static/index3/js/auth.js?v=3"></script>
+<script src="/static/index3/js/api.js?v=10"></script>
+<script src="/static/index3/js/pay.js?v=5"></script>
+<script src="/static/index3/js/auth.js?v=4"></script>
 <script src="/static/index3/js/sidebar.js?v=6"></script>
-<script src="/static/index3/js/index.js?v=13"></script>
+<script src="/static/index3/js/index.js?v=15"></script>
+<!-- Lucide Icons 初始化 -->
+<script>if(typeof lucide!=='undefined'){lucide.createIcons();}</script>
 </body>
 </html>

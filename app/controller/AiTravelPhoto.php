@@ -6407,6 +6407,95 @@ class AiTravelPhoto extends Common
     }
 
     /**
+     * AI消费明细 - 余额变动流水页面 & 数据接口
+     */
+    public function balance_log()
+    {
+        // 超级管理员bid为0时，使用aid对应的第一个商家
+        $targetBid = $this->bid;
+        if ($targetBid == 0) {
+            $targetBid = Db::name('business')->where('aid', $this->aid)->value('id');
+        }
+
+        // AJAX请求：返回分页JSON数据
+        if (request()->isAjax()) {
+            try {
+                $where = [
+                    ['aid', '=', $this->aid],
+                    ['bid', '=', $targetBid]
+                ];
+
+                // 变动类型筛选
+                $type = input('param.type', '');
+                if ($type !== '' && in_array($type, ['deduct', 'refund', 'recharge'])) {
+                    $where[] = ['type', '=', $type];
+                }
+
+                // 日期范围筛选
+                $startDate = input('param.start_date', '');
+                $endDate = input('param.end_date', '');
+                if ($startDate) {
+                    $where[] = ['createtime', '>=', strtotime($startDate)];
+                }
+                if ($endDate) {
+                    $where[] = ['createtime', '<=', strtotime($endDate . ' 23:59:59')];
+                }
+
+                $page = input('page/d', 1);
+                $limit = input('limit/d', 20);
+
+                $typeMap = [
+                    'deduct'   => '合成扣费',
+                    'refund'   => '退款',
+                    'recharge' => '充值',
+                ];
+
+                $list = Db::name('business_balance_log')
+                    ->where($where)
+                    ->order('createtime DESC, id DESC')
+                    ->page($page, $limit)
+                    ->select()
+                    ->each(function ($item) use ($typeMap) {
+                        $item['type_text'] = $typeMap[$item['type']] ?? $item['type'];
+                        $item['createtime'] = $item['createtime'] ? date('Y-m-d H:i:s', $item['createtime']) : '-';
+                        $item['amount'] = number_format(floatval($item['amount']), 2, '.', '');
+                        $item['balance_before'] = number_format(floatval($item['balance_before']), 2, '.', '');
+                        $item['balance_after'] = number_format(floatval($item['balance_after']), 2, '.', '');
+                        return $item;
+                    });
+
+                $count = Db::name('business_balance_log')
+                    ->where($where)
+                    ->count();
+
+                return json([
+                    'code' => 0,
+                    'msg' => '',
+                    'count' => $count,
+                    'data' => $list
+                ]);
+            } catch (\Exception $e) {
+                return json([
+                    'code' => 1,
+                    'msg' => $e->getMessage(),
+                    'count' => 0,
+                    'data' => []
+                ]);
+            }
+        }
+
+        // 非AJAX请求：渲染页面
+        $business = Db::name('business')->where('id', $targetBid)->find();
+        $businessInfo = [
+            'id' => $targetBid,
+            'account_balance' => $business['account_balance'] ?? 0,
+        ];
+        View::assign('business_info', $businessInfo);
+
+        return View::fetch('ai_travel_photo/balance_log');
+    }
+
+    /**
      * 支付成功返回页面（支付宝同步回跳）
      */
     public function payReturn()
@@ -6486,16 +6575,38 @@ class AiTravelPhoto extends Common
 
             case 'balance':
                 $giftAmount = 0;
+                $matchedPkgName = $order['package_name'] ?? '';
                 if (isset($packages['balance'])) {
                     foreach ($packages['balance'] as $pkg) {
                         if ($pkg['name'] == $order['package_name'] || floatval($pkg['amount'] ?? $pkg['price'] ?? 0) == floatval($order['amount'])) {
                             $giftAmount = floatval($pkg['gift'] ?? 0);
+                            $matchedPkgName = $pkg['name'] ?? $matchedPkgName;
                             break;
                         }
                     }
                 }
+                $balanceBefore = floatval($business['account_balance'] ?? 0);
+                $totalRecharge = floatval($order['amount']) + $giftAmount;
+                $balanceAfter = round($balanceBefore + $totalRecharge, 2);
                 Db::name('business')->where('id', $order['bid'])->update([
-                    'account_balance' => ($business['account_balance'] ?? 0) + $order['amount'] + $giftAmount
+                    'account_balance' => $balanceAfter
+                ]);
+                // 写入充值流水记录
+                $rechargeRemark = $matchedPkgName;
+                if ($giftAmount > 0) {
+                    $rechargeRemark .= '（含赠送¥' . $giftAmount . '）';
+                }
+                Db::name('business_balance_log')->insert([
+                    'aid' => $order['aid'],
+                    'bid' => $order['bid'],
+                    'type' => 'recharge',
+                    'amount' => $totalRecharge,
+                    'balance_before' => $balanceBefore,
+                    'balance_after' => $balanceAfter,
+                    'portrait_id' => 0,
+                    'order_id' => $bizOrderId,
+                    'remark' => $rechargeRemark,
+                    'createtime' => time(),
                 ]);
                 break;
 
@@ -6567,16 +6678,20 @@ class AiTravelPhoto extends Common
             $targetBid = Db::name('business')->where('aid', $this->aid)->value('id') ?: 0;
         }
 
-        // 获取门店列表 - 包含当前商家门店(bid=$bid)和平台公共门店(bid=0)
-        $mendianList = Db::name('mendian')
+        // 获取门店列表 - 严格按商家隔离，商家间互不可见
+        $mendianQuery = Db::name('mendian')
             ->where('aid', $this->aid)
-            ->where(function($query) use ($bid) {
-                $query->whereOr([
-                    ['bid', '=', $bid],
-                    ['bid', '=', 0]
-                ]);
-            })
-            ->where('status', 1)
+            ->where('status', 1);
+
+        if ($bid == 0) {
+            // 超级管理员：查看目标商家门店 + bid=0的公共门店
+            $mendianQuery->where('bid', 'in', [$targetBid, 0]);
+        } else {
+            // 普通商家：仅查看自己的门店，不可见其他商家和公共门店
+            $mendianQuery->where('bid', $bid);
+        }
+
+        $mendianList = $mendianQuery
             ->field('id, name, bid, selfie_enabled')
             ->order('id ASC')
             ->select()
@@ -6616,11 +6731,19 @@ class AiTravelPhoto extends Common
             return json(['status' => 0, 'msg' => '请选择门店']);
         }
 
-        // 确定业务归属的bid：若当前登录者bid=0，从门店记录中取bid，若门店bid也为0则查找平台下第一个商家
+        // 校验门店归属权限：商家只能操作自己的门店
+        $mendian = Db::name('mendian')->where('id', $mdid)->where('aid', $this->aid)->find();
+        if (!$mendian) {
+            return json(['status' => 0, 'msg' => '门店不存在']);
+        }
+        if ($this->bid > 0 && $mendian['bid'] != $this->bid) {
+            return json(['status' => 0, 'msg' => '无权操作此门店']);
+        }
+
+        // 确定业务归属的bid
         $targetBid = $this->bid;
         if ($targetBid == 0) {
-            $mdBid = Db::name('mendian')->where('id', $mdid)->value('bid');
-            $targetBid = $mdBid ?: (Db::name('business')->where('aid', $this->aid)->value('id') ?: 0);
+            $targetBid = $mendian['bid'] ?: (Db::name('business')->where('aid', $this->aid)->value('id') ?: 0);
         }
 
         try {
@@ -6642,10 +6765,18 @@ class AiTravelPhoto extends Common
             return json(['status' => 0, 'msg' => '请选择门店']);
         }
 
+        // 校验门店归属权限：商家只能操作自己的门店
+        $mendian = Db::name('mendian')->where('id', $mdid)->where('aid', $this->aid)->find();
+        if (!$mendian) {
+            return json(['status' => 0, 'msg' => '门店不存在']);
+        }
+        if ($this->bid > 0 && $mendian['bid'] != $this->bid) {
+            return json(['status' => 0, 'msg' => '无权操作此门店']);
+        }
+
         $targetBid = $this->bid;
         if ($targetBid == 0) {
-            $mdBid = Db::name('mendian')->where('id', $mdid)->value('bid');
-            $targetBid = $mdBid ?: (Db::name('business')->where('aid', $this->aid)->value('id') ?: 0);
+            $targetBid = $mendian['bid'] ?: (Db::name('business')->where('aid', $this->aid)->value('id') ?: 0);
         }
 
         $selfieService = new \app\service\AiTravelPhotoSelfieService();
@@ -6682,9 +6813,19 @@ class AiTravelPhoto extends Common
             $targetBid = Db::name('business')->where('aid', $this->aid)->value('id') ?: 0;
         }
 
+        // 如果指定了门店，校验门店归属权限
+        if ($mdid > 0 && $bid > 0) {
+            $mendian = Db::name('mendian')->where('id', $mdid)->where('aid', $this->aid)->where('bid', $bid)->find();
+            if (!$mendian) {
+                return json(['status' => 0, 'msg' => '无权查看此门店统计']);
+            }
+        }
+
         try {
             $selfieService = new \app\service\AiTravelPhotoSelfieService();
-            $stats = $selfieService->getStats($this->aid, $targetBid, $mdid);
+            // 传入 isAdmin 标记，让 Service 层根据角色做数据隔离
+            $isAdmin = ($bid == 0);
+            $stats = $selfieService->getStats($this->aid, $targetBid, $mdid, $isAdmin);
             return json(['status' => 1, 'data' => $stats]);
         } catch (\Exception $e) {
             return json(['status' => 0, 'msg' => $e->getMessage()]);
@@ -6703,10 +6844,13 @@ class AiTravelPhoto extends Common
             return json(['status' => 0, 'msg' => '请选择门店']);
         }
 
-        // 校验门店归属：必须属于当前平台
+        // 校验门店归属：必须属于当前平台，且商家只能操作自己的门店
         $mendian = Db::name('mendian')->where('id', $mdid)->where('aid', $this->aid)->find();
         if (!$mendian) {
-            return json(['status' => 0, 'msg' => '门店不存在或无权操作']);
+            return json(['status' => 0, 'msg' => '门店不存在']);
+        }
+        if ($this->bid > 0 && $mendian['bid'] != $this->bid) {
+            return json(['status' => 0, 'msg' => '无权操作此门店']);
         }
 
         Db::name('mendian')->where('id', $mdid)->update(['selfie_enabled' => $enabled]);

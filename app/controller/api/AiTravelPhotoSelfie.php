@@ -278,13 +278,13 @@ class AiTravelPhotoSelfie extends BaseController
         \think\facade\Cache::set($rateLimitKey, $currentCount + 1, 60);
 
         $image = $this->request->post('image', '');
-        $faceEmbeddingJson = $this->request->post('face_embedding', '');
+        $faceEmbeddingJson = $this->request->post('face_embedding', ''); // 可选：模型未加载时前端不传
         $bid = $this->request->post('bid/d', 0);
         $mdid = $this->request->post('mdid/d', 0);
         $aid = Session::get('selfie_aid', 0);
 
-        if (empty($image) || empty($faceEmbeddingJson)) {
-            return json(['code' => 400, 'msg' => '缺少图片或人脸特征数据']);
+        if (empty($image)) {
+            return json(['code' => 400, 'msg' => '缺少图片数据']);
         }
 
         if (!$bid) {
@@ -303,35 +303,85 @@ class AiTravelPhotoSelfie extends BaseController
         }
 
         try {
-            $faceEmbedding = json_decode($faceEmbeddingJson, true);
-            if (!is_array($faceEmbedding) || count($faceEmbedding) < 64) {
-                return json(['code' => 400, 'msg' => '人脸特征数据格式错误']);
+            // face_embedding 可选：手动拍摄时模型可能尚未加载
+            $faceEmbedding = [];
+            $hasEmbedding = false;
+            if (!empty($faceEmbeddingJson)) {
+                $faceEmbedding = json_decode($faceEmbeddingJson, true);
+                if (is_array($faceEmbedding) && count($faceEmbedding) >= 64) {
+                    $hasEmbedding = true;
+                } else {
+                    $faceEmbedding = [];
+                }
             }
 
-            // 在门店成片库中搜索匹配
-            $matchResult = $this->selfieService->matchFaceInStore($faceEmbedding, $aid, $bid, $mdid);
+            // 有人脸特征时：在门店成片库中搜索匹配
+            if ($hasEmbedding) {
+                $matchResult = $this->selfieService->matchFaceInStore($faceEmbedding, $aid, $bid, $mdid);
 
-            if ($matchResult) {
-                // 命中已有成片
-                // 更新统计
-                \app\model\AiTravelPhotoSelfieQrcode::where('aid', $aid)
-                    ->where('bid', $bid)
-                    ->where('mdid', $mdid)
-                    ->inc('match_count')
-                    ->update([]);
+                if ($matchResult) {
+                    // 命中已有成片
+                    \app\model\AiTravelPhotoSelfieQrcode::where('aid', $aid)
+                        ->where('bid', $bid)
+                        ->where('mdid', $mdid)
+                        ->inc('match_count')
+                        ->update([]);
 
-                return json([
-                    'code' => 200,
-                    'msg' => '找到匹配的旅拍照片',
-                    'data' => [
-                        'matched' => true,
-                        'pick_url' => $matchResult['pick_url'],
-                        'result_count' => $matchResult['result_count'],
-                    ],
-                ]);
+                    return json([
+                        'code' => 200,
+                        'msg' => '找到匹配的旅拍照片',
+                        'data' => [
+                            'matched' => true,
+                            'pick_url' => $matchResult['pick_url'],
+                            'result_count' => $matchResult['result_count'],
+                        ],
+                    ]);
+                }
             }
 
-            // 未命中：创建人像并投递合成任务
+            // ===== 防重检测：同一用户同一门店当天仅首次合成 =====
+            $dedupResult = null;
+            if ($hasEmbedding) {
+                // 有人脸特征：通过人脸相似度精确防重
+                $dedupResult = $this->selfieService->checkSelfieDedup($faceEmbedding, $bid, $mdid, $openid);
+            } else {
+                // 无人脸特征（手动拍摄模式）：基于openid+门店+当天防重
+                $dedupResult = $this->selfieService->checkSelfieDedupByOpenid($bid, $mdid, $openid);
+            }
+
+            if ($dedupResult) {
+                $dedupPortraitId = $dedupResult['portrait_id'];
+                $dedupStatus = $dedupResult['synthesis_status'];
+                $dedupPickUrl = $dedupResult['pick_url'];
+
+                if ($dedupStatus == 3 && !empty($dedupPickUrl)) {
+                    return json([
+                        'code' => 200,
+                        'msg' => '您今天已在本门店拍摄过，请前往选片',
+                        'data' => [
+                            'matched' => true,
+                            'pick_url' => $dedupPickUrl,
+                            'result_count' => 0,
+                            'dedup' => true,
+                        ],
+                    ]);
+                } elseif (in_array($dedupStatus, [0, 2])) {
+                    return json([
+                        'code' => 200,
+                        'msg' => '您今天已在本门店拍摄过，照片正在生成中，请耐心等待',
+                        'data' => [
+                            'matched' => false,
+                            'portrait_id' => $dedupPortraitId,
+                            'estimated_seconds' => 60,
+                            'template_count' => 0,
+                            'dedup' => true,
+                        ],
+                    ]);
+                }
+                // dedupStatus == 4（全部失败）：不拦截，允许重新提交
+            }
+
+            // 未命中且无重复：创建人像并投递合成任务
             // 去掉base64头部
             $imageData = $image;
             if (strpos($imageData, 'base64,') !== false) {

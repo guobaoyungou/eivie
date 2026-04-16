@@ -30,7 +30,7 @@
                         <span id="ucTel"></span>
                         <span id="ucMid"></span>
                     </div>
-                    <a class="uc-level-tag" id="ucLevelTag" href="/?s=/index/member_level" style="text-decoration:none;color:#fff;margin-top:6px;display:inline-block">👑 普通会员</a>
+                    <a class="uc-level-tag" id="ucLevelTag" href="/?s=/index/member_level" style="text-decoration:none;color:#fff;margin-top:6px;display:inline-block"><i data-lucide="crown" style="width:14px;height:14px"></i> 普通会员</a>
                 </div>
             </div>
 
@@ -56,7 +56,7 @@
 
                     <!-- 创作会员卡片 -->
                     <div class="creative-member-card" id="creativeMemberCard" style="display:none">
-                        <div class="page-card-title">✨ 创作会员</div>
+                        <div class="page-card-title"><i data-lucide="sparkles"></i> 创作会员</div>
                         <div id="creativeMemberContent"></div>
                     </div>
 
@@ -70,17 +70,17 @@
                                 <span class="uc-menu-arrow">›</span>
                             </a>
                             <a class="uc-menu-item" href="/?s=/index/score_shop">
-                                <span class="uc-menu-icon icon-score">⭐</span>
+                                <span class="uc-menu-icon icon-score"><i data-lucide="star"></i></span>
                                 <span class="uc-menu-text">积分购买</span>
                                 <span class="uc-menu-arrow">›</span>
                             </a>
                             <a class="uc-menu-item" href="/?s=/index/member_level">
-                                <span class="uc-menu-icon icon-level">👑</span>
+                                <span class="uc-menu-icon icon-level"><i data-lucide="crown"></i></span>
                                 <span class="uc-menu-text">会员等级</span>
                                 <span class="uc-menu-arrow">›</span>
                             </a>
                             <a class="uc-menu-item" href="javascript:;" onclick="Auth.showSubscriptionPopup()">
-                                <span class="uc-menu-icon icon-creative">🎨</span>
+                                <span class="uc-menu-icon icon-creative"><i data-lucide="palette"></i></span>
                                 <span class="uc-menu-text">创作会员</span>
                                 <span class="uc-menu-arrow">›</span>
                             </a>
@@ -92,12 +92,12 @@
                         <div class="uc-menu-group-title">订单管理</div>
                         <div class="uc-menu-list">
                             <a class="uc-menu-item" href="/?s=/PhotoGeneration/order_list">
-                                <span class="uc-menu-icon">📄</span>
+                                <span class="uc-menu-icon"><i data-lucide="file-image"></i></span>
                                 <span class="uc-menu-text">图片订单管理</span>
                                 <span class="uc-menu-arrow">›</span>
                             </a>
                             <a class="uc-menu-item" href="/?s=/VideoGeneration/order_list">
-                                <span class="uc-menu-icon">📋</span>
+                                <span class="uc-menu-icon"><i data-lucide="clipboard-list"></i></span>
                                 <span class="uc-menu-text">视频订单管理</span>
                                 <span class="uc-menu-arrow">›</span>
                             </a>
@@ -109,12 +109,12 @@
                         <div class="uc-menu-group-title">帮助支持</div>
                         <div class="uc-menu-list">
                             <a class="uc-menu-item" href="/?s=/index/help">
-                                <span class="uc-menu-icon icon-help">❓</span>
+                                <span class="uc-menu-icon icon-help"><i data-lucide="help-circle"></i></span>
                                 <span class="uc-menu-text">帮助中心</span>
                                 <span class="uc-menu-arrow">›</span>
                             </a>
                             <a class="uc-menu-item" href="/?s=/index/lianxi">
-                                <span class="uc-menu-icon icon-contact">📞</span>
+                                <span class="uc-menu-icon icon-contact"><i data-lucide="phone"></i></span>
                                 <span class="uc-menu-text">联系我们</span>
                                 <span class="uc-menu-arrow">›</span>
                             </a>
@@ -139,7 +139,7 @@
                             <span class="uc-quick-entry-arrow">›</span>
                         </a>
                         <a class="uc-quick-entry" href="/?s=/index/score_shop">
-                            <div class="uc-quick-entry-icon qe-score">⭐</div>
+                            <div class="uc-quick-entry-icon qe-score"><i data-lucide="star"></i></div>
                             <div class="uc-quick-entry-info">
                                 <div class="uc-quick-entry-title">积分购买</div>
                                 <div class="uc-quick-entry-desc">购买积分解锁更多AI创作</div>
@@ -147,7 +147,7 @@
                             <span class="uc-quick-entry-arrow">›</span>
                         </a>
                         <a class="uc-quick-entry" href="/?s=/index/user_storage">
-                            <div class="uc-quick-entry-icon qe-storage">☁️</div>
+                            <div class="uc-quick-entry-icon qe-storage"><i data-lucide="cloud"></i></div>
                             <div class="uc-quick-entry-info">
                                 <div class="uc-quick-entry-title">云端空间</div>
                                 <div class="uc-quick-entry-desc">管理您的AI生成作品</div>
@@ -166,6 +166,9 @@
 <script src="/static/index3/js/auth.js?v=3"></script>
 <script src="/static/index3/js/pay.js?v=4"></script>
 <script src="/static/index3/js/sidebar.js?v=6"></script>
+<script>
+    if(typeof lucide!=='undefined'){lucide.createIcons();}
+</script>
 <script>
 (function(){
     function init(){
@@ -196,7 +199,7 @@
         document.getElementById('ucMoney').textContent = '¥' + (data.money || '0.00');
         document.getElementById('ucScore').textContent = data.score || 0;
         document.getElementById('ucLevelName').textContent = data.level_name || '普通会员';
-        document.getElementById('ucLevelTag').textContent = '👑 ' + (data.level_name || '普通会员');
+        document.getElementById('ucLevelTag').innerHTML = '<i data-lucide="crown" style="width:14px;height:14px"></i> ' + (data.level_name || '普通会员');
 
         // 创作会员
         var cm = data.creative_member || ui;

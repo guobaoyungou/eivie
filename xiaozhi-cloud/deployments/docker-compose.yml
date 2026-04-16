@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  xiaozhi-cloud:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile
+    container_name: xiaozhi-cloud
+    restart: unless-stopped
+    ports:
+      - "9502:9502"   # WebSocket 网关
+      - "9503:9503"   # HTTP API
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - TONGYI_API_KEY=${TONGYI_API_KEY:-}
+      - ZHIPU_API_KEY=${ZHIPU_API_KEY:-}
+      - DOUBAO_API_KEY=${DOUBAO_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - VOLCENGINE_TTS_APP_ID=${VOLCENGINE_TTS_APP_ID:-}
+      - VOLCENGINE_TTS_ACCESS_TOKEN=${VOLCENGINE_TTS_ACCESS_TOKEN:-}
+    volumes:
+      - ../configs:/app/configs:ro
+      - ./logs:/app/logs
+      - ../scripts:/app/scripts:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xiaozhi-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9503/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+  # MySQL (开发环境使用外部数据库，生产环境可取消注释)
+  # mysql:
+  #   image: mysql:8.0
+  #   container_name: xiaozhi-mysql
+  #   restart: unless-stopped
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: root_password
+  #     MYSQL_DATABASE: guobaoyungou_cn
+  #     MYSQL_USER: xiaozhi
+  #     MYSQL_PASSWORD: xiaozhi_password
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #     - ../scripts/migrate.sql:/docker-entrypoint-initdb.d/01_xiaozhi_tables.sql
+  #   ports:
+  #     - "3307:3306"
+  #   command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+  #   networks:
+  #     - xiaozhi-net
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: xiaozhi-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - xiaozhi-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Milvus (知识库向量存储，按需启用)
+  # milvus:
+  #   image: milvusdb/milvus:v2.3-latest
+  #   container_name: xiaozhi-milvus
+  #   restart: unless-stopped
+  #   environment:
+  #     ETCD_ENDPOINTS: etcd:2379
+  #     MINIO_ADDRESS: minio:9000
+  #   volumes:
+  #     - milvus_data:/var/lib/milvus
+  #   ports:
+  #     - "19530:19530"
+  #     - "9091:9091"
+  #   depends_on:
+  #     - etcd
+  #     - minio
+  #   networks:
+  #     - xiaozhi-net
+
+networks:
+  xiaozhi-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  milvus_data:

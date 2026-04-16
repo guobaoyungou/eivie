@@ -554,6 +554,9 @@ class PhotoGeneration extends Common
             if (input('param.category')) {
                 $where[] = ['t.category', '=', input('param.category')];
             }
+            if (input('param.auto_tag_status') !== '' && input('param.auto_tag_status') !== null) {
+                $where[] = ['t.auto_tag_status', '=', intval(input('param.auto_tag_status'))];
+            }
             
             $order = 't.sort asc, t.id desc';
             if (input('param.field') && input('param.order')) {
@@ -775,6 +778,102 @@ class PhotoGeneration extends Common
         return json($result);
     }
     
+    /**
+     * 手动触发单个模板的自动标签识别
+     */
+    public function auto_tag()
+    {
+        $id = input('post.id', 0);
+        if (!$id) {
+            return json(['status' => 0, 'msg' => '参数错误']);
+        }
+
+        $imageUrl = input('post.image_url', '');
+        $service = new \app\service\AutoTaggingService();
+        $result = $service->triggerAutoTagging(intval($id), $imageUrl);
+
+        if ($result['status'] == 1) {
+            \app\common\System::plog('触发照片场景模板自动标签识别 ID:' . $id, 1);
+        }
+
+        return json($result);
+    }
+
+    /**
+     * 批量触发自动标签识别
+     */
+    public function batch_auto_tag()
+    {
+        if (!request()->isPost()) {
+            return json(['status' => 0, 'msg' => '请求方式错误']);
+        }
+
+        $limit = input('post.limit', 50, 'intval');
+
+        $extraWhere = [
+            ['aid', '=', aid],
+            ['bid', '=', bid],
+            ['generation_type', '=', $this->generationType],
+        ];
+
+        $service = new \app\service\AutoTaggingService();
+        $result = $service->batchTrigger($extraWhere, $limit);
+
+        if ($result['status'] == 1) {
+            \app\common\System::plog('批量触发照片场景模板自动标签识别 推入:' . ($result['data']['pushed'] ?? 0) . '条', 1);
+        }
+
+        return json($result);
+    }
+
+    /**
+     * 获取模板的自动标签结果
+     */
+    public function get_auto_tags()
+    {
+        $id = input('param.id', 0);
+        if (!$id) {
+            return json(['status' => 0, 'msg' => '参数错误']);
+        }
+
+        $service = new \app\service\AutoTaggingService();
+        $data = $service->getTaggingStatus(intval($id));
+
+        if (!$data) {
+            return json(['status' => 0, 'msg' => '模板不存在']);
+        }
+
+        return json(['status' => 1, 'msg' => '获取成功', 'data' => $data]);
+    }
+
+    /**
+     * 获取自动标签统计信息（用于批量补全弹窗）
+     */
+    public function auto_tag_stats()
+    {
+        $where = [
+            ['aid', '=', aid],
+            ['bid', '=', bid],
+            ['generation_type', '=', $this->generationType],
+            ['status', '=', 1],
+        ];
+
+        $pending = Db::name('generation_scene_template')->where($where)->where('auto_tag_status', 0)->count();
+        $processing = Db::name('generation_scene_template')->where($where)->where('auto_tag_status', 1)->count();
+        $completed = Db::name('generation_scene_template')->where($where)->where('auto_tag_status', 2)->count();
+        $failed = Db::name('generation_scene_template')->where($where)->where('auto_tag_status', 3)->count();
+
+        return json([
+            'status' => 1,
+            'data' => [
+                'pending'    => $pending,
+                'processing' => $processing,
+                'completed'  => $completed,
+                'failed'     => $failed,
+            ],
+        ]);
+    }
+
     /**
      * 批量迁移封面为WebP格式
      * POST请求，返回迁移结果统计

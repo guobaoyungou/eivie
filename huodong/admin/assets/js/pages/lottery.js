@@ -251,6 +251,11 @@
                             layui.layer.close(idx);
                             obj.del();
                             layui.layer.msg('删除成功', { icon: 1 });
+                        }).catch(function(err) {
+                            layui.layer.close(idx);
+                            if (err && err.msg) {
+                                layui.layer.msg('删除失败: ' + err.msg, { icon: 2 });
+                            }
                         });
                     });
                 }
@@ -1870,13 +1875,9 @@
                             }
                         }
                         console.log('处理后的图片路径:', img, '原始字段值 - imageid:', d.imageid, 'image:', d.image);
-                        // 转换包含wxhd.eivie.cn域名的图片URL为相对路径
-                        if (img && typeof img === 'string') {
-                            if (img.includes('https://wxhd.eivie.cn/upload/')) {
-                                img = img.replace('https://wxhd.eivie.cn', '');
-                            } else if (img.includes('http://wxhd.eivie.cn/upload/')) {
-                                img = img.replace('http://wxhd.eivie.cn', '');
-                            }
+                        // 如果图片URL包含 wxhd.eivie.cn 域名，替换为当前域名
+                        if (img && typeof img === 'string' && img.includes('wxhd.eivie.cn')) {
+                            img = img.replace('https://wxhd.eivie.cn', window.location.origin).replace('http://wxhd.eivie.cn', window.location.origin);
                         }
                         if (img) {
                             // 确保图片路径是完整URL
@@ -1938,6 +1939,8 @@
                             layui.layer.close(idx);
                             obj.del();
                             layui.layer.msg('删除成功', { icon: 1 });
+                        }).catch(function(err) {
+                            layui.layer.close(idx);
                         });
                     });
                 }

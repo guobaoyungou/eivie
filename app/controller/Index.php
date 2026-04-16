@@ -62,11 +62,11 @@ class Index extends BaseController
 			$notify->index();
 		}elseif(MN == 'notify3'){
            \app\custom\Chain::notify();
-        }if(MN == 'notify_v3_transfer'){
+        }elseif(MN == 'notify_v3_transfer'){
             $notify = new \app\common\NotifyV3();
             $notify->transfer();
         }elseif(MN == 'linghuoxinpay' || MN == 'linghuoxinsign'){
-          }elseif(MN == 'payreturn'){
+        }elseif(MN == 'payreturn'){
             $notify = new \app\common\PayReturn();
             $notify->index();
         }else{
@@ -527,6 +527,40 @@ class Index extends BaseController
 		View::assign('recommend_templates', $recommend_templates);
 
 		return View::fetch('index3/video_generation');
+	}
+
+	/**
+	 * 短剧项目列表页
+	 */
+	public function short_drama(){
+		if($this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index'));
+			die;
+		}
+
+		return View::fetch('index3/short_drama');
+	}
+
+	/**
+	 * 短剧创作画布页
+	 */
+	public function short_drama_canvas(){
+		if($this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index'));
+			die;
+		}
+
+		$projectId = input('param.project_id/d', 0);
+		$project = [];
+		if($projectId > 0){
+			$project = Db::name('workflow_project')
+				->where('id', $projectId)
+				->find();
+			if(!$project) $project = [];
+		}
+		View::assign('project', $project);
+
+		return View::fetch('index3/short_drama_canvas');
 	}
 
 	/**
@@ -1562,6 +1596,26 @@ class Index extends BaseController
 		}
 		return View::fetch('index3/member_level');
 	}
+	
+	/**
+	 * AI旅拍首页
+	 */
+	public function home(){
+		if(empty($this->webinfo) || $this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index')); die;
+		}
+		return View::fetch('index3/home');
+	}
+	
+	/**
+	 * AI旅拍落地页
+	 */
+	public function travel_photo(){
+		if($this->webinfo['showweb']!=3){
+			header('Location:'.(string)url('Index/index')); die;
+		}
+		return View::fetch('index3/travel_photo');
+	}
 
 	/**
 	 * AJAX: 获取等级列表
@@ -2537,5 +2591,103 @@ class Index extends BaseController
 		}
 
 		return json(['status'=>1,'data'=>['login_status'=>'pending']]);
+	}
+
+	/**
+	 * AJAX: 获取模板生成图片列表（幻灯片弹窗用）
+	 */
+	public function template_images(){
+		if(!request()->isAjax()){
+			return json(['status'=>0,'msg'=>'非法请求']);
+		}
+		$templateId = input('param.template_id/d', 0);
+		$limit = input('param.limit/d', 50);
+		if($limit > 100) $limit = 100;
+		if($limit < 1) $limit = 1;
+		if(!$templateId){
+			return json(['status'=>0,'msg'=>'缺少模板ID']);
+		}
+
+		$template = Db::name('generation_scene_template')
+			->where('id', $templateId)
+			->where('status', 1)
+			->field('id, template_name, cover_image, source_record_id')
+			->find();
+		if(!$template){
+			return json(['status'=>0,'msg'=>'模板不存在或已下架']);
+		}
+
+		$images = [];
+
+		// 1. 查询该模板关联的所有成功生成记录的图片输出
+		$recordIds = Db::name('generation_record')
+			->where('scene_id', $templateId)
+			->where('status', 2) // STATUS_SUCCESS
+			->order('create_time desc')
+			->limit($limit)
+			->column('id');
+
+		if(!empty($recordIds)){
+			$outputs = Db::name('generation_output')
+				->whereIn('record_id', $recordIds)
+				->where('output_type', 'image')
+				->field('output_url, thumbnail_url, width, height')
+				->order('create_time desc')
+				->limit($limit)
+				->select()
+				->toArray();
+			foreach($outputs as $out){
+				if(!empty($out['output_url'])){
+					$images[] = [
+						'output_url' => $out['output_url'],
+						'thumbnail_url' => $out['thumbnail_url'] ?: $out['output_url'],
+						'width' => intval($out['width']),
+						'height' => intval($out['height'])
+					];
+				}
+			}
+		}
+
+		// 2. 如果没有图片，尝试从 source_record_id 获取
+		if(empty($images) && !empty($template['source_record_id'])){
+			$srcOutputs = Db::name('generation_output')
+				->where('record_id', $template['source_record_id'])
+				->where('output_type', 'image')
+				->field('output_url, thumbnail_url, width, height')
+				->order('sort asc')
+				->limit($limit)
+				->select()
+				->toArray();
+			foreach($srcOutputs as $out){
+				if(!empty($out['output_url'])){
+					$images[] = [
+						'output_url' => $out['output_url'],
+						'thumbnail_url' => $out['thumbnail_url'] ?: $out['output_url'],
+						'width' => intval($out['width']),
+						'height' => intval($out['height'])
+					];
+				}
+			}
+		}
+
+		// 3. 兜底：使用模板自身的 cover_image
+		if(empty($images) && !empty($template['cover_image'])){
+			$images[] = [
+				'output_url' => $template['cover_image'],
+				'thumbnail_url' => $template['cover_image'],
+				'width' => 0,
+				'height' => 0
+			];
+		}
+
+		return json([
+			'status' => 1,
+			'msg' => '获取成功',
+			'data' => [
+				'template_name' => $template['template_name'],
+				'images' => $images,
+				'total' => count($images)
+			]
+		]);
 	}
 }

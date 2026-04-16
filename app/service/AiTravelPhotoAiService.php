@@ -873,10 +873,18 @@ class AiTravelPhotoAiService
      */
     private function callImageGenerationApi(array $params, $scene): array
     {
-        // 1. 查询API配置
-        $apiConfig = \app\model\ApiConfig::where('id', $scene->api_config_id)
-            ->where('is_active', 1)
-            ->find();
+        // 1. 查询API配置：优先 api_config_id（场景方式），回退 model_id（模板方式）
+        $apiConfig = null;
+        if (!empty($scene->api_config_id)) {
+            $apiConfig = \app\model\ApiConfig::where('id', $scene->api_config_id)
+                ->where('is_active', 1)
+                ->find();
+        }
+        if (!$apiConfig && !empty($scene->model_id)) {
+            $apiConfig = \app\model\ApiConfig::where('model_id', $scene->model_id)
+                ->where('is_active', 1)
+                ->find();
+        }
         
         if (!$apiConfig) {
             throw new \Exception('API配置不存在或未启用');
@@ -907,10 +915,18 @@ class AiTravelPhotoAiService
      */
     private function callVideoGenerationApi(array $params, $scene): array
     {
-        // 1. 查询API配置
-        $apiConfig = \app\model\ApiConfig::where('id', $scene->api_config_id)
-            ->where('is_active', 1)
-            ->find();
+        // 1. 查询API配置：优先 api_config_id（场景方式），回退 model_id（模板方式）
+        $apiConfig = null;
+        if (!empty($scene->api_config_id)) {
+            $apiConfig = \app\model\ApiConfig::where('id', $scene->api_config_id)
+                ->where('is_active', 1)
+                ->find();
+        }
+        if (!$apiConfig && !empty($scene->model_id)) {
+            $apiConfig = \app\model\ApiConfig::where('model_id', $scene->model_id)
+                ->where('is_active', 1)
+                ->find();
+        }
         
         if (!$apiConfig) {
             throw new \Exception('API配置不存在或未启用');

@@ -5,6 +5,8 @@ namespace app\service;
 
 use app\model\AiTravelPhotoResult;
 use app\common\OssHelper;
+use app\common\Pic;
+use app\service\ImagePersistService;
 use think\facade\Cache;
 
 /**
@@ -163,9 +165,15 @@ class AiTravelPhotoWatermarkService
             $this->addTextWatermark($sourceImage, $imageWidth, $imageHeight, $options);
         }
         
-        // 保存处理后的图片
+        // 保存处理后的图片（转为 WebP 格式）
         $outputFile = runtime_path() . 'temp/watermark_' . uniqid() . '.jpg';
         imagejpeg($sourceImage, $outputFile, $this->config['quality'] ?? 90);
+        
+        // 尝试转为 WebP 格式
+        $webpFile = Pic::convertToWebp($outputFile, ImagePersistService::DEFAULT_QUALITY);
+        if ($webpFile && $webpFile !== $outputFile) {
+            $outputFile = $webpFile;
+        }
         
         // 释放资源
         imagedestroy($sourceImage);
@@ -366,7 +374,7 @@ class AiTravelPhotoWatermarkService
     }
 
     /**
-     * 上传水印图片到OSS
+     * 上传水印图片到OSS（WebP 格式优先）
      * 
      * @param string $localFile 本地文件路径
      * @param AiTravelPhotoResult $result 结果对象
@@ -374,10 +382,22 @@ class AiTravelPhotoWatermarkService
      */
     private function uploadWatermarkedImage(string $localFile, $result): string
     {
-        $ossPath = config('ai_travel_photo.oss.ai_travel_photo_path', 'ai_travel_photo/') .
-            "watermark/{$result->portrait->md5}_{$result->scene_id}_" . time() . "_wm.jpg";
+        // 使用 ImagePersistService 统一上传流程
+        $aid = $result->aid ?? (defined('aid') ? aid : 0);
+        $ext = pathinfo($localFile, PATHINFO_EXTENSION) ?: 'webp';
+        $uniqueId = substr(md5(uniqid((string)mt_rand(), true)), 0, 10);
+        $subDir = "upload/{$aid}/" . date('Ymd');
+        $targetDir = ROOT_PATH . $subDir;
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0755, true);
+        }
+        $filename = "wm_{$uniqueId}.{$ext}";
+        copy($localFile, $targetDir . '/' . $filename);
         
-        return $this->ossHelper->uploadFile($localFile, $ossPath);
+        $localUrl = PRE_URL . '/' . $subDir . '/' . $filename;
+        $ossUrl = Pic::uploadoss($localUrl, false, false);
+        
+        return $ossUrl ?: $localUrl;
     }
 
     /**

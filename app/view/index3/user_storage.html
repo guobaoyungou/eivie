@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="/static/index3/css/pay.css?v=9">
     <link rel="stylesheet" href="/static/index3/css/responsive.css?v=6">
     <script src="/static/index3/js/theme.js?v=1"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 </head>
 <body>
 <div class="layout-wrapper">
@@ -24,7 +25,7 @@
             <!-- 存储概览 -->
             <div class="storage-overview" id="storageOverview">
                 <div class="so-member-badge" id="soMemberBadge" style="display:none"></div>
-                <div class="so-title">☁️ 云端空间</div>
+                <div class="so-title"><i data-lucide="cloud" style="width:20px;height:20px"></i> 云端空间</div>
                 <div class="so-usage" id="soUsage">-- GB</div>
                 <div class="so-quota" id="soQuota">总配额 -- GB，已使用 --%</div>
                 <div class="so-progress-bar"><div class="so-progress-fill normal" id="soProgressFill" style="width:0%"></div></div>
@@ -46,7 +47,7 @@
 
             <!-- 过期提示横幅 -->
             <div class="expiry-banner" id="expiryBanner">
-                <span class="eb-text">⚠️ 部分生成文件的链接即将过期，请及时下载到本地保存</span>
+                <span class="eb-text"><i data-lucide="alert-triangle"></i> 部分生成文件的链接即将过期，请及时下载到本地保存</span>
                 <button class="eb-btn" onclick="batchDownloadExpiring()">下载即将过期文件</button>
             </div>
 
@@ -66,7 +67,7 @@
 
             <!-- 空状态 -->
             <div class="empty-state" id="emptyState" style="display:none">
-                <div class="es-icon">📁</div>
+                <div class="es-icon"><i data-lucide="folder-open"></i></div>
                 <div class="es-text">暂无文件</div>
             </div>
 
@@ -82,7 +83,7 @@
     <div class="bb-info">已选择 <span id="bbCount">0</span> 个文件</div>
     <div class="bb-actions">
         <button class="bb-btn bb-btn-cancel" onclick="clearSelection()">取消</button>
-        <button class="bb-btn bb-btn-download" onclick="batchDownloadSelected()">⬇ 下载</button>
+        <button class="bb-btn bb-btn-download" onclick="batchDownloadSelected()"><i data-lucide="download" style="width:14px;height:14px"></i> 下载</button>
         <button class="bb-btn bb-btn-delete" onclick="deleteSelected()">删除</button>
     </div>
 </div>
@@ -96,7 +97,7 @@
     <div class="lightbox-toolbar" id="lightboxToolbar">
         <span class="lightbox-info" id="lightboxInfo"></span>
         <span class="lightbox-countdown-bar" id="lightboxCountdown"></span>
-        <button class="lightbox-btn-dl" onclick="lightboxDownload()">⬇ 下载到本地</button>
+        <button class="lightbox-btn-dl" onclick="lightboxDownload()"><i data-lucide="download" style="width:14px;height:14px"></i> 下载到本地</button>
     </div>
 </div>
 
@@ -194,14 +195,14 @@
         var badge = document.getElementById('soMemberBadge');
         if(info.is_member){
             badge.style.display = 'block';
-            badge.textContent = '👑 '+escapeHtml(info.version_name||'创作会员');
+            badge.innerHTML = '<i data-lucide="crown"></i> '+escapeHtml(info.version_name||'创作会员');
         } else { badge.style.display = 'none'; }
         var banner = document.getElementById('warningBanner');
         var warnText = document.getElementById('warningText');
         banner.className = 'storage-warning-banner';
         if(info.warning_level==='warning'){
             banner.classList.add('warning');
-            warnText.textContent = '⚠️ 存储空间即将用满（已用'+info.used_percent+'%），建议清理文件或升级会员';
+            warnText.innerHTML = '<i data-lucide="alert-triangle"></i> 存储空间即将用满（已用'+info.used_percent+'%），建议清理文件或升级会员';
         } else if(info.warning_level==='critical'){
             banner.classList.add('critical');
             warnText.textContent = '🔶 存储空间严重不足（已用'+info.used_percent+'%），请尽快清理或升级会员';
@@ -276,9 +277,9 @@
                 if(f.thumbnail_url){
                     html += '<img class="fc-thumb" src="'+escapeHtml(f.thumbnail_url)+'" alt="" onerror="this.style.background=\'#1a1a2e\'">';
                 } else {
-                    html += '<div class="fc-thumb" style="background:#1a1a2e;display:flex;align-items:center;justify-content:center"><span style="font-size:40px;opacity:.5">🎬</span></div>';
+                    html += '<div class="fc-thumb" style="background:#1a1a2e;display:flex;align-items:center;justify-content:center"><i data-lucide="video" style="width:40px;height:40px;opacity:.5;color:#6366f1"></i></div>';
                 }
-                html += '<div class="fc-play-btn">▶</div>';
+                html += '<div class="fc-play-btn"><i data-lucide="play" style="width:24px;height:24px"></i></div>';
                 html += '<span class="fc-type-badge video">视频</span>';
             } else {
                 html += '<img class="fc-thumb" src="'+escapeHtml(thumbUrl)+'" alt="" onerror="this.src=\'/static/index3/img/default_avatar.svg\'">';
@@ -297,10 +298,10 @@
             html += '</div>'; // close fc-thumb-wrap
             // 勾选框
             html += '<div class="fc-check" onclick="event.stopPropagation();toggleSelect('+f.id+')">'+(isSelected?'✓':'')+'</div>';
-            if(f.is_template_ref) html += '<div class="fc-lock">🔒</div>';
+            if(f.is_template_ref) html += '<div class="fc-lock"><i data-lucide="lock"></i></div>';
             // 底部信息 + 下载按钮
             html += '<div class="fc-info"><div class="fc-meta"><div class="fc-size">'+(f.file_size_text||'--')+'</div><div class="fc-time">'+(f.create_time||'')+'</div></div>';
-            html += '<button class="fc-dl-btn" onclick="event.stopPropagation();downloadFile('+f.id+')" title="下载">⬇</button>';
+            html += '<button class="fc-dl-btn" onclick="event.stopPropagation();downloadFile('+f.id+')" title="下载"><i data-lucide="download" style="width:14px;height:14px"></i></button>';
             html += '</div></div>';
         }
         grid.innerHTML = html;
@@ -412,7 +413,7 @@
         var now = Math.floor(Date.now()/1000);
         var remain = (f.expire_time||0) - now;
         if(remain <= 0){
-            cdEl.textContent = '⚠️ 链接已过期，可能无法播放/显示';
+            cdEl.innerHTML = '<i data-lucide="alert-triangle"></i> 链接已过期，可能无法播放/显示';
             cdEl.style.color = '#ef4444';
         } else {
             cdEl.textContent = '⏳ 链接将在 '+formatCountdown(remain)+' 后过期，请及时下载';
