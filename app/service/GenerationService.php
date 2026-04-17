@@ -170,9 +170,40 @@ class GenerationService
             'order_id' => $data['order_id'] ?? 0
         ]);
         
-        // 直接同步执行生成任务（请求立即处理）
-        // 注：对于异步模型（视频生成等），会先返回任务ID，前端轮询状态
-        $this->executeGeneration($record->id);
+        // 判断是否需要异步队列执行
+        // SeeDream多图SSE流式请求（max_images>1）耗时可达540~810秒，
+        // 在Web(PHP-FPM)上下文中会被 max_execution_time 杀死进程，
+        // 导致 markFailed() 永远不执行、记录永远卡在 status=1
+        $needQueue = false;
+        if ($this->isSeedreamImageModel($model['model_code'])) {
+            $maxImages = 1;
+            $seqOpts = $inputParams['sequential_image_generation_options'] ?? null;
+            if (is_string($seqOpts)) {
+                $seqOpts = json_decode($seqOpts, true);
+            }
+            if (is_array($seqOpts) && isset($seqOpts['max_images'])) {
+                $maxImages = intval($seqOpts['max_images']);
+            }
+            // 多图生成（max_images > 1）需要长时间SSE流式等待，必须放入队列异步执行
+            if ($maxImages > 1) {
+                $needQueue = true;
+            }
+        }
+
+        if ($needQueue) {
+            // 异步队列执行：CLI worker 无 max_execution_time 限制
+            // 使用专属队列 seedream_generation，worker --timeout 1200 以支持多图长耗时
+            Queue::push('app\job\GenerationJob', ['record_id' => $record->id], 'seedream_generation');
+            Log::info('SeeDream多图任务已推送队列异步执行', [
+                'record_id' => $record->id,
+                'model_code' => $model['model_code'],
+                'max_images' => $maxImages ?? 1,
+            ]);
+        } else {
+            // 直接同步执行生成任务（请求立即处理）
+            // 注：对于异步模型（视频生成等），会先返回任务ID，前端轮询状态
+            $this->executeGeneration($record->id);
+        }
         
         // 如果使用了场景模板，增加使用计数
         $sceneId = $data['scene_id'] ?? 0;
@@ -355,8 +386,33 @@ class GenerationService
             'request_body' => $requestBody
         ]);
         
+        // 计算请求超时：SeeDream SSE流式多图请求需要更长超时
+        // 每张图约60-90秒，预留120秒/张的安全余量
+        $timeout = 300; // 默认5分钟
+        if ($this->isSeedreamImageModel($model['model_code'])) {
+            $stream = filter_var($inputParams['stream'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $seqOpts = $inputParams['sequential_image_generation_options'] ?? null;
+            if (is_string($seqOpts)) {
+                $seqOpts = json_decode($seqOpts, true);
+            }
+            $maxImages = (is_array($seqOpts) && isset($seqOpts['max_images'])) ? intval($seqOpts['max_images']) : 1;
+            if ($stream && $maxImages > 1) {
+                // 多图SSE：每张预留120秒 + 60秒缓冲，最低600秒
+                $timeout = max(600, $maxImages * 120 + 60);
+            } else {
+                // 单图或非流式：给予足够时间（10分钟）
+                $timeout = 600;
+            }
+            Log::info('SeeDream请求超时设置', [
+                'model' => $model['model_code'],
+                'stream' => $stream,
+                'max_images' => $maxImages,
+                'timeout' => $timeout,
+            ]);
+        }
+
         // 发送请求
-        $response = $this->sendHttpRequest($endpoint, 'POST', $headers, $requestBody);
+        $response = $this->sendHttpRequest($endpoint, 'POST', $headers, $requestBody, $timeout);
         
         // 记录响应日志
         \think\facade\Log::info('模型API响应(callModelApi) http_code=' . $response['http_code'] 
@@ -556,6 +612,11 @@ class GenerationService
             return $this->buildAliyunWanRequestBody($modelCode, $inputParams);
         }
         
+        // 检查是否是豆包SeeDream图像生成模型（需要严格参数白名单过滤）
+        if ($this->isSeedreamImageModel($modelCode)) {
+            return $this->buildSeedreamRequestBody($modelCode, $inputParams);
+        }
+        
         $body = [
             'model' => $modelCode
         ];
@@ -633,6 +694,199 @@ class GenerationService
         ];
         
         return in_array($baseCode, $seedanceModels) || strpos($modelCode, 'doubao-seedance') === 0;
+    }
+    
+    /**
+     * 检查是否为豆包SeeDream图像生成模型
+     * SeeDream模型需要严格的参数白名单过滤，不能透传所有用户输入参数
+     * 注意：排除Seedance视频模型
+     * 
+     * @param string $modelCode 模型代码
+     * @return bool
+     */
+    protected function isSeedreamImageModel($modelCode)
+    {
+        // 排除Seedance视频模型
+        if (strpos($modelCode, 'doubao-seedance') === 0) {
+            return false;
+        }
+        return strpos($modelCode, 'doubao-seedream') === 0;
+    }
+    
+    /**
+     * 为豆包SeeDream图像生成模型构建请求体（严格参数白名单过滤）
+     * 
+     * SeeDream系列模型对API参数有严格要求，不支持的参数会导致HTTP 400错误。
+     * 不同子系列支持的参数不同：
+     * 
+     * 5.0-lite/4.5/4.0 通用参数：
+     *   model, prompt, image, size, n, response_format, stream,
+     *   sequential_image_generation, sequential_image_generation_options, optimize_prompt_options
+     * 5.0-lite 独有：tools, output_format
+     * 3.0-t2i 专属：model, prompt, size, n, seed, guidance_scale, response_format
+     * 注意：watermark 参数不被 SeeDream API 接受，传递会导致 HTTP 400 错误
+     * 
+     * 需要过滤的无效参数：strength, edit_mode, num_inference_steps, output_quality 等
+     * 需要映射的参数：reference_image → image, prompt_extend → optimize_prompt_options
+     * 
+     * @param string $modelCode 模型代码
+     * @param array $inputParams 用户输入参数
+     * @return array 符合SeeDream API格式的请求体
+     */
+    protected function buildSeedreamRequestBody($modelCode, $inputParams)
+    {
+        $modelLower = strtolower($modelCode);
+        $is30t2i  = (strpos($modelLower, 'seedream-3') !== false || strpos($modelLower, '3-0-t2i') !== false);
+        $is50lite = (strpos($modelLower, 'seedream-5') !== false || strpos($modelLower, '5-0') !== false);
+        
+        // ========== 公共参数（所有SeeDream模型都支持） ==========
+        $body = [
+            'model' => $modelCode,
+        ];
+        
+        // prompt（必填）
+        $prompt = $inputParams['prompt'] ?? $inputParams['text'] ?? '';
+        if (!empty($prompt)) {
+            $body['prompt'] = $prompt;
+        }
+        
+        // size 尺寸
+        if (!empty($inputParams['size'])) {
+            $body['size'] = $inputParams['size'];
+        } else {
+            $body['size'] = $is30t2i ? '1024x1024' : '2K';
+        }
+        
+        // SeeDream 5.0 Lite 最低像素要求 3686400（1920x1920）
+        // 当 size 为 WxH 格式且像素不足时，按比例放大到满足最低要求
+        if ($is50lite && !empty($body['size']) && preg_match('/^(\d+)x(\d+)$/i', $body['size'], $m)) {
+            $w = intval($m[1]);
+            $h = intval($m[2]);
+            $minPixels = 3686400;
+            $currentPixels = $w * $h;
+            if ($currentPixels > 0 && $currentPixels < $minPixels) {
+                $scale = sqrt($minPixels / $currentPixels);
+                // 向上取整到最近的64倍数（GPU友好）
+                $newW = (int)(ceil(($w * $scale) / 64) * 64);
+                $newH = (int)(ceil(($h * $scale) / 64) * 64);
+                \think\facade\Log::info('buildSeedreamRequestBody: SeeDream 5.0 Lite尺寸不足，自动放大', [
+                    'original_size' => $body['size'],
+                    'original_pixels' => $currentPixels,
+                    'new_size' => $newW . 'x' . $newH,
+                    'new_pixels' => $newW * $newH,
+                    'min_pixels' => $minPixels,
+                ]);
+                $body['size'] = $newW . 'x' . $newH;
+            }
+        }
+        
+        // n 生成数量
+        if (isset($inputParams['n']) && $inputParams['n'] !== '' && $inputParams['n'] !== null) {
+            $body['n'] = intval($inputParams['n']);
+        }
+        
+        // response_format
+        if (!empty($inputParams['response_format'])) {
+            $body['response_format'] = $inputParams['response_format'];
+        }
+        
+        // 注意：watermark 参数不被 SeeDream API 接受（5.0-lite/4.5/4.0/3.0-t2i 均会返回 HTTP 400），不传递此参数
+        
+        if ($is30t2i) {
+            // ========== 3.0-t2i 专属参数 ==========
+            // 3.0-t2i 仅支持文生图，不传 image/stream/sequential_image_generation 等参数
+            if (isset($inputParams['seed']) && $inputParams['seed'] !== '' && $inputParams['seed'] !== null && $inputParams['seed'] !== '-1') {
+                $body['seed'] = intval($inputParams['seed']);
+            }
+            if (isset($inputParams['guidance_scale']) && $inputParams['guidance_scale'] !== '' && $inputParams['guidance_scale'] !== null) {
+                $body['guidance_scale'] = floatval($inputParams['guidance_scale']);
+            }
+        } else {
+            // ========== 5.0-lite / 4.5 / 4.0 通用参数 ==========
+            
+            // image 参考图：支持从 reference_image 或 image 字段获取
+            $imageValue = null;
+            if (!empty($inputParams['image'])) {
+                $imageValue = $inputParams['image'];
+            } elseif (!empty($inputParams['reference_image'])) {
+                $imageValue = $inputParams['reference_image'];
+            }
+            if (!empty($imageValue)) {
+                // 如果是逗号分隔的多图URL，转为数组
+                if (is_string($imageValue) && strpos($imageValue, ',') !== false) {
+                    $imageValue = array_filter(array_map('trim', explode(',', $imageValue)));
+                    $imageValue = array_values($imageValue);
+                }
+                $body['image'] = $imageValue;
+            }
+            
+            // stream 流式输出
+            if (isset($inputParams['stream'])) {
+                $body['stream'] = filter_var($inputParams['stream'], FILTER_VALIDATE_BOOLEAN);
+            }
+            
+            // sequential_image_generation 组图模式
+            if (isset($inputParams['sequential_image_generation']) && $inputParams['sequential_image_generation'] !== '' && $inputParams['sequential_image_generation'] !== null) {
+                $body['sequential_image_generation'] = $inputParams['sequential_image_generation'];
+                // 组图选项（max_images等）
+                if (isset($inputParams['sequential_image_generation_options'])) {
+                    $opts = $inputParams['sequential_image_generation_options'];
+                    if (is_string($opts)) {
+                        $decoded = json_decode($opts, true);
+                        if ($decoded !== null) {
+                            $opts = $decoded;
+                        }
+                    }
+                    $body['sequential_image_generation_options'] = $opts;
+                }
+            } elseif (!empty($imageValue) && !isset($body['sequential_image_generation_options'])) {
+                // 有image参数时默认设置
+                $body['sequential_image_generation_options'] = ['max_images' => 1];
+            }
+            
+            // optimize_prompt_options 提示词优化
+            if (isset($inputParams['optimize_prompt_options'])) {
+                $opts = $inputParams['optimize_prompt_options'];
+                if (is_string($opts)) {
+                    $decoded = json_decode($opts, true);
+                    if ($decoded !== null) {
+                        $opts = $decoded;
+                    }
+                }
+                $body['optimize_prompt_options'] = $opts;
+            } elseif (isset($inputParams['prompt_extend']) && $inputParams['prompt_extend'] == '1') {
+                // prompt_extend=1 映射为 optimize_prompt_options.mode=standard
+                $body['optimize_prompt_options'] = ['mode' => 'standard'];
+            }
+            
+            // ---- 5.0-lite 独有参数 ----
+            if ($is50lite) {
+                // tools 联网搜索工具
+                if (isset($inputParams['tools'])) {
+                    $tools = $inputParams['tools'];
+                    if (is_string($tools)) {
+                        $decoded = json_decode($tools, true);
+                        if ($decoded !== null) {
+                            $tools = $decoded;
+                        }
+                    }
+                    $body['tools'] = $tools;
+                }
+                // output_format 输出格式（png/jpeg）
+                if (!empty($inputParams['output_format'])) {
+                    $body['output_format'] = $inputParams['output_format'];
+                }
+            }
+        }
+        
+        \think\facade\Log::info('buildSeedreamRequestBody: 构建SeeDream请求体', [
+            'model' => $modelCode,
+            'series' => $is30t2i ? '3.0-t2i' : ($is50lite ? '5.0-lite' : '4.5/4.0'),
+            'body_keys' => array_keys($body),
+            'filtered_params' => array_keys(array_diff_key($inputParams, $body))
+        ]);
+        
+        return $body;
     }
     
     /**
@@ -2260,13 +2514,13 @@ class GenerationService
     /**
      * 发送HTTP请求
      */
-    protected function sendHttpRequest($url, $method = 'POST', $headers = [], $data = null)
+    protected function sendHttpRequest($url, $method = 'POST', $headers = [], $data = null, $timeout = 300)
     {
         $ch = curl_init();
         
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 300);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
         
@@ -2760,7 +3014,7 @@ class GenerationService
     /**
      * 轮询处理中的异步任务记录
      * 在记录列表查询前调用，主动更新处理中任务的状态
-     * 支持: Seedance视频生成、DashScope图片生成
+     * 支持: Seedance视频生成、DashScope图片生成、volcengine/doubao SeeDream超时兜底
      * @param array $where 查询条件
      */
     protected function pollProcessingAsyncRecords($where)
@@ -2793,8 +3047,35 @@ class GenerationService
                 } elseif ($this->isJimengModel($providerCode)) {
                     // 即梦AI图片生成模型
                     $this->pollJimengTaskStatus($record);
+                } elseif ($this->isVolcengineSeeDreamModel($modelCode, $providerCode)) {
+                    // 火山引擎/豆包 SeeDream 图片生成模型（同步调用，仅做超时兜底）
+                    $this->checkSeeDreamTimeout($record);
                 }
                 // 其他模型暂不支持异步轮询，跳过
+            }
+            
+            // 额外扫描：查找 volcengine/doubao 模型中没有 task_id 但卡在处理中的记录（同步调用崩溃场景）
+            $stuckSeeDreamRecords = Db::name('generation_record')
+                ->alias('r')
+                ->leftJoin('model_info m', 'r.model_id = m.id')
+                ->leftJoin('model_provider p', 'm.provider_id = p.id')
+                ->field('r.id, r.task_id, r.model_id, r.model_code, r.start_time, p.provider_code')
+                ->where($where)
+                ->where('r.status', GenerationRecord::STATUS_PROCESSING)
+                ->where(function($query) {
+                    $query->whereNull('r.task_id')->whereOr('r.task_id', '');
+                })
+                ->whereIn('p.provider_code', ['volcengine', 'doubao'])
+                ->limit(10)
+                ->select()
+                ->toArray();
+            
+            foreach ($stuckSeeDreamRecords as $record) {
+                $modelCode = $record['model_code'] ?? '';
+                $providerCode = $record['provider_code'] ?? '';
+                if ($this->isVolcengineSeeDreamModel($modelCode, $providerCode)) {
+                    $this->checkSeeDreamTimeout($record);
+                }
             }
         } catch (\Exception $e) {
             \think\facade\Log::error('pollProcessingAsyncRecords 异常: ' . $e->getMessage());
@@ -2809,6 +3090,94 @@ class GenerationService
     protected function isDashScopeModel($providerCode)
     {
         return in_array($providerCode, ['aliyun', 'dashscope', 'alibaba', 'aishi']);
+    }
+    
+    /**
+     * 检查是否为火山引擎/豆包 SeeDream 图片生成模型
+     * SeeDream模型通过同步SSE调用，不支持异步轮询，仅用于超时兜底检测
+     * 
+     * @param string $modelCode 模型代码
+     * @param string $providerCode 供应商代码
+     * @return bool
+     */
+    protected function isVolcengineSeeDreamModel($modelCode, $providerCode)
+    {
+        // 必须是volcengine或doubao供应商
+        if (!in_array($providerCode, ['volcengine', 'doubao'])) {
+            return false;
+        }
+        // 排除Seedance视频模型（已有单独的轮询逻辑）
+        if ($this->isSeedanceVideoModel($modelCode)) {
+            return false;
+        }
+        // 剩下的volcengine/doubao模型即为SeeDream图片模型
+        return true;
+    }
+    
+    /**
+     * 检查 SeeDream 模型记录是否超时，超时则自动标记为失败
+     * SeeDream模型通过同步SSE调用，单图正常应在60~90秒内完成
+     * 多图(max_images>1)通过队列异步执行，每张约60~90秒，总耗时可达540~810秒
+     * 
+     * 超时阈值按 max_images 动态计算：
+     *   单图：600秒（10分钟）
+     *   多图：max_images × 150 + 300 秒（预留充足余量，避免与队列worker竞态）
+     * 
+     * @param array $record 生成记录（数据库行）
+     * @return void
+     */
+    protected function checkSeeDreamTimeout($record)
+    {
+        $startTime = intval($record['start_time'] ?? 0);
+        if ($startTime <= 0) {
+            return;
+        }
+        
+        // 从 input_params 解析 max_images 以动态计算超时阈值
+        $maxImages = 1;
+        $inputParams = $record['input_params'] ?? null;
+        if (empty($inputParams) && !empty($record['id'])) {
+            // 如果record数组中没有input_params，单独查询
+            $inputParams = Db::name('generation_record')->where('id', $record['id'])->value('input_params');
+        }
+        if (is_string($inputParams)) {
+            $inputParams = json_decode($inputParams, true);
+        }
+        if (is_array($inputParams)) {
+            $seqOpts = $inputParams['sequential_image_generation_options'] ?? null;
+            if (is_string($seqOpts)) {
+                $seqOpts = json_decode($seqOpts, true);
+            }
+            if (is_array($seqOpts) && isset($seqOpts['max_images'])) {
+                $maxImages = max(1, intval($seqOpts['max_images']));
+            }
+        }
+        
+        // 动态超时：单图600秒，多图按 max_images * 150 + 300 计算
+        // 确保超过 curl 超时（max_images * 120 + 60）+ 队列调度延迟
+        if ($maxImages > 1) {
+            $timeoutSeconds = $maxImages * 150 + 300;
+        } else {
+            $timeoutSeconds = 600; // 单图10分钟
+        }
+        
+        $elapsed = time() - $startTime;
+        
+        if ($elapsed > $timeoutSeconds) {
+            \think\facade\Log::warning('checkSeeDreamTimeout: SeeDream记录超时，自动标记为失败', [
+                'record_id' => $record['id'],
+                'model_code' => $record['model_code'] ?? '',
+                'start_time' => date('Y-m-d H:i:s', $startTime),
+                'elapsed_seconds' => $elapsed,
+                'timeout_seconds' => $timeoutSeconds,
+                'max_images' => $maxImages,
+            ]);
+            
+            $recordModel = GenerationRecord::find($record['id']);
+            if ($recordModel && $recordModel->status == GenerationRecord::STATUS_PROCESSING) {
+                $recordModel->markFailed('TIMEOUT', '生成任务超时（超过' . intval($timeoutSeconds / 60) . '分钟），请重试');
+            }
+        }
     }
     
     /**
@@ -2859,22 +3228,30 @@ class GenerationService
         $progress = 0; // 进度百分比
         
         // 如果记录处于处理中状态，根据模型类型主动查询外部异步任务状态
-        if ($record['status'] == GenerationRecord::STATUS_PROCESSING && !empty($record['task_id'])) {
+        if ($record['status'] == GenerationRecord::STATUS_PROCESSING) {
             $modelCode = $record['model_code'] ?? '';
             $providerCode = $record['provider_code'] ?? '';
             
-            if ($this->isSeedanceVideoModel($modelCode)) {
-                // Seedance视频模型
-                $pollResult = $this->pollSeedanceTaskStatus($record);
-                $progress = $pollResult['progress'] ?? 0;
-            } elseif ($this->isJimengModel($providerCode)) {
-                // 即梦AI图片生成模型
-                $pollResult = $this->pollJimengTaskStatus($record);
-                $progress = $pollResult['progress'] ?? 0;
-            } elseif ($this->isDashScopeModel($providerCode)) {
-                // DashScope图片生成模型
-                $pollResult = $this->pollDashScopeTaskStatus($record);
-                $progress = $pollResult['progress'] ?? 0;
+            // 异步轮询类模型（需要task_id）
+            if (!empty($record['task_id'])) {
+                if ($this->isSeedanceVideoModel($modelCode)) {
+                    // Seedance视频模型
+                    $pollResult = $this->pollSeedanceTaskStatus($record);
+                    $progress = $pollResult['progress'] ?? 0;
+                } elseif ($this->isJimengModel($providerCode)) {
+                    // 即梦AI图片生成模型
+                    $pollResult = $this->pollJimengTaskStatus($record);
+                    $progress = $pollResult['progress'] ?? 0;
+                } elseif ($this->isDashScopeModel($providerCode)) {
+                    // DashScope图片生成模型
+                    $pollResult = $this->pollDashScopeTaskStatus($record);
+                    $progress = $pollResult['progress'] ?? 0;
+                }
+            }
+            
+            // 火山引擎/豆包 SeeDream 图片模型：同步调用，无需task_id，仅做超时兜底检测
+            if ($this->isVolcengineSeeDreamModel($modelCode, $providerCode)) {
+                $this->checkSeeDreamTimeout($record);
             }
             
             // 重新读取记录（状态可能已被更新）

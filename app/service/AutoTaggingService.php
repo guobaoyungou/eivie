@@ -519,17 +519,24 @@ class AutoTaggingService
                 $defaultParams = json_decode($defaultParams, true) ?: [];
             }
             if (is_array($defaultParams)) {
-                // 检查 ref_image
+                // 检查 ref_image / image（可能是字符串URL或数组）
                 $refImage = $defaultParams['ref_image'] ?? $defaultParams['image'] ?? '';
-                if (!empty($refImage) && $this->isValidImageUrl($refImage)) {
+                // 如果是数组（多张参考图），取第一张
+                if (is_array($refImage)) {
+                    $refImage = !empty($refImage) ? (is_array($refImage[0]) ? ($refImage[0]['url'] ?? $refImage[0]['src'] ?? '') : $refImage[0]) : '';
+                }
+                if (is_string($refImage) && !empty($refImage) && $this->isValidImageUrl($refImage)) {
                     return $refImage;
                 }
             }
         }
 
-        // 优先级3：cover_image
+        // 优先级3：cover_image（可能是字符串或数组）
         $coverImage = $templateData['cover_image'] ?? '';
-        if (!empty($coverImage) && $this->isValidImageUrl($coverImage)) {
+        if (is_array($coverImage)) {
+            $coverImage = !empty($coverImage) ? (is_string($coverImage[0]) ? $coverImage[0] : '') : '';
+        }
+        if (is_string($coverImage) && !empty($coverImage) && $this->isValidImageUrl($coverImage)) {
             return $coverImage;
         }
 

@@ -95,6 +95,30 @@
             </div>
           </div>
           
+          <!-- 成片图像展示区域 -->
+          {if condition="!empty($output_images)"}
+          <div class="layui-form-item">
+            <label class="layui-form-label">成片图像</label>
+            <div class="layui-input-block">
+              <div id="outputImagesGallery" style="display:flex;flex-wrap:wrap;gap:8px;padding:5px 0">
+                {volist name="output_images" id="img"}
+                <div style="position:relative;width:80px;height:80px;border:1px solid #e6e6e6;border-radius:4px;overflow:hidden;cursor:pointer" onclick="previewOutputImage('{$img.url}')">
+                  <img src="{$img.thumbnail}" style="width:100%;height:100%;object-fit:cover" title="{$img.width}x{$img.height}">
+                </div>
+                {/volist}
+              </div>
+              <div class="layui-form-mid layui-word-aux">共 {$output_images|count} 张成片图像，点击可预览大图</div>
+            </div>
+          </div>
+          {else/}
+          <div class="layui-form-item">
+            <label class="layui-form-label">成片图像</label>
+            <div class="layui-input-block">
+              <div class="layui-form-mid layui-word-aux" style="padding-left:0;color:#999">暂无成片图像</div>
+            </div>
+          </div>
+          {/if}
+          
           <div class="layui-form-item layui-form-text">
             <label class="layui-form-label">模板描述</label>
             <div class="layui-input-block">
@@ -1002,6 +1026,18 @@
     }
     renderGroupTags();
     layer.closeAll();
+  }
+  // 预览成片图像大图
+  function previewOutputImage(url) {
+    layer.photos({
+      photos: {
+        title: '成片图像预览',
+        id: 'outputImagePreview',
+        start: 0,
+        data: [{alt: '成片图像', pid: 0, src: url, thumb: url}]
+      },
+      anim: 5
+    });
   }
   </script>
 </body>

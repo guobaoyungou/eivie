@@ -1,0 +1,16 @@
+[Unit]
+Description=ThinkPHP Queue Worker - auto_image_tagging
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/www/ai.eivie.cn
+ExecStart=/usr/bin/php think queue:work --queue auto_image_tagging --tries 3 --timeout 60
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

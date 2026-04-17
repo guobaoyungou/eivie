@@ -494,11 +494,70 @@ class VideoGeneration extends Common
             $modelMaxOutput = $this->service->getModelMaxOutput($info['model_id']);
         }
         
+        // 获取该模板的所有成片图像
+        // 获取该模板的所有成片图像（自动转存第三方链接到本系统COS）
+        $outputImages = [];
+        if ($id > 0) {
+            $rawOutputs = [];
+            // 1. 查询通过该模板生成的成功记录的输出图片
+            $recordIds = Db::name('generation_record')
+                ->where('scene_id', $id)
+                ->where('status', 2)
+                ->order('create_time desc')
+                ->column('id');
+            if (!empty($recordIds)) {
+                $rawOutputs = Db::name('generation_output')
+                    ->whereIn('record_id', $recordIds)
+                    ->where('output_type', 'image')
+                    ->field('id, output_url, thumbnail_url, width, height')
+                    ->order('id desc')
+                    ->select()
+                    ->toArray();
+            }
+            // 2. 如果没有图片，回退到 source_record_id
+            if (empty($rawOutputs) && !empty($info['source_record_id'])) {
+                $rawOutputs = Db::name('generation_output')
+                    ->where('record_id', $info['source_record_id'])
+                    ->where('output_type', 'image')
+                    ->field('id, output_url, thumbnail_url, width, height')
+                    ->order('id asc')
+                    ->select()
+                    ->toArray();
+            }
+            // 3. 对每张图片检查并转存第三方链接（ImagePersistService 内部已判断是否在目标存储中）
+            $persistService = new \app\service\ImagePersistService();
+            foreach ($rawOutputs as $out) {
+                if (empty($out['output_url'])) continue;
+                $url = $out['output_url'];
+                $thumbUrl = $out['thumbnail_url'] ?: $url;
+                // persistAndCompress 内部会检测是否已在目标存储中，若已在则直接返回
+                try {
+                    $newUrl = $persistService->persistAndCompress($url, defined('aid') ? aid : 0, 'generation');
+                    if (!empty($newUrl) && $newUrl !== $url) {
+                        // 转存成功，更新数据库记录
+                        Db::name('generation_output')->where('id', $out['id'])->update(['output_url' => $newUrl]);
+                        $url = $newUrl;
+                        $thumbUrl = $newUrl;
+                    }
+                } catch (\Exception $e) {
+                    \think\facade\Log::warning('scene_edit转存成片失败: ' . $e->getMessage(), ['id' => $out['id']]);
+                }
+                $outputImages[] = [
+                    'id' => $out['id'],
+                    'url' => $this->_toWebpUrl($url, 'main'),
+                    'thumbnail' => $this->_toWebpUrl($thumbUrl, 'thumb'),
+                    'width' => intval($out['width'] ?? 0),
+                    'height' => intval($out['height'] ?? 0)
+                ];
+            }
+        }
+        
         View::assign('info', $info);
         View::assign('models', $models);
         View::assign('models_json', json_encode($models, JSON_UNESCAPED_UNICODE));
         View::assign('levellist', $levellist);
         View::assign('model_max_output', $modelMaxOutput);
+        View::assign('output_images', $outputImages);
         
         return View::fetch();
     }
@@ -1122,5 +1181,64 @@ class VideoGeneration extends Common
         }
         
         return json($result);
+    }
+
+    /**
+     * 将图片URL转为WebP格式（云存储图片处理）
+     * 腾讯云COS使用imageMogr2，阿里云OSS使用x-oss-process
+     * @param string $url 原始URL
+     * @param string $mode 'main'主图(quality=85) | 'thumb'缩略图(thumbnail/200x + quality=75)
+     * @return string 处理后的URL
+     */
+    private function _toWebpUrl($url, $mode = 'main')
+    {
+        if (empty($url)) return $url;
+
+        $ext = strtolower(pathinfo(parse_url($url, PHP_URL_PATH) ?: '', PATHINFO_EXTENSION));
+        $isWebp = ($ext === 'webp');
+
+        // 已包含处理参数的不再追加
+        if (strpos($url, 'imageMogr2') !== false || strpos($url, 'x-oss-process') !== false) {
+            return $url;
+        }
+
+        $sep = (strpos($url, '?') !== false) ? '&' : '?';
+
+        // 腾讯云COS（数据万象 imageMogr2）
+        if (strpos($url, 'myqcloud.com') !== false) {
+            if ($mode === 'thumb') {
+                $params = 'imageMogr2/thumbnail/200x';
+                if (!$isWebp) $params .= '/format/webp';
+                $params .= '/quality/75';
+                return $url . $sep . $params;
+            } else {
+                $params = 'imageMogr2/thumbnail/1200x';
+                if (!$isWebp) $params .= '/format/webp';
+                $params .= '/quality/85';
+                return $url . $sep . $params;
+            }
+        }
+
+        // 阿里云OSS（图片处理）
+        $remoteset = Db::name('sysset')->where('name', 'remote')->value('value');
+        $remoteset = json_decode($remoteset, true);
+        $isAliOss = (intval($remoteset['type'] ?? 0) == 2 && !empty($remoteset['alioss']['url'])
+            && strpos($url, $remoteset['alioss']['url']) === 0);
+
+        if ($isAliOss) {
+            if ($mode === 'thumb') {
+                $proc = 'x-oss-process=image/resize,w_200';
+                if (!$isWebp) $proc .= '/format,webp';
+                $proc .= '/quality,q_75';
+                return $url . $sep . $proc;
+            } else {
+                $proc = 'x-oss-process=image/resize,w_1200';
+                if (!$isWebp) $proc .= '/format,webp';
+                $proc .= '/quality,q_85';
+                return $url . $sep . $proc;
+            }
+        }
+
+        return $url;
     }
 }

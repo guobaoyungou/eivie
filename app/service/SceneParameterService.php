@@ -348,30 +348,45 @@ class SceneParameterService
         if (!is_array($capabilityTags)) {
             $capabilityTags = json_decode($capabilityTags, true) ?? [];
         }
+
+        // 辅助函数：检查是否含任一标签（支持中英文标签）
+        $hasAny = function(array $tags) use ($capabilityTags) {
+            foreach ($tags as $tag) {
+                if (in_array($tag, $capabilityTags)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        $hasText2Image    = $hasAny(['text2image', '文生图']);
+        $hasImage2Image   = $hasAny(['image2image', '图生图', '单图生图']);
+        $hasBatchGen      = $hasAny(['batch_generation', '多图生成', '组图生成', '流式输出']);
+        $hasMultiInput    = $hasAny(['multi_input', '多图融合', '多图生图', '多图输入']);
         
         $supportedTypes = [];
         
-        // 场景1、2：文生图（需要text2image能力）
-        if (in_array('text2image', $capabilityTags)) {
+        // 场景1、2：文生图
+        if ($hasText2Image) {
             $supportedTypes[] = 1;
-            if (in_array('batch_generation', $capabilityTags)) {
+            if ($hasBatchGen) {
                 $supportedTypes[] = 2;
             }
         }
         
-        // 场景3、4、5、6：图生图（需要image2image能力）
-        if (in_array('image2image', $capabilityTags)) {
+        // 场景3、4、5、6：图生图
+        if ($hasImage2Image) {
             $supportedTypes[] = 3;
             
-            // 场景4、6：批量生成（需要batch_generation能力）
-            if (in_array('batch_generation', $capabilityTags)) {
+            // 场景4、6：批量生成
+            if ($hasBatchGen) {
                 $supportedTypes[] = 4;
             }
             
-            // 场景5、6：多图输入（需要multi_input能力）
-            if (in_array('multi_input', $capabilityTags)) {
+            // 场景5、6：多图输入
+            if ($hasMultiInput) {
                 $supportedTypes[] = 5;
-                if (in_array('batch_generation', $capabilityTags)) {
+                if ($hasBatchGen) {
                     $supportedTypes[] = 6;
                 }
             }

@@ -2638,9 +2638,11 @@ class Index extends BaseController
 				->toArray();
 			foreach($outputs as $out){
 				if(!empty($out['output_url'])){
+					$rawUrl = $out['output_url'];
+					$rawThumb = $out['thumbnail_url'] ?: $rawUrl;
 					$images[] = [
-						'output_url' => $out['output_url'],
-						'thumbnail_url' => $out['thumbnail_url'] ?: $out['output_url'],
+						'output_url' => $this->_toWebpUrl($rawUrl, 'main'),
+						'thumbnail_url' => $this->_toWebpUrl($rawThumb, 'thumb'),
 						'width' => intval($out['width']),
 						'height' => intval($out['height'])
 					];
@@ -2660,9 +2662,11 @@ class Index extends BaseController
 				->toArray();
 			foreach($srcOutputs as $out){
 				if(!empty($out['output_url'])){
+					$rawUrl = $out['output_url'];
+					$rawThumb = $out['thumbnail_url'] ?: $rawUrl;
 					$images[] = [
-						'output_url' => $out['output_url'],
-						'thumbnail_url' => $out['thumbnail_url'] ?: $out['output_url'],
+						'output_url' => $this->_toWebpUrl($rawUrl, 'main'),
+						'thumbnail_url' => $this->_toWebpUrl($rawThumb, 'thumb'),
 						'width' => intval($out['width']),
 						'height' => intval($out['height'])
 					];
@@ -2672,9 +2676,10 @@ class Index extends BaseController
 
 		// 3. 兜底：使用模板自身的 cover_image
 		if(empty($images) && !empty($template['cover_image'])){
+			$coverUrl = $template['cover_image'];
 			$images[] = [
-				'output_url' => $template['cover_image'],
-				'thumbnail_url' => $template['cover_image'],
+				'output_url' => $this->_toWebpUrl($coverUrl, 'main'),
+				'thumbnail_url' => $this->_toWebpUrl($coverUrl, 'thumb'),
 				'width' => 0,
 				'height' => 0
 			];
@@ -2689,5 +2694,68 @@ class Index extends BaseController
 				'total' => count($images)
 			]
 		]);
+	}
+
+	/**
+	 * 辅助：将图片URL转为压缩后的WebP格式
+	 * 通过云存储数据万象/图片处理参数实现，已是webp格式的不再追加
+	 *
+	 * @param string $url 原始URL
+	 * @param string $mode 'main'主图(quality=85) | 'thumb'缩略图(thumbnail/200x + quality=75)
+	 * @return string 处理后的URL
+	 */
+	private function _toWebpUrl($url, $mode = 'main'){
+		if(empty($url)) return $url;
+
+		// 已经是webp格式的图片，无需格式转换，但缩略图模式仍需压缩尺寸
+		$ext = strtolower(pathinfo(parse_url($url, PHP_URL_PATH) ?: '', PATHINFO_EXTENSION));
+		$isWebp = ($ext === 'webp');
+
+		// 已包含处理参数的不再追加
+		if(strpos($url, 'imageMogr2') !== false || strpos($url, 'x-oss-process') !== false){
+			return $url;
+		}
+
+		$sep = (strpos($url, '?') !== false) ? '&' : '?';
+
+		// 腾讯云COS（数据万象 imageMogr2）
+		if(strpos($url, 'myqcloud.com') !== false){
+			if($mode === 'thumb'){
+				// 缩略图：限宽200px + webp + quality/75
+				$params = 'imageMogr2/thumbnail/200x';
+				if(!$isWebp) $params .= '/format/webp';
+				$params .= '/quality/75';
+				return $url . $sep . $params;
+			} else {
+				// 主图：限宽1200px + webp + quality/85
+				$params = 'imageMogr2/thumbnail/1200x';
+				if(!$isWebp) $params .= '/format/webp';
+				$params .= '/quality/85';
+				return $url . $sep . $params;
+			}
+		}
+
+		// 阿里云OSS（图片处理）
+		$remoteset = Db::name('sysset')->where('name', 'remote')->value('value');
+		$remoteset = json_decode($remoteset, true);
+		$isAliOss = (intval($remoteset['type'] ?? 0) == 2 && !empty($remoteset['alioss']['url'])
+			&& strpos($url, $remoteset['alioss']['url']) === 0);
+
+		if($isAliOss){
+			if($mode === 'thumb'){
+				$proc = 'x-oss-process=image/resize,w_200';
+				if(!$isWebp) $proc .= '/format,webp';
+				$proc .= '/quality,q_75';
+				return $url . $sep . $proc;
+			} else {
+				$proc = 'x-oss-process=image/resize,w_1200';
+				if(!$isWebp) $proc .= '/format,webp';
+				$proc .= '/quality,q_85';
+				return $url . $sep . $proc;
+			}
+		}
+
+		// 其他存储（无法服务端转换，直接返回）
+		return $url;
 	}
 }

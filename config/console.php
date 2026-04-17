@@ -6,5 +6,6 @@ return [
     // 指令定义
     'commands' => [
         'plantask'=>'app\command\PlanTask',//奖金发放计划任务
+        'clean_stuck_generations'=>'app\command\CleanStuckGenerations',//清理卡住的生成记录
     ],
 ];

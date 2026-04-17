@@ -1,0 +1,17 @@
+[Unit]
+Description=InsightFace + FairFace Face Analysis API Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/www/ai.eivie.cn
+ExecStart=/home/www/ai.eivie.cn/deploy/venv/bin/python3 /home/www/ai.eivie.cn/deploy/fairface_server.py --host 0.0.0.0 --port 8867 --device cpu --gpu-id -1
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

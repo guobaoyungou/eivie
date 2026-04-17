@@ -63,7 +63,7 @@ class SceneConfigService
             // 判断是否具有图生图/图像生成能力
             // 支持的模型类型：
             // 1. 阿里云Wan系列：model_code包含i2i或imageedit，或等于tongyi_wanxiang
-            // 2. 火山引擎Doubao系列：doubao-seedream(图像生成)、doubao-seedance-*-i2v(图生视频)
+            // 2. 火山引擎Doubao系列：doubao-seedream(图像生成，排除3.0-t2i仅文生图)、doubao-seedance-*-i2v(图生视频)
             $modelCode = $model['model_code'] ?? '';
             $providerCode = strtolower($model['provider_code'] ?? '');
             $isImageToImage = (
@@ -72,7 +72,8 @@ class SceneConfigService
                 stripos($modelCode, 'imageedit') !== false ||
                 $modelCode === 'tongyi_wanxiang' ||
                 // 火山引擎Doubao图像/视频生成模型（支持图生）
-                stripos($modelCode, 'doubao-seedream') !== false ||
+                // 注意：Seedream 3.0-t2i 仅文生图，不支持图生图，需排除
+                (stripos($modelCode, 'doubao-seedream') !== false && stripos($modelCode, '3-0-t2i') === false) ||
                 stripos($modelCode, 'doubao-seedance') !== false
             );
 

@@ -1005,39 +1005,69 @@ class AiTravelPhotoSynthesisService
 
         // 火山方舟 SeeDream 图像生成API (/api/v3/images/generations) 请求格式：
         // - prompt: 纯文本字符串（必填，不能为空）
-        // - image: 参考图URL字符串或数组（图生图时传递）
+        // - image: 参考图URL字符串或数组（图生图时传递，3.0-t2i不支持）
         // - size: 图片尺寸（如 "2K", "1920x1080" 等）
         // - n: 生成数量
         // 注意：模板的 default_params 可能已包含完整的API参数配置
 
+        // 0. 识别模型系列，决定参数构建路径
+        $model = $defaultParams['model'] ?? $apiConfig['model_code'] ?? 'doubao-seedream-4-5-251128';
+        $modelLower = strtolower($model);
+        $is30t2i  = (strpos($modelLower, 'seedream-3') !== false || strpos($modelLower, '3-0-t2i') !== false);
+        $is50lite = (strpos($modelLower, 'seedream-5') !== false || strpos($modelLower, '5-0-lite') !== false);
+        $is40     = (strpos($modelLower, 'seedream-4-0') !== false || strpos($modelLower, 'seedream-4.0') !== false);
+        // $is45 为除以上三者外的默认通用路径
+
         // 1. 提示词必须是纯文本字符串
         $textPrompt = !empty($prompt) ? $prompt : '生成一张高质量旅拍照片';
 
-        // 2. 确定参考图：优先使用 default_params 中的 image 数组（模板预设），将人像URL插入第一位
+        // 2. 确定参考图：3.0-t2i 仅文生图，不支持 image 参数
         $imageUrls = [];
-        if (!empty($defaultParams['image']) && is_array($defaultParams['image'])) {
-            // 模板预设了完整的参考图数组，将人像URL插入第一个位置
-            $imageUrls = $defaultParams['image'];
-            if (!empty($portraitUrl)) {
-                array_unshift($imageUrls, $portraitUrl);
-            }
-        } else {
-            // 无预设参考图，使用传入的人像和参考图
-            if (!empty($portraitUrl)) {
-                $imageUrls[] = $portraitUrl;
-            }
-            if (!empty($referenceImage)) {
-                $imageUrls[] = $referenceImage;
+        if (!$is30t2i) {
+            if (!empty($defaultParams['image']) && is_array($defaultParams['image'])) {
+                // 模板预设了完整的参考图数组，将人像URL插入第一个位置
+                $imageUrls = $defaultParams['image'];
+                if (!empty($portraitUrl)) {
+                    array_unshift($imageUrls, $portraitUrl);
+                }
+            } else {
+                // 无预设参考图，使用传入的人像和参考图
+                if (!empty($portraitUrl)) {
+                    $imageUrls[] = $portraitUrl;
+                }
+                if (!empty($referenceImage)) {
+                    $imageUrls[] = $referenceImage;
+                }
             }
         }
 
-        // 3. 确定尺寸：优先使用 default_params 中的 size，否则使用安全默认值
-        $size = $defaultParams['size'] ?? '2K';
+        // 3. 确定尺寸：3.0-t2i 默认 1024x1024，其余默认 2K
+        $sizeDefault = $is30t2i ? '1024x1024' : '2K';
+        $size = $defaultParams['size'] ?? $sizeDefault;
 
-        // 4. 确定模型：优先 default_params > apiConfig
-        $model = $defaultParams['model'] ?? $apiConfig['model_code'] ?? 'doubao-seedream-4-5-251128';
+        // SeeDream 5.0 Lite 最低像素要求 3686400（1920x1920）
+        // 当 size 为 WxH 格式且像素不足时，按比例放大到满足最低要求
+        if ($is50lite && !empty($size) && preg_match('/^(\d+)x(\d+)$/i', $size, $m)) {
+            $w = intval($m[1]);
+            $h = intval($m[2]);
+            $minPixels = 3686400;
+            $currentPixels = $w * $h;
+            if ($currentPixels > 0 && $currentPixels < $minPixels) {
+                $scale = sqrt($minPixels / $currentPixels);
+                $newW = (int)(ceil(($w * $scale) / 64) * 64);
+                $newH = (int)(ceil(($h * $scale) / 64) * 64);
+                Log::info('callVolcengineImageApi: SeeDream 5.0 Lite尺寸不足，自动放大', [
+                    'original_size' => $size,
+                    'original_pixels' => $currentPixels,
+                    'new_size' => $newW . 'x' . $newH,
+                    'new_pixels' => $newW * $newH,
+                    'min_pixels' => $minPixels,
+                ]);
+                $size = $newW . 'x' . $newH;
+            }
+        }
 
-        // 5. 构建请求参数
+        // 4. 构建请求参数（公共部分）
         $requestParams = [
             'model' => $model,
             'prompt' => $textPrompt,
@@ -1046,22 +1076,64 @@ class AiTravelPhotoSynthesisService
             'response_format' => $defaultParams['response_format'] ?? 'url',
         ];
 
-        // 6. 如果有参考图，通过 image 字段传递
-        if (!empty($imageUrls)) {
-            // 单张图传字符串，多张图传数组
-            $requestParams['image'] = count($imageUrls) === 1 ? $imageUrls[0] : $imageUrls;
-        }
+        if ($is30t2i) {
+            // ---- 3.0-t2i 专属参数 ----
+            // 不传 image、sequential_image_generation、stream、optimize_prompt_options、tools、output_format
+            if (isset($defaultParams['seed'])) {
+                $requestParams['seed'] = (int)$defaultParams['seed'];
+            }
+            if (isset($defaultParams['guidance_scale'])) {
+                $requestParams['guidance_scale'] = (float)$defaultParams['guidance_scale'];
+            }
+            // 注意：watermark 参数不被 SeeDream API 接受，传递会导致 HTTP 400 错误，不传递此参数
+        } else {
+            // ---- 5.0-lite / 4.5 / 4.0 通用参数 ----
 
-        // 7. 处理 sequential_image_generation 参数
-        if (isset($defaultParams['sequential_image_generation'])) {
-            $requestParams['sequential_image_generation'] = $defaultParams['sequential_image_generation'];
-        } elseif (!empty($imageUrls)) {
-            // 默认：有image参数时设置多图生成选项
-            $requestParams['sequential_image_generation_options'] = ['max_images' => 1];
+            // 6. 如果有参考图，通过 image 字段传递
+            if (!empty($imageUrls)) {
+                // 单张图传字符串，多张图传数组
+                $requestParams['image'] = count($imageUrls) === 1 ? $imageUrls[0] : $imageUrls;
+            }
+
+            // 7. 处理 sequential_image_generation 参数
+            if (isset($defaultParams['sequential_image_generation'])) {
+                $requestParams['sequential_image_generation'] = $defaultParams['sequential_image_generation'];
+                // 组图模式下追加 max_images
+                if ($defaultParams['sequential_image_generation'] === 'auto' && isset($defaultParams['sequential_image_generation_options'])) {
+                    $requestParams['sequential_image_generation_options'] = $defaultParams['sequential_image_generation_options'];
+                }
+            } elseif (!empty($imageUrls)) {
+                // 默认：有image参数时设置多图生成选项
+                $requestParams['sequential_image_generation_options'] = ['max_images' => 1];
+            }
+
+            // 8. 提示词优化选项（5.0-lite / 4.5 / 4.0 均支持）
+            if (isset($defaultParams['optimize_prompt_options'])) {
+                $requestParams['optimize_prompt_options'] = $defaultParams['optimize_prompt_options'];
+            }
+
+            // 9. 注意：watermark 参数不被 SeeDream API 接受（5.0-lite/4.5/4.0均返回 HTTP 400），不传递此参数
+
+            // 10. 流式输出
+            if (isset($defaultParams['stream'])) {
+                $requestParams['stream'] = (bool)$defaultParams['stream'];
+            }
+
+            // ---- 5.0-lite 独有参数 ----
+            if ($is50lite) {
+                // 联网搜索工具
+                if (isset($defaultParams['tools'])) {
+                    $requestParams['tools'] = $defaultParams['tools'];
+                }
+                // 输出文件格式（png/jpeg）
+                if (isset($defaultParams['output_format'])) {
+                    $requestParams['output_format'] = $defaultParams['output_format'];
+                }
+            }
         }
 
         // 调试：记录完整的请求参数
-        Log::info('火山方舟SeeDream图生图请求: endpoint=' . $endpointUrl . ', model=' . $model . ', image_count=' . count($imageUrls) . ', request_params=' . json_encode($requestParams, JSON_UNESCAPED_UNICODE));
+        Log::info('火山方舟SeeDream请求: endpoint=' . $endpointUrl . ', model=' . $model . ', series=' . ($is30t2i ? '3.0-t2i' : ($is50lite ? '5.0-lite' : ($is40 ? '4.0' : '4.5'))) . ', image_count=' . count($imageUrls) . ', request_params=' . json_encode($requestParams, JSON_UNESCAPED_UNICODE));
 
         try {
             $client = new \GuzzleHttp\Client([
@@ -1088,20 +1160,36 @@ class AiTravelPhotoSynthesisService
             Log::info('火山方舟图生图响应: ' . json_encode($result, JSON_UNESCAPED_UNICODE));
 
             // 解析响应 - 提取图片URL
+            // 支持组图场景：遍历 data 数组，过滤含 error 的项，收集成功图片
             $imageUrl = null;
 
-            if (isset($result['data'][0]['url'])) {
-                $imageUrl = $result['data'][0]['url'];
-            } elseif (isset($result['data'][0]['b64_json'])) {
-                // 如果返回base64，先保存到本地
-                $imageUrl = $this->saveBase64Image($result['data'][0]['b64_json']);
-                $this->releaseKey($keyId);
-                return $imageUrl; // base64已保存为本地文件，无需再持久化
-            } elseif (isset($result['error'])) {
+            if (isset($result['data']) && is_array($result['data'])) {
+                // 遍历 data 数组，跳过含 error 的项（组图审核失败场景）
+                foreach ($result['data'] as $dataItem) {
+                    if (isset($dataItem['error'])) {
+                        Log::warning('火山方舟组图单项失败: ' . json_encode($dataItem['error'], JSON_UNESCAPED_UNICODE));
+                        continue;
+                    }
+                    if (!empty($dataItem['url'])) {
+                        $imageUrl = $dataItem['url'];
+                        break; // 取第一张成功的图
+                    }
+                    if (!empty($dataItem['b64_json'])) {
+                        $imageUrl = $this->saveBase64Image($dataItem['b64_json']);
+                        $this->releaseKey($keyId);
+                        return $imageUrl; // base64已保存为本地文件，无需再持久化
+                    }
+                }
+            }
+
+            // 请求级错误
+            if (empty($imageUrl) && isset($result['error'])) {
                 $this->releaseKey($keyId);
                 throw new \Exception('火山方舟生成失败: ' . ($result['error']['message'] ?? json_encode($result['error'])));
-            } elseif (isset($result['task_id'])) {
-                // 异步任务模式
+            }
+
+            // 异步任务模式
+            if (empty($imageUrl) && isset($result['task_id'])) {
                 $imageUrl = $this->pollVolcengineTask($result['task_id'], $apiKey, $endpointUrl);
             }
 

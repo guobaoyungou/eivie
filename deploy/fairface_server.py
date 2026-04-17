@@ -218,6 +218,63 @@ def estimate_body_type(pil_img: Image.Image, bbox: List[float]) -> Dict[str, Any
         return {"body_type": "heavy", "body_type_confidence": 0.4}
 
 
+def age_to_group(age: int) -> str:
+    """将整数年龄转换为 FairFace 风格的年龄分组"""
+    if age <= 2:
+        return "0-2"
+    elif age <= 9:
+        return "3-9"
+    elif age <= 19:
+        return "10-19"
+    elif age <= 29:
+        return "20-29"
+    elif age <= 39:
+        return "30-39"
+    elif age <= 49:
+        return "40-49"
+    elif age <= 59:
+        return "50-59"
+    elif age <= 69:
+        return "60-69"
+    else:
+        return "70+"
+
+
+def extract_insightface_attrs(face) -> Dict[str, Any]:
+    """
+    从 InsightFace 人脸对象中提取性别和年龄属性（InsightFace-Only 模式）。
+    InsightFace 的 buffalo_l 包含 genderage.onnx 模型，可直接提供性别和年龄。
+    人种分类在此模式下返回 Unknown，待 FairFace 模型可用时再启用。
+    """
+    # InsightFace face.gender: 0=Female, 1=Male
+    # InsightFace face.age: integer age
+    gender_val = getattr(face, "gender", None)
+    age_val = getattr(face, "age", None)
+
+    if gender_val is not None:
+        gender = "Male" if int(gender_val) == 1 else "Female"
+        gender_conf = 0.85  # InsightFace 不提供分类置信度，使用默认值
+    else:
+        gender = "Unknown"
+        gender_conf = 0.0
+
+    if age_val is not None:
+        age_group = age_to_group(int(age_val))
+        age_conf = 0.75  # 默认置信度
+    else:
+        age_group = "Unknown"
+        age_conf = 0.0
+
+    return {
+        "gender": gender,
+        "gender_confidence": gender_conf,
+        "age_group": age_group,
+        "age_confidence": age_conf,
+        "race": "Unknown",
+        "race_confidence": 0.0,
+    }
+
+
 def run_fairface_inference(face_img: Image.Image) -> Dict[str, Any]:
     """
     对对齐后的 224×224 人脸图片运行 FairFace 模型推理，
@@ -273,6 +330,7 @@ async def health_check():
         "status": "ok",
         "insightface_loaded": insight_app is not None,
         "fairface_loaded": fairface_model is not None,
+        "mode": "full" if fairface_model is not None else "insightface_only",
         "model": model_info["name"],
     }
 
@@ -302,8 +360,8 @@ async def analyze_image(req: AnalyzeRequest):
     3. FairFace 推理 → 性别 / 年龄段 / 人种
     4. （可选）启发式体型估计
     """
-    if insight_app is None or fairface_model is None:
-        raise HTTPException(status_code=503, detail="模型未完成加载")
+    if insight_app is None:
+        raise HTTPException(status_code=503, detail="InsightFace 模型未完成加载")
 
     if not req.image_url and not req.image_base64:
         raise HTTPException(status_code=400, detail="image_url 和 image_base64 至少提供一个")
@@ -336,17 +394,19 @@ async def analyze_image(req: AnalyzeRequest):
             bbox = face.bbox.tolist()  # [x1, y1, x2, y2]
             bbox_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
 
-            # 3a. 对齐裁剪
-            kps = getattr(face, "kps", None)
-            if kps is not None and len(kps) >= 5:
-                face_img = align_face_for_fairface(img_np, kps)
+            if fairface_model is not None:
+                # FairFace 完整模式: 对齐裁剪 + FairFace 推理
+                kps = getattr(face, "kps", None)
+                if kps is not None and len(kps) >= 5:
+                    face_img = align_face_for_fairface(img_np, kps)
+                else:
+                    face_img = crop_face_by_bbox(pil_img, bbox)
+                attrs = run_fairface_inference(face_img)
             else:
-                face_img = crop_face_by_bbox(pil_img, bbox)
+                # InsightFace-Only 模式: 使用 InsightFace 内置的 genderage 模型
+                attrs = extract_insightface_attrs(face)
 
-            # 3b. FairFace 推理
-            attrs = run_fairface_inference(face_img)
-
-            # 3c. 体型估计（可选）
+            # 体型估计（可选）
             body_info = {"body_type": None, "body_type_confidence": None}
             if req.detect_body_type:
                 body_info = estimate_body_type(pil_img, bbox)
@@ -386,17 +446,22 @@ async def analyze_image(req: AnalyzeRequest):
 
 
 # --------------- 模型加载 ---------------
-def load_insightface(det_model: str = "buffalo_l", ctx_id: int = 0):
+def load_insightface(det_model: str = "buffalo_l", ctx_id: int = 0, model_root: str = None):
     """加载 InsightFace 人脸检测模型"""
     global insight_app
     import insightface
     from insightface.app import FaceAnalysis
 
-    logger.info(f"正在加载 InsightFace 模型: {det_model}")
+    # 默认模型根目录为项目 deploy/models/insightface
+    if model_root is None:
+        model_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "insightface")
+    os.makedirs(model_root, exist_ok=True)
+
+    logger.info(f"正在加载 InsightFace 模型: {det_model}, root={model_root}")
     insight_app = FaceAnalysis(
         name=det_model,
-        root=os.path.expanduser("~/.insightface"),
-        providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+        root=model_root,
+        providers=["CPUExecutionProvider"],
     )
     # det_size 设置检测分辨率，(640,640) 是默认值，越大越慢但检出率更高
     insight_app.prepare(ctx_id=ctx_id, det_size=(640, 640))
@@ -488,8 +553,11 @@ if __name__ == "__main__":
     parser.add_argument("--det-model", default="buffalo_l",
                         help="InsightFace 检测模型名称 (默认: buffalo_l)")
     parser.add_argument("--fairface-weights",
-                        default="./models/res34_fair_align_multi_7_20190809.pt",
+                        default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "res34_fair_align_multi_7_20190809.pt"),
                         help="FairFace 模型权重文件路径")
+    parser.add_argument("--insightface-root",
+                        default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "insightface"),
+                        help="InsightFace 模型根目录 (默认: deploy/models/insightface)")
     parser.add_argument("--device", default="auto",
                         help="PyTorch 设备: auto / cpu / cuda / cuda:0 等")
     parser.add_argument("--gpu-id", type=int, default=0,
@@ -500,8 +568,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # 加载模型
-    load_insightface(det_model=args.det_model, ctx_id=args.gpu_id)
-    load_fairface(weights_path=args.fairface_weights, device_str=args.device)
+    load_insightface(det_model=args.det_model, ctx_id=args.gpu_id, model_root=args.insightface_root)
+
+    # FairFace 模型可选加载：如果权重文件存在则加载，否则使用 InsightFace-Only 模式
+    if os.path.isfile(args.fairface_weights):
+        load_fairface(weights_path=args.fairface_weights, device_str=args.device)
+    else:
+        logger.warning(f"FairFace 权重文件不存在: {args.fairface_weights}")
+        logger.warning("服务将以 InsightFace-Only 模式运行（性别+年龄可用，人种分类不可用）")
+        logger.warning("如需启用完整功能，请下载 FairFace 权重并通过 --fairface-weights 指定路径")
 
     # 启动服务
     logger.info(f"InsightFace + FairFace API Server 启动于 http://{args.host}:{args.port}")

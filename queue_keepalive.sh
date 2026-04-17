@@ -13,3 +13,9 @@ if ! pgrep -f "queue:work --queue ai_cutout" > /dev/null; then
     echo "[$(date)] Starting ai_cutout worker..." >> /tmp/queue_keepalive.log
     nohup php think queue:work --queue ai_cutout --tries 3 --timeout 120 >> /tmp/queue_ai_cutout.log 2>&1 &
 fi
+
+# 检查 seedream_generation 队列（SeeDream多图SSE流式任务，耗时可达10-20分钟）
+if ! pgrep -f "queue:work --queue seedream_generation" > /dev/null; then
+    echo "[$(date)] Starting seedream_generation worker..." >> /tmp/queue_keepalive.log
+    nohup php think queue:work --queue seedream_generation --tries 2 --timeout 1200 >> /tmp/queue_seedream.log 2>&1 &
+fi
