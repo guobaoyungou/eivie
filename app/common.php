@@ -2064,3 +2064,22 @@ function convertAltCodes($text) {
 
     return $result;
 }
+
+/**
+ * 格式化字节大小为人类可读的格式
+ * @param int $bytes 字节数
+ * @param int $decimals 小数位数
+ * @return string 格式化后的大小字符串
+ */
+if (!function_exists('format_bytes')) {
+function format_bytes($bytes, $decimals = 2) {
+    if ($bytes <= 0) {
+        return '0 B';
+    }
+    
+    $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    $factor = floor((strlen($bytes) - 1) / 3);
+    
+    return sprintf("%.{$decimals}f", $bytes / pow(1024, $factor)) . ' ' . $units[$factor];
+}
+}
