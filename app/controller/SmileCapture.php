@@ -507,7 +507,8 @@ class SmileCapture extends Base
             }
             @unlink($tempFile);
 
-            $faceEmbedding = input('post.face_embedding', '');
+            // 不再依赖前端 face-api.js 传入的 face_embedding
+            // 改为下方存储后调用后端 InsightFace 提取 512 维特征
 
             $portraitData = [
                 'aid' => $this->aid,
@@ -537,33 +538,42 @@ class SmileCapture extends Base
                 return json(['status' => 0, 'msg' => '数据保存失败']);
             }
 
-            // 存储人脸特征
-            if (!empty($faceEmbedding)) {
-                try {
-                    $embeddingData = json_decode($faceEmbedding, true);
-                    if (is_array($embeddingData) && !empty($embeddingData)) {
-                        $milvusAvailable = false;
-                        try {
-                            $milvusService = new \app\service\MilvusService();
-                            if ($milvusService->isHealthy()) {
-                                $vectorIds = $milvusService->insert($embeddingData, ['portrait_id' => $portraitId]);
-                                if (!empty($vectorIds)) {
-                                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)
-                                        ->update(['face_embedding_id' => $vectorIds[0] ?? 0]);
-                                    $milvusAvailable = true;
-                                }
+            // ===== 后端提取人脸特征（InsightFace 512维，统一替代前端 face-api.js 128维） =====
+            try {
+                $faceEmbeddingService = new \app\service\FaceEmbeddingService();
+                $faceResult = $faceEmbeddingService->extractFromUrl($originalUrl);
+                if ($faceResult && !empty($faceResult['embedding'])) {
+                    $embedding = $faceResult['embedding'];
+                    // 存储到 MySQL
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'face_embedding' => json_encode($embedding),
+                    ]);
+                    // 存储到 Milvus
+                    try {
+                        $milvusService = new \app\service\MilvusService();
+                        if ($milvusService->isHealthy()) {
+                            $vectorIds = $milvusService->insert([$embedding], ['portrait_id' => $portraitId]);
+                            if (!empty($vectorIds)) {
+                                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)
+                                    ->update(['face_embedding_id' => $vectorIds[0] ?? 0]);
                             }
-                        } catch (\Exception $e) {
-                            Log::warning('Milvus存储失败，使用MySQL备用', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
                         }
-                        if (!$milvusAvailable) {
-                            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)
-                                ->update(['face_embedding' => json_encode($embeddingData)]);
-                        }
+                    } catch (\Exception $e) {
+                        Log::warning('笑脸抓拍(SmileCapture)Milvus存储失败，MySQL已备份', [
+                            'portrait_id' => $portraitId, 'error' => $e->getMessage()
+                        ]);
                     }
-                } catch (\Exception $e) {
-                    Log::warning('人脸特征存储失败', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+                    Log::info('笑脸抓拍(SmileCapture)人脸特征提取成功', [
+                        'portrait_id' => $portraitId, 'dim' => $faceResult['dim'],
+                        'det_score' => $faceResult['det_score'],
+                    ]);
+                } else {
+                    Log::info('笑脸抓拍(SmileCapture)未检测到人脸，跳过特征入库', ['portrait_id' => $portraitId]);
                 }
+            } catch (\Exception $e) {
+                Log::warning('笑脸抓拍(SmileCapture)人脸特征提取异常，不影响主流程', [
+                    'portrait_id' => $portraitId, 'error' => $e->getMessage()
+                ]);
             }
 
             // 触发异步任务

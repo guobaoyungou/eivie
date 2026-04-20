@@ -68,7 +68,7 @@ try {
             ['name' => 'sequential_image_generation_options', 'type' => 'object', 'label' => '组图选项', 'required' => false, 'default' => ['max_images' => 15], 'description' => '组图最大数量[1-15]'],
             ['name' => 'stream', 'type' => 'boolean', 'label' => '流式输出', 'required' => false, 'default' => false, 'description' => '是否启用SSE流式输出'],
             ['name' => 'response_format', 'type' => 'enum', 'label' => '返回格式', 'required' => false, 'default' => 'url', 'options' => ['url', 'b64_json'], 'description' => '图片返回格式'],
-            ['name' => 'watermark', 'type' => 'boolean', 'label' => '水印', 'required' => false, 'default' => true, 'description' => '是否添加水印'],
+            ['name' => 'watermark', 'type' => 'boolean', 'label' => '水印', 'required' => false, 'default' => false, 'description' => '是否添加水印'],
             ['name' => 'optimize_prompt_options', 'type' => 'object', 'label' => '提示词优化', 'required' => false, 'default' => ['mode' => 'standard'], 'description' => '提示词优化模式：standard'],
             ['name' => 'tools', 'type' => 'array', 'label' => '工具配置', 'required' => false, 'description' => '工具列表，仅支持 type: web_search（联网搜索）'],
             ['name' => 'output_format', 'type' => 'enum', 'label' => '输出文件格式', 'required' => false, 'default' => 'jpeg', 'options' => ['png', 'jpeg'], 'description' => '输出图片文件格式']
@@ -137,7 +137,7 @@ try {
             ['name' => 'sequential_image_generation_options', 'type' => 'object', 'label' => '组图选项', 'required' => false, 'default' => ['max_images' => 15], 'description' => '组图最大数量[1-15]'],
             ['name' => 'stream', 'type' => 'boolean', 'label' => '流式输出', 'required' => false, 'default' => false, 'description' => '是否启用SSE流式输出'],
             ['name' => 'response_format', 'type' => 'enum', 'label' => '返回格式', 'required' => false, 'default' => 'url', 'options' => ['url', 'b64_json'], 'description' => '图片返回格式'],
-            ['name' => 'watermark', 'type' => 'boolean', 'label' => '水印', 'required' => false, 'default' => true, 'description' => '是否添加水印'],
+            ['name' => 'watermark', 'type' => 'boolean', 'label' => '水印', 'required' => false, 'default' => false, 'description' => '是否添加水印'],
             ['name' => 'optimize_prompt_options', 'type' => 'object', 'label' => '提示词优化', 'required' => false, 'default' => ['mode' => 'standard'], 'description' => '提示词优化模式：standard']
         ],
         'required' => ['prompt']
@@ -202,7 +202,7 @@ try {
             ['name' => 'sequential_image_generation_options', 'type' => 'object', 'label' => '组图选项', 'required' => false, 'default' => ['max_images' => 15], 'description' => '组图最大数量[1-15]'],
             ['name' => 'stream', 'type' => 'boolean', 'label' => '流式输出', 'required' => false, 'default' => false, 'description' => '是否启用SSE流式输出'],
             ['name' => 'response_format', 'type' => 'enum', 'label' => '返回格式', 'required' => false, 'default' => 'url', 'options' => ['url', 'b64_json'], 'description' => '图片返回格式'],
-            ['name' => 'watermark', 'type' => 'boolean', 'label' => '水印', 'required' => false, 'default' => true, 'description' => '是否添加水印'],
+            ['name' => 'watermark', 'type' => 'boolean', 'label' => '水印', 'required' => false, 'default' => false, 'description' => '是否添加水印'],
             ['name' => 'optimize_prompt_options', 'type' => 'object', 'label' => '提示词优化', 'required' => false, 'default' => ['mode' => 'standard'], 'description' => '提示词优化模式：standard / fast']
         ],
         'required' => ['prompt']
@@ -273,7 +273,7 @@ try {
             ['name' => 'seed', 'type' => 'integer', 'label' => '随机种子', 'required' => false, 'default' => -1, 'min' => -1, 'max' => 2147483647, 'description' => '随机种子，-1为随机'],
             ['name' => 'guidance_scale', 'type' => 'float', 'label' => '文本权重', 'required' => false, 'default' => 2.5, 'min' => 1, 'max' => 10, 'description' => '文本对生成图像的影响程度[1-10]'],
             ['name' => 'response_format', 'type' => 'enum', 'label' => '返回格式', 'required' => false, 'default' => 'url', 'options' => ['url', 'b64_json'], 'description' => '图片返回格式'],
-            ['name' => 'watermark', 'type' => 'boolean', 'label' => '水印', 'required' => false, 'default' => true, 'description' => '是否添加水印']
+            ['name' => 'watermark', 'type' => 'boolean', 'label' => '水印', 'required' => false, 'default' => false, 'description' => '是否添加水印']
         ],
         'required' => ['prompt']
     ], JSON_UNESCAPED_UNICODE);

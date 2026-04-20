@@ -14,11 +14,11 @@ return [
     // REST API 端口
     'rest_port' => env('milvus.rest_port', '9091'),
     
-    // 集合名称
-    'collection_name' => env('milvus.collection_name', 'face_features'),
+    // 集合名称（InsightFace buffalo_l 模型产生 512 维 L2 归一化向量）
+    'collection_name' => env('milvus.collection_name', 'face_features_512'),
     
-    // 向量维度 (face-api.js FaceNet 产生的向量维度)
-    'dimension' => 128,
+    // 向量维度 (InsightFace buffalo_l normed_embedding = 512 维)
+    'dimension' => 512,
     
     // 索引类型
     'index_type' => 'IVF_FLAT',

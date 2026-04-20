@@ -256,9 +256,28 @@ class AiTravelPhotoSelfieService
         // 获取推文配置
         $pushConfig = $this->getPushConfig($aid, $bid, $mdid);
 
-        // 构建自拍页URL
+        // 查询openid在该门店是否已有合成完成的成片
+        $hasCompleted = false;
+        try {
+            $pickService = new AiTravelPhotoPickService();
+            $hasCompleted = $pickService->hasCompletedResultsInStore($bid, $mdid, $openid);
+        } catch (\Exception $e) {
+            Log::warning('[Selfie] 扫码事件检查已有成片异常: ' . $e->getMessage());
+        }
+
+        // 构建目标URL：有成片 → pick 门店模式，无成片 → selfie 自拍页
         $domain = $this->getSiteDomain();
-        $selfieUrl = $domain . '/public/selfie/index.html?aid=' . $aid . '&bid=' . $bid . '&mdid=' . $mdid;
+        if ($hasCompleted) {
+            $targetUrl = $domain . '/public/pick/index.html?mode=store&bid=' . $bid . '&mdid=' . $mdid;
+            $title = $pushConfig['push_title'];
+            $description = '🎉 您的旅拍照片已就绪，点击浏览和选片';
+            Log::info('[Selfie] 扫码事件：用户已有成片，推文指向pick门店模式', ['openid' => $openid, 'bid' => $bid, 'mdid' => $mdid]);
+        } else {
+            $targetUrl = $domain . '/public/selfie/index.html?aid=' . $aid . '&bid=' . $bid . '&mdid=' . $mdid;
+            $title = $pushConfig['push_title'];
+            $description = $pushConfig['push_desc'];
+            Log::info('[Selfie] 扫码事件：用户无成片，推文指向selfie自拍页', ['openid' => $openid, 'bid' => $bid, 'mdid' => $mdid]);
+        }
 
         // 获取封面图
         $picUrl = $pushConfig['push_cover'];
@@ -266,14 +285,12 @@ class AiTravelPhotoSelfieService
             $picUrl = $domain . '/static/img/ai_travel_photo_selfie_cover.png';
         }
 
-        Log::info('[Selfie] 扫码事件处理完成: openid=' . $openid . ', bid=' . $bid . ', mdid=' . $mdid . ', selfieUrl=' . $selfieUrl);
-
         // 返回图文数据，由调用方使用被动回复发送
         return [
-            'title' => $pushConfig['push_title'],
-            'description' => $pushConfig['push_desc'],
+            'title' => $title,
+            'description' => $description,
             'pic' => $picUrl,
-            'url' => $selfieUrl,
+            'url' => $targetUrl,
         ];
     }
 
@@ -484,7 +501,11 @@ class AiTravelPhotoSelfieService
     /**
      * 人脸特征比对：搜索门店成片库
      *
-     * @param array $faceEmbedding 128维人脸特征向量
+     * 优化④：多Gallery比对策略
+     * 匹配时按 user_openid 聚合同用户的所有向量，取最小距离作为该用户的匹配分数。
+     * 这样即使单个向量略微偏离，只要用户的任一向量匹配成功即可命中。
+     *
+     * @param array $faceEmbedding 人脸特征向量
      * @param int $aid 平台ID
      * @param int $bid 商家ID
      * @param int $mdid 门店ID
@@ -495,6 +516,10 @@ class AiTravelPhotoSelfieService
         $matchedPortraitIds = [];
         $distanceThreshold = 0.20; // L2距离<=0.2，对应余弦相似度>=98%
 
+        // ===== 优化④: 多Gallery比对 =====
+        // 收集所有候选匹配，按 user_openid 聚合取最小距离
+        $candidateHits = []; // portrait_id => ['distance' => float, 'user_openid' => string]
+
         // 优先尝试Milvus
         try {
             $milvusService = new MilvusService();
@@ -503,17 +528,21 @@ class AiTravelPhotoSelfieService
                 if (!empty($searchResults)) {
                     foreach ($searchResults as $result) {
                         $distance = $result['distance'] ?? 999;
-                        if ($distance <= $distanceThreshold) {
+                        // 放宽初筛门槛至 0.35，后续按用户聚合取最小距离再判断
+                        if ($distance <= 0.35) {
                             $portraitId = $result['portrait_id'] ?? ($result['id'] ?? 0);
                             if ($portraitId > 0) {
-                                // 验证该人像属于当前门店
                                 $portrait = Db::name('ai_travel_photo_portrait')
                                     ->where('id', $portraitId)
                                     ->where('bid', $bid)
                                     ->where('status', 1)
+                                    ->field('id, user_openid')
                                     ->find();
                                 if ($portrait) {
-                                    $matchedPortraitIds[] = $portraitId;
+                                    $candidateHits[$portraitId] = [
+                                        'distance' => (float)$distance,
+                                        'user_openid' => $portrait['user_openid'] ?? '',
+                                    ];
                                 }
                             }
                         }
@@ -525,9 +554,43 @@ class AiTravelPhotoSelfieService
         }
 
         // MySQL备用方案
-        if (empty($matchedPortraitIds)) {
-            $matchedPortraitIds = $this->mysqlFaceMatch($faceEmbedding, $bid, $distanceThreshold);
+        if (empty($candidateHits)) {
+            $candidateHits = $this->mysqlFaceMatchMultiGallery($faceEmbedding, $bid, 0.35);
         }
+
+        if (empty($candidateHits)) {
+            return null;
+        }
+
+        // 按 user_openid 聚合，取每个用户的最小距离
+        $userBestDistance = []; // user_key => ['min_distance' => float, 'portrait_ids' => []]
+        foreach ($candidateHits as $portraitId => $hit) {
+            // 用 user_openid 作为聚合键，无openid的用 portrait_id 本身
+            $userKey = !empty($hit['user_openid']) ? 'user_' . $hit['user_openid'] : 'portrait_' . $portraitId;
+            if (!isset($userBestDistance[$userKey])) {
+                $userBestDistance[$userKey] = [
+                    'min_distance' => $hit['distance'],
+                    'portrait_ids' => [$portraitId],
+                ];
+            } else {
+                $userBestDistance[$userKey]['portrait_ids'][] = $portraitId;
+                if ($hit['distance'] < $userBestDistance[$userKey]['min_distance']) {
+                    $userBestDistance[$userKey]['min_distance'] = $hit['distance'];
+                }
+            }
+        }
+
+        // 筛选最小距离 <= 门槛的用户
+        foreach ($userBestDistance as $userKey => $data) {
+            if ($data['min_distance'] <= $distanceThreshold) {
+                foreach ($data['portrait_ids'] as $pid) {
+                    $matchedPortraitIds[] = $pid;
+                }
+            }
+        }
+
+        // 去重
+        $matchedPortraitIds = array_unique($matchedPortraitIds);
 
         if (empty($matchedPortraitIds)) {
             return null;
@@ -573,6 +636,85 @@ class AiTravelPhotoSelfieService
     }
 
     /**
+     * 将用户 openid 关联到匹配的门店人像记录
+     *
+     * 关联规则：
+     * - 仅更新 user_openid 为空的记录（首次关联）
+     * - 同一用户再次匹配到同一人像，跳过（重复关联）
+     * - 不同用户匹配到已关联的人像，保留首次关联，记录冲突日志
+     *
+     * @param array $portraitIds 匹配到的人像ID列表
+     * @param string $openid 当前用户的 openid
+     * @param int $bid 商家ID
+     * @param int $mdid 门店ID
+     * @return array ['updated' => int, 'skipped' => int, 'conflict' => int]
+     */
+    public function associateOpenidToPortraits(array $portraitIds, string $openid, int $bid, int $mdid): array
+    {
+        $result = ['updated' => 0, 'skipped' => 0, 'conflict' => 0];
+
+        if (empty($portraitIds) || empty($openid)) {
+            return $result;
+        }
+
+        try {
+            // 查询这些人像的 user_openid 状态
+            $portraits = Db::name('ai_travel_photo_portrait')
+                ->whereIn('id', $portraitIds)
+                ->field('id, user_openid')
+                ->select()
+                ->toArray();
+
+            $toUpdate = []; // 需要更新的 portrait_id
+            foreach ($portraits as $portrait) {
+                $existingOpenid = $portrait['user_openid'] ?? '';
+
+                if (empty($existingOpenid)) {
+                    // 首次关联：user_openid 为空，直接写入
+                    $toUpdate[] = (int)$portrait['id'];
+                } elseif ($existingOpenid === $openid) {
+                    // 重复关联：同一用户，跳过
+                    $result['skipped']++;
+                } else {
+                    // 冲突：不同用户匹配到同一人像，保留原 openid，记录冲突日志
+                    $result['conflict']++;
+                    Log::warning('OpenID关联冲突：不同用户匹配到同一人像，保留首次关联', [
+                        'portrait_id' => $portrait['id'],
+                        'existing_openid' => $existingOpenid,
+                        'new_openid' => $openid,
+                        'bid' => $bid,
+                        'mdid' => $mdid,
+                    ]);
+                }
+            }
+
+            // 批量更新 user_openid 为空的匹配人像
+            if (!empty($toUpdate)) {
+                Db::name('ai_travel_photo_portrait')
+                    ->whereIn('id', $toUpdate)
+                    ->update(['user_openid' => $openid, 'update_time' => time()]);
+                $result['updated'] = count($toUpdate);
+
+                Log::info('OpenID关联成功：已回写user_openid至匹配人像', [
+                    'openid' => $openid,
+                    'portrait_ids' => $toUpdate,
+                    'bid' => $bid,
+                    'mdid' => $mdid,
+                    'updated_count' => $result['updated'],
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('OpenID关联异常', [
+                'openid' => $openid,
+                'portrait_ids' => $portraitIds,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $result;
+    }
+
+    /**
      * MySQL备用人脸匹配（遍历门店人像计算欧氏距离）
      *
      * @param array $embedding 查询向量
@@ -607,6 +749,47 @@ class AiTravelPhotoSelfieService
     }
 
     /**
+     * MySQL备用人脸匹配（优化④：多Gallery比对策略）
+     * 
+     * 遍历门店人像计算欧氏距离，返回包含 user_openid 的候选匹配结果，
+     * 由调用方按用户聚合取最小距离。
+     *
+     * @param array $embedding 查询向量
+     * @param int $bid 商家ID
+     * @param float $threshold L2距离初筛门槛
+     * @return array portrait_id => ['distance' => float, 'user_openid' => string]
+     */
+    private function mysqlFaceMatchMultiGallery(array $embedding, int $bid, float $threshold): array
+    {
+        $portraits = Db::name('ai_travel_photo_portrait')
+            ->where('bid', $bid)
+            ->where('status', 1)
+            ->where('face_embedding', '<>', '')
+            ->where('face_embedding', '<>', '[]')
+            ->field('id, face_embedding, user_openid')
+            ->select()
+            ->toArray();
+
+        $candidates = [];
+        foreach ($portraits as $portrait) {
+            $storedEmbedding = json_decode($portrait['face_embedding'], true);
+            if (!is_array($storedEmbedding) || count($storedEmbedding) < 64) {
+                continue;
+            }
+
+            $distance = $this->euclideanDistance($embedding, $storedEmbedding);
+            if ($distance <= $threshold) {
+                $candidates[(int)$portrait['id']] = [
+                    'distance' => $distance,
+                    'user_openid' => $portrait['user_openid'] ?? '',
+                ];
+            }
+        }
+
+        return $candidates;
+    }
+
+    /**
      * 计算欧氏距离
      */
     private function euclideanDistance(array $a, array $b): float
@@ -621,14 +804,92 @@ class AiTravelPhotoSelfieService
     }
 
     /**
-     * 防重检测：同一门店同一用户同一人脸当天只能首次合成
-     * 有人脸特征时通过人脸相似度精确匹配
+     * 通过openid匹配门店已有人像（任意日期，已合成完成的）
+     * 无人脸特征时的备用匹配方案：按openid查找该用户在该门店是否已有合成完成的人像
      *
-     * @param array $faceEmbedding 128维人脸特征向量
      * @param int $bid 商家ID
      * @param int $mdid 门店ID
      * @param string $openid 用户openid
-     * @return array|null 存在重复则返回 ['portrait_id'=>int, 'pick_url'=>string, 'synthesis_status'=>int]，否则返回null
+     * @return array|null 匹配到则返回 ['portrait_ids'=>[...], 'pick_url'=>'...', 'result_count'=>int]，否则返回null
+     */
+    public function matchByOpenidInStore(int $bid, int $mdid, string $openid): ?array
+    {
+        // 查找该openid在该门店已合成完成的人像（任意日期、任意来源）
+        $portrait = Db::name('ai_travel_photo_portrait')
+            ->where('user_openid', $openid)
+            ->where('bid', $bid)
+            ->where('mdid', $mdid)
+            ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL)
+            ->where('synthesis_status', 3) // 合成已完成
+            ->field('id, aid')
+            ->order('id', 'desc')
+            ->find();
+
+        if (!$portrait) {
+            return null;
+        }
+
+        $portraitId = (int)$portrait['id'];
+
+        // 检查是否有已完成的成片
+        $resultCount = AiTravelPhotoResult::where('portrait_id', $portraitId)
+            ->where('status', AiTravelPhotoResult::STATUS_NORMAL)
+            ->count();
+
+        if ($resultCount == 0) {
+            return null;
+        }
+
+        // 获取选片二维码
+        $qrcode = AiTravelPhotoQrcode::where('portrait_id', $portraitId)
+            ->where('status', 1)
+            ->find();
+
+        if (!$qrcode) {
+            // 自动生成选片二维码
+            try {
+                $qrcodeService = new AiTravelPhotoQrcodeService();
+                $qrResult = $qrcodeService->generateQrcode($portraitId);
+                $qrcodeStr = $qrResult['qrcode'] ?? '';
+            } catch (\Exception $e) {
+                Log::error('openid匹配自动生成选片二维码失败', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+                return null;
+            }
+        } else {
+            $qrcodeStr = $qrcode->qrcode;
+        }
+
+        $pickUrl = $this->getSiteDomain() . '/public/pick/index.html?qr=' . urlencode($qrcodeStr);
+
+        Log::info('自拍端openid匹配命中', [
+            'openid' => $openid,
+            'bid' => $bid,
+            'mdid' => $mdid,
+            'portrait_id' => $portraitId,
+            'result_count' => $resultCount,
+        ]);
+
+        return [
+            'portrait_ids' => [$portraitId],
+            'pick_url' => $pickUrl,
+            'result_count' => $resultCount,
+        ];
+    }
+
+    /**
+     * 防重检测：同一门店同一用户同一人脸当天只能首次合成
+     * 有人脸特征时通过人脸相似度精确匹配
+     *
+     * 优化③：放宽同日防重为“补充特征”
+     * 当同用户当天第二次自拍时，不再完全阻断，而是：
+     * 1. 用新的 embedding 聚合更新已有人像的特征向量（提升匹配准确率）
+     * 2. 仍然返回防重结果（避免重复触发合成任务）
+     *
+     * @param array $faceEmbedding 人脸特征向量
+     * @param int $bid 商家ID
+     * @param int $mdid 门店ID
+     * @param string $openid 用户openid
+     * @return array|null 存在重复则返回 ['portrait_id'=>int, 'pick_url'=>string, 'synthesis_status'=>int, 'embedding_updated'=>bool]，否则返回null
      */
     public function checkSelfieDedup(array $faceEmbedding, int $bid, int $mdid, string $openid): ?array
     {
@@ -643,7 +904,7 @@ class AiTravelPhotoSelfieService
             ->where('source_type', 3) // 用户自拍
             ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL)
             ->where('create_time', '>=', $sinceTime)
-            ->field('id, face_embedding, synthesis_status, aid')
+            ->field('id, face_embedding, face_embedding_id, synthesis_status, aid')
             ->order('id', 'desc')
             ->select()
             ->toArray();
@@ -660,7 +921,61 @@ class AiTravelPhotoSelfieService
 
             $distance = $this->euclideanDistance($faceEmbedding, $storedEmbedding);
             if ($distance <= $distanceThreshold) {
-                return $this->buildDedupResult($portrait, $openid, $bid, $mdid, $distance);
+                // ===== 优化③：补充特征而非简单阻断 =====
+                // 将新的 embedding 与已有的聚合，提升匹配准确率
+                $embeddingUpdated = false;
+                try {
+                    $existingPortraitId = (int)$portrait['id'];
+                    // 将新 embedding 与旧 embedding 取均值并L2归一化
+                    $dim = min(count($faceEmbedding), count($storedEmbedding));
+                    $merged = array_fill(0, $dim, 0.0);
+                    for ($i = 0; $i < $dim; $i++) {
+                        $merged[$i] = ((float)$storedEmbedding[$i] + (float)$faceEmbedding[$i]) / 2.0;
+                    }
+                    // L2 归一化
+                    $norm = 0.0;
+                    for ($i = 0; $i < $dim; $i++) {
+                        $norm += $merged[$i] * $merged[$i];
+                    }
+                    $norm = sqrt($norm);
+                    if ($norm > 0) {
+                        for ($i = 0; $i < $dim; $i++) {
+                            $merged[$i] /= $norm;
+                        }
+                    }
+                    // 更新已有人像的 face_embedding
+                    Db::name('ai_travel_photo_portrait')
+                        ->where('id', $existingPortraitId)
+                        ->update(['face_embedding' => json_encode($merged)]);
+                    // 同步更新 Milvus
+                    try {
+                        $milvusService = new MilvusService();
+                        if ($milvusService->isHealthy()) {
+                            $oldMilvusId = $portrait['face_embedding_id'] ?? 0;
+                            if ($oldMilvusId) {
+                                $milvusService->delete($oldMilvusId);
+                            }
+                            $vectorIds = $milvusService->insert([$merged], ['portrait_id' => $existingPortraitId]);
+                            if (!empty($vectorIds)) {
+                                Db::name('ai_travel_photo_portrait')
+                                    ->where('id', $existingPortraitId)
+                                    ->update(['face_embedding_id' => $vectorIds[0] ?? 0]);
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning('防重补充特征Milvus更新失败', ['portrait_id' => $existingPortraitId, 'error' => $e->getMessage()]);
+                    }
+                    $embeddingUpdated = true;
+                    Log::info('同日防重: 补充特征完成，已聚合更新embedding', [
+                        'openid' => $openid, 'portrait_id' => $existingPortraitId, 'distance' => $distance,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::warning('同日防重补充特征异常', ['error' => $e->getMessage()]);
+                }
+
+                $result = $this->buildDedupResult($portrait, $openid, $bid, $mdid, $distance);
+                $result['embedding_updated'] = $embeddingUpdated;
+                return $result;
             }
         }
 
@@ -766,6 +1081,14 @@ class AiTravelPhotoSelfieService
             throw new \Exception('图片数据无效');
         }
 
+        // ===== 提取图片元信息（修复缩略图/文件名/尺寸等字段缺失） =====
+        $imageInfo = getimagesizefromstring($imageData);
+        $imgWidth = $imageInfo ? (int)$imageInfo[0] : 0;
+        $imgHeight = $imageInfo ? (int)$imageInfo[1] : 0;
+        $fileSize = strlen($imageData);
+        $fileMd5 = md5($imageData);
+        $fileName = 'selfie_' . date('YmdHis') . '_' . sprintf('%04d', mt_rand(0, 9999)) . '.jpg';
+
         // 确保 aid 常量已定义，供 Pic::uploadoss 识别云存储配置
         if (!defined('aid')) {
             define('aid', $aid);
@@ -798,10 +1121,39 @@ class AiTravelPhotoSelfieService
             $originalUrl = '/' . $originalPath;
         }
 
+        // ===== 生成缩略图（800px 宽度） =====
+        $thumbnailUrl = '';
+        try {
+            $thumbnailUrl = $this->generateSelfieThumbnail($imageData, $imgWidth, $imgHeight, $savePath, $aid);
+        } catch (\Exception $e) {
+            Log::warning('自拍端缩略图生成失败，跳过', ['aid' => $aid, 'error' => $e->getMessage()]);
+        }
+
         // OSS上传成功后删除本地文件（如果URL已是远程地址）
         if (strpos($originalUrl, 'http') === 0 && strpos($originalUrl, PRE_URL) !== 0) {
             @unlink(ROOT_PATH . $originalPath);
         }
+
+        // ===== 后端提取人脸特征（InsightFace 512维，统一替代前端 face-api.js 128维） =====
+        $backendEmbedding = [];
+        try {
+            $faceEmbeddingService = new FaceEmbeddingService();
+            $faceResult = $faceEmbeddingService->extractFromUrl($originalUrl);
+            if ($faceResult && !empty($faceResult['embedding'])) {
+                $backendEmbedding = $faceResult['embedding'];
+                Log::info('自拍端人脸特征后端提取成功', [
+                    'dim' => $faceResult['dim'], 'det_score' => $faceResult['det_score'],
+                ]);
+            } else {
+                Log::info('自拍端图片后端未检测到人脸，使用前端传入的embedding作为回退');
+            }
+        } catch (\Exception $e) {
+            Log::warning('自拍端后端特征提取异常，使用前端传入的embedding作为回退', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+        // 后端提取成功则优先使用，否则回退到前端传入的 embedding
+        $effectiveEmbedding = !empty($backendEmbedding) ? $backendEmbedding : $faceEmbedding;
 
         // 创建人像记录
         $portraitId = Db::name('ai_travel_photo_portrait')->insertGetId([
@@ -812,7 +1164,13 @@ class AiTravelPhotoSelfieService
             'device_id' => 0,
             'original_url' => $originalUrl,
             'cutout_url' => $originalUrl, // 自拍不需要抠图
-            'face_embedding' => !empty($faceEmbedding) ? json_encode($faceEmbedding) : '[]',
+            'thumbnail_url' => $thumbnailUrl,
+            'file_name' => $fileName,
+            'file_size' => $fileSize,
+            'width' => $imgWidth,
+            'height' => $imgHeight,
+            'md5' => $fileMd5,
+            'face_embedding' => !empty($effectiveEmbedding) ? json_encode($effectiveEmbedding) : '[]',
             'type' => AiTravelPhotoPortrait::TYPE_USER,
             'source_type' => 3, // 用户自拍
             'user_openid' => $openid,
@@ -822,14 +1180,26 @@ class AiTravelPhotoSelfieService
         ]);
 
         // 保存到Milvus（仅在有有效embedding时）
-        if (!empty($faceEmbedding)) {
+        if (!empty($effectiveEmbedding)) {
             try {
                 $milvusService = new MilvusService();
                 if ($milvusService->isHealthy()) {
-                    $milvusService->insert([$faceEmbedding], ['portrait_id' => $portraitId]);
+                    $milvusService->insert([$effectiveEmbedding], ['portrait_id' => $portraitId]);
                 }
             } catch (\Exception $e) {
                 Log::warning('Milvus插入失败', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+            }
+
+            // ===== 优化②：同人向量聚合 =====
+            // 如果该用户已有多次入库embedding，计算质心向量提升匹配稳定性
+            if (!empty($openid)) {
+                try {
+                    $this->aggregateUserEmbeddings($openid, $bid, $portraitId);
+                } catch (\Exception $e) {
+                    Log::warning('向量聚合异常，不影响主流程', [
+                        'openid' => $openid, 'error' => $e->getMessage()
+                    ]);
+                }
             }
         } else {
             Log::info('自拍端：手动拍摄模式无face_embedding，跳过Milvus插入', ['portrait_id' => $portraitId]);
@@ -986,6 +1356,178 @@ class AiTravelPhotoSelfieService
             'estimated_seconds' => $estimatedSeconds,
             'template_count' => $templateCount,
         ];
+    }
+
+    /**
+     * 生成自拍图片缩略图（800px宽度），上传OSS并返回URL
+     *
+     * @param string $imageData 图片二进制内容
+     * @param int $sourceWidth 原图宽度
+     * @param int $sourceHeight 原图高度
+     * @param string $savePath 保存目录相对路径 upload/aid/date/
+     * @param int $aid 平台ID
+     * @return string 缩略图URL
+     */
+    private function generateSelfieThumbnail(string $imageData, int $sourceWidth, int $sourceHeight, string $savePath, int $aid): string
+    {
+        $targetWidth = 800;
+        $thumbName = 'thumb_selfie_' . md5(uniqid((string)mt_rand(), true)) . '.jpg';
+        $thumbnailRelPath = $savePath . $thumbName;
+
+        if ($sourceWidth <= $targetWidth || $sourceWidth <= 0 || $sourceHeight <= 0) {
+            // 原图宽度不超过800px，直接复制作为缩略图
+            $writeResult = file_put_contents(ROOT_PATH . $thumbnailRelPath, $imageData);
+            if ($writeResult === false) {
+                throw new \Exception('缩略图保存失败');
+            }
+        } else {
+            // 按比例缩放至800px宽
+            $targetHeight = intval($sourceHeight * ($targetWidth / $sourceWidth));
+
+            $sourceImage = imagecreatefromstring($imageData);
+            if (!$sourceImage) {
+                throw new \Exception('无法解析图片数据');
+            }
+
+            $thumbnailImage = imagecreatetruecolor($targetWidth, $targetHeight);
+            imagecopyresampled($thumbnailImage, $sourceImage, 0, 0, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+            $result = imagejpeg($thumbnailImage, ROOT_PATH . $thumbnailRelPath, 85);
+            imagedestroy($sourceImage);
+            imagedestroy($thumbnailImage);
+
+            if (!$result) {
+                throw new \Exception('缩略图生成失败');
+            }
+        }
+
+        // 上传缩略图到OSS
+        $thumbnailUrl = \app\common\Pic::uploadoss(PRE_URL . '/' . $thumbnailRelPath, false, false);
+        if (!$thumbnailUrl) {
+            // OSS上传失败，使用本地相对路径作为fallback
+            Log::warning('自拍端缩略图OSS上传失败，使用本地路径', ['path' => $thumbnailRelPath]);
+            $thumbnailUrl = '/' . $thumbnailRelPath;
+        } else {
+            // OSS上传成功后删除本地缩略图文件
+            if (strpos($thumbnailUrl, 'http') === 0) {
+                @unlink(ROOT_PATH . $thumbnailRelPath);
+            }
+        }
+
+        return $thumbnailUrl;
+    }
+
+    /**
+     * 优化②：同人向量聚合
+     * 
+     * 当同一用户（openid）在同一商家下有多次人脸特征入库时，
+     * 计算所有 embedding 的均值向量（质心）并 L2 归一化，
+     * 作为更稳定的用户代表向量，提升匹配准确率。
+     * 
+     * 聚合后更新最新人像记录的 face_embedding 为质心向量，
+     * 并同步更新 Milvus 中的向量。
+     *
+     * @param string $openid 用户openid
+     * @param int $bid 商家ID
+     * @param int $currentPortraitId 当前新插入的人像ID
+     * @return array|null 聚合后的质心向量，向量不足两个时返回 null
+     */
+    public function aggregateUserEmbeddings(string $openid, int $bid, int $currentPortraitId = 0): ?array
+    {
+        if (empty($openid)) {
+            return null;
+        }
+
+        // 查询该用户在该商家下所有有效人像的 face_embedding
+        $portraits = Db::name('ai_travel_photo_portrait')
+            ->where('user_openid', $openid)
+            ->where('bid', $bid)
+            ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL)
+            ->where('face_embedding', '<>', '')
+            ->where('face_embedding', '<>', '[]')
+            ->field('id, face_embedding, face_embedding_id')
+            ->order('id', 'desc')
+            ->select()
+            ->toArray();
+
+        if (count($portraits) < 2) {
+            // 只有一个 embedding，无需聚合
+            return null;
+        }
+
+        // 收集所有有效的 embedding 向量
+        $allEmbeddings = [];
+        foreach ($portraits as $p) {
+            $emb = json_decode($p['face_embedding'], true);
+            if (is_array($emb) && count($emb) >= 64) {
+                $allEmbeddings[] = $emb;
+            }
+        }
+
+        if (count($allEmbeddings) < 2) {
+            return null;
+        }
+
+        // 计算质心（逐元素均值）
+        $dim = count($allEmbeddings[0]);
+        $centroid = array_fill(0, $dim, 0.0);
+        $vectorCount = count($allEmbeddings);
+        foreach ($allEmbeddings as $emb) {
+            for ($i = 0; $i < $dim; $i++) {
+                $centroid[$i] += (float)$emb[$i] / $vectorCount;
+            }
+        }
+
+        // L2 归一化
+        $norm = 0.0;
+        for ($i = 0; $i < $dim; $i++) {
+            $norm += $centroid[$i] * $centroid[$i];
+        }
+        $norm = sqrt($norm);
+        if ($norm > 0) {
+            for ($i = 0; $i < $dim; $i++) {
+                $centroid[$i] /= $norm;
+            }
+        }
+
+        // 更新最新人像记录的 face_embedding 为质心向量
+        $latestPortraitId = $currentPortraitId > 0 ? $currentPortraitId : (int)$portraits[0]['id'];
+        Db::name('ai_travel_photo_portrait')
+            ->where('id', $latestPortraitId)
+            ->update(['face_embedding' => json_encode($centroid)]);
+
+        // 更新 Milvus 中的向量
+        try {
+            $milvusService = new MilvusService();
+            if ($milvusService->isHealthy()) {
+                // 删除该用户旧的 Milvus 向量，插入新质心
+                $latestRecord = Db::name('ai_travel_photo_portrait')
+                    ->where('id', $latestPortraitId)
+                    ->field('face_embedding_id')
+                    ->find();
+                if (!empty($latestRecord['face_embedding_id'])) {
+                    $milvusService->delete($latestRecord['face_embedding_id']);
+                }
+                $vectorIds = $milvusService->insert([$centroid], ['portrait_id' => $latestPortraitId]);
+                if (!empty($vectorIds)) {
+                    Db::name('ai_travel_photo_portrait')
+                        ->where('id', $latestPortraitId)
+                        ->update(['face_embedding_id' => $vectorIds[0] ?? 0]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('向量聚合: Milvus更新失败', [
+                'openid' => $openid, 'error' => $e->getMessage()
+            ]);
+        }
+
+        Log::info('同人向量聚合完成', [
+            'openid' => $openid,
+            'bid' => $bid,
+            'vector_count' => $vectorCount,
+            'latest_portrait_id' => $latestPortraitId,
+        ]);
+
+        return $centroid;
     }
 
     /**

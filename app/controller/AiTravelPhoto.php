@@ -1217,25 +1217,125 @@ class AiTravelPhoto extends Common
                 $where[] = ['synthesis_status', '=', intval($synthesis_status)];
             }
 
+            // 来源筛选（source_type: 1=设备拍摄, 3=用户自拍）
+            $source_type = input('param.source_type');
+            if ($source_type !== '' && $source_type !== null) {
+                $where[] = ['source_type', '=', intval($source_type)];
+            }
+
+            // 特征库状态筛选（embedding_status: 1=已入库, 0=未入库）
+            $embedding_status = input('param.embedding_status');
+
+            // 用户关联筛选（user_openid 关键字搜索）
+            $user_openid_search = input('param.user_openid', '');
+            if ($user_openid_search !== '') {
+                $where[] = ['user_openid', 'like', '%' . $user_openid_search . '%'];
+            }
+
             $page = input('page/d', 1);
             $limit = input('limit/d', 20);
 
-            $list = Db::name('ai_travel_photo_portrait')
-                ->where($where)
-                ->order('id DESC')
-                ->page($page, $limit)
-                ->select();
+            // 显式指定字段，排除 face_embedding（512维向量JSON过大）
+            // 通过 SQL 表达式计算特征入库状态，避免加载完整向量数据
+            $fields = 'id,aid,uid,bid,mdid,device_id,type,source_type,user_openid,'
+                . 'original_url,cutout_url,thumbnail_url,file_name,file_size,width,height,md5,'
+                . 'shoot_time,`desc`,tags,face_embedding_id,status,create_time,update_time,'
+                . 'synthesis_status,synthesis_count,synthesis_time,synthesis_error,'
+                . '(CASE WHEN face_embedding IS NOT NULL AND face_embedding != \'\' AND face_embedding != \'[]\' AND LENGTH(face_embedding) > 10 THEN 1 ELSE 0 END) as has_mysql_embedding';
 
-            // 关联查询生成结果数量
+            $query = Db::name('ai_travel_photo_portrait')
+                ->field($fields)
+                ->where($where);
+
+            // 特征库状态筛选需要特殊处理：同时考虑 face_embedding 和 face_embedding_id
+            if ($embedding_status !== '' && $embedding_status !== null) {
+                if (intval($embedding_status) === 1) {
+                    // 已入库：face_embedding_id > 0 或 face_embedding 有有效数据
+                    $query->where(function($q) {
+                        $q->where('face_embedding_id', '>', 0)
+                          ->whereOr(function($q2) {
+                              $q2->where('face_embedding', '<>', '')
+                                 ->where('face_embedding', '<>', '[]')
+                                 ->whereRaw('LENGTH(face_embedding) > 10');
+                          });
+                    });
+                } else {
+                    // 未入库：face_embedding 为空且 face_embedding_id 无效
+                    $query->where(function($q) {
+                        $q->where(function($q2) {
+                            $q2->whereNull('face_embedding_id')->whereOr('face_embedding_id', '=', 0);
+                        })->where(function($q3) {
+                            $q3->whereNull('face_embedding')
+                               ->whereOr('face_embedding', '')
+                               ->whereOr('face_embedding', '[]')
+                               ->whereOrRaw('LENGTH(face_embedding) <= 10');
+                        });
+                    });
+                }
+            }
+
+            $list = $query->order('id DESC')
+                ->page($page, $limit)
+                ->select()
+                ->toArray();
+
+            // 关联查询生成结果数量 & 计算特征库状态标记
             foreach ($list as &$item) {
+                // 合成结果数
                 $item['result_count'] = Db::name('ai_travel_photo_result')
                     ->where('portrait_id', $item['id'])
                     ->count();
+                // 特征库入库状态：同时检查 face_embedding_id 和 face_embedding 字段
+                // has_embedding: 0=未入库, 1=已入库(MySQL), 2=已入库(MySQL+Milvus)
+                $hasMilvus = (!empty($item['face_embedding_id']) && $item['face_embedding_id'] > 0);
+                $hasMysql = (!empty($item['has_mysql_embedding']) && $item['has_mysql_embedding'] > 0);
+                if ($hasMilvus) {
+                    $item['has_embedding'] = 2; // MySQL + Milvus 全入库
+                } elseif ($hasMysql) {
+                    $item['has_embedding'] = 1; // 仅 MySQL 入库（Milvus 不可用时的正常状态）
+                } else {
+                    $item['has_embedding'] = 0; // 未入库
+                }
+                // 人像来源文字映射
+                $sourceMap = [1 => '设备拍摄', 2 => '其他', 3 => '用户自拍'];
+                $item['source_type_text'] = $sourceMap[$item['source_type'] ?? 1] ?? '未知';
+                // 上传方式文字映射
+                $item['type_text'] = ($item['type'] == 1) ? '商家上传' : '用户上传';
+                // 用户关联显示
+                $item['user_openid_short'] = '';
+                if (!empty($item['user_openid'])) {
+                    $openid = $item['user_openid'];
+                    $item['user_openid_short'] = mb_substr($openid, 0, 6) . '...' . mb_substr($openid, -4);
+                }
             }
+            unset($item);
 
-            $count = Db::name('ai_travel_photo_portrait')
-                ->where($where)
-                ->count();
+            // 总数查询（需与筛选条件一致）
+            $countQuery = Db::name('ai_travel_photo_portrait')->where($where);
+            if ($embedding_status !== '' && $embedding_status !== null) {
+                if (intval($embedding_status) === 1) {
+                    $countQuery->where(function($q) {
+                        $q->where('face_embedding_id', '>', 0)
+                          ->whereOr(function($q2) {
+                              $q2->where('face_embedding', '<>', '')
+                                 ->where('face_embedding', '<>', '[]')
+                                 ->whereRaw('LENGTH(face_embedding) > 10');
+                          });
+                    });
+                } else {
+                    $countQuery->where(function($q) {
+                        $q->where(function($q2) {
+                            $q2->whereNull('face_embedding_id')->whereOr('face_embedding_id', '=', 0);
+                        })->where(function($q3) {
+                            $q3->whereNull('face_embedding')
+                               ->whereOr('face_embedding', '')
+                               ->whereOr('face_embedding', '[]')
+                               ->whereOrRaw('LENGTH(face_embedding) <= 10');
+                        });
+                    });
+                }
+            }
+            $count = $countQuery->count();
 
             return json([
                 'code' => 0,
@@ -1291,7 +1391,61 @@ class AiTravelPhoto extends Common
         $isAdmin = intval($this->user['bid'] ?? -1) === 0;
         View::assign('is_admin', $isAdmin);
 
+        // Milvus 向量数据库服务状态检测
+        $milvusStatus = $this->getMilvusStatusInfo();
+        View::assign('milvus_status', $milvusStatus);
+
         return View::fetch();
+    }
+
+    /**
+     * 获取 Milvus 服务状态详情（供页面渲染和 AJAX 轮询使用）
+     * @return array
+     */
+    private function getMilvusStatusInfo(): array
+    {
+        $milvusService = new \app\service\MilvusService();
+        $healthy = $milvusService->isHealthy();
+
+        $config = \think\facade\Config::get('milvus');
+        $host = $config['host'] ?? '127.0.0.1';
+        $restPort = $config['rest_port'] ?? '9091';
+
+        // 统计待同步到 Milvus 的记录数（MySQL有特征但Milvus无ID）
+        $pendingSyncCount = 0;
+        try {
+            $pendingSyncCount = Db::name('ai_travel_photo_portrait')
+                ->where('aid', $this->aid)
+                ->where('status', 1)
+                ->where(function($q) {
+                    $q->whereNull('face_embedding_id')
+                      ->whereOr('face_embedding_id', '=', 0);
+                })
+                ->whereRaw('face_embedding IS NOT NULL AND face_embedding != \'\' AND face_embedding != \'[]\'  AND LENGTH(face_embedding) > 10')
+                ->count();
+        } catch (\Exception $e) {
+            // 统计失败不影响主流程
+        }
+
+        return [
+            'healthy' => $healthy,
+            'host' => $host,
+            'port' => $restPort,
+            'pending_sync' => $pendingSyncCount,
+            'check_time' => date('Y-m-d H:i:s'),
+        ];
+    }
+
+    /**
+     * AJAX 接口：获取 Milvus 服务实时状态
+     */
+    public function milvus_status_check()
+    {
+        $status = $this->getMilvusStatusInfo();
+        return json([
+            'status' => 1,
+            'data' => $status,
+        ]);
     }
 
     /**
@@ -1428,6 +1582,44 @@ class AiTravelPhoto extends Common
                 return json(['status' => 0, 'msg' => '数据保存失败']);
             }
 
+            // ===== 后端提取人脸特征（InsightFace 512维，统一替代前端 face-api.js 128维） =====
+            try {
+                $faceEmbeddingService = new \app\service\FaceEmbeddingService();
+                $faceResult = $faceEmbeddingService->extractFromUrl($originalUrl);
+                if ($faceResult && !empty($faceResult['embedding'])) {
+                    $embedding = $faceResult['embedding'];
+                    // 存储到 MySQL
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'face_embedding' => json_encode($embedding),
+                    ]);
+                    // 存储到 Milvus
+                    try {
+                        $milvusService = new \app\service\MilvusService();
+                        if ($milvusService->isHealthy()) {
+                            $vectorIds = $milvusService->insert([$embedding], ['portrait_id' => $portraitId]);
+                            if (!empty($vectorIds)) {
+                                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)
+                                    ->update(['face_embedding_id' => $vectorIds[0] ?? 0]);
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        \think\facade\Log::warning('商家上传Milvus存储失败，MySQL已备份', [
+                            'portrait_id' => $portraitId, 'error' => $e->getMessage()
+                        ]);
+                    }
+                    \think\facade\Log::info('商家上传人脸特征提取成功', [
+                        'portrait_id' => $portraitId, 'dim' => $faceResult['dim'],
+                        'det_score' => $faceResult['det_score'],
+                    ]);
+                } else {
+                    \think\facade\Log::info('商家上传图片未检测到人脸，跳过特征入库', ['portrait_id' => $portraitId]);
+                }
+            } catch (\Exception $e) {
+                \think\facade\Log::warning('商家上传人脸特征提取异常，不影响上传流程', [
+                    'portrait_id' => $portraitId, 'error' => $e->getMessage()
+                ]);
+            }
+
             // 记录日志
             \think\facade\Log::info('AI旅拍人像上传成功', [
                 'aid' => $this->aid,
@@ -1455,6 +1647,101 @@ class AiTravelPhoto extends Common
                 'trace' => $e->getTraceAsString()
             ]);
             return json(['status' => 0, 'msg' => '上传失败：' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 人像管理 - 批量特征入库（补提）
+     *
+     * 将 face_embedding 为空的人像记录批量投递至 face_embedding_backfill 队列，
+     * 由队列消费者逐条调用 InsightFace 提取并写入 MySQL + Milvus。
+     */
+    public function portrait_backfill_embedding()
+    {
+        if (!request()->isPost()) {
+            return json(['status' => 0, 'msg' => '非法请求']);
+        }
+
+        try {
+            $limit = input('post.limit/d', 100);
+            if ($limit <= 0) $limit = 100;
+            if ($limit > 500) $limit = 500;
+
+            // 超级管理员 bid 为 0 时，使用 aid 对应的第一个商家
+            $targetBid = $this->bid;
+            if ($targetBid == 0) {
+                $targetBid = Db::name('business')->where('aid', $this->aid)->value('id');
+            }
+
+            $service = new \app\service\AiTravelPhotoPortraitService();
+            $result = $service->batchQueueBackfill($this->aid, $targetBid, $limit);
+
+            if ($result['total'] == 0) {
+                return json(['status' => 1, 'msg' => '所有人像均已具备人脸特征，无需补提']);
+            }
+
+            return json([
+                'status' => 1,
+                'msg' => '已投递 ' . $result['queued'] . ' 条补提任务（共 ' . $result['total'] . ' 条无特征记录）',
+                'data' => [
+                    'total' => $result['total'],
+                    'queued' => $result['queued'],
+                ],
+            ]);
+        } catch (\Exception $e) {
+            \think\facade\Log::error('批量特征补提失败', [
+                'error' => $e->getMessage(), 'aid' => $this->aid,
+            ]);
+            return json(['status' => 0, 'msg' => '操作失败：' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 人像管理 - MySQL→Milvus 向量同步
+     *
+     * 将 MySQL 中已有 face_embedding 但 face_embedding_id 为空的记录
+     * 批量同步插入到 Milvus，无需重新提取特征。
+     */
+    public function portrait_sync_milvus()
+    {
+        if (!request()->isPost()) {
+            return json(['status' => 0, 'msg' => '非法请求']);
+        }
+
+        try {
+            $limit = input('post.limit/d', 200);
+            if ($limit <= 0) $limit = 200;
+            if ($limit > 500) $limit = 500;
+
+            // 超级管理员 bid 为 0 时，使用 aid 对应的第一个商家
+            $targetBid = $this->bid;
+            if ($targetBid == 0) {
+                $targetBid = Db::name('business')->where('aid', $this->aid)->value('id');
+            }
+
+            $service = new \app\service\AiTravelPhotoPortraitService();
+            $result = $service->syncEmbeddingsToMilvus($this->aid, $targetBid, $limit);
+
+            if ($result['total'] == 0) {
+                return json(['status' => 1, 'msg' => '所有特征均已同步到 Milvus，无需操作']);
+            }
+
+            $msg = '同步完成：成功 ' . $result['synced'] . ' 条';
+            if ($result['failed'] > 0) {
+                $msg .= '，失败 ' . $result['failed'] . ' 条';
+            }
+            $msg .= '（共 ' . $result['total'] . ' 条待同步）';
+
+            return json([
+                'status' => 1,
+                'msg' => $msg,
+                'data' => $result,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Milvus同步失败', [
+                'error' => $e->getMessage(), 'aid' => $this->aid,
+            ]);
+            return json(['status' => 0, 'msg' => '同步失败：' . $e->getMessage()]);
         }
     }
 
@@ -1631,8 +1918,8 @@ class AiTravelPhoto extends Common
             }
             @unlink($tempFile);
 
-            // 获取人脸特征向量（从前端传入）
-            $faceEmbedding = input('post.face_embedding', '');
+            // 不再依赖前端 face-api.js 传入的 face_embedding
+            // 改为下方存储后调用后端 InsightFace 提取 512 维特征
 
             // 插入人像记录
             $portraitData = [
@@ -1663,47 +1950,42 @@ class AiTravelPhoto extends Common
                 return json(['status' => 0, 'msg' => '数据保存失败']);
             }
 
-            // 如果有前端传入的人脸特征向量
-            if (!empty($faceEmbedding)) {
-                try {
-                    $embeddingData = json_decode($faceEmbedding, true);
-                    if (is_array($embeddingData) && !empty($embeddingData)) {
-                        // 优先尝试存入Milvus（如果REST API可用）
-                        $milvusAvailable = false;
-                        try {
-                            $milvusService = new \app\service\MilvusService();
-                            if ($milvusService->isHealthy()) {
-                                $vectorIds = $milvusService->insert($embeddingData, [
-                                    'portrait_id' => $portraitId
-                                ]);
-                                if (!empty($vectorIds)) {
-                                    Db::name('ai_travel_photo_portrait')
-                                        ->where('id', $portraitId)
-                                        ->update(['face_embedding_id' => $vectorIds[0] ?? 0]);
-                                    $milvusAvailable = true;
-                                }
-                            }
-                        } catch (\Exception $e) {
-                            \think\facade\Log::warning('Milvus存储失败，使用MySQL备用', [
-                                'portrait_id' => $portraitId,
-                                'error' => $e->getMessage()
-                            ]);
-                        }
-
-                        // 如果Milvus不可用，存入MySQL的JSON字段
-                        if (!$milvusAvailable) {
-                            Db::name('ai_travel_photo_portrait')
-                                ->where('id', $portraitId)
-                                ->update(['face_embedding' => json_encode($embeddingData)]);
-                        }
-                    }
-                } catch (\Exception $e) {
-                    // 存储失败不影响主流程
-                    \think\facade\Log::warning('人脸特征存储失败', [
-                        'portrait_id' => $portraitId,
-                        'error' => $e->getMessage()
+            // ===== 后端提取人脸特征（InsightFace 512维，统一替代前端 face-api.js 128维） =====
+            try {
+                $faceEmbeddingService = new \app\service\FaceEmbeddingService();
+                $faceResult = $faceEmbeddingService->extractFromUrl($originalUrl);
+                if ($faceResult && !empty($faceResult['embedding'])) {
+                    $embedding = $faceResult['embedding'];
+                    // 存储到 MySQL
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'face_embedding' => json_encode($embedding),
                     ]);
+                    // 存储到 Milvus
+                    try {
+                        $milvusService = new \app\service\MilvusService();
+                        if ($milvusService->isHealthy()) {
+                            $vectorIds = $milvusService->insert([$embedding], ['portrait_id' => $portraitId]);
+                            if (!empty($vectorIds)) {
+                                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)
+                                    ->update(['face_embedding_id' => $vectorIds[0] ?? 0]);
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        \think\facade\Log::warning('笑脸抓拍Milvus存储失败，MySQL已备份', [
+                            'portrait_id' => $portraitId, 'error' => $e->getMessage()
+                        ]);
+                    }
+                    \think\facade\Log::info('笑脸抓拍人脸特征提取成功', [
+                        'portrait_id' => $portraitId, 'dim' => $faceResult['dim'],
+                        'det_score' => $faceResult['det_score'],
+                    ]);
+                } else {
+                    \think\facade\Log::info('笑脸抓拍图片未检测到人脸，跳过特征入库', ['portrait_id' => $portraitId]);
                 }
+            } catch (\Exception $e) {
+                \think\facade\Log::warning('笑脸抓拍人脸特征提取异常，不影响主流程', [
+                    'portrait_id' => $portraitId, 'error' => $e->getMessage()
+                ]);
             }
 
             // 触发异步任务

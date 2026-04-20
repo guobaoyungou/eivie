@@ -215,9 +215,9 @@ class PhotoGeneration extends Common
         if (isset($inputParams['ratio']) && !empty($inputParams['ratio'])) {
             $ratio = $inputParams['ratio'];
             $quality = $inputParams['quality'] ?? 'hd';
-            // 仅当用户未显式选择 size 时才自动生成
-            if (!isset($inputParams['size']) || $inputParams['size'] === '') {
-                $ratioSizeMap = [
+            // 用户显式选择了 ratio，应覆盖模板预设的 size（如 "2K"）
+            // 这与 GenerationOrderService.triggerGenerationTaskWithParams 保持一致
+            $ratioSizeMap = [
                     '1:1'  => ['standard' => '512x512',  'hd' => '1024x1024', 'ultra' => '2048x2048'],
                     '2:3'  => ['standard' => '512x768',  'hd' => '1024x1536', 'ultra' => '2048x3072'],
                     '3:2'  => ['standard' => '768x512',  'hd' => '1536x1024', 'ultra' => '3072x2048'],
@@ -228,12 +228,11 @@ class PhotoGeneration extends Common
                     '4:5'  => ['standard' => '512x640',  'hd' => '1024x1280', 'ultra' => '2048x2560'],
                     '5:4'  => ['standard' => '640x512',  'hd' => '1280x1024', 'ultra' => '2560x2048'],
                     '21:9' => ['standard' => '1260x540', 'hd' => '2520x1080', 'ultra' => '3780x1620'],
-                ];
-                if (isset($ratioSizeMap[$ratio][$quality])) {
-                    $inputParams['size'] = $ratioSizeMap[$ratio][$quality];
-                } elseif (isset($ratioSizeMap[$ratio]['hd'])) {
-                    $inputParams['size'] = $ratioSizeMap[$ratio]['hd'];
-                }
+            ];
+            if (isset($ratioSizeMap[$ratio][$quality])) {
+                $inputParams['size'] = $ratioSizeMap[$ratio][$quality];
+            } elseif (isset($ratioSizeMap[$ratio]['hd'])) {
+                $inputParams['size'] = $ratioSizeMap[$ratio]['hd'];
             }
             unset($inputParams['ratio'], $inputParams['quality']);
         } else {

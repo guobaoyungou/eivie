@@ -247,6 +247,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
         return;
       }
       STATE.openid = res.data.openid;
+
+      // 检查用户是否已有合成完成的成片，有则直接跳转选片页
+      if(res.data.has_completed && res.data.store_pick_url) {
+        window.location.href = res.data.store_pick_url;
+        return;
+      }
+
       // 立即启动摄像头，无需等待模型加载
       startCamera();
       // 30秒后静默加载笑脸检测模型
@@ -272,7 +279,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
   // ===== 摄像头：立即启动，无需模型 =====
   function startCamera() {
     var constraints = {
-      video: { facingMode: STATE.facingMode, width: {ideal: 640}, height: {ideal: 480} },
+      video: {
+        facingMode: STATE.facingMode,
+        width: {ideal: 4096},
+        height: {ideal: 4096}
+      },
       audio: false
     };
     navigator.mediaDevices.getUserMedia(constraints).then(function(stream){
@@ -529,14 +540,41 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     setTimeout(function(){ flash.classList.remove('flash'); }, 180);
     if(navigator.vibrate) { try { navigator.vibrate(30); } catch(e){} }
 
-    // 截取画面
+    // 截取画面 - 适配原生相机分辨率，输出不低于1664x2496
     var video = document.getElementById('video');
+    var vw = video.videoWidth;
+    var vh = video.videoHeight;
+
+    // 最低分辨率要求：短边≥1664，长边≥2496
+    var MIN_SHORT = 1664;
+    var MIN_LONG = 2496;
+    var isPortrait = vh >= vw;
+    var minW = isPortrait ? MIN_SHORT : MIN_LONG;
+    var minH = isPortrait ? MIN_LONG : MIN_SHORT;
+
+    // 若摄像头原始分辨率低于最低要求，按比例放大至满足
+    var scale = Math.max(1, minW / vw, minH / vh);
+    var outW = Math.ceil(vw * scale);
+    var outH = Math.ceil(vh * scale);
+
+    // 安全上限：防止超大canvas导致低端设备内存溢出
+    var MAX_CANVAS = 4096;
+    if(outW > MAX_CANVAS || outH > MAX_CANVAS) {
+      var capScale = MAX_CANVAS / Math.max(outW, outH);
+      outW = Math.round(outW * capScale);
+      outH = Math.round(outH * capScale);
+    }
+
+    console.log('[Selfie] 摄像头原始: ' + vw + 'x' + vh + ', 输出: ' + outW + 'x' + outH + ', 缩放: ' + scale.toFixed(2));
+
     var canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = outW;
+    canvas.height = outH;
     var ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0);
-    var imageBase64 = canvas.toDataURL('image/jpeg', 0.85);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(video, 0, 0, outW, outH);
+    var imageBase64 = canvas.toDataURL('image/jpeg', 0.92);
 
     STATE.capturedImage = imageBase64;
     STATE.capturedDescriptor = descriptor; // 可能为null（模型未加载时）

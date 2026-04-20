@@ -25,9 +25,10 @@ InsightFace + FairFace 一体化人物属性识别 API 服务
        python fairface_server.py --fairface-weights ./models/fairface_model.pt
 
 API 端点:
-    GET  /api/health    — 健康检查
-    GET  /api/info      — 模型信息与能力
-    POST /api/analyze   — 人物图片属性识别
+    GET  /api/health             — 健康检查
+    GET  /api/info               — 模型信息与能力
+    POST /api/analyze            — 人物图片属性识别
+    POST /api/extract_embedding  — 人脸特征向量提取（512维 L2 归一化）
 """
 
 import os
@@ -70,6 +71,7 @@ model_info = {
     "capabilities": [
         "face_detection",
         "face_alignment",
+        "face_embedding_extraction",
         "gender_classification",
         "age_classification",
         "race_classification",
@@ -97,6 +99,13 @@ class AnalyzeRequest(BaseModel):
     detect_body_type: Optional[bool] = Field(True, description="是否启用体型检测，默认 true")
 
 
+class ExtractEmbeddingRequest(BaseModel):
+    """人脸特征提取请求"""
+    image_url: Optional[str] = Field(None, description="图片远程URL（与 image_base64 二选一）")
+    image_base64: Optional[str] = Field(None, description="图片Base64编码（与 image_url 二选一）")
+    max_faces: Optional[int] = Field(5, description="最多返回的人脸数量，默认5")
+
+
 class FaceResult(BaseModel):
     """单张人脸识别结果"""
     bbox: List[float] = Field(description="人脸边界框 [x1, y1, x2, y2]")
@@ -117,6 +126,23 @@ class AnalyzeResponse(BaseModel):
     faces: List[FaceResult] = []
     face_count: int = 0
     analysis_time: float = 0.0
+
+
+class EmbeddingFace(BaseModel):
+    """单张人脸特征提取结果"""
+    bbox: List[float] = Field(description="人脸边界框 [x1, y1, x2, y2]")
+    bbox_area: float = Field(description="人脸框面积")
+    embedding: List[float] = Field(description="512维L2归一化人脸特征向量")
+    embedding_dim: int = Field(description="向量维度")
+    det_score: float = Field(description="人脸检测置信度 0~1")
+
+
+class ExtractEmbeddingResponse(BaseModel):
+    """特征提取响应"""
+    status: str = "success"
+    faces: List[EmbeddingFace] = []
+    face_count: int = 0
+    extraction_time: float = 0.0
 
 
 # --------------- FastAPI 应用 ---------------
@@ -323,6 +349,86 @@ def run_fairface_inference(face_img: Image.Image) -> Dict[str, Any]:
 
 
 # --------------- API 端点 ---------------
+@app.post("/api/extract_embedding")
+async def extract_embedding(req: ExtractEmbeddingRequest):
+    """
+    人脸特征向量提取
+
+    使用 InsightFace 检测人脸并返回 512 维 L2 归一化特征向量 (normed_embedding)。
+    统一后端提取，替代前端 face-api.js 的 128 维向量，确保所有来源使用同一模型。
+    """
+    if insight_app is None:
+        raise HTTPException(status_code=503, detail="InsightFace 模型未完成加载")
+
+    if not req.image_url and not req.image_base64:
+        raise HTTPException(status_code=400, detail="image_url 和 image_base64 至少提供一个")
+
+    start_time = time.time()
+
+    try:
+        # 1. 加载图片
+        if req.image_url:
+            pil_img = load_image_from_url(req.image_url)
+        else:
+            pil_img = load_image_from_base64(req.image_base64)
+
+        img_np = np.array(pil_img)[:, :, ::-1]  # RGB → BGR
+
+        # 2. InsightFace 人脸检测
+        faces_detected = insight_app.get(img_np)
+
+        if not faces_detected:
+            return ExtractEmbeddingResponse(
+                status="success",
+                faces=[],
+                face_count=0,
+                extraction_time=round(time.time() - start_time, 3),
+            )
+
+        # 3. 按面积降序排序，取前 max_faces 张
+        faces_sorted = sorted(faces_detected, key=lambda f: (f.bbox[2]-f.bbox[0])*(f.bbox[3]-f.bbox[1]), reverse=True)
+        faces_sorted = faces_sorted[:req.max_faces]
+
+        # 4. 提取 normed_embedding
+        results: List[EmbeddingFace] = []
+        for face in faces_sorted:
+            emb = getattr(face, "normed_embedding", None)
+            if emb is None:
+                emb = getattr(face, "embedding", None)
+            if emb is None:
+                continue
+
+            emb_list = emb.tolist()
+            bbox = face.bbox.tolist()
+            bbox_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+            det_score = float(getattr(face, "det_score", 0.0))
+
+            results.append(EmbeddingFace(
+                bbox=[round(v, 1) for v in bbox],
+                bbox_area=round(bbox_area, 1),
+                embedding=emb_list,
+                embedding_dim=len(emb_list),
+                det_score=round(det_score, 4),
+            ))
+
+        extraction_time = round(time.time() - start_time, 3)
+        logger.info(f"特征提取完成: {len(results)} 张人脸, 维度={results[0].embedding_dim if results else 0}, 耗时 {extraction_time}s")
+
+        return ExtractEmbeddingResponse(
+            status="success",
+            faces=results,
+            face_count=len(results),
+            extraction_time=extraction_time,
+        )
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"图片下载失败: {e}")
+        raise HTTPException(status_code=400, detail=f"图片下载失败: {str(e)}")
+    except Exception as e:
+        logger.error(f"特征提取失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"特征提取失败: {str(e)}")
+
+
 @app.get("/api/health")
 async def health_check():
     """健康检查"""

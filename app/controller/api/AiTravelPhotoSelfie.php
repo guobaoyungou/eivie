@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\controller\api;
 
 use app\BaseController;
+use app\service\AiTravelPhotoPickService;
 use app\service\AiTravelPhotoSelfieService;
 use think\App;
 use think\facade\Db;
@@ -102,6 +103,19 @@ class AiTravelPhotoSelfie extends BaseController
                 return json(['code' => 403, 'msg' => '该门店暂未开放自拍功能']);
             }
 
+            // 检查该用户在该门店是否已有合成完成的成片
+            $hasCompleted = false;
+            $storePickUrl = '';
+            try {
+                $pickService = new AiTravelPhotoPickService();
+                $hasCompleted = $pickService->hasCompletedResultsInStore($bid, $mdid, $openid);
+                if ($hasCompleted) {
+                    $storePickUrl = '/public/pick/index.html?mode=store&bid=' . $bid . '&mdid=' . $mdid;
+                }
+            } catch (\Exception $e) {
+                Log::warning('selfie index检查已有成片异常', ['error' => $e->getMessage()]);
+            }
+
             return json([
                 'code' => 200,
                 'msg' => '成功',
@@ -112,6 +126,8 @@ class AiTravelPhotoSelfie extends BaseController
                     'openid' => $openid,
                     'store_name' => $storeName,
                     'business_name' => $businessName,
+                    'has_completed' => $hasCompleted,
+                    'store_pick_url' => $storePickUrl,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -249,7 +265,21 @@ class AiTravelPhotoSelfie extends BaseController
                 }
             }
 
-            // 重定向回自拍页
+            // 检查该用户在该门店是否已有合成完成的成片
+            // 如有 → 桥接pick_openid，直接重定向到选片门店模式
+            try {
+                $pickService = new AiTravelPhotoPickService();
+                if ($pickService->hasCompletedResultsInStore($bid, $mdid, $openid)) {
+                    Session::set('pick_openid', $openid); // 桥接 selfie → pick session
+                    $pickUrl = $this->request->domain() . '/public/pick/index.html?mode=store&bid=' . $bid . '&mdid=' . $mdid;
+                    Log::info('自拍端OAuth回调：用户已有成片，重定向到选片页', ['openid' => $openid, 'bid' => $bid, 'mdid' => $mdid]);
+                    return redirect($pickUrl);
+                }
+            } catch (\Exception $e) {
+                Log::warning('自拍端OAuth检查已有成片异常', ['error' => $e->getMessage()]);
+            }
+
+            // 无成片 → 重定向回自拍页（原逻辑）
             $redirectUrl = $this->request->domain() . '/public/selfie/index.html?aid=' . $aid . '&bid=' . $bid . '&mdid=' . $mdid;
             return redirect($redirectUrl);
         } catch (\Exception $e) {
@@ -315,37 +345,54 @@ class AiTravelPhotoSelfie extends BaseController
                 }
             }
 
-            // 有人脸特征时：在门店成片库中搜索匹配
+            // ===== 第一步：与数据库人像数据比对 =====
+            // 有人脸特征时：通过人脸相似度在门店成片库中精确匹配
+            // 无人脸特征时：通过openid查找该用户在该门店已有的已合成人像
+            $matchResult = null;
             if ($hasEmbedding) {
                 $matchResult = $this->selfieService->matchFaceInStore($faceEmbedding, $aid, $bid, $mdid);
-
-                if ($matchResult) {
-                    // 命中已有成片
-                    \app\model\AiTravelPhotoSelfieQrcode::where('aid', $aid)
-                        ->where('bid', $bid)
-                        ->where('mdid', $mdid)
-                        ->inc('match_count')
-                        ->update([]);
-
-                    return json([
-                        'code' => 200,
-                        'msg' => '找到匹配的旅拍照片',
-                        'data' => [
-                            'matched' => true,
-                            'pick_url' => $matchResult['pick_url'],
-                            'result_count' => $matchResult['result_count'],
-                        ],
-                    ]);
-                }
+            } else {
+                $matchResult = $this->selfieService->matchByOpenidInStore($bid, $mdid, $openid);
             }
 
-            // ===== 防重检测：同一用户同一门店当天仅首次合成 =====
+            if ($matchResult) {
+                // ===== OpenID 关联：将当前用户 openid 回写至匹配的设备拍摄人像 =====
+                // 规则：仅更新 user_openid 为空的记录，已有值的保留不覆盖，冲突记录日志
+                if (!empty($matchResult['portrait_ids'])) {
+                    try {
+                        $this->selfieService->associateOpenidToPortraits(
+                            $matchResult['portrait_ids'], $openid, $bid, $mdid
+                        );
+                    } catch (\Exception $e) {
+                        Log::warning('OpenID关联异常，不影响匹配结果返回', [
+                            'openid' => $openid, 'error' => $e->getMessage()
+                        ]);
+                    }
+                }
+
+                // 比对成功：返回付费选片链接
+                \app\model\AiTravelPhotoSelfieQrcode::where('aid', $aid)
+                    ->where('bid', $bid)
+                    ->where('mdid', $mdid)
+                    ->inc('match_count')
+                    ->update([]);
+
+                return json([
+                    'code' => 200,
+                    'msg' => '找到匹配的旅拍照片',
+                    'data' => [
+                        'matched' => true,
+                        'pick_url' => $matchResult['pick_url'],
+                        'result_count' => $matchResult['result_count'],
+                    ],
+                ]);
+            }
+
+            // ===== 第二步：当天防重检测（同一用户同一门店当天仅首次合成） =====
             $dedupResult = null;
             if ($hasEmbedding) {
-                // 有人脸特征：通过人脸相似度精确防重
                 $dedupResult = $this->selfieService->checkSelfieDedup($faceEmbedding, $bid, $mdid, $openid);
             } else {
-                // 无人脸特征（手动拍摄模式）：基于openid+门店+当天防重
                 $dedupResult = $this->selfieService->checkSelfieDedupByOpenid($bid, $mdid, $openid);
             }
 
@@ -381,7 +428,7 @@ class AiTravelPhotoSelfie extends BaseController
                 // dedupStatus == 4（全部失败）：不拦截，允许重新提交
             }
 
-            // 未命中且无重复：创建人像并投递合成任务
+            // ===== 第三步：未命中 → 将人像数据存入数据库并进行合成 =====
             // 去掉base64头部
             $imageData = $image;
             if (strpos($imageData, 'base64,') !== false) {

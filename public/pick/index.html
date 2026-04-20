@@ -253,17 +253,33 @@ var APP = {
   paying: false,
   apiBase: '/index.php?s=/api/ai_travel_photo/pick/',
   faceWatermarkEnabled: 0,
-  mpNickname: ''
+  mpNickname: '',
+  // 门店模式
+  storeMode: false,
+  mdid: 0,
+  portraitIds: []
 };
 
 // 初始化
 (function init() {
   var params = new URLSearchParams(window.location.search);
+  var mode = params.get('mode') || '';
   APP.qr = params.get('qr') || '';
 
-  if (!APP.qr) {
-    showError('缺少二维码参数');
-    return;
+  // 门店模式：用户重复扫码时直接展示所有成片
+  if (mode === 'store') {
+    APP.storeMode = true;
+    APP.bid = parseInt(params.get('bid')) || 0;
+    APP.mdid = parseInt(params.get('mdid')) || 0;
+    if (!APP.bid || !APP.mdid) {
+      showError('缺少门店参数');
+      return;
+    }
+  } else {
+    if (!APP.qr) {
+      showError('缺少二维码参数');
+      return;
+    }
   }
 
   // 检测微信浏览器
@@ -274,6 +290,91 @@ var APP = {
     return;
   }
 
+  if (APP.storeMode) {
+    storeInit();
+  } else {
+    qrInit();
+  }
+})();
+
+// 门店模式初始化
+function storeInit() {
+  fetchApi('store_index', {bid: APP.bid, mdid: APP.mdid}, 'GET', function(res) {
+    if (res.code === 302 && res.data && res.data.need_auth) {
+      storeStartOAuth();
+      return;
+    }
+    if (res.code !== 200) {
+      showError(res.msg || '加载失败');
+      return;
+    }
+    APP.portraitIds = res.data.portrait_ids || [];
+    APP.aid = res.data.aid;
+    APP.bid = res.data.bid;
+    APP.mdid = res.data.mdid;
+    APP.openid = res.data.openid || '';
+    APP.faceWatermarkEnabled = res.data.face_watermark_enabled || 0;
+    APP.mpNickname = res.data.mp_nickname || '';
+    // 门店模式用第一个portrait_id作为主人像ID
+    APP.portraitId = APP.portraitIds.length > 0 ? APP.portraitIds[0] : 0;
+
+    var bName = res.data.business_name || '';
+    var sName = res.data.store_name || '';
+    if (bName) {
+      var nameEl = document.getElementById('storeName');
+      nameEl.textContent = sName ? (bName + ' · ' + sName) : bName;
+      nameEl.style.display = 'block';
+    }
+
+    if (res.data.total_results === 0) {
+      // 无成片，显示空状态
+      document.getElementById('loadingMask').style.display = 'none';
+      document.getElementById('mainContent').style.display = 'block';
+      document.getElementById('emptyTip').style.display = 'block';
+      return;
+    }
+
+    storeLoadResults();
+  });
+}
+
+function storeStartOAuth() {
+  window.location.href = window.location.origin + APP.apiBase + 'start_oauth&mode=store&bid=' + APP.bid + '&mdid=' + APP.mdid;
+}
+
+function storeLoadResults() {
+  fetchApi('store_results', {bid: APP.bid, mdid: APP.mdid}, 'GET', function(res) {
+    document.getElementById('loadingMask').style.display = 'none';
+    if (res.code !== 200) { showError(res.msg); return; }
+
+    APP.results = res.data.results || [];
+    APP.similarResults = [];
+    APP.allResults = APP.results;
+    APP.portraitIds = res.data.portrait_ids || APP.portraitIds;
+
+    var totalAll = APP.results.length;
+    document.getElementById('totalCount').textContent = totalAll;
+
+    if (totalAll === 0) {
+      document.getElementById('mainContent').style.display = 'block';
+      document.getElementById('emptyTip').style.display = 'block';
+      return;
+    }
+
+    renderGrid();
+    document.getElementById('mainContent').style.display = 'block';
+
+    // 预加载套餐信息
+    fetchApi('packages', {bid: APP.bid}, 'GET', function(pkgRes) {
+      if (pkgRes.code === 200) {
+        APP.packages = pkgRes.data || [];
+      }
+    });
+  });
+}
+
+// QR模式初始化（原有逻辑）
+function qrInit() {
   // 请求入口接口
   fetchApi('index', {qr: APP.qr}, 'GET', function(res) {
     if (res.code === 302 && res.data && res.data.need_auth) {
@@ -311,7 +412,7 @@ var APP = {
       }
     }
   });
-})();
+}
 
 function startOAuth() {
   window.location.href = window.location.origin + APP.apiBase + 'start_oauth&qr=' + APP.qr;
@@ -530,6 +631,7 @@ function submitOrder() {
 
   fetchApi('order', {
     portrait_id: APP.portraitId,
+    portrait_ids: APP.storeMode ? APP.portraitIds : undefined,
     result_ids: APP.selectedIds,
     package_id: APP.selectedPackageId,
     aid: APP.aid,
@@ -550,7 +652,8 @@ function startPay(orderNo) {
   btn.textContent = '跳转支付中...';
 
   // 跳转到 /h5/ 目录下的收银台页面（在已注册的微信JSAPI支付授权目录 https://ai.eivie.cn/h5/ 下）
-  var cashierUrl = '/h5/cashier.html?order_no=' + encodeURIComponent(orderNo) + '&qr=' + encodeURIComponent(APP.qr);
+  var qrOrStore = APP.storeMode ? ('mode=store&bid=' + APP.bid + '&mdid=' + APP.mdid) : ('qr=' + encodeURIComponent(APP.qr));
+  var cashierUrl = '/h5/cashier.html?order_no=' + encodeURIComponent(orderNo) + '&' + qrOrStore;
   window.location.href = cashierUrl;
 }
 

@@ -114,12 +114,107 @@ class AiTravelPhotoPickService
     }
 
     /**
+     * 获取门店内某用户(openid)所有已合成成片（聚合多个portrait）
+     *
+     * 门店模式：用户重复扫码时，直接展示该openid在该门店的所有成片
+     *
+     * @param int $bid 商家ID
+     * @param int $mdid 门店ID
+     * @param string $openid 用户openid
+     * @return array
+     */
+    public function getStoreResultListByOpenid(int $bid, int $mdid, string $openid): array
+    {
+        // 查找该openid在该门店所有已合成完成的人像
+        $portraits = Db::name('ai_travel_photo_portrait')
+            ->where('user_openid', $openid)
+            ->where('bid', $bid)
+            ->where('mdid', $mdid)
+            ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL)
+            ->where('synthesis_status', 3) // 合成已完成
+            ->field('id, aid')
+            ->order('id', 'desc')
+            ->select()
+            ->toArray();
+
+        if (empty($portraits)) {
+            return [
+                'portrait_ids' => [],
+                'results' => [],
+                'total' => 0,
+                'similar_results' => [],
+                'similar_total' => 0,
+            ];
+        }
+
+        $portraitIds = array_column($portraits, 'id');
+        $aid = (int)$portraits[0]['aid'];
+
+        // 聚合所有portrait的成片
+        $results = AiTravelPhotoResult::whereIn('portrait_id', $portraitIds)
+            ->where('status', AiTravelPhotoResult::STATUS_NORMAL)
+            ->field('id, type, url, thumbnail_url, watermark_url, width, height, create_time')
+            ->order('create_time DESC, id DESC')
+            ->select()
+            ->toArray();
+
+        $list = $this->formatResultItems($results);
+
+        return [
+            'portrait_ids' => array_map('intval', $portraitIds),
+            'aid' => $aid,
+            'results' => $list,
+            'total' => count($list),
+            'similar_results' => [],  // 门店模式不需要相似推荐
+            'similar_total' => 0,
+        ];
+    }
+
+    /**
+     * 检查用户在门店是否有已合成完成的成片
+     *
+     * @param int $bid 商家ID
+     * @param int $mdid 门店ID
+     * @param string $openid 用户openid
+     * @return bool
+     */
+    public function hasCompletedResultsInStore(int $bid, int $mdid, string $openid): bool
+    {
+        $portrait = Db::name('ai_travel_photo_portrait')
+            ->where('user_openid', $openid)
+            ->where('bid', $bid)
+            ->where('mdid', $mdid)
+            ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL)
+            ->where('synthesis_status', 3)
+            ->field('id')
+            ->find();
+
+        if (!$portrait) {
+            return false;
+        }
+
+        $resultCount = AiTravelPhotoResult::where('portrait_id', (int)$portrait['id'])
+            ->where('status', AiTravelPhotoResult::STATUS_NORMAL)
+            ->count();
+
+        return $resultCount > 0;
+    }
+
+    /**
      * 格式化成片列表项（生成缩略图URL等）
      *
      * @param array $results 数据库查询结果
      * @return array
      */
     private function formatResultItems(array $results): array
+    {
+        return $this->formatResultItemsPublic($results);
+    }
+
+    /**
+     * 格式化成片列表项（公共方法，供控制器调用）
+     */
+    public function formatResultItemsPublic(array $results): array
     {
         $list = [];
         foreach ($results as $item) {
@@ -459,6 +554,7 @@ class AiTravelPhotoPickService
     public function createPickOrder(array $data): array
     {
         $portraitId = (int)($data['portrait_id'] ?? 0);
+        $portraitIds = $data['portrait_ids'] ?? [];
         $resultIds = $data['result_ids'] ?? [];
         $packageId = (int)($data['package_id'] ?? 0);
         $openid = $data['openid'] ?? '';
@@ -466,21 +562,31 @@ class AiTravelPhotoPickService
         $bid = (int)($data['bid'] ?? 0);
         $qrcodeId = (int)($data['qrcode_id'] ?? 0);
 
-        if ($portraitId <= 0) {
+        if ($portraitId <= 0 && empty($portraitIds)) {
             throw new \Exception('人像ID不能为空');
         }
         if (empty($resultIds)) {
             throw new \Exception('请至少选择一张成片');
         }
 
-        // 查找当前人像 + 相似人像的所有合法portrait_id
-        $allowedPortraitIds = [$portraitId];
-        if ($bid > 0 || $aid > 0) {
-            try {
-                $similarIds = $this->findSimilarPortraitIds($portraitId, $bid, $aid, 0.95);
-                $allowedPortraitIds = array_merge($allowedPortraitIds, $similarIds);
-            } catch (\Exception $e) {
-                // 相似搜索失败不影响主流程
+        // 构建allowedPortraitIds
+        $allowedPortraitIds = [];
+        if (!empty($portraitIds) && is_array($portraitIds)) {
+            // 门店模式：直接使用前端传入的所有portrait_ids
+            $allowedPortraitIds = array_map('intval', $portraitIds);
+            if ($portraitId <= 0 && !empty($allowedPortraitIds)) {
+                $portraitId = $allowedPortraitIds[0];
+            }
+        } else {
+            // 原有模式：单portrait_id + 相似人像
+            $allowedPortraitIds = [$portraitId];
+            if ($bid > 0 || $aid > 0) {
+                try {
+                    $similarIds = $this->findSimilarPortraitIds($portraitId, $bid, $aid, 0.95);
+                    $allowedPortraitIds = array_merge($allowedPortraitIds, $similarIds);
+                } catch (\Exception $e) {
+                    // 相似搜索失败不影响主流程
+                }
             }
         }
 

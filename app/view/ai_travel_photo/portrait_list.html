@@ -130,6 +130,77 @@
             </div>
           </div>
 
+          <!-- Milvus 向量数据库服务状态提示条 -->
+          <div id="milvusStatusBar" class="milvus-status-bar {:$milvus_status['healthy'] ? 'status-ok' : 'status-error'}">
+            <div class="milvus-status-left">
+              <span class="milvus-status-dot {:$milvus_status['healthy'] ? 'dot-ok' : 'dot-error'}"></span>
+              <span class="milvus-status-icon">{:$milvus_status['healthy'] ? '✅' : '⚠️'}</span>
+              <strong class="milvus-status-title">向量数据库 (Milvus)</strong>
+              <span id="milvusStatusText" class="milvus-status-text">
+                {:$milvus_status['healthy'] ? '服务运行正常' : '服务未连接'}
+              </span>
+              <span class="milvus-status-addr" title="Milvus REST 地址">{$milvus_status.host}:{$milvus_status.port}</span>
+              {if $milvus_status['pending_sync'] > 0}
+              <span id="milvusPendingSync" class="milvus-pending-badge" title="MySQL已入库但尚未同步到Milvus的记录数">
+                • 待同步: <strong>{$milvus_status.pending_sync}</strong> 条
+              </span>
+              {/if}
+            </div>
+            <div class="milvus-status-right">
+              <span id="milvusCheckTime" class="milvus-check-time" title="上次检测时间">{$milvus_status.check_time}</span>
+              <button type="button" class="layui-btn layui-btn-xs layui-btn-primary" id="milvusRefreshBtn" onclick="refreshMilvusStatus()">
+                <i class="layui-icon layui-icon-refresh"></i> 刷新
+              </button>
+              {if $milvus_status['healthy'] && $milvus_status['pending_sync'] > 0}
+              <button type="button" class="layui-btn layui-btn-xs layui-btn-normal" id="milvusSyncBtn" onclick="triggerMilvusSync()">
+                <i class="layui-icon layui-icon-upload-drag"></i> 一键同步到Milvus
+              </button>
+              {/if}
+              {if !$milvus_status['healthy']}
+              <button type="button" class="layui-btn layui-btn-xs layui-btn-warm" onclick="showMilvusTroubleshoot()">
+                <i class="layui-icon layui-icon-about"></i> 处理办法
+              </button>
+              {/if}
+            </div>
+          </div>
+          <style>
+            .milvus-status-bar {
+              display: flex; align-items: center; justify-content: space-between;
+              padding: 10px 16px; border-radius: 8px; margin-bottom: 15px;
+              font-size: 13px; transition: all 0.3s ease;
+            }
+            .milvus-status-bar.status-ok {
+              background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+              border: 1px solid #86efac;
+            }
+            .milvus-status-bar.status-error {
+              background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+              border: 1px solid #fca5a5;
+              animation: milvusStatusPulse 3s ease-in-out infinite;
+            }
+            @keyframes milvusStatusPulse {
+              0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.15); }
+              50% { box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.2); }
+            }
+            .milvus-status-left, .milvus-status-right { display: flex; align-items: center; gap: 8px; }
+            .milvus-status-dot {
+              width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0;
+            }
+            .milvus-status-dot.dot-ok { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.6); }
+            .milvus-status-dot.dot-error { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.6); animation: dotBlink 1.5s ease-in-out infinite; }
+            @keyframes dotBlink {
+              0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+            }
+            .milvus-status-icon { font-size: 16px; }
+            .milvus-status-title { color: #333; font-size: 13px; }
+            .status-ok .milvus-status-text { color: #16a34a; font-weight: 500; }
+            .status-error .milvus-status-text { color: #dc2626; font-weight: 600; }
+            .milvus-status-addr { color: #999; font-size: 12px; font-family: monospace; background: rgba(0,0,0,0.05); padding: 1px 6px; border-radius: 3px; }
+            .milvus-pending-badge { color: #ea580c; font-size: 12px; }
+            .milvus-check-time { color: #aaa; font-size: 11px; }
+            .milvus-status-right .layui-btn { height: 26px; line-height: 26px; font-size: 12px; }
+          </style>
+
           <!-- 筛选区域 -->
           <div class="layui-form layui-form-search" style="margin-bottom: 15px;">
             <div class="layui-inline">
@@ -154,6 +225,32 @@
                   <option value="3">成功</option>
                   <option value="4">失败</option>
                 </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">来源：</label>
+              <div class="layui-input-inline">
+                <select name="source_type" lay-filter="sourceTypeFilter">
+                  <option value="">全部来源</option>
+                  <option value="1">设备拍摄</option>
+                  <option value="3">用户自拍</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">特征库：</label>
+              <div class="layui-input-inline">
+                <select name="embedding_status" lay-filter="embeddingStatusFilter">
+                  <option value="">全部</option>
+                  <option value="1">已入库</option>
+                  <option value="0">未入库</option>
+                </select>
+              </div>
+            </div>
+            <div class="layui-inline">
+              <label class="layui-form-label">用户ID：</label>
+              <div class="layui-input-inline">
+                <input type="text" name="user_openid" placeholder="输入openid搜索" autocomplete="off" class="layui-input">
               </div>
             </div>
             <div class="layui-inline">
@@ -287,8 +384,27 @@
           return '<img src="'+d.thumbnail_url+'" style="height:50px;cursor:pointer;" onerror="this.src=\'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'%3E%3Crect width=\'50\' height=\'50\' fill=\'%23ddd\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23999\'%3E加载失败%3C/text%3E%3C/svg%3E\'; this.style.cursor=\'not-allowed\';" onclick="if(this.src.indexOf(\'data:image\')==-1){layer.photos({photos: {data: [{src: \''+d.original_url+'\'}]}, anim: 5});}">'; 
         }},
         {field: 'file_name', title: '文件名', width: 200},
-        {field: 'type', title: '上传方式', width: 120, templet: function(d){
+        {field: 'type', title: '上传方式', width: 100, templet: function(d){
           return d.type == 1 ? '商家上传' : '用户上传';
+        }},
+        {field: 'source_type', title: '人像来源', width: 100, templet: function(d){
+          var st = d.source_type || 1;
+          if(st == 1) return '<span style="color:#5fb878">设备拍摄</span>';
+          if(st == 3) return '<span style="color:#1e9fff">用户自拍</span>';
+          return '<span style="color:#999">其他</span>';
+        }},
+        {field: 'has_embedding', title: '特征库', width: 90, align: 'center', templet: function(d){
+          if(d.has_embedding == 2){
+            return '<span style="display:inline-block;padding:2px 8px;background:#5fb878;color:#fff;border-radius:3px;font-size:12px;" title="向量ID: '+d.face_embedding_id+'">已入库</span>';
+          }
+          if(d.has_embedding == 1){
+            return '<span style="display:inline-block;padding:2px 8px;background:#5fb878;color:#fff;border-radius:3px;font-size:12px;" title="已存储至MySQL，Milvus待同步">已入库</span>';
+          }
+          return '<span style="display:inline-block;padding:2px 8px;background:#FF5722;color:#fff;border-radius:3px;font-size:12px;">未入库</span>';
+        }},
+        {field: 'user_openid', title: '用户关联', width: 140, templet: function(d){
+          if(!d.user_openid) return '<span style="color:#ccc">未关联</span>';
+          return '<span style="color:#1e9fff;cursor:pointer;" title="'+d.user_openid+'" onclick="layer.tips(\''+d.user_openid+'\', this, {tips: 1, time: 5000})">' + d.user_openid_short + '</span>';
         }},
         {field: 'mdid', title: '门店', width: 150, templet: function(d){
           var md = '';
@@ -382,6 +498,24 @@
     
     form.on('select(synthesisStatusFilter)', function(data){
       datawhere.synthesis_status = data.value;
+      tableIns.reload({
+        where: datawhere,
+        page: {curr: 1}
+      });
+    });
+
+    // 来源筛选
+    form.on('select(sourceTypeFilter)', function(data){
+      datawhere.source_type = data.value;
+      tableIns.reload({
+        where: datawhere,
+        page: {curr: 1}
+      });
+    });
+
+    // 特征库状态筛选
+    form.on('select(embeddingStatusFilter)', function(data){
+      datawhere.embedding_status = data.value;
       tableIns.reload({
         where: datawhere,
         page: {curr: 1}
@@ -1131,6 +1265,209 @@
       }
     });
   }
+
+  // ==================== Milvus 服务状态监控 ====================
+  var milvusPollingTimer = null;
+  var milvusCurrentStatus = {:$milvus_status['healthy'] ? 'true' : 'false'};
+
+  /**
+   * 刷新 Milvus 服务状态（AJAX 请求）
+   */
+  function refreshMilvusStatus() {
+    var btn = document.getElementById('milvusRefreshBtn');
+    if(btn) btn.disabled = true;
+    $.get("{:url('AiTravelPhoto/milvus_status_check')}", function(res) {
+      if(res.status == 1 && res.data) {
+        updateMilvusStatusUI(res.data);
+      }
+    }).fail(function() {
+      layer.msg('Milvus状态检测请求失败', {icon: 2, time: 1500});
+    }).always(function() {
+      if(btn) btn.disabled = false;
+    });
+  }
+
+  /**
+   * 更新 Milvus 状态栏 UI
+   */
+  function updateMilvusStatusUI(data) {
+    var bar = document.getElementById('milvusStatusBar');
+    var statusText = document.getElementById('milvusStatusText');
+    var checkTime = document.getElementById('milvusCheckTime');
+    if(!bar) return;
+
+    var wasDown = !milvusCurrentStatus;
+    milvusCurrentStatus = data.healthy;
+
+    // 更新状态栏样式
+    if(data.healthy) {
+      bar.className = 'milvus-status-bar status-ok';
+      bar.querySelector('.milvus-status-dot').className = 'milvus-status-dot dot-ok';
+      bar.querySelector('.milvus-status-icon').textContent = '\u2705';
+      statusText.textContent = '\u670d\u52a1\u8fd0\u884c\u6b63\u5e38';
+      statusText.style.color = '#16a34a';
+      // 移除处理办法按钮
+      var troubleBtn = bar.querySelector('.layui-btn-warm');
+      if(troubleBtn) troubleBtn.style.display = 'none';
+      // 如果之前宕机现在恢复，提示用户
+      if(wasDown) {
+        layer.msg('Milvus 服务已恢复连接！', {icon: 1, time: 2000});
+      }
+    } else {
+      bar.className = 'milvus-status-bar status-error';
+      bar.querySelector('.milvus-status-dot').className = 'milvus-status-dot dot-error';
+      bar.querySelector('.milvus-status-icon').textContent = '\u26a0\ufe0f';
+      statusText.textContent = '\u670d\u52a1\u672a\u8fde\u63a5';
+      statusText.style.color = '#dc2626';
+      // 显示处理办法按钮
+      var rightDiv = bar.querySelector('.milvus-status-right');
+      var troubleBtn = bar.querySelector('.layui-btn-warm');
+      if(!troubleBtn && rightDiv) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'layui-btn layui-btn-xs layui-btn-warm';
+        btn.onclick = showMilvusTroubleshoot;
+        btn.innerHTML = '<i class="layui-icon layui-icon-about"></i> \u5904\u7406\u529e\u6cd5';
+        rightDiv.appendChild(btn);
+      } else if(troubleBtn) {
+        troubleBtn.style.display = '';
+      }
+    }
+
+    // 更新待同步徽章（无论服务正常还是异常都显示）
+    var pendingCount = data.pending_sync || 0;
+    var pendingEl = document.getElementById('milvusPendingSync');
+    if(pendingCount > 0) {
+      if(pendingEl) {
+        pendingEl.style.display = '';
+        pendingEl.innerHTML = '\u2022 \u5f85\u540c\u6b65: <strong>' + pendingCount + '</strong> \u6761';
+      } else {
+        var leftDiv = bar.querySelector('.milvus-status-left');
+        if(leftDiv) {
+          var badge = document.createElement('span');
+          badge.id = 'milvusPendingSync';
+          badge.className = 'milvus-pending-badge';
+          badge.title = 'MySQL\u5df2\u5165\u5e93\u4f46\u5c1a\u672a\u540c\u6b65\u5230Milvus\u7684\u8bb0\u5f55\u6570';
+          badge.innerHTML = '\u2022 \u5f85\u540c\u6b65: <strong>' + pendingCount + '</strong> \u6761';
+          leftDiv.appendChild(badge);
+        }
+      }
+    } else {
+      if(pendingEl) pendingEl.style.display = 'none';
+    }
+
+    // 更新同步按钮（服务正常且有待同步时显示）
+    var syncBtn = document.getElementById('milvusSyncBtn');
+    if(data.healthy && pendingCount > 0) {
+      if(!syncBtn) {
+        var rightDiv = bar.querySelector('.milvus-status-right');
+        if(rightDiv) {
+          var nbtn = document.createElement('button');
+          nbtn.type = 'button';
+          nbtn.id = 'milvusSyncBtn';
+          nbtn.className = 'layui-btn layui-btn-xs layui-btn-normal';
+          nbtn.onclick = triggerMilvusSync;
+          nbtn.innerHTML = '<i class="layui-icon layui-icon-upload-drag"></i> \u4e00\u952e\u540c\u6b65\u5230Milvus';
+          var refreshBtn = document.getElementById('milvusRefreshBtn');
+          if(refreshBtn && refreshBtn.nextSibling) {
+            rightDiv.insertBefore(nbtn, refreshBtn.nextSibling);
+          } else {
+            rightDiv.appendChild(nbtn);
+          }
+        }
+      } else {
+        syncBtn.style.display = '';
+      }
+    } else {
+      if(syncBtn) syncBtn.style.display = 'none';
+    }
+
+    // 更新检测时间
+    if(checkTime) checkTime.textContent = data.check_time || '';
+  }
+
+  /**
+   * 显示 Milvus 故障处理办法弹窗
+   */
+  function showMilvusTroubleshoot() {
+    var content = '<div style="padding: 20px; line-height: 2;">';
+    content += '<h3 style="color:#e74c3c; margin-bottom:15px;"><i class="layui-icon layui-icon-about" style="font-size:22px;"></i> Milvus 向量数据库服务未连接</h3>';
+    content += '<div style="background:#fffbe6; border:1px solid #ffe58f; border-radius:6px; padding:12px 16px; margin-bottom:15px;">';
+    content += '<strong style="color:#d48806;">当前影响：</strong>';
+    content += '<ul style="margin:5px 0 0 20px; color:#666;">';
+    content += '<li>\u4eba\u8138\u7279\u5f81\u5411\u91cf\u5df2\u5b89\u5168\u5b58\u50a8\u5728 MySQL \u6570\u636e\u5e93\uff0c<strong style="color:#52c41a;">\u4e0d\u4f1a\u4e22\u5931</strong></li>';
+    content += '<li>\u7528\u6237\u81ea\u62cd\u5339\u914d\u529f\u80fd\u4f7f\u7528 MySQL \u7279\u5f81\u8fdb\u884c\u5339\u914d\uff0c<strong style="color:#52c41a;">\u4e0d\u53d7\u5f71\u54cd</strong></li>';
+    content += '<li>Milvus \u5411\u91cf\u68c0\u7d22\u6027\u80fd\u4f18\u5316\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u5927\u89c4\u6a21\u4eba\u8138\u641c\u7d22\u53ef\u80fd\u53d8\u6162</li>';
+    content += '</ul></div>';
+    content += '<div style="background:#f6ffed; border:1px solid #b7eb8f; border-radius:6px; padding:12px 16px; margin-bottom:15px;">';
+    content += '<strong style="color:#389e0d;">\u5904\u7406\u6b65\u9aa4\uff1a</strong>';
+    content += '<ol style="margin:5px 0 0 20px; color:#666;">';
+    content += '<li>\u767b\u5f55\u670d\u52a1\u5668\uff0c\u68c0\u67e5 Milvus \u5bb9\u5668\u72b6\u6001\uff1a<code style="background:#f5f5f5; padding:2px 6px; border-radius:3px;">docker ps | grep milvus</code></li>';
+    content += '<li>\u5982\u679c\u5bb9\u5668\u672a\u8fd0\u884c\uff0c\u542f\u52a8\u670d\u52a1\uff1a<code style="background:#f5f5f5; padding:2px 6px; border-radius:3px;">docker-compose up -d milvus-standalone</code></li>';
+    content += '<li>\u68c0\u67e5\u7aef\u53e3\u662f\u5426\u53ef\u8bbf\u95ee\uff1a<code style="background:#f5f5f5; padding:2px 6px; border-radius:3px;">curl http://127.0.0.1:9091/healthz</code></li>';
+    content += '<li>\u786e\u8ba4\u8fd4\u56de <code style="background:#f5f5f5; padding:2px 6px; border-radius:3px;">OK</code> \u540e\u5237\u65b0\u672c\u9875\u9762\u9a8c\u8bc1\u72b6\u6001</li>';
+    content += '<li>\u670d\u52a1\u6062\u590d\u540e\uff0c\u53ef\u70b9\u51fb\u4e0b\u65b9\u6309\u94ae\u5c06\u5f85\u540c\u6b65\u7684\u7279\u5f81\u8865\u5f55\u5230 Milvus</li>';
+    content += '</ol></div>';
+    content += '<div style="text-align:center; margin-top:10px;">';
+    content += '<button class="layui-btn layui-btn-sm" onclick="refreshMilvusStatus();layer.closeAll();"><i class="layui-icon layui-icon-refresh"></i> \u91cd\u65b0\u68c0\u6d4b\u72b6\u6001</button>';
+    content += ' <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="triggerMilvusSync()"><i class="layui-icon layui-icon-upload-drag"></i> \u8865\u5f55Milvus\u7279\u5f81</button>';
+    content += '</div></div>';
+    layer.open({
+      type: 1,
+      title: 'Milvus \u670d\u52a1\u8bca\u65ad\u4e0e\u5904\u7406',
+      area: ['560px', 'auto'],
+      shadeClose: true,
+      content: content
+    });
+  }
+
+  /**
+   * 触发 MySQL→Milvus 向量同步
+   */
+  function triggerMilvusSync() {
+    layer.confirm('\u5c06 MySQL \u4e2d\u5df2\u6709\u7279\u5f81\u4f46\u672a\u540c\u6b65\u5230 Milvus \u7684\u8bb0\u5f55\u6279\u91cf\u540c\u6b65\uff0c\u786e\u5b9a\u7ee7\u7eed\uff1f', {
+      icon: 3, title: '\u786e\u8ba4\u540c\u6b65'
+    }, function(index) {
+      layer.close(index);
+      var loadIdx = layer.load(2, {shade: [0.3, '#000']});
+      $.post("{:url('AiTravelPhoto/portrait_sync_milvus')}", {limit: 500}, function(res) {
+        layer.close(loadIdx);
+        if(res.status == 1) {
+          layer.msg(res.msg, {icon: 1, time: 3000});
+          // 同步完后刷新状态和表格
+          refreshMilvusStatus();
+          if(tableIns) tableIns.reload();
+        } else {
+          layer.msg(res.msg || '\u540c\u6b65\u5931\u8d25', {icon: 2});
+        }
+      }).fail(function() {
+        layer.close(loadIdx);
+        layer.msg('\u8bf7\u6c42\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5', {icon: 2});
+      });
+    });
+  }
+
+  // Milvus 状态定时轮询（服务异常时每30秒检测一次，正常时每5分钟检测）
+  function startMilvusPolling() {
+    if(milvusPollingTimer) clearInterval(milvusPollingTimer);
+    var interval = milvusCurrentStatus ? 300000 : 30000;
+    milvusPollingTimer = setInterval(function() {
+      refreshMilvusStatus();
+    }, interval);
+  }
+
+  // 状态变化时重新设置轮询频率
+  var _origUpdateMilvus = updateMilvusStatusUI;
+  updateMilvusStatusUI = function(data) {
+    var prevStatus = milvusCurrentStatus;
+    _origUpdateMilvus(data);
+    if(prevStatus !== milvusCurrentStatus) {
+      startMilvusPolling();
+    }
+  };
+
+  // 初始化轮询
+  startMilvusPolling();
   </script>
   {include file="public/copyright"/}
 </body>

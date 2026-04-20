@@ -136,17 +136,33 @@ class AiTravelPhotoPick extends BaseController
     /**
      * 启动微信OAuth授权（前端重定向用）
      * GET /api/ai-travel-photo/pick/start_oauth?qr=xxx
+     * 门店模式: GET /api/ai-travel-photo/pick/start_oauth?mode=store&bid=X&mdid=Y
      */
     public function start_oauth(): Response
     {
+        $mode = $this->request->get('mode', '');
         $qr = $this->request->get('qr', '');
-        if (empty($qr)) {
-            return json(['code' => 400, 'msg' => '缺少二维码参数']);
+        $bid = $this->request->get('bid/d', 0);
+        $mdid = $this->request->get('mdid/d', 0);
+
+        if ($mode !== 'store' && empty($qr)) {
+            return json(['code' => 400, 'msg' => '缺少参数']);
         }
 
         try {
-            $portraitInfo = $this->pickService->getPortraitByQrcode($qr);
-            $aid = $portraitInfo['aid'];
+            $aid = 0;
+            if ($mode === 'store' && $bid > 0) {
+                // 门店模式：从bid反查aid
+                $business = \think\facade\Db::name('business')->where('id', $bid)->find();
+                $aid = $business ? (int)$business['aid'] : 0;
+            } else {
+                $portraitInfo = $this->pickService->getPortraitByQrcode($qr);
+                $aid = $portraitInfo['aid'];
+            }
+
+            if (!$aid) {
+                return json(['code' => 400, 'msg' => '无法确定平台信息']);
+            }
 
             $wxset = \think\facade\Db::name('admin_setapp_mp')->where('aid', $aid)->find();
             $appid = $wxset['appid'] ?? '';
@@ -157,7 +173,9 @@ class AiTravelPhotoPick extends BaseController
 
             $callbackUrl = $this->request->domain() . '/index.php?s=/api/ai_travel_photo/pick/oauth_callback';
             $redirectUri = urlencode($callbackUrl);
-            $state = 'qr_' . $qr;
+
+            // state 区分模式：qr_xxx 或 store_{aid}_{bid}_{mdid}
+            $state = ($mode === 'store') ? "store_{$aid}_{$bid}_{$mdid}" : 'qr_' . $qr;
 
             $oauthUrl = "https://open.weixin.qq.com/connect/oauth2/authorize?appid={$appid}&redirect_uri={$redirectUri}&response_type=code&scope=snsapi_base&state={$state}#wechat_redirect";
 
@@ -170,6 +188,7 @@ class AiTravelPhotoPick extends BaseController
     /**
      * 微信OAuth回调
      * GET /api/ai-travel-photo/pick/oauth_callback?code=xxx&state=qr_xxx
+     * 门店模式state: store_{aid}_{bid}_{mdid}
      */
     public function oauth_callback(): Response
     {
@@ -180,16 +199,33 @@ class AiTravelPhotoPick extends BaseController
             return json(['code' => 400, 'msg' => '授权失败，缺少code']);
         }
 
-        // 从state中恢复qr码
+        // 解析state：区分qr模式和store模式
+        $isStoreMode = false;
         $qrCode = '';
-        if (strpos($state, 'qr_') === 0) {
+        $storeAid = 0;
+        $storeBid = 0;
+        $storeMdid = 0;
+
+        if (strpos($state, 'store_') === 0) {
+            $isStoreMode = true;
+            if (preg_match('/^store_(\d+)_(\d+)_(\d+)$/', $state, $m)) {
+                $storeAid = (int)$m[1];
+                $storeBid = (int)$m[2];
+                $storeMdid = (int)$m[3];
+            }
+        } elseif (strpos($state, 'qr_') === 0) {
             $qrCode = substr($state, 3);
         }
 
         try {
-            // 获取人像信息以确定aid，从而获取正确的微信配置
-            $portraitInfo = $this->pickService->getPortraitByQrcode($qrCode);
-            $aid = $portraitInfo['aid'];
+            // 获取aid以确定正确的微信配置
+            $aid = 0;
+            if ($isStoreMode) {
+                $aid = $storeAid;
+            } else {
+                $portraitInfo = $this->pickService->getPortraitByQrcode($qrCode);
+                $aid = $portraitInfo['aid'];
+            }
 
             // 获取微信配置
             $wxset = \think\facade\Db::name('admin_setapp_mp')->where('aid', $aid)->find();
@@ -215,9 +251,110 @@ class AiTravelPhotoPick extends BaseController
             // 存入Session
             Session::set('pick_openid', $openid);
 
-            // 重定向回选片页面
-            $pickUrl = $this->request->domain() . '/public/pick/index.html?qr=' . $qrCode;
+            // 重定向
+            if ($isStoreMode) {
+                $pickUrl = $this->request->domain() . '/public/pick/index.html?mode=store&bid=' . $storeBid . '&mdid=' . $storeMdid;
+            } else {
+                $pickUrl = $this->request->domain() . '/public/pick/index.html?qr=' . $qrCode;
+            }
             return redirect($pickUrl);
+        } catch (\Exception $e) {
+            return json(['code' => 500, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 门店模式选片入口
+     * GET /api/ai_travel_photo/pick/store_index?bid=X&mdid=Y
+     * 用户重复扫码时，直接进入选片页展示所有成片
+     */
+    public function store_index(): Response
+    {
+        $openid = $this->getOpenid();
+        if (empty($openid)) {
+            return json(['code' => 302, 'msg' => '需要微信授权', 'data' => ['need_auth' => true]]);
+        }
+
+        $bid = (int)$this->request->get('bid', 0);
+        $mdid = (int)$this->request->get('mdid', 0);
+
+        if (!$bid || !$mdid) {
+            return json(['code' => 400, 'msg' => '缺少门店参数']);
+        }
+
+        try {
+            // 获取商家信息
+            $business = \think\facade\Db::name('business')->where('id', $bid)->find();
+            $businessName = $business ? ($business['name'] ?: '') : '';
+            $aid = $business ? (int)$business['aid'] : 0;
+            $faceWatermarkEnabled = $business ? intval($business['ai_pick_face_watermark_enabled'] ?? 0) : 0;
+
+            // 获取门店名称
+            $storeName = '';
+            if ($mdid > 0) {
+                $storeName = \think\facade\Db::name('mendian')->where('id', $mdid)->value('name') ?: '';
+            }
+
+            // 获取公众号昵称
+            $mpNickname = '';
+            if ($faceWatermarkEnabled && $aid > 0) {
+                $mpNickname = \think\facade\Db::name('admin_setapp_mp')->where('aid', $aid)->value('nickname') ?: '';
+            }
+
+            // 查找该用户在该门店的所有已合成人像
+            $storeResults = $this->pickService->getStoreResultListByOpenid($bid, $mdid, $openid);
+
+            // 通过openid反查member获取uid
+            $member = \think\facade\Db::name('member')
+                ->where('aid', $aid)
+                ->where('mpopenid', $openid)
+                ->find();
+            $uid = $member ? (int)$member['id'] : 0;
+
+            return json([
+                'code' => 200,
+                'msg' => '成功',
+                'data' => [
+                    'portrait_ids' => $storeResults['portrait_ids'],
+                    'aid' => $aid,
+                    'bid' => $bid,
+                    'mdid' => $mdid,
+                    'openid' => $openid,
+                    'uid' => $uid,
+                    'business_name' => $businessName,
+                    'store_name' => $storeName,
+                    'face_watermark_enabled' => $faceWatermarkEnabled,
+                    'mp_nickname' => $mpNickname,
+                    'total_results' => $storeResults['total'],
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return json(['code' => 500, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 门店模式成片列表
+     * GET /api/ai_travel_photo/pick/store_results?bid=X&mdid=Y
+     * 返回该openid在该门店的所有成片
+     */
+    public function store_results(): Response
+    {
+        $openid = $this->getOpenid();
+        if (empty($openid)) {
+            return json(['code' => 401, 'msg' => '未授权']);
+        }
+
+        $bid = (int)$this->request->get('bid', 0);
+        $mdid = (int)$this->request->get('mdid', 0);
+
+        if (!$bid || !$mdid) {
+            return json(['code' => 400, 'msg' => '参数错误']);
+        }
+
+        try {
+            $data = $this->pickService->getStoreResultListByOpenid($bid, $mdid, $openid);
+            return json(['code' => 200, 'msg' => '成功', 'data' => $data]);
         } catch (\Exception $e) {
             return json(['code' => 500, 'msg' => $e->getMessage()]);
         }
@@ -241,8 +378,33 @@ class AiTravelPhotoPick extends BaseController
             return json(['code' => 400, 'msg' => '参数错误']);
         }
 
+        // 门店模式：传入portrait_ids时，使用所有portrait的结果
+        $portraitIdsJson = $this->request->get('portrait_ids', '');
+        $portraitIds = [];
+        if (!empty($portraitIdsJson)) {
+            $portraitIds = json_decode($portraitIdsJson, true);
+            if (!is_array($portraitIds)) $portraitIds = [];
+        }
+
         try {
-            $data = $this->pickService->getResultList($portraitId, $bid, $aid);
+            if (!empty($portraitIds)) {
+                // 门店模式：聚合多个portrait的成片
+                $results = \app\model\AiTravelPhotoResult::whereIn('portrait_id', array_map('intval', $portraitIds))
+                    ->where('status', \app\model\AiTravelPhotoResult::STATUS_NORMAL)
+                    ->field('id, type, url, thumbnail_url, watermark_url, width, height, create_time')
+                    ->order('create_time DESC, id DESC')
+                    ->select()
+                    ->toArray();
+                $data = [
+                    'portrait_ids' => array_map('intval', $portraitIds),
+                    'results' => $this->pickService->formatResultItemsPublic($results),
+                    'total' => count($results),
+                    'similar_results' => [],
+                    'similar_total' => 0,
+                ];
+            } else {
+                $data = $this->pickService->getResultList($portraitId, $bid, $aid);
+            }
             return json(['code' => 200, 'msg' => '成功', 'data' => $data]);
         } catch (\Exception $e) {
             return json(['code' => 500, 'msg' => $e->getMessage()]);
@@ -329,7 +491,7 @@ class AiTravelPhotoPick extends BaseController
         }
 
         // 参数验证
-        if (empty($params['portrait_id'])) {
+        if (empty($params['portrait_id']) && empty($params['portrait_ids'])) {
             return json(['code' => 400, 'msg' => '人像ID不能为空']);
         }
         if (empty($params['result_ids']) || !is_array($params['result_ids'])) {
@@ -445,6 +607,9 @@ class AiTravelPhotoPick extends BaseController
     {
         $orderNo = $this->request->get('order_no', '');
         $qr = $this->request->get('qr', '');
+        $mode = $this->request->get('mode', '');
+        $bid = $this->request->get('bid/d', 0);
+        $mdid = $this->request->get('mdid/d', 0);
 
         if (empty($orderNo)) {
             return response('参数错误', 400);
@@ -465,7 +630,12 @@ class AiTravelPhotoPick extends BaseController
             $payError = $e->getMessage();
         }
 
-        $pickUrl = $this->request->domain() . '/public/pick/index.html' . ($qr ? '?qr=' . $qr : '');
+        // 构建返回选片页URL：支持门店模式
+        if ($mode === 'store' && $bid > 0 && $mdid > 0) {
+            $pickUrl = $this->request->domain() . '/public/pick/index.html?mode=store&bid=' . $bid . '&mdid=' . $mdid;
+        } else {
+            $pickUrl = $this->request->domain() . '/public/pick/index.html' . ($qr ? '?qr=' . $qr : '');
+        }
         $downloadUrl = $this->request->domain() . '/public/pick/download.html?order_no=' . $orderNo;
         $payStatusUrl = $this->request->domain() . '/index.php?s=/api/ai_travel_photo/pick/pay_status&order_no=' . $orderNo;
 

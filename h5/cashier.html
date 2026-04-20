@@ -35,7 +35,12 @@ var API_BASE = '/index.php?s=/api/ai_travel_photo/pick/';
 var params = new URLSearchParams(window.location.search);
 var ORDER_NO = params.get('order_no') || '';
 var QR_CODE = params.get('qr') || '';
-var PICK_URL = window.location.origin + '/public/pick/index.html' + (QR_CODE ? '?qr=' + QR_CODE : '');
+var STORE_MODE = params.get('mode') === 'store';
+var STORE_BID = params.get('bid') || '';
+var STORE_MDID = params.get('mdid') || '';
+var PICK_URL = STORE_MODE
+  ? (window.location.origin + '/public/pick/index.html?mode=store&bid=' + STORE_BID + '&mdid=' + STORE_MDID)
+  : (window.location.origin + '/public/pick/index.html' + (QR_CODE ? '?qr=' + QR_CODE : ''));
 var DOWNLOAD_URL = window.location.origin + '/public/pick/download.html?order_no=' + ORDER_NO;
 
 document.getElementById('backBtn').href = PICK_URL;

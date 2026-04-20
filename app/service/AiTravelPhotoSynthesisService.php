@@ -1045,9 +1045,10 @@ class AiTravelPhotoSynthesisService
         $sizeDefault = $is30t2i ? '1024x1024' : '2K';
         $size = $defaultParams['size'] ?? $sizeDefault;
 
-        // SeeDream 5.0 Lite 最低像素要求 3686400（1920x1920）
+        // SeeDream 5.0-lite / 4.5 / 4.0 最低像素要求 3686400（1920x1920）
+        // 3.0-t2i 无此限制（其范围为 512x512 ~ 2048x2048）
         // 当 size 为 WxH 格式且像素不足时，按比例放大到满足最低要求
-        if ($is50lite && !empty($size) && preg_match('/^(\d+)x(\d+)$/i', $size, $m)) {
+        if (!$is30t2i && !empty($size) && preg_match('/^(\d+)x(\d+)$/i', $size, $m)) {
             $w = intval($m[1]);
             $h = intval($m[2]);
             $minPixels = 3686400;
@@ -1056,13 +1057,9 @@ class AiTravelPhotoSynthesisService
                 $scale = sqrt($minPixels / $currentPixels);
                 $newW = (int)(ceil(($w * $scale) / 64) * 64);
                 $newH = (int)(ceil(($h * $scale) / 64) * 64);
-                Log::info('callVolcengineImageApi: SeeDream 5.0 Lite尺寸不足，自动放大', [
-                    'original_size' => $size,
-                    'original_pixels' => $currentPixels,
-                    'new_size' => $newW . 'x' . $newH,
-                    'new_pixels' => $newW * $newH,
-                    'min_pixels' => $minPixels,
-                ]);
+                Log::info('callVolcengineImageApi: SeeDream尺寸不足，自动放大 original=' . $size
+                    . '(' . $currentPixels . 'px) new=' . $newW . 'x' . $newH
+                    . '(' . ($newW * $newH) . 'px) min=' . $minPixels);
                 $size = $newW . 'x' . $newH;
             }
         }
@@ -1085,7 +1082,11 @@ class AiTravelPhotoSynthesisService
             if (isset($defaultParams['guidance_scale'])) {
                 $requestParams['guidance_scale'] = (float)$defaultParams['guidance_scale'];
             }
-            // 注意：watermark 参数不被 SeeDream API 接受，传递会导致 HTTP 400 错误，不传递此参数
+            // watermark 水印控制（API默认true，不传则始终加水印）
+            // 必须显式传递：模板设置了则用模板值，否则默认 false（不加水印）
+            $requestParams['watermark'] = isset($defaultParams['watermark'])
+                ? filter_var($defaultParams['watermark'], FILTER_VALIDATE_BOOLEAN)
+                : false;
         } else {
             // ---- 5.0-lite / 4.5 / 4.0 通用参数 ----
 
@@ -1112,7 +1113,11 @@ class AiTravelPhotoSynthesisService
                 $requestParams['optimize_prompt_options'] = $defaultParams['optimize_prompt_options'];
             }
 
-            // 9. 注意：watermark 参数不被 SeeDream API 接受（5.0-lite/4.5/4.0均返回 HTTP 400），不传递此参数
+            // watermark 水印控制（API默认true，不传则始终加水印）
+            // 必须显式传递：模板设置了则用模板值，否则默认 false（不加水印）
+            $requestParams['watermark'] = isset($defaultParams['watermark'])
+                ? filter_var($defaultParams['watermark'], FILTER_VALIDATE_BOOLEAN)
+                : false;
 
             // 10. 流式输出
             if (isset($defaultParams['stream'])) {

@@ -377,14 +377,13 @@ class GenerationService
         // 构建请求体（含类型转换）
         $requestBody = $this->buildRequestBody($model, $inputParams);
         
-        // 记录请求日志（脱敏）
-        \think\facade\Log::info('模型API请求', [
-            'endpoint' => $endpoint,
-            'provider' => $providerCode,
-            'model_code' => $model['model_code'],
-            'api_key_prefix' => substr($apiKey, 0, 8) . '***',
-            'request_body' => $requestBody
-        ]);
+        // 记录请求日志（内联方式，确保日志实际输出）
+        $requestBodyJson = json_encode($requestBody, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        \think\facade\Log::info('模型API请求 endpoint=' . $endpoint
+            . ' provider=' . $providerCode
+            . ' model=' . $model['model_code']
+            . ' api_key_prefix=' . substr($apiKey, 0, 8) . '***'
+            . ' body=' . (strlen($requestBodyJson) > 3000 ? substr($requestBodyJson, 0, 3000) . '...[truncated]' : $requestBodyJson));
         
         // 计算请求超时：SeeDream SSE流式多图请求需要更长超时
         // 每张图约60-90秒，预留120秒/张的安全余量
@@ -724,8 +723,6 @@ class GenerationService
      *   sequential_image_generation, sequential_image_generation_options, optimize_prompt_options
      * 5.0-lite 独有：tools, output_format
      * 3.0-t2i 专属：model, prompt, size, n, seed, guidance_scale, response_format
-     * 注意：watermark 参数不被 SeeDream API 接受，传递会导致 HTTP 400 错误
-     * 
      * 需要过滤的无效参数：strength, edit_mode, num_inference_steps, output_quality 等
      * 需要映射的参数：reference_image → image, prompt_extend → optimize_prompt_options
      * 
@@ -757,9 +754,10 @@ class GenerationService
             $body['size'] = $is30t2i ? '1024x1024' : '2K';
         }
         
-        // SeeDream 5.0 Lite 最低像素要求 3686400（1920x1920）
+        // SeeDream 5.0-lite / 4.5 / 4.0 最低像素要求 3686400（1920x1920）
+        // 3.0-t2i 无此限制（其范围为 512x512 ~ 2048x2048）
         // 当 size 为 WxH 格式且像素不足时，按比例放大到满足最低要求
-        if ($is50lite && !empty($body['size']) && preg_match('/^(\d+)x(\d+)$/i', $body['size'], $m)) {
+        if (!$is30t2i && !empty($body['size']) && preg_match('/^(\d+)x(\d+)$/i', $body['size'], $m)) {
             $w = intval($m[1]);
             $h = intval($m[2]);
             $minPixels = 3686400;
@@ -769,13 +767,9 @@ class GenerationService
                 // 向上取整到最近的64倍数（GPU友好）
                 $newW = (int)(ceil(($w * $scale) / 64) * 64);
                 $newH = (int)(ceil(($h * $scale) / 64) * 64);
-                \think\facade\Log::info('buildSeedreamRequestBody: SeeDream 5.0 Lite尺寸不足，自动放大', [
-                    'original_size' => $body['size'],
-                    'original_pixels' => $currentPixels,
-                    'new_size' => $newW . 'x' . $newH,
-                    'new_pixels' => $newW * $newH,
-                    'min_pixels' => $minPixels,
-                ]);
+                \think\facade\Log::info('buildSeedreamRequestBody: SeeDream尺寸不足，自动放大 original=' . $body['size']
+                    . '(' . $currentPixels . 'px) new=' . $newW . 'x' . $newH
+                    . '(' . ($newW * $newH) . 'px) min=' . $minPixels);
                 $body['size'] = $newW . 'x' . $newH;
             }
         }
@@ -790,7 +784,13 @@ class GenerationService
             $body['response_format'] = $inputParams['response_format'];
         }
         
-        // 注意：watermark 参数不被 SeeDream API 接受（5.0-lite/4.5/4.0/3.0-t2i 均会返回 HTTP 400），不传递此参数
+        // watermark 水印控制（API默认true，不传则始终加水印）
+        // 必须显式传递：用户设置了则用用户值，否则默认 false（不加水印）
+        // 注意：前端/模板 input_params 中经常不包含 watermark 字段，
+        // 若不显式传 false，API 会使用其默认值 true 导致始终有水印
+        $body['watermark'] = isset($inputParams['watermark'])
+            ? filter_var($inputParams['watermark'], FILTER_VALIDATE_BOOLEAN)
+            : false;
         
         if ($is30t2i) {
             // ========== 3.0-t2i 专属参数 ==========
@@ -879,12 +879,14 @@ class GenerationService
             }
         }
         
-        \think\facade\Log::info('buildSeedreamRequestBody: 构建SeeDream请求体', [
-            'model' => $modelCode,
-            'series' => $is30t2i ? '3.0-t2i' : ($is50lite ? '5.0-lite' : '4.5/4.0'),
-            'body_keys' => array_keys($body),
-            'filtered_params' => array_keys(array_diff_key($inputParams, $body))
-        ]);
+        // 使用内联方式记录日志（ThinkPHP Log context数组不会被写入日志文件）
+        $bodyJson = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        \think\facade\Log::info('buildSeedreamRequestBody: model=' . $modelCode
+            . ' series=' . ($is30t2i ? '3.0-t2i' : ($is50lite ? '5.0-lite' : '4.5/4.0'))
+            . ' watermark=' . var_export($body['watermark'] ?? 'NOT_SET', true)
+            . ' body_keys=' . implode(',', array_keys($body))
+            . ' filtered=' . implode(',', array_keys(array_diff_key($inputParams, $body)))
+            . ' body_json=' . $bodyJson);
         
         return $body;
     }
