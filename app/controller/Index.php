@@ -650,6 +650,9 @@ class Index extends BaseController
 				}
 				$modelCapability['model_name'] = $modelInfo['model_name'] ?? '';
 				$modelCapability['model_code'] = $modelInfo['model_code'] ?? '';
+				
+				// 构建 generation_limits（组图约束信息）
+				$modelCapability['generation_limits'] = $this->_buildGenerationLimits($inputSchema);
 			}
 		}
 		if(count($modelCapability['supported_ratios']) <= 1){
@@ -815,6 +818,65 @@ class Index extends BaseController
 			}
 		}
 		return $ratios;
+	}
+
+	/**
+	 * 辅助：从 input_schema 构建 generation_limits（组图约束信息）
+	 */
+	private function _buildGenerationLimits($inputSchema){
+		$limits = [
+			'max_total' => 1,
+			'supports_group' => false,
+			'input_output_sum_limit' => null,
+			'single_image_max_output' => 1,
+			'text_only_max_output' => 1,
+			'min_output' => 1
+		];
+		$seqParam = null;
+		$seqOptionsParam = null;
+		$nParam = null;
+		if(isset($inputSchema['parameters']) && is_array($inputSchema['parameters'])){
+			foreach($inputSchema['parameters'] as $param){
+				$name = $param['name'] ?? '';
+				if($name === 'sequential_image_generation') $seqParam = $param;
+				elseif($name === 'sequential_image_generation_options') $seqOptionsParam = $param;
+				elseif($name === 'n') $nParam = $param;
+			}
+		} elseif(isset($inputSchema['properties'])){
+			$props = $inputSchema['properties'];
+			if(isset($props['sequential_image_generation'])) $seqParam = $props['sequential_image_generation'];
+			if(isset($props['sequential_image_generation_options'])) $seqOptionsParam = $props['sequential_image_generation_options'];
+			if(isset($props['n'])) $nParam = $props['n'];
+		}
+		if($seqParam){
+			$options = $seqParam['options'] ?? $seqParam['enum'] ?? [];
+			if(in_array('auto', $options)){
+				$limits['supports_group'] = true;
+				$maxTotal = 15;
+				if($seqOptionsParam){
+					$defaultVal = $seqOptionsParam['default'] ?? [];
+					if(is_array($defaultVal) && isset($defaultVal['max_images'])){
+						$maxTotal = intval($defaultVal['max_images']);
+					} elseif(isset($seqOptionsParam['max_images'])){
+						$maxTotal = intval($seqOptionsParam['max_images']);
+					}
+				}
+				if($maxTotal < 1) $maxTotal = 15;
+				$limits['max_total'] = $maxTotal;
+				$limits['input_output_sum_limit'] = $maxTotal;
+				$limits['single_image_max_output'] = $maxTotal - 1;
+				$limits['text_only_max_output'] = $maxTotal;
+			}
+		}
+		if(!$limits['supports_group'] && $nParam){
+			$maxN = intval($nParam['maximum'] ?? $nParam['max'] ?? 1);
+			if($maxN > 1){
+				$limits['max_total'] = $maxN;
+				$limits['text_only_max_output'] = $maxN;
+				$limits['single_image_max_output'] = $maxN;
+			}
+		}
+		return $limits;
 	}
 
 	/**

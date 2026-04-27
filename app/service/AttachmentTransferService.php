@@ -20,6 +20,8 @@ class AttachmentTransferService
         'max_video_size' => 524288000,    // 视频最大大小 500MB
         'retry_times' => 1,               // 失败重试次数
         'cleanup_temp' => true,           // 是否清理临时文件
+        'convert_to_webp' => true,        // 是否将图片自动转换为WebP格式
+        'webp_quality' => 85,             // WebP输出质量（1-100）
     ];
     
     /**
@@ -172,6 +174,23 @@ class AttachmentTransferService
                     $this->cleanupTemp($tempFile);
                     $result['error_msg'] = '文件过大: ' . round($fileSize / 1048576, 2) . 'MB，限制: ' . round($maxSize / 1048576, 2) . 'MB';
                     return $result;
+                }
+                
+                // 2.5 图片自动转换为WebP（减小体积、加速加载）
+                if ($fileType === 'image' && $this->config['convert_to_webp'] && strtolower($extension) !== 'webp') {
+                    $webpFile = \app\common\Pic::convertToWebp($tempFile, $this->config['webp_quality']);
+                    if ($webpFile && file_exists($webpFile)) {
+                        Log::info('附件转存: 图片已转换为WebP', [
+                            'original' => basename($tempFile) . ' (' . round($fileSize / 1024) . 'KB)',
+                            'webp' => basename($webpFile) . ' (' . round(filesize($webpFile) / 1024) . 'KB)',
+                            'saved' => round((1 - filesize($webpFile) / max($fileSize, 1)) * 100) . '%'
+                        ]);
+                        $tempFile = $webpFile;
+                        $extension = 'webp';
+                        $fileSize = filesize($webpFile);
+                    } else {
+                        Log::info('附件转存: WebP转换失败，保留原格式', ['file' => basename($tempFile)]);
+                    }
                 }
                 
                 // 3. 上传到存储

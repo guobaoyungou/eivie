@@ -78,7 +78,7 @@
 		</view>
 		
 		<!-- 生成数量（图片生成） -->
-		<view class="section" v-if="generationType == 1">
+		<view class="section" v-if="generationType == 1 && countOptions.length > 0">
 			<view class="section-title">治愈画面数量</view>
 			<scroll-view class="option-scroll" scroll-x :show-scrollbar="false">
 				<view class="option-scroll-inner">
@@ -87,6 +87,13 @@
 					</view>
 				</view>
 			</scroll-view>
+			<view class="generation-limit-hint" v-if="generationLimitHint">
+				<text class="hint-text">{{generationLimitHint}}</text>
+			</view>
+		</view>
+		<!-- 参考图过多无法生成提示 -->
+		<view class="section" v-if="generationType == 1 && refImageOverflow">
+			<view class="generation-limit-warning">⚠️ 参考图数量已达上限，请减少参考图后再选择生成数量</view>
 		</view>
 		
 		<!-- 输出比例选择（图片生成） -->
@@ -152,7 +159,7 @@
 				<text class="total-price score-price" v-if="scorePayEnabled">{{totalPriceInScore}} {{scoreUnitName}}</text>
 				<text class="total-price" v-else>¥{{totalPrice}}</text>
 			</view>
-			<view class="btn-primary" :class="{disabled: submitting || !selectedTemplateId}" @tap="submitGeneration">
+			<view class="btn-primary" :class="{disabled: submitting || !selectedTemplateId || refImageOverflow}" @tap="submitGeneration">
 				{{submitting ? '正在为你绘制温柔画面…' : '开始生成 ✨'}}
 			</view>
 		</view>
@@ -241,6 +248,8 @@ export default {
 			needRefImage: false,
 			maxImages: 1, // 默认1张，由模板 max_ref_images 控制
 			countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+			generationLimits: null, // 模型组图约束信息
+			refImageOverflow: false, // 参考图超出限制
 			selectedTemplateId: 0,
 			ratio: '1:1',
 			quality: 'hd',
@@ -289,6 +298,22 @@ export default {
 				return this.priceInScore * this.quantity;
 			}
 			return this.priceInScore;
+		},
+		
+		// 生成数量提示文案
+		generationLimitHint() {
+			var limits = this.generationLimits;
+			if (!limits || !limits.supports_group) return '';
+			var refCount = this.refImages ? this.refImages.length : 0;
+			if (refCount === 0) {
+				return '当前模型最多可生成 ' + limits.text_only_max_output + ' 张组图';
+			} else if (refCount === 1) {
+				return '上传1张参考图，最多可生成 ' + limits.single_image_max_output + ' 张';
+			} else {
+				var maxCount = (limits.input_output_sum_limit || 15) - refCount;
+				if (maxCount < 1) return '';
+				return '已上传 ' + refCount + ' 张参考图，最多还可生成 ' + maxCount + ' 张';
+			}
 		},
 
 		originalImages() {
@@ -358,6 +383,9 @@ export default {
 	
 	onLoad(opt) {
 		this.opt = app.getopts(opt);
+		this.$watch('refImages', function(newVal) {
+			this.recalcCountOptions();
+		}, { deep: true });
 		this.generationType = parseInt(this.opt.type) || 1;
 		// 支持 id 和 template_id 两种参数名
 		this.selectedTemplateId = parseInt(this.opt.template_id || this.opt.id) || 0;
@@ -435,9 +463,7 @@ export default {
 			
 			// 默认生成张数
 			var defaultQuantity = parseInt(detail.output_quantity) || 1;
-			if (defaultQuantity > 9) defaultQuantity = 9;
 			if (defaultQuantity < 1) defaultQuantity = 1;
-			that.quantity = defaultQuantity;
 			
 			// 最大上传数量，由模板配置控制，默认1
 			var maxImages = parseInt(detail.max_ref_images) || 1;
@@ -447,6 +473,26 @@ export default {
 			
 			// 是否需要上传参考图（max_ref_images > 0 且模板要求参考图）
 			that.needRefImage = (maxImages > 0 && detail.need_ref_image !== 0 && detail.need_ref_image !== '0');
+			
+			// ===== 组图约束：动态 countOptions =====
+			var limits = (detail.model_capability && detail.model_capability.generation_limits) ? detail.model_capability.generation_limits : null;
+			that.generationLimits = limits;
+			
+			if (limits && limits.supports_group) {
+				// 支持组图，初始化时按无参考图计算
+				var maxCount = limits.text_only_max_output || 15;
+				that.updateCountOptions(maxCount);
+				if (defaultQuantity > maxCount) defaultQuantity = maxCount;
+			} else if (limits && !limits.supports_group && limits.max_total <= 1) {
+				// 不支持组图，固定1张
+				that.countOptions = [1];
+				defaultQuantity = 1;
+			} else {
+				// 无约束信息，使用默认 [1..9]
+				that.countOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+				if (defaultQuantity > 9) defaultQuantity = 9;
+			}
+			that.quantity = defaultQuantity;
 			
 			// 默认提示词
 			if (detail.prompt) {
@@ -524,6 +570,55 @@ export default {
 		
 		selectCount(count) {
 			this.quantity = count;
+		},
+		
+		/**
+		 * 根据最大可选数量更新 countOptions 数组
+		 */
+		updateCountOptions(maxCount) {
+			if (maxCount < 1) maxCount = 1;
+			var arr = [];
+			for (var i = 1; i <= maxCount; i++) {
+				arr.push(i);
+			}
+			this.countOptions = arr;
+		},
+		
+		/**
+		 * 参考图数量变化时重算可用生成数量
+		 */
+		recalcCountOptions() {
+			var limits = this.generationLimits;
+			if (!limits || !limits.supports_group) {
+				this.refImageOverflow = false;
+				return;
+			}
+			
+			var refCount = this.refImages ? this.refImages.length : 0;
+			var maxCount = 1;
+			
+			if (refCount === 0) {
+				maxCount = limits.text_only_max_output || 15;
+			} else if (refCount === 1) {
+				maxCount = limits.single_image_max_output || 14;
+			} else {
+				maxCount = (limits.input_output_sum_limit || 15) - refCount;
+			}
+			
+			if (maxCount < 1) {
+				// 参考图过多，无法生成
+				this.refImageOverflow = true;
+				this.countOptions = [];
+				return;
+			}
+			
+			this.refImageOverflow = false;
+			this.updateCountOptions(maxCount);
+			
+			// 当前 quantity 超出新的最大值时自动下调
+			if (this.quantity > maxCount) {
+				this.quantity = maxCount;
+			}
 		},
 		
 		selectRatio(r) {
@@ -789,6 +884,11 @@ export default {
 /* chip 文字 */
 .chip-label { font-size: 26rpx; color: #666; white-space: nowrap; }
 .count-chip.active .chip-label { color: #91C2FF; font-weight: bold; }
+
+/* 生成数量提示 */
+.generation-limit-hint { margin-top: 12rpx; padding: 0 8rpx; }
+.generation-limit-hint .hint-text { font-size: 24rpx; color: #999; }
+.generation-limit-warning { font-size: 26rpx; color: #F59E0B; padding: 16rpx 20rpx; background: #FFF8E1; border-radius: 12rpx; text-align: center; }
 
 .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; align-items: center; padding: 20rpx 30rpx; box-shadow: 0 -4rpx 20rpx rgba(0,0,0,0.05); padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); }
 .price-display { flex: 1; }

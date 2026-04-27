@@ -94,8 +94,13 @@ class GenerationSceneTemplate extends Model
             ->select()->toArray();
         
         foreach ($data as &$item) {
-            $item['create_time_text'] = $item['create_time'] ? date('Y-m-d H:i:s', $item['create_time']) : '';
-            $item['update_time_text'] = $item['update_time'] ? date('Y-m-d H:i:s', $item['update_time']) : '';
+            // create_time/update_time 可能已被 Model::toArray() 自动格式化为字符串，需兼容处理
+            $item['create_time_text'] = $item['create_time']
+                ? (is_numeric($item['create_time']) ? date('Y-m-d H:i:s', $item['create_time']) : $item['create_time'])
+                : '';
+            $item['update_time_text'] = $item['update_time']
+                ? (is_numeric($item['update_time']) ? date('Y-m-d H:i:s', $item['update_time']) : $item['update_time'])
+                : '';
             // use_count 已作为字段存储在表中，无需再动态查询
             // 检查是否需要转存（封面为第三方URL）
             $item['needs_transfer'] = \app\service\GenerationService::isThirdPartyUrl($item['cover_image'] ?? '');

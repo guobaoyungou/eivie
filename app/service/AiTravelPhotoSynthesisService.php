@@ -92,7 +92,7 @@ class AiTravelPhotoSynthesisService
                         $failedCount++;
                         if ($balanceService && $unitCost > 0 && $deductId > 0) {
                             try {
-                                $balanceService->refundSingle($bid, $unitCost, $deductId, '生成结果为空退款[' . $templateName . ']');
+                                $balanceService->refundSingle($bid, $unitCost, $deductId, '生成结果为空退款[' . $templateName . '] 退¥' . $unitCost);
                             } catch (\Exception $refundEx) {
                                 Log::error('空结果退款失败: ' . $refundEx->getMessage());
                             }
@@ -176,7 +176,7 @@ class AiTravelPhotoSynthesisService
                     $failedCount++;
                     if ($balanceService && $unitCost > 0 && $deductId > 0) {
                         try {
-                            $balanceService->refundSingle($bid, $unitCost, $deductId, '单模板合成失败退款[' . $templateName . ']');
+                            $balanceService->refundSingle($bid, $unitCost, $deductId, '合成失败退款[' . $templateName . '] 退¥' . $unitCost);
                         } catch (\Exception $refundEx) {
                             Log::error('单模板失败退款失败: ' . $refundEx->getMessage());
                         }
@@ -339,14 +339,18 @@ class AiTravelPhotoSynthesisService
             throw new \Exception('人像图片URL为空');
         }
 
-        // 4. 加载模板记录
-        $template = Db::name('generation_scene_template')
+        // 4. 加载模板记录（从商户合成模板表查询）
+        $template = Db::name('ai_travel_photo_synthesis_template')
             ->where('id', $generation['template_id'])
             ->find();
 
         if (!$template) {
             throw new \Exception('模板记录不存在: ' . $generation['template_id']);
         }
+
+        // 字段映射：将 name 映射为 template_name，保持下游兼容
+        $template['template_name'] = $template['name'] ?? '';
+        $template['output_quantity'] = 1; // 合成模板固定输出1张
 
         // 补充 aid / bid / mdid，让 callAiModel 的 getApiConfigByModelId 能正确查找配置
         $template['aid'] = $generation['aid'] ?? $portrait['aid'] ?? 0;
@@ -417,11 +421,31 @@ class AiTravelPhotoSynthesisService
                 ->count();
 
             $synthesisStatus = $successCount > 0 ? 3 : 4;
+
+            // 失败时提取具体的 generation 级错误信息，帮助用户定位原因
+            $synthesisError = '';
+            if ($successCount === 0) {
+                $firstError = Db::name('ai_travel_photo_generation')
+                    ->where('portrait_id', $portrait['id'])
+                    ->where('status', 3)
+                    ->where('error_msg', '<>', '')
+                    ->value('error_msg');
+                $totalFailed = Db::name('ai_travel_photo_generation')
+                    ->where('portrait_id', $portrait['id'])
+                    ->where('status', 3)
+                    ->count();
+                if ($firstError) {
+                    $synthesisError = '合成失败(' . $totalFailed . '个任务): ' . mb_substr($firstError, 0, 100);
+                } else {
+                    $synthesisError = '所有合成任务均失败';
+                }
+            }
+
             Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])->update([
                 'synthesis_status' => $synthesisStatus,
                 'synthesis_count' => $successCount,
                 'synthesis_time' => time(),
-                'synthesis_error' => $successCount > 0 ? '' : '所有合成任务均失败',
+                'synthesis_error' => $synthesisError,
                 'update_time' => time(),
             ]);
 
@@ -574,7 +598,13 @@ class AiTravelPhotoSynthesisService
     }
 
     /**
-     * 根据模型ID获取API配置（优先商户级别，再平台级别，最后系统级Key池）
+     * 根据模型ID获取API配置
+     * 
+     * 优先级：商户配置 → 平台配置 → 系统Key池 → 全局api_config
+     * 
+     * 注意：系统Key池（system_api_key）是与 GenerationService 一致的正规渠道，
+     * 使用加密存储、并发控制和调用统计，优先于全局 api_config 记录。
+     * 全局 api_config (aid=0) 仅作为最后的 fallback。
      *
      * @param int $modelId 模型ID
      * @param int $aid 商户ID
@@ -583,43 +613,102 @@ class AiTravelPhotoSynthesisService
      */
     protected function getApiConfigByModelId(int $modelId, int $aid, int $bid): ?array
     {
-        // 优先查找商户自己的API配置 (bid = $bid)
-        $merchantConfig = Db::name('api_config')
-            ->where('model_id', $modelId)
-            ->where('aid', $aid)
-            ->where('bid', $bid)
-            ->where('is_active', 1)
-            ->find();
+        // 1. 优先查找商户自己的API配置 (bid = $bid)
+        if ($bid > 0) {
+            $merchantConfig = Db::name('api_config')
+                ->where('model_id', $modelId)
+                ->where('aid', $aid)
+                ->where('bid', $bid)
+                ->where('is_active', 1)
+                ->find();
 
-        if ($merchantConfig) {
-            return $merchantConfig;
+            if ($merchantConfig && !empty($merchantConfig['api_key'])) {
+                return $this->ensureEndpointUrl($merchantConfig, $modelId);
+            }
         }
 
-        // 其次查找平台级配置 (bid = 0)
-        $platformConfig = Db::name('api_config')
-            ->where('model_id', $modelId)
-            ->where('aid', $aid)
-            ->where('bid', 0)
-            ->where('is_active', 1)
-            ->find();
+        // 2. 其次查找平台级配置 (aid > 0, bid = 0)
+        if ($aid > 0) {
+            $platformConfig = Db::name('api_config')
+                ->where('model_id', $modelId)
+                ->where('aid', $aid)
+                ->where('bid', 0)
+                ->where('is_active', 1)
+                ->find();
 
-        if ($platformConfig) {
-            return $platformConfig;
+            if ($platformConfig && !empty($platformConfig['api_key'])) {
+                return $this->ensureEndpointUrl($platformConfig, $modelId);
+            }
         }
 
-        // 再次查找全局配置 (aid = 0)
+        // 3. 系统级API Key池（与 GenerationService 使用同一数据源，加密存储、并发控制）
+        $systemKeyConfig = $this->getSystemApiKeyPoolConfig($modelId);
+        if ($systemKeyConfig) {
+            return $systemKeyConfig;
+        }
+
+        // 4. 最后查找全局 api_config (aid = 0)，作为兜底
         $globalConfig = Db::name('api_config')
             ->where('model_id', $modelId)
             ->where('aid', 0)
             ->where('is_active', 1)
             ->find();
 
-        if ($globalConfig) {
-            return $globalConfig;
+        if ($globalConfig && !empty($globalConfig['api_key'])) {
+            return $this->ensureEndpointUrl($globalConfig, $modelId);
         }
 
-        // 最后从系统级API Key池获取
-        return $this->getSystemApiKeyPoolConfig($modelId);
+        return null;
+    }
+
+    /**
+     * 确保API配置使用正确的 endpoint_url
+     * 
+     * 当 api_config 记录的 endpoint_url 与 model_info 不一致时（如配置错误），
+     * 优先使用 model_info 中的 endpoint_url，因为模型表是 endpoint 的权威来源。
+     *
+     * @param array $apiConfig API配置记录
+     * @param int $modelId 模型ID
+     * @return array 修正后的API配置
+     */
+    protected function ensureEndpointUrl(array $apiConfig, int $modelId): array
+    {
+        // 从 model_info 获取权威的 endpoint_url
+        $model = Db::name('model_info')
+            ->where('id', $modelId)
+            ->field('endpoint_url, model_code, provider_id')
+            ->find();
+
+        if ($model && !empty($model['endpoint_url'])) {
+            $configEndpoint = $apiConfig['endpoint_url'] ?? '';
+            $modelEndpoint = $model['endpoint_url'];
+
+            // 检测 endpoint 不匹配：例如 volcengine 模型却使用了 dashscope 的地址
+            if (!empty($configEndpoint) && $configEndpoint !== $modelEndpoint) {
+                // 获取 provider_code 判断是否存在明显的供应商混淆
+                $provider = $apiConfig['provider'] ?? '';
+                $isVolcengine = in_array($provider, ['volcengine', 'doubao']);
+                $isWrongEndpoint = $isVolcengine && (strpos($configEndpoint, 'dashscope.aliyuncs.com') !== false);
+
+                if ($isWrongEndpoint || empty($configEndpoint)) {
+                    Log::warning('getApiConfigByModelId: api_config endpoint 与 model_info 不匹配，使用 model_info 的 endpoint', [
+                        'api_config_id' => $apiConfig['id'] ?? 0,
+                        'config_endpoint' => $configEndpoint,
+                        'model_endpoint' => $modelEndpoint,
+                    ]);
+                    $apiConfig['endpoint_url'] = $modelEndpoint;
+                }
+            } elseif (empty($configEndpoint)) {
+                $apiConfig['endpoint_url'] = $modelEndpoint;
+            }
+
+            // 补充 model_code（如果 api_config 没有）
+            if (empty($apiConfig['model_code']) && !empty($model['model_code'])) {
+                $apiConfig['model_code'] = $model['model_code'];
+            }
+        }
+
+        return $apiConfig;
     }
 
     /**
@@ -1020,6 +1109,17 @@ class AiTravelPhotoSynthesisService
 
         // 1. 提示词必须是纯文本字符串
         $textPrompt = !empty($prompt) ? $prompt : '生成一张高质量旅拍照片';
+        
+        // negative_prompt 负面提示词处理（API不支持独立字段，需拼接到prompt尾部）
+        $negativePrompt = $defaultParams['negative_prompt'] ?? '';
+        if (is_string($negativePrompt)) {
+            $negativePrompt = trim($negativePrompt);
+        } else {
+            $negativePrompt = '';
+        }
+        if (!empty($negativePrompt)) {
+            $textPrompt = $textPrompt . '，请避免以下元素：' . $negativePrompt;
+        }
 
         // 2. 确定参考图：3.0-t2i 仅文生图，不支持 image 参数
         $imageUrls = [];

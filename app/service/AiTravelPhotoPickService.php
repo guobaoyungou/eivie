@@ -370,7 +370,7 @@ class AiTravelPhotoPickService
     }
 
     /**
-     * 获取商家启用的套餐列表
+     * 获取商家启用的套餐列表（阶梯档位模式）
      *
      * @param int $bid 商家ID
      * @return array
@@ -385,25 +385,37 @@ class AiTravelPhotoPickService
             ->where(function ($query) {
                 $query->where('end_time', 0)->whereOr('end_time', '>=', time());
             })
-            ->order('sort DESC, num ASC')
-            ->select()
-            ->toArray();
+            ->order('sort DESC, min_num ASC')
+            ->select();
 
         $list = [];
         foreach ($packages as $pkg) {
-            $unitPrice = $pkg['num'] > 0 ? round($pkg['price'] / $pkg['num'], 2) : $pkg['price'];
+            // 使用min_num计算折合单价
+            $minNum = (int)$pkg->min_num;
+            $unitPrice = $minNum > 0 ? round((float)$pkg->price / $minNum, 2) : (float)$pkg->price;
+            
+            // 生成档位展示文本
+            $tierDisplay = $pkg->tier_display;
+            $videoTierDisplay = $pkg->video_tier_display;
+
             $list[] = [
-                'id' => $pkg['id'],
-                'name' => $pkg['name'],
-                'desc' => $pkg['desc'] ?? '',
-                'num' => $pkg['num'],
-                'price' => $pkg['price'],
-                'original_price' => $pkg['original_price'],
+                'id' => $pkg->id,
+                'name' => $pkg->name,
+                'desc' => $pkg->desc ?? '',
+                'num' => $pkg->num, // 兼容旧字段
+                'min_num' => (int)$pkg->min_num,
+                'max_num' => (int)$pkg->max_num,
+                'min_video_num' => (int)$pkg->min_video_num,
+                'max_video_num' => (int)$pkg->max_video_num,
+                'tier_display' => $tierDisplay,
+                'video_tier_display' => $videoTierDisplay,
+                'price' => (float)$pkg->price,
+                'original_price' => (float)$pkg->original_price,
                 'unit_price' => $unitPrice,
-                'tag' => $pkg['tag'] ?? '',
-                'tag_color' => $pkg['tag_color'] ?? '',
-                'label' => $pkg['label'] ?? '',
-                'is_default' => $pkg['is_default'] ?? 0,
+                'tag' => $pkg->tag ?? '',
+                'tag_color' => $pkg->tag_color ?? '',
+                'label' => $pkg->label ?? '',
+                'is_default' => $pkg->is_default ?? 0,
             ];
         }
 
@@ -412,17 +424,17 @@ class AiTravelPhotoPickService
 
     /**
      * 获取商家单张购买单价
-     * 从价格档位表中取 num=1 的记录作为单张价格
+     * 优先从 min_num=1 的档位取价格，否则用最小档的单价
      *
      * @param int $bid 商家ID
      * @return float
      */
     public function getSinglePrice(int $bid): float
     {
-        // 优先从价格档位中查找 num=1 的记录
+        // 优先查找 min_num=1 的档位（单张档位）
         $singlePkg = AiTravelPhotoPackage::where('bid', $bid)
             ->where('status', AiTravelPhotoPackage::STATUS_ENABLED)
-            ->where('num', 1)
+            ->where('min_num', 1)
             ->order('price ASC')
             ->find();
 
@@ -430,15 +442,15 @@ class AiTravelPhotoPickService
             return (float)$singlePkg->price;
         }
 
-        // 如果没有 num=1 的档位，用最小档的单价
+        // 如果没有，用最小档的折合单价
         $minPkg = AiTravelPhotoPackage::where('bid', $bid)
             ->where('status', AiTravelPhotoPackage::STATUS_ENABLED)
-            ->where('num', '>', 0)
-            ->order('num ASC')
+            ->where('min_num', '>', 0)
+            ->order('min_num ASC')
             ->find();
 
-        if ($minPkg && $minPkg->num > 0) {
-            return round((float)$minPkg->price / $minPkg->num, 2);
+        if ($minPkg && $minPkg->min_num > 0) {
+            return round((float)$minPkg->price / $minPkg->min_num, 2);
         }
 
         // 无任何价格档位，默认单张价格
@@ -446,20 +458,22 @@ class AiTravelPhotoPickService
     }
 
     /**
-     * 智能价格匹配算法
-     * 根据用户选片数量，自动匹配总价最优的价格档位
+     * 阶梯档位匹配算法
+     * 根据用户选片数量，匹配落入的阶梯档位区间
      *
-     * 算法逻辑：
-     * - 为每个价格档位计算“用户实际需要支付的总价”
-     * - 若选片数 ≤ 档位张数，总价 = 档位价格
-     * - 若选片数 > 档位张数，总价 = 档位价格 + 超出部分×单张价
-     * - 选择总价最低的档位推荐给用户
+     * 匹配规则：
+     * 1. 查询商家所有启用状态的套餐档位，按 min_num 升序排列
+     * 2. 遍历档位列表，找到满足 min_num ≤ selected_count < max_num 的档位
+     * 3. max_num=0 视为不限上限（∞）
+     * 4. 若选片数低于所有档位最低下限 → 按单张价格计算
+     * 5. 若选片数超过最高档位上限（不含∞档）→ 匹配 max_num=0 的无上限档位
      *
      * @param int $selectedCount 用户选中的成片数量
      * @param int $bid 商家ID
+     * @param int $videoCount 用户选中的视频数量（默认0）
      * @return array
      */
-    public function recommendPackage(int $selectedCount, int $bid): array
+    public function recommendPackage(int $selectedCount, int $bid, int $videoCount = 0): array
     {
         $packages = $this->getPackageList($bid);
         $singlePrice = $this->getSinglePrice($bid);
@@ -475,73 +489,198 @@ class AiTravelPhotoPickService
             ];
         }
 
-        // 按张数升序排列
+        // 按 min_num 升序排列
         usort($packages, function ($a, $b) {
-            return $a['num'] - $b['num'];
+            return $a['min_num'] - $b['min_num'];
         });
 
-        // 为每个档位计算用户实际支付总价，选择最优
-        $bestTotal = $singleTotal; // 无档位时按单张价
-        $bestPackage = null;
+        // 阶梯匹配：找到 min_num ≤ selectedCount < max_num 的档位
+        $matchedPackage = null;
+        $unlimitedPackage = null; // max_num=0 的无上限档位备用
 
         foreach ($packages as $pkg) {
-            $pkgPrice = (float)$pkg['price'];
-            $pkgNum = (int)$pkg['num'];
+            $minNum = (int)$pkg['min_num'];
+            $maxNum = (int)$pkg['max_num'];
 
-            if ($selectedCount <= $pkgNum) {
-                // 选片数 ≤ 档位张数，直接按档位价
-                $total = $pkgPrice;
+            // 记录无上限档位
+            if ($maxNum == 0) {
+                $unlimitedPackage = $pkg;
+            }
+
+            // 检查是否在区间内: min_num ≤ selectedCount < max_num
+            if ($selectedCount >= $minNum) {
+                if ($maxNum == 0 || $selectedCount < $maxNum) {
+                    $matchedPackage = $pkg;
+                    break; // 找到匹配档位，跳出
+                }
+            }
+        }
+
+        // 如果没匹配到，尝试使用无上限档位
+        if ($matchedPackage === null && $unlimitedPackage !== null && $selectedCount >= (int)$unlimitedPackage['min_num']) {
+            $matchedPackage = $unlimitedPackage;
+        }
+
+        // 计算价格
+        $finalPrice = $singleTotal; // 默认按单张价格
+        if ($matchedPackage !== null) {
+            if ((int)$matchedPackage['max_num'] === 0) {
+                // 无上限档位：按单价 × 数量计费
+                $tierUnitPrice = (float)$matchedPackage['unit_price'];
+                $finalPrice = round($tierUnitPrice * $selectedCount, 2);
             } else {
-                // 选片数 > 档位张数，档位价 + 超出部分按单张价
-                $total = round($pkgPrice + ($selectedCount - $pkgNum) * $singlePrice, 2);
+                // 有上限档位：直接使用档位固定价格
+                $finalPrice = (float)$matchedPackage['price'];
             }
-
-            // 选择总价最低的档位
-            if ($total < $bestTotal || ($total <= $bestTotal && $bestPackage === null)) {
-                $bestTotal = $total;
-                $bestPackage = $pkg;
-            }
+            $matchedPackage['final_price'] = $finalPrice;
+            $matchedPackage['save_amount'] = max(0, round($singleTotal - $finalPrice, 2));
+            $matchedPackage['tier_name'] = $matchedPackage['name'];
+            $matchedPackage['is_unlimited'] = (int)$matchedPackage['max_num'] === 0 ? 1 : 0;
         }
 
-        // 生成引导文案
-        $guideText = '';
-        $saveAmount = round($singleTotal - $bestTotal, 2);
-
-        if ($bestPackage !== null) {
-            $bestPackage['save_amount'] = max(0, $saveAmount);
-
-            // 基础文案：显示节省金额
-            if ($saveAmount > 0) {
-                $guideText = '比单张购买省¥' . $saveAmount;
-            }
-
-            // 查找下一个更高档位，提供升级建议
-            $nextTier = null;
-            foreach ($packages as $pkg) {
-                if ((int)$pkg['num'] > $selectedCount) {
-                    $nextTier = $pkg;
-                    break; // 已按num升序，第一个即为最近的更高档
-                }
-            }
-
-            if ($nextTier) {
-                $diff = (int)$nextTier['num'] - $selectedCount;
-                $nextUnitPrice = round((float)$nextTier['price'] / (int)$nextTier['num'], 2);
-                $currentUnitPrice = round($bestTotal / $selectedCount, 2);
-
-                if ($nextUnitPrice < $currentUnitPrice && $diff > 0) {
-                    $guideText = '再选' . $diff . '张，享¥' . $nextUnitPrice . '/张优惠';
-                }
-            }
-        }
+        // 生成升档引导文案
+        $guideText = $this->generateTierGuideText($selectedCount, $matchedPackage, $packages, $singlePrice);
 
         return [
-            'recommended' => $bestPackage,
+            'recommended' => $matchedPackage,
             'all_packages' => $packages,
             'single_price' => $singlePrice,
             'single_total' => $singleTotal,
             'guide_text' => $guideText,
         ];
+    }
+
+    /**
+     * 生成升档引导文案
+     * 
+     * 策略：
+     * - 当前选片数距下一档位 min_num 差 1~2 张 → 引导升档
+     * - 差 3 张以上 → 不显示引导
+     * - 已在最高档位 → 显示"当前已享最优套餐价"
+     *
+     * @param int $selectedCount 选片数
+     * @param array|null $matched 当前匹配的档位
+     * @param array $packages 所有档位（已按 min_num 升序）
+     * @param float $singlePrice 单张价格
+     * @return string
+     */
+    private function generateTierGuideText(int $selectedCount, ?array $matched, array $packages, float $singlePrice): string
+    {
+        if (empty($packages)) return '';
+
+        // 找到下一个更高档位（min_num > selectedCount 的第一个档位）
+        $nextTier = null;
+        foreach ($packages as $pkg) {
+            if ((int)$pkg['min_num'] > $selectedCount) {
+                $nextTier = $pkg;
+                break;
+            }
+        }
+
+        // 如果当前已匹配到 max_num=0 的无上限档位，说明已在最高档
+        if ($matched !== null && (int)$matched['max_num'] === 0) {
+            return '当前已享最优套餐价';
+        }
+
+        if ($nextTier !== null) {
+            $diff = (int)$nextTier['min_num'] - $selectedCount;
+            if ($diff >= 1 && $diff <= 2) {
+                $nextMinNum = (int)$nextTier['min_num'];
+                $nextUnitPrice = $nextMinNum > 0 ? round((float)$nextTier['price'] / $nextMinNum, 2) : 0;
+                return '再选' . $diff . '张，升级到' . $nextTier['name'] . '，享¥' . $nextUnitPrice . '/张';
+            }
+        }
+
+        // 当前有匹配档位，显示节省金额
+        if ($matched !== null) {
+            $saveAmount = $matched['save_amount'] ?? 0;
+            if ($saveAmount > 0) {
+                return '比单张购买省¥' . $saveAmount;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * 校验套餐档位区间合法性和重叠检测
+     *
+     * @param int $bid 商家ID
+     * @param int $minNum 图片档位下限
+     * @param int $maxNum 图片档位上限（0=不限）
+     * @param int $minVideoNum 视频档位下限
+     * @param int $maxVideoNum 视频档位上限（0=不限）
+     * @param int $excludeId 排除的套餐ID（编辑时排除自身）
+     * @return array ['valid' => bool, 'msg' => string, 'warnings' => array]
+     */
+    public function validateTierInterval(int $bid, int $minNum, int $maxNum, int $minVideoNum, int $maxVideoNum, int $excludeId = 0): array
+    {
+        $warnings = [];
+
+        // 1. 区间合法性校验
+        if ($minNum < 1) {
+            return ['valid' => false, 'msg' => '图片档位下限必须≥1', 'warnings' => []];
+        }
+        if ($maxNum != 0 && $maxNum <= $minNum) {
+            return ['valid' => false, 'msg' => '图片档位上限必须大于下限，或填0表示不限上限', 'warnings' => []];
+        }
+
+        // 2. 查询同商家所有其他启用档位
+        $query = AiTravelPhotoPackage::where('bid', $bid)
+            ->where('status', AiTravelPhotoPackage::STATUS_ENABLED);
+        if ($excludeId > 0) {
+            $query->where('id', '<>', $excludeId);
+        }
+        $existingTiers = $query->select();
+
+        // 3. 区间重叠检测
+        $newMin = $minNum;
+        $newMax = $maxNum == 0 ? PHP_INT_MAX : $maxNum;
+
+        foreach ($existingTiers as $tier) {
+            $existMin = (int)$tier->min_num;
+            $existMax = (int)$tier->max_num == 0 ? PHP_INT_MAX : (int)$tier->max_num;
+
+            // 重叠条件: A.min < B.max 且 B.min < A.max
+            if ($newMin < $existMax && $existMin < $newMax) {
+                $existDisplay = $tier->tier_display;
+                return [
+                    'valid' => false,
+                    'msg' => '图片档位区间与已有档位"' . $tier->name . '"(' . $existDisplay . ')存在重叠',
+                    'warnings' => [],
+                ];
+            }
+        }
+
+        // 4. 无上限档位唯一性
+        if ($maxNum == 0) {
+            foreach ($existingTiers as $tier) {
+                if ((int)$tier->max_num == 0) {
+                    return [
+                        'valid' => false,
+                        'msg' => '已存在无上限档位"' . $tier->name . '"，同一商家最多只能有一个不限上限的档位',
+                        'warnings' => [],
+                    ];
+                }
+            }
+        }
+
+        // 5. 区间断裂检测（建议级警告，不阻止保存）
+        $allTiers = $existingTiers->toArray();
+        $allTiers[] = ['min_num' => $minNum, 'max_num' => $maxNum, 'name' => '(当前)'];
+        usort($allTiers, function ($a, $b) {
+            return ((int)($a['min_num'] ?? 0)) - ((int)($b['min_num'] ?? 0));
+        });
+
+        for ($i = 0; $i < count($allTiers) - 1; $i++) {
+            $curMax = (int)($allTiers[$i]['max_num'] ?? 0);
+            $nextMin = (int)($allTiers[$i + 1]['min_num'] ?? 0);
+            if ($curMax != 0 && $curMax < $nextMin) {
+                $warnings[] = '选片数' . $curMax . '~' . ($nextMin - 1) . '张未被任何档位覆盖';
+            }
+        }
+
+        return ['valid' => true, 'msg' => '', 'warnings' => $warnings];
     }
 
     /**
@@ -632,15 +771,23 @@ class AiTravelPhotoPickService
             $buyType = AiTravelPhotoOrder::BUY_TYPE_PACKAGE;
             $packageName = $package->name;
 
-            if ($selectedCount <= $package->num) {
-                // 选片数 <= 套餐包含数，按套餐价
-                $totalPrice = (float)$package->price;
+            // 阶梯档位模式：验证选片数是否在档位区间内
+            if ($package->matchesTier($selectedCount)) {
+                if ((int)$package->max_num === 0) {
+                    // 无上限档位：按单价 × 数量计费
+                    $tierUnitPrice = (int)$package->min_num > 0
+                        ? round((float)$package->price / (int)$package->min_num, 2)
+                        : (float)$package->price;
+                    $totalPrice = round($tierUnitPrice * $selectedCount, 2);
+                } else {
+                    // 有上限档位：直接使用档位固定价格
+                    $totalPrice = (float)$package->price;
+                }
                 $actualAmount = $totalPrice;
-                $downloadLimit = $package->num;
+                $downloadLimit = $selectedCount;
             } else {
-                // 选片数 > 套餐包含数，套餐价 + 超出部分按单价
-                $extraCount = $selectedCount - $package->num;
-                $totalPrice = round($package->price + $singlePrice * $extraCount, 2);
+                // 选片数不在档位区间内，按单张价格计算（降级处理）
+                $totalPrice = round($singlePrice * $selectedCount, 2);
                 $actualAmount = $totalPrice;
                 $downloadLimit = $selectedCount;
             }
@@ -649,7 +796,13 @@ class AiTravelPhotoPickService
                 'id' => $package->id,
                 'name' => $package->name,
                 'num' => $package->num,
+                'min_num' => (int)$package->min_num,
+                'max_num' => (int)$package->max_num,
+                'tier_name' => $package->name,
                 'price' => $package->price,
+                'unit_price' => (int)$package->min_num > 0 ? round((float)$package->price / (int)$package->min_num, 2) : (float)$package->price,
+                'is_unlimited' => (int)$package->max_num === 0 ? 1 : 0,
+                'actual_amount' => $actualAmount,
             ], JSON_UNESCAPED_UNICODE);
         }
 
@@ -921,12 +1074,280 @@ class AiTravelPhotoPickService
             }
 
             Db::commit();
+
+            // 6. 分销提成计算（事务外执行，避免影响主流程）
+            try {
+                $this->calculateCommission($order);
+            } catch (\Exception $e) {
+                Log::error('选片订单分销计算异常：' . $e->getMessage() . ' 订单号：' . $orderNo);
+            }
+
             return true;
         } catch (\Exception $e) {
             Db::rollback();
             Log::error('选片订单履约异常：' . $e->getMessage() . ' 订单号：' . $orderNo);
             return false;
         }
+    }
+
+    /**
+     * 分销提成计算
+     * 
+     * 支持四种模式：
+     * 0=按会员等级 1=单独设置比例 2=单独设置金额 3=分销送积分 -1=不参与分销
+     *
+     * @param AiTravelPhotoOrder $order 订单对象
+     * @return void
+     */
+    private function calculateCommission($order): void
+    {
+        $aid = (int)$order->aid;
+        $uid = (int)$order->uid;
+        $bid = (int)$order->bid;
+
+        // 仅注册会员(uid>0)才参与分销链路
+        if ($uid <= 0) {
+            Log::info('选片订单分销跳过：非注册会员', ['order_no' => $order->order_no]);
+            return;
+        }
+
+        // 查询套餐分销设置
+        $packageId = (int)$order->package_id;
+        if ($packageId <= 0) {
+            return; // 单张购买无套餐，不参与分销
+        }
+
+        $package = Db::name('ai_travel_photo_package')->where('id', $packageId)->find();
+        if (!$package) {
+            return;
+        }
+
+        $commissionset = isset($package['commissionset']) ? intval($package['commissionset']) : -1;
+        if ($commissionset == -1) {
+            Log::info('选片订单分销跳过：套餐不参与分销', ['order_no' => $order->order_no, 'package_id' => $packageId]);
+            return;
+        }
+
+        // 反序列化commissiondata
+        $commissiondata1 = !empty($package['commissiondata1']) ? json_decode($package['commissiondata1'], true) : [];
+        $commissiondata2 = !empty($package['commissiondata2']) ? json_decode($package['commissiondata2'], true) : [];
+        $commissiondata3 = !empty($package['commissiondata3']) ? json_decode($package['commissiondata3'], true) : [];
+
+        // 实付金额和数量
+        $actualAmount = floatval($order->actual_amount);
+        $quantity = 1; // 每笔订单固定1次
+
+        // 查询下单会员的上级关系链
+        $member = Db::name('member')->where('aid', $aid)->where('id', $uid)->find();
+        if (!$member || !$member['pid']) {
+            return; // 无上级关系，不参与分销
+        }
+
+        // 逐级查找有效分销上级（最多3级）
+        $parentData = ['parent1' => 0, 'parent2' => 0, 'parent3' => 0];
+        $commissionData = ['parent1commission' => 0, 'parent2commission' => 0, 'parent3commission' => 0];
+        $isScore = false; // 是否为积分模式
+        $scoreData = ['parent1score' => 0, 'parent2score' => 0, 'parent3score' => 0];
+
+        // 一级上级
+        $parent1 = null;
+        $aglevel1 = null;
+        if ($member['pid'] > 0) {
+            $parent1 = Db::name('member')->where('aid', $aid)->where('id', $member['pid'])->find();
+            if ($parent1) {
+                $aglevel1 = Db::name('member_level')->where('id', $parent1['levelid'])->find();
+                if ($aglevel1 && $aglevel1['can_agent'] >= 1) {
+                    $parentData['parent1'] = (int)$parent1['id'];
+                }
+            }
+        }
+
+        // 二级上级
+        $parent2 = null;
+        $aglevel2 = null;
+        if ($parent1 && $parent1['pid'] > 0) {
+            $parent2 = Db::name('member')->where('aid', $aid)->where('id', $parent1['pid'])->find();
+            if ($parent2) {
+                $aglevel2 = Db::name('member_level')->where('id', $parent2['levelid'])->find();
+                if ($aglevel2 && $aglevel2['can_agent'] >= 2) {
+                    $parentData['parent2'] = (int)$parent2['id'];
+                }
+            }
+        }
+
+        // 三级上级
+        $parent3 = null;
+        $aglevel3 = null;
+        if ($parent2 && $parent2['pid'] > 0) {
+            $parent3 = Db::name('member')->where('aid', $aid)->where('id', $parent2['pid'])->find();
+            if ($parent3) {
+                $aglevel3 = Db::name('member_level')->where('id', $parent3['levelid'])->find();
+                if ($aglevel3 && $aglevel3['can_agent'] >= 3) {
+                    $parentData['parent3'] = (int)$parent3['id'];
+                }
+            }
+        }
+
+        // 按模式计算提成
+        switch ($commissionset) {
+            case 0: // 按会员等级
+                if ($aglevel1 && $parentData['parent1']) {
+                    if ($aglevel1['commissiontype'] == 1) {
+                        $commissionData['parent1commission'] = round(floatval($aglevel1['commission1']) * $quantity, 2);
+                    } else {
+                        $commissionData['parent1commission'] = round(floatval($aglevel1['commission1']) * $actualAmount * $quantity / 100, 2);
+                    }
+                }
+                if ($aglevel2 && $parentData['parent2']) {
+                    if ($aglevel2['commissiontype'] == 1) {
+                        $commissionData['parent2commission'] = round(floatval($aglevel2['commission2']) * $quantity, 2);
+                    } else {
+                        $commissionData['parent2commission'] = round(floatval($aglevel2['commission2']) * $actualAmount * $quantity / 100, 2);
+                    }
+                }
+                if ($aglevel3 && $parentData['parent3']) {
+                    if ($aglevel3['commissiontype'] == 1) {
+                        $commissionData['parent3commission'] = round(floatval($aglevel3['commission3']) * $quantity, 2);
+                    } else {
+                        $commissionData['parent3commission'] = round(floatval($aglevel3['commission3']) * $actualAmount * $quantity / 100, 2);
+                    }
+                }
+                break;
+
+            case 1: // 单独设置提成比例
+                if ($aglevel1 && $parentData['parent1'] && isset($commissiondata1[$aglevel1['id']])) {
+                    $commissionData['parent1commission'] = round(floatval($commissiondata1[$aglevel1['id']]['commission1'] ?? 0) * $actualAmount * $quantity / 100, 2);
+                }
+                if ($aglevel2 && $parentData['parent2'] && isset($commissiondata1[$aglevel2['id']])) {
+                    $commissionData['parent2commission'] = round(floatval($commissiondata1[$aglevel2['id']]['commission2'] ?? 0) * $actualAmount * $quantity / 100, 2);
+                }
+                if ($aglevel3 && $parentData['parent3'] && isset($commissiondata1[$aglevel3['id']])) {
+                    $commissionData['parent3commission'] = round(floatval($commissiondata1[$aglevel3['id']]['commission3'] ?? 0) * $actualAmount * $quantity / 100, 2);
+                }
+                break;
+
+            case 2: // 单独设置提成金额
+                if ($aglevel1 && $parentData['parent1'] && isset($commissiondata2[$aglevel1['id']])) {
+                    $commissionData['parent1commission'] = round(floatval($commissiondata2[$aglevel1['id']]['commission1'] ?? 0) * $quantity, 2);
+                }
+                if ($aglevel2 && $parentData['parent2'] && isset($commissiondata2[$aglevel2['id']])) {
+                    $commissionData['parent2commission'] = round(floatval($commissiondata2[$aglevel2['id']]['commission2'] ?? 0) * $quantity, 2);
+                }
+                if ($aglevel3 && $parentData['parent3'] && isset($commissiondata2[$aglevel3['id']])) {
+                    $commissionData['parent3commission'] = round(floatval($commissiondata2[$aglevel3['id']]['commission3'] ?? 0) * $quantity, 2);
+                }
+                break;
+
+            case 3: // 分销送积分
+                $isScore = true;
+                if ($aglevel1 && $parentData['parent1'] && isset($commissiondata3[$aglevel1['id']])) {
+                    $scoreData['parent1score'] = intval(floatval($commissiondata3[$aglevel1['id']]['commission1'] ?? 0) * $quantity);
+                }
+                if ($aglevel2 && $parentData['parent2'] && isset($commissiondata3[$aglevel2['id']])) {
+                    $scoreData['parent2score'] = intval(floatval($commissiondata3[$aglevel2['id']]['commission2'] ?? 0) * $quantity);
+                }
+                if ($aglevel3 && $parentData['parent3'] && isset($commissiondata3[$aglevel3['id']])) {
+                    $scoreData['parent3score'] = intval(floatval($commissiondata3[$aglevel3['id']]['commission3'] ?? 0) * $quantity);
+                }
+                break;
+        }
+
+        // 检查是否有任何提成需要发放
+        $hasCommission = ($commissionData['parent1commission'] > 0 || $commissionData['parent2commission'] > 0 || $commissionData['parent3commission'] > 0);
+        $hasScore = ($scoreData['parent1score'] > 0 || $scoreData['parent2score'] > 0 || $scoreData['parent3score'] > 0);
+
+        if (!$hasCommission && !$hasScore) {
+            return;
+        }
+
+        // 分销分红发放钱包控制
+        $fxfh_send_wallet = 0;
+        $fxfh_send_wallet_levelids = [];
+        if (function_exists('getcustom') && getcustom('commission_send_wallet', $aid)) {
+            $admin_set = Db::name('admin_set')->where('aid', $aid)->field('commission_send_wallet,commission_send_wallet_levelids')->find();
+            $fxfh_send_wallet = $admin_set['commission_send_wallet'] ?? 0;
+            $fxfh_send_wallet_levelids = !empty($admin_set['commission_send_wallet_levelids']) ? explode(',', $admin_set['commission_send_wallet_levelids']) : ['-1'];
+        }
+
+        // 发放提成
+        $levels = [1, 2, 3];
+        foreach ($levels as $n) {
+            $parentKey = 'parent' . $n;
+            $parentMid = $parentData[$parentKey];
+            if ($parentMid <= 0) continue;
+
+            if ($isScore) {
+                // 模式3：发放积分
+                $scoreKey = 'parent' . $n . 'score';
+                $scoreVal = $scoreData[$scoreKey] ?? 0;
+                if ($scoreVal > 0) {
+                    \app\common\Member::addscore($aid, $parentMid, $scoreVal, '下级选片订单积分奖励');
+                    Log::info('选片分销积分发放', ['order_no' => $order->order_no, 'parent' . $n => $parentMid, 'score' => $scoreVal]);
+                }
+            } else {
+                // 模式0/1/2：发放佣金
+                $commKey = 'parent' . $n . 'commission';
+                $commVal = $commissionData[$commKey] ?? 0;
+                if ($commVal > 0) {
+                    $remark = '下级选片订单佣金奖励';
+
+                    // 检查是否发放到余额钱包
+                    $fxfh_send_money = 0;
+                    if ($fxfh_send_wallet == 1) {
+                        $member_levelid = Db::name('member')->where('id', $parentMid)->value('levelid');
+                        if (empty($fxfh_send_wallet_levelids) || in_array('-1', $fxfh_send_wallet_levelids) || in_array($member_levelid, $fxfh_send_wallet_levelids)) {
+                            $fxfh_send_money = 1;
+                        }
+                    }
+
+                    if ($fxfh_send_money == 1) {
+                        \app\common\Member::addmoney($aid, $parentMid, $commVal, $remark);
+                    } else {
+                        \app\common\Member::addcommission($aid, $parentMid, $uid, $commVal, $remark, 1, 'fenxiao');
+                    }
+
+                    // 写入佣金记录
+                    Db::name('member_commission_record')->insert([
+                        'aid' => $aid,
+                        'mid' => $parentMid,
+                        'frommid' => $uid,
+                        'orderid' => $order->id,
+                        'type' => 'ai_pick',
+                        'commission' => $commVal,
+                        'remark' => $remark,
+                        'createtime' => time(),
+                        'status' => 1,
+                        'endtime' => time(),
+                    ]);
+
+                    Log::info('选片分销佣金发放', ['order_no' => $order->order_no, 'parent' . $n => $parentMid, 'commission' => $commVal]);
+                }
+            }
+        }
+
+        // 回写订单分销字段
+        $updateData = [
+            'parent1' => $parentData['parent1'],
+            'parent2' => $parentData['parent2'],
+            'parent3' => $parentData['parent3'],
+            'parent1commission' => $commissionData['parent1commission'],
+            'parent2commission' => $commissionData['parent2commission'],
+            'parent3commission' => $commissionData['parent3commission'],
+            'iscommission' => 1,
+        ];
+
+        Db::name('ai_travel_photo_order')->where('id', $order->id)->update($updateData);
+
+        Log::info('选片订单分销完成', [
+            'order_no' => $order->order_no,
+            'commissionset' => $commissionset,
+            'parent1' => $parentData['parent1'],
+            'parent1commission' => $commissionData['parent1commission'],
+            'parent2' => $parentData['parent2'],
+            'parent2commission' => $commissionData['parent2commission'],
+            'parent3' => $parentData['parent3'],
+            'parent3commission' => $commissionData['parent3commission'],
+        ]);
     }
 
     /**

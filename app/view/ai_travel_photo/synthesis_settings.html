@@ -43,33 +43,37 @@
         <label class="layui-form-label">查找模板</label>
         <div class="layui-input-block">
           <div class="template-search">
-            <input type="text" id="templateSearch" placeholder="输入模板名称或场景类型进行搜索..." oninput="filterTemplates()">
+            <input type="text" id="templateSearch" placeholder="输入模板名称进行搜索..." oninput="filterTemplates()">
           </div>
         </div>
       </div>
 
-      <!-- 关联照片场景模板 -->
+      <!-- 关联合成模板 -->
       <div class="layui-form-item">
-        <label class="layui-form-label"><span class="layui-required">*</span>关联照片场景模板</label>
+        <label class="layui-form-label"><span class="layui-required">*</span>关联合成模板</label>
         <div class="layui-input-block" id="templateList">
           {notempty name="templates"}
           {volist name="templates" id="tpl"}
-          <div class="template-item" data-id="{$tpl.id}" data-name="{$tpl.scene_name}" data-type="{$tpl.scene_type_label}" onclick="selectTemplate(this, {$tpl.id})">
-            <div class="template-name">{$tpl.scene_name} <span class="layui-badge layui-bg-gray">{$tpl.scene_type_label}</span></div>
-            <div class="template-model">模型：{$tpl.model_name|default='未指定'} | 每单输出：{$tpl.output_quantity|default=1}张</div>
+          <div class="template-item" data-id="{$tpl.id}" data-name="{$tpl.name}" onclick="selectTemplate(this, {$tpl.id})">
+            <div class="template-name">{$tpl.name}</div>
+            <div class="template-model">模型：{$tpl.model_name|default='未指定'}</div>
             <div class="template-images">
               {notempty name="tpl.cover_image"}
-              <img src="{$tpl.cover_image}" alt="场景图">
+              <img src="{$tpl.cover_image}" alt="模板图">
               {/notempty}
-
+              {notempty name="tpl.images_arr"}
+              {volist name="tpl.images_arr" id="img" offset="0" length="3"}
+              <img src="{$img}" alt="参考图">
+              {/volist}
+              {/notempty}
             </div>
           </div>
           {/volist}
           {else/}
-          <div style="color:#999;padding:20px;text-align:center;">暂无可用场景模板，请先在"照片场景"中添加</div>
+          <div style="color:#999;padding:20px;text-align:center;">暂无可用合成模板，请先在"合成模板"中添加</div>
           {/notempty}
         </div>
-        <div style="color:#999;font-size:12px;margin-top:5px;">请关联要使用的照片场景模板（可多选）</div>
+        <div style="color:#999;font-size:12px;margin-top:5px;">请关联要使用的合成模板（可多选）</div>
       </div>
 
       <!-- 合成数量 -->
@@ -165,8 +169,7 @@
       var idStr = item.getAttribute('data-id');
       var id = parseInt(idStr);
       var name = item.getAttribute('data-name');
-      var type = item.getAttribute('data-type');
-      allTemplates.push({id: id, name: name, type: type, element: item, idStr: idStr});
+      allTemplates.push({id: id, name: name, element: item, idStr: idStr});
     });
   }
 
@@ -233,9 +236,8 @@
     
     items.forEach(function(item){
       var name = item.getAttribute('data-name') || '';
-      var type = item.getAttribute('data-type') || '';
       
-      if(keyword === '' || name.toLowerCase().indexOf(keyword) > -1 || type.toLowerCase().indexOf(keyword) > -1){
+      if(keyword === '' || name.toLowerCase().indexOf(keyword) > -1){
         item.style.display = 'block';
       } else {
         item.style.display = 'none';

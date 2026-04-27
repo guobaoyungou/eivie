@@ -233,6 +233,14 @@
             </div>
             <div class="layui-form-mid layui-word-aux">元（游客/未登录用户价格）</div>
           </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">商采价格</label>
+            <div class="layui-input-inline" style="width:150px">
+              <input type="number" step="0.01" min="0" name="info[business_price]" value="{$info.business_price|default=0.5}" class="layui-input" placeholder="0.50">
+            </div>
+            <div class="layui-form-mid layui-word-aux">元（商户采购价格，默认0.5）</div>
+          </div>
           
           <div class="layui-form-item">
             <label class="layui-form-label">会员价</label>

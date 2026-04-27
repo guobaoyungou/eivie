@@ -60,3 +60,10 @@ docker/milvus/
 # Python缓存
 __pycache__/
 *.pyc
+
+# 构建产物和大型文件
+uniapp/dist/
+uinapp202603/
+deploy/venv/
+deploy/models/
+deploy/*.whl

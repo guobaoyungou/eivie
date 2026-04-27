@@ -295,7 +295,8 @@
     {value: 'hd', label: '高清'},
     {value: 'uhd', label: '超清'}
   ];
-  var COUNT_OPTIONS = [1,2,3,4,5,6,7,8,9];
+  var COUNT_OPTIONS = [1,2,3,4,5,6,7,8,9]; // 默认值，会被 generation_limits 覆盖
+  var currentGenerationLimits = null; // 当前模型的组图约束信息
   
   // 更新步骤指示器
   function updateStepIndicator(step) {
@@ -470,10 +471,30 @@
     // ④ 生成数量 pill_selector（仅能力 2/4/6）
     if ([2,4,6].indexOf(capType) >= 0) {
       var defaultCount = 1;
+      // 根据 generation_limits 动态计算可选生成数量
+      var limits = data.generation_limits || null;
+      currentGenerationLimits = limits;
+      var dynamicCountOptions = COUNT_OPTIONS; // 默认 [1..9]
+      if (limits && limits.supports_group) {
+        var maxCount = limits.text_only_max_output || 15;
+        // 能力4（单入多出）初始按单图计算
+        if (capType === 4) maxCount = limits.single_image_max_output || 14;
+        // 能力6（多入多出）初始按无图计算，后续参考图变化时会重算
+        dynamicCountOptions = [];
+        for (var ci = 1; ci <= maxCount; ci++) { dynamicCountOptions.push(ci); }
+      } else if (limits && !limits.supports_group && limits.max_total > 1) {
+        dynamicCountOptions = [];
+        for (var ci = 1; ci <= limits.max_total; ci++) { dynamicCountOptions.push(ci); }
+      }
+      if (dynamicCountOptions.length === 0) dynamicCountOptions = [1];
       html += '<div class="pill-selector-wrap" id="countSelectorWrap">';
-      html += '<span class="pill-selector-label">生成数量<span class="required-star">*</span></span>';
+      html += '<span class="pill-selector-label">生成数量<span class="required-star">*</span>';
+      if (limits && limits.supports_group) {
+        html += ' <span style="font-size:12px;color:#999;font-weight:normal">（最多 ' + dynamicCountOptions[dynamicCountOptions.length - 1] + ' 张）</span>';
+      }
+      html += '</span>';
       html += '<div class="pill-selector" id="countSelector">';
-      COUNT_OPTIONS.forEach(function(n) {
+      dynamicCountOptions.forEach(function(n) {
         var cls = (n === defaultCount) ? 'pill-item active' : 'pill-item';
         html += '<span class="' + cls + '" data-value="' + n + '">' + n + '</span>';
       });

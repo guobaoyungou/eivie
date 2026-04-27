@@ -168,8 +168,14 @@ class PhotoGeneration extends Common
                 $inputParams['sequential_image_generation'] = 'auto';
                 $inputParams['stream'] = true;
                 if (isset($inputParams['max_images'])) {
+                    $maxImages = intval($inputParams['max_images']);
+                    // 单图输入时，输出不得超过 input_output_sum_limit - 1
+                    $seqLimit = $this->getModelSeqLimit($modelId);
+                    if ($seqLimit > 0 && $maxImages > ($seqLimit - 1)) {
+                        $maxImages = $seqLimit - 1;
+                    }
                     $inputParams['sequential_image_generation_options'] = [
-                        'max_images' => intval($inputParams['max_images'])
+                        'max_images' => $maxImages
                     ];
                     unset($inputParams['max_images']);
                 }
@@ -203,8 +209,19 @@ class PhotoGeneration extends Common
                     unset($inputParams['images']);
                 }
                 if (isset($inputParams['max_images'])) {
+                    $maxImages = intval($inputParams['max_images']);
+                    // 多图输入时，输出不得超过 input_output_sum_limit - 输入图数
+                    $seqLimit = $this->getModelSeqLimit($modelId);
+                    if ($seqLimit > 0) {
+                        $imageCount = isset($inputParams['image']) ? count($inputParams['image']) : 0;
+                        $maxAllowed = $seqLimit - $imageCount;
+                        if ($maxAllowed < 1) $maxAllowed = 1;
+                        if ($maxImages > $maxAllowed) {
+                            $maxImages = $maxAllowed;
+                        }
+                    }
                     $inputParams['sequential_image_generation_options'] = [
-                        'max_images' => intval($inputParams['max_images'])
+                        'max_images' => $maxImages
                     ];
                     unset($inputParams['max_images']);
                 }
@@ -259,6 +276,125 @@ class PhotoGeneration extends Common
         });
         
         return $inputParams;
+    }
+
+    /**
+     * 获取模型的组图总数限制 (input_output_sum_limit)
+     * 解析 input_schema 中 sequential_image_generation_options.default.max_images
+     * 
+     * @param int $modelId 模型ID
+     * @return int 组图总限制，0表示无此约束
+     */
+    private function getModelSeqLimit($modelId)
+    {
+        if (!$modelId) return 0;
+        
+        $modelInfo = Db::name('model_info')->where('id', $modelId)->field('input_schema')->find();
+        if (!$modelInfo) return 0;
+        
+        $inputSchema = is_string($modelInfo['input_schema']) 
+            ? json_decode($modelInfo['input_schema'], true) 
+            : ($modelInfo['input_schema'] ?: []);
+        
+        // 支持 parameters 数组格式和 properties 对象格式
+        $seqParam = null;
+        $seqOptionsParam = null;
+        
+        if (isset($inputSchema['parameters']) && is_array($inputSchema['parameters'])) {
+            foreach ($inputSchema['parameters'] as $param) {
+                $name = $param['name'] ?? '';
+                if ($name === 'sequential_image_generation') $seqParam = $param;
+                if ($name === 'sequential_image_generation_options') $seqOptionsParam = $param;
+            }
+        } elseif (isset($inputSchema['properties'])) {
+            $props = $inputSchema['properties'];
+            if (isset($props['sequential_image_generation'])) $seqParam = $props['sequential_image_generation'];
+            if (isset($props['sequential_image_generation_options'])) $seqOptionsParam = $props['sequential_image_generation_options'];
+        }
+        
+        if (!$seqParam) return 0;
+        
+        $options = $seqParam['options'] ?? $seqParam['enum'] ?? [];
+        if (!in_array('auto', $options)) return 0;
+        
+        $maxTotal = 15;
+        if ($seqOptionsParam) {
+            $defaultVal = $seqOptionsParam['default'] ?? [];
+            if (is_array($defaultVal) && isset($defaultVal['max_images'])) {
+                $maxTotal = intval($defaultVal['max_images']);
+            }
+        }
+        
+        return $maxTotal > 0 ? $maxTotal : 15;
+    }
+
+    /**
+     * 从 input_schema 构建 generation_limits（组图约束信息）
+     * 与 ApiAivideo::buildGenerationLimits 逻辑一致
+     *
+     * @param array $inputSchema 模型的 input_schema
+     * @return array generation_limits
+     */
+    private function buildGenerationLimitsFromSchema($inputSchema)
+    {
+        $limits = [
+            'max_total' => 1,
+            'supports_group' => false,
+            'input_output_sum_limit' => null,
+            'single_image_max_output' => 1,
+            'text_only_max_output' => 1,
+            'min_output' => 1
+        ];
+        
+        $seqParam = null;
+        $seqOptionsParam = null;
+        $nParam = null;
+        
+        if (isset($inputSchema['parameters']) && is_array($inputSchema['parameters'])) {
+            foreach ($inputSchema['parameters'] as $param) {
+                $name = $param['name'] ?? '';
+                if ($name === 'sequential_image_generation') $seqParam = $param;
+                elseif ($name === 'sequential_image_generation_options') $seqOptionsParam = $param;
+                elseif ($name === 'n') $nParam = $param;
+            }
+        } elseif (isset($inputSchema['properties'])) {
+            $props = $inputSchema['properties'];
+            if (isset($props['sequential_image_generation'])) $seqParam = $props['sequential_image_generation'];
+            if (isset($props['sequential_image_generation_options'])) $seqOptionsParam = $props['sequential_image_generation_options'];
+            if (isset($props['n'])) $nParam = $props['n'];
+        }
+        
+        if ($seqParam) {
+            $options = $seqParam['options'] ?? $seqParam['enum'] ?? [];
+            if (in_array('auto', $options)) {
+                $limits['supports_group'] = true;
+                $maxTotal = 15;
+                if ($seqOptionsParam) {
+                    $defaultVal = $seqOptionsParam['default'] ?? [];
+                    if (is_array($defaultVal) && isset($defaultVal['max_images'])) {
+                        $maxTotal = intval($defaultVal['max_images']);
+                    } elseif (isset($seqOptionsParam['max_images'])) {
+                        $maxTotal = intval($seqOptionsParam['max_images']);
+                    }
+                }
+                if ($maxTotal < 1) $maxTotal = 15;
+                $limits['max_total'] = $maxTotal;
+                $limits['input_output_sum_limit'] = $maxTotal;
+                $limits['single_image_max_output'] = $maxTotal - 1;
+                $limits['text_only_max_output'] = $maxTotal;
+            }
+        }
+        
+        if (!$limits['supports_group'] && $nParam) {
+            $maxN = intval($nParam['maximum'] ?? $nParam['max'] ?? 1);
+            if ($maxN > 1) {
+                $limits['max_total'] = $maxN;
+                $limits['text_only_max_output'] = $maxN;
+                $limits['single_image_max_output'] = $maxN;
+            }
+        }
+        
+        return $limits;
     }
 
     /**
@@ -1273,6 +1409,12 @@ class PhotoGeneration extends Common
         }
         unset($tpl);
         
+        // 构建 generation_limits（组图约束信息）
+        $inputSchema = is_string($model['input_schema'])
+            ? json_decode($model['input_schema'], true)
+            : ($model['input_schema'] ?: []);
+        $generationLimits = $this->buildGenerationLimitsFromSchema($inputSchema);
+        
         return json([
             'status' => 1,
             'data' => [
@@ -1282,7 +1424,8 @@ class PhotoGeneration extends Common
                 'optional_fields' => $fieldGroups['optional'],
                 'auto_params' => $autoParams,
                 'default_example' => $defaultExample,
-                'templates' => $templates
+                'templates' => $templates,
+                'generation_limits' => $generationLimits
             ]
         ]);
     }

@@ -1132,11 +1132,85 @@ class AiTravelPhoto extends Common
                 $post = input('post.');
                 
                 // 白名单字段，避免传入数据库不存在的字段
-                $allowFields = ['name', 'desc', 'num', 'video_num', 'price', 'original_price', 'unit_price', 'sort', 'status', 'label', 'is_default', 'is_recommend', 'tag', 'tag_color', 'valid_days', 'stock'];
+                $allowFields = ['name', 'desc', 'num', 'video_num', 'price', 'original_price', 'unit_price', 'sort', 'status', 'label', 'is_default', 'is_recommend', 'tag', 'tag_color', 'valid_days', 'stock', 'min_num', 'max_num', 'min_video_num', 'max_video_num', 'commissionset', 'commissiondata1', 'commissiondata2', 'commissiondata3'];
                 $data = [];
                 foreach ($allowFields as $field) {
                     if (isset($post[$field])) {
                         $data[$field] = $post[$field];
+                    }
+                }
+
+                // === 分销设置处理 ===
+                // 从 info[commissionset] 读取分销模式
+                $commissionset = isset($post['info']['commissionset']) ? intval($post['info']['commissionset']) : -1;
+                $data['commissionset'] = $commissionset;
+
+                // 根据分销模式序列化对应的commissiondata，清空非当前模式的数据
+                if ($commissionset == 1 && isset($post['commissiondata1'])) {
+                    $data['commissiondata1'] = json_encode($post['commissiondata1'], JSON_UNESCAPED_UNICODE);
+                } else {
+                    $data['commissiondata1'] = null;
+                }
+                if ($commissionset == 2 && isset($post['commissiondata2'])) {
+                    $data['commissiondata2'] = json_encode($post['commissiondata2'], JSON_UNESCAPED_UNICODE);
+                } else {
+                    $data['commissiondata2'] = null;
+                }
+                if ($commissionset == 3 && isset($post['commissiondata3'])) {
+                    $data['commissiondata3'] = json_encode($post['commissiondata3'], JSON_UNESCAPED_UNICODE);
+                } else {
+                    $data['commissiondata3'] = null;
+                }
+
+                // === 独立收款分账比例校验 ===
+                if ($this->bid > 0 && $commissionset >= 0 && $commissionset <= 2) {
+                    $business = Db::name('business')->where('id', $this->bid)->find();
+                    $set = Db::name('admin_set')->where('aid', $this->aid)->find();
+                    // 检查是否开启独立收款
+                    $isIndependentPay = (isset($set['business_cashdesk_wxpay_type']) && $set['business_cashdesk_wxpay_type'] == 3);
+                    if ($isIndependentPay) {
+                        $platformRate = floatval($business['feepercent'] ?? $set['choucheng_rate'] ?? 0);
+                        $maxCommissionRate = 0;
+                        // 计算最大提成比例
+                        if ($commissionset == 1 && isset($post['commissiondata1'])) {
+                            foreach ($post['commissiondata1'] as $lv) {
+                                $maxCommissionRate += floatval($lv['commission1'] ?? 0) + floatval($lv['commission2'] ?? 0) + floatval($lv['commission3'] ?? 0);
+                            }
+                        } elseif ($commissionset == 0) {
+                            // 按会员等级：取最大的等级比例之和
+                            $levels = Db::name('member_level')->where('aid', $this->aid)->where('can_agent', '>', 0)->select();
+                            foreach ($levels as $lv) {
+                                if ($lv['commissiontype'] == 0) {
+                                    $lvRate = floatval($lv['commission1']) + floatval($lv['commission2']) + floatval($lv['commission3']);
+                                    if ($lvRate > $maxCommissionRate) $maxCommissionRate = $lvRate;
+                                }
+                            }
+                        }
+                        if (($maxCommissionRate + $platformRate) > 30) {
+                            return json(['status' => 0, 'msg' => '提成比例(' . $maxCommissionRate . '%) + 平台抽成(' . $platformRate . '%) = ' . ($maxCommissionRate + $platformRate) . '%，超过30%微信支付分账限制']);
+                        }
+                    }
+                }
+
+                // 阶梯档位：自动回填 num 字段以兼容旧逻辑
+                if (isset($data['min_num'])) {
+                    $data['num'] = (int)$data['min_num'];
+                }
+                if (isset($data['min_video_num'])) {
+                    $data['video_num'] = (int)$data['min_video_num'];
+                }
+
+                // 区间校验
+                $minNum = (int)($data['min_num'] ?? 0);
+                $maxNum = (int)($data['max_num'] ?? 0);
+                $minVideoNum = (int)($data['min_video_num'] ?? 0);
+                $maxVideoNum = (int)($data['max_video_num'] ?? 0);
+
+                if ($minNum > 0) {
+                    $pickService = new \app\service\AiTravelPhotoPickService();
+                    $validation = $pickService->validateTierInterval($this->bid, $minNum, $maxNum, $minVideoNum, $maxVideoNum, $id);
+                    if (!$validation['valid']) {
+                        return json(['status' => 0, 'msg' => $validation['msg']]);
                     }
                 }
                 $data['aid'] = $this->aid;
@@ -1160,9 +1234,42 @@ class AiTravelPhoto extends Common
         $info = [];
         if ($id > 0) {
             $info = Db::name('ai_travel_photo_package')->where('id', $id)->find();
+            // 反序列化 commissiondata
+            if (!empty($info['commissiondata1'])) {
+                $info['commissiondata1'] = json_decode($info['commissiondata1'], true) ?: [];
+            } else {
+                $info['commissiondata1'] = [];
+            }
+            if (!empty($info['commissiondata2'])) {
+                $info['commissiondata2'] = json_decode($info['commissiondata2'], true) ?: [];
+            } else {
+                $info['commissiondata2'] = [];
+            }
+            if (!empty($info['commissiondata3'])) {
+                $info['commissiondata3'] = json_decode($info['commissiondata3'], true) ?: [];
+            } else {
+                $info['commissiondata3'] = [];
+            }
+        } else {
+            $info['commissiondata1'] = [];
+            $info['commissiondata2'] = [];
+            $info['commissiondata3'] = [];
         }
 
+        // 获取具有分销权限的会员等级列表
+        $aglevellist = Db::name('member_level')
+            ->where('aid', $this->aid)
+            ->where('can_agent', '>', 0)
+            ->field('id, name, can_agent, commissiontype, commission1, commission2, commission3')
+            ->order('id ASC')
+            ->select()
+            ->toArray();
+
         View::assign('info', $info);
+        View::assign('aglevellist', $aglevellist);
+        View::assign('commissiondata1', $info['commissiondata1']);
+        View::assign('commissiondata2', $info['commissiondata2']);
+        View::assign('commissiondata3', $info['commissiondata3']);
         return View::fetch();
     }
 
@@ -2048,15 +2155,14 @@ class AiTravelPhoto extends Common
                 return;
             }
 
-            // 获取模板列表
+            // 获取模板列表（从商户合成模板表查询）
             $templateIds = explode(',', $setting['template_ids']);
             $generateCount = $setting['generate_count'] ?? 4;
             
-            $templates = Db::name('generation_scene_template')
+            $templates = Db::name('ai_travel_photo_synthesis_template')
                 ->whereIn('id', $templateIds)
-                ->where('generation_type', 1) // 照片生成
                 ->where('status', 1)
-                ->field('id, template_name, model_id')
+                ->field('id, name as template_name, model_id')
                 ->limit($generateCount)
                 ->select();
 
@@ -2689,7 +2795,21 @@ class AiTravelPhoto extends Common
                 // 转换为数组
                 $list = $list ? $list->toArray() : [];
 
-                // 查询订单商品数量 + 格式化支付时间
+                // 查询订单商品数量 + 格式化支付时间 + 分销信息
+                // 批量获取分销人昵称
+                $parentIds = [];
+                foreach ($list as $row) {
+                    if (!empty($row['parent1'])) $parentIds[] = $row['parent1'];
+                    if (!empty($row['parent2'])) $parentIds[] = $row['parent2'];
+                    if (!empty($row['parent3'])) $parentIds[] = $row['parent3'];
+                }
+                $parentNames = [];
+                if (!empty($parentIds)) {
+                    $parentIds = array_unique($parentIds);
+                    $parentMembers = Db::name('member')->whereIn('id', $parentIds)->column('nickname', 'id');
+                    $parentNames = $parentMembers;
+                }
+
                 foreach ($list as &$item) {
                     $item['goods_count'] = Db::name('ai_travel_photo_order_goods')
                         ->where('order_id', $item['id'])
@@ -2697,6 +2817,11 @@ class AiTravelPhoto extends Common
                     $item['pay_time_text'] = !empty($item['paytime']) ? date('Y-m-d H:i:s', $item['paytime']) : '-';
                     // 支付方式显示
                     $item['paytype_text'] = $item['paytype'] ?: '-';
+                    // 分销信息
+                    $item['parent1_name'] = !empty($item['parent1']) ? ($parentNames[$item['parent1']] ?? '-') : '';
+                    $item['parent2_name'] = !empty($item['parent2']) ? ($parentNames[$item['parent2']] ?? '-') : '';
+                    $item['parent3_name'] = !empty($item['parent3']) ? ($parentNames[$item['parent3']] ?? '-') : '';
+                    $item['commission_total'] = round(($item['parent1commission'] ?? 0) + ($item['parent2commission'] ?? 0) + ($item['parent3commission'] ?? 0), 2);
                 }
 
                 $count = Db::name('ai_travel_photo_order')
@@ -2764,8 +2889,35 @@ class AiTravelPhoto extends Common
             ->field('g.*, g.goods_image, g.type, g.num, r.url, r.thumbnail_url, r.type as result_type')
             ->select();
 
+        // 分销信息
+        $commissionInfo = [];
+        if (!empty($order['iscommission']) || !empty($order['parent1']) || !empty($order['parent2']) || !empty($order['parent3'])) {
+            $parentIds = array_filter([$order['parent1'] ?? 0, $order['parent2'] ?? 0, $order['parent3'] ?? 0]);
+            $parentMembers = [];
+            if (!empty($parentIds)) {
+                $parentMembers = Db::name('member')->whereIn('id', $parentIds)->column('nickname,headimg,tel', 'id');
+            }
+            for ($i = 1; $i <= 3; $i++) {
+                $pid = $order['parent' . $i] ?? 0;
+                $pcommission = $order['parent' . $i . 'commission'] ?? 0;
+                if ($pid > 0) {
+                    $pm = $parentMembers[$pid] ?? [];
+                    $commissionInfo[] = [
+                        'level' => $i,
+                        'level_text' => ['', '一级分销', '二级分销', '三级分销'][$i],
+                        'mid' => $pid,
+                        'nickname' => $pm['nickname'] ?? '-',
+                        'headimg' => $pm['headimg'] ?? '',
+                        'tel' => $pm['tel'] ?? '',
+                        'commission' => $pcommission,
+                    ];
+                }
+            }
+        }
+
         View::assign('order', $order);
         View::assign('goods', $goods);
+        View::assign('commissionInfo', $commissionInfo);
         return View::fetch();
     }
 
@@ -3580,19 +3732,19 @@ class AiTravelPhoto extends Common
      */
     private function getSynthesisUnitCost(int $bid, array $templates): float
     {
-        // 优先1：模板独立定价（取第一个模板的base_price作为参考）
-        if (!empty($templates) && isset($templates[0]['base_price']) && floatval($templates[0]['base_price']) > 0) {
-            return floatval($templates[0]['base_price']);
+        // 统一使用场景模板的商采价格(business_price)作为单价
+        // 取第一个模板的 business_price 作为统一单价
+        if (!empty($templates) && isset($templates[0]['business_price'])) {
+            $price = floatval($templates[0]['business_price']);
+            if ($price > 0) {
+                return $price;
+            }
+            // business_price 为 0 时视为免费合成
+            return 0;
         }
 
-        // 优先2：商家统一图片价格
-        $aiPhotoPrice = Db::name('business')->where('id', $bid)->value('ai_photo_price');
-        if ($aiPhotoPrice && floatval($aiPhotoPrice) > 0) {
-            return floatval($aiPhotoPrice);
-        }
-
-        // 优先3：平台默认 0（免费）
-        return 0;
+        // 模板中无 business_price 字段时，使用默认值 0.50
+        return 0.50;
     }
     
     /**
@@ -5345,6 +5497,160 @@ class AiTravelPhoto extends Common
     // ============================================================
 
     /**
+     * 获取场景模板分类列表（仅照片生成类型，带层级结构）
+     * GET /AiTravelPhoto/get_scene_categories
+     */
+    public function get_scene_categories()
+    {
+        try {
+            $categories = Db::name('generation_scene_category')
+                ->where('generation_type', 1) // 仅照片生成
+                ->where('status', 1)
+                ->field('id, name, pid, sort')
+                ->order('sort ASC, id ASC')
+                ->select()
+                ->toArray();
+
+            // 构建层级结构（一级 + 二级）
+            $tree = [];
+            $childMap = [];
+            foreach ($categories as $cat) {
+                if ($cat['pid'] == 0) {
+                    $cat['children'] = [];
+                    $tree[$cat['id']] = $cat;
+                } else {
+                    $childMap[$cat['pid']][] = $cat;
+                }
+            }
+            foreach ($childMap as $pid => $children) {
+                if (isset($tree[$pid])) {
+                    $tree[$pid]['children'] = $children;
+                }
+            }
+
+            return json([
+                'code' => 0,
+                'msg' => '获取成功',
+                'data' => array_values($tree)
+            ]);
+        } catch (\Exception $e) {
+            return json([
+                'code' => 1,
+                'msg' => $e->getMessage(),
+                'data' => []
+            ]);
+        }
+    }
+
+    /**
+     * 获取可选场景模板列表（供合成模板新增时选择）
+     * GET /AiTravelPhoto/get_available_scene_templates
+     */
+    public function get_available_scene_templates()
+    {
+        try {
+            $keyword = input('param.keyword/s', '');
+            $categoryId = input('param.category_id/d', 0);
+            $page = input('param.page/d', 1);
+            $limit = input('param.limit/d', 50);
+
+            // 处理 bid = 0 的情况（后台管理员），查询默认商户
+            $targetBid = $this->bid;
+            if ($targetBid == 0) {
+                $targetBid = Db::name('business')->where('aid', $this->aid)->value('id');
+            }
+
+            // 构建基础查询条件闭包
+            $buildQuery = function () use ($targetBid, $keyword, $categoryId) {
+                $q = Db::name('generation_scene_template')
+                    ->alias('t')
+                    ->leftJoin('model_info m', 't.model_id = m.id')
+                    ->leftJoin('model_provider p', 'm.provider_id = p.id')
+                    ->where('t.aid', $this->aid)
+                    ->where(function ($sub) use ($targetBid) {
+                        $sub->where('t.bid', 0)->whereOr('t.bid', $targetBid);
+                    })
+                    ->where('t.generation_type', 1)
+                    ->where('t.status', 1)
+                    ->whereRaw("JSON_CONTAINS(m.capability_tags, '\"multi_input\"')");
+
+                if ($keyword) {
+                    $q->where('t.template_name', 'like', '%' . $keyword . '%');
+                }
+
+                // 按分类筛选（category_ids 是逗号分隔的ID）
+                if ($categoryId > 0) {
+                    // 获取该分类及其子分类的所有ID
+                    $childIds = Db::name('generation_scene_category')
+                        ->where('pid', $categoryId)
+                        ->where('status', 1)
+                        ->column('id');
+                    $allCatIds = array_merge([$categoryId], $childIds);
+
+                    // 用 FIND_IN_SET 构建OR条件
+                    $catConditions = [];
+                    foreach ($allCatIds as $cid) {
+                        $catConditions[] = "FIND_IN_SET({$cid}, t.category_ids)";
+                    }
+                    $q->whereRaw('(' . implode(' OR ', $catConditions) . ')');
+                }
+
+                return $q;
+            };
+
+            $count = $buildQuery()->count();
+
+            // 注意：select() 返回 Collection 对象，foreach引用修改不会生效
+            // 必须先 toArray() 转为普通数组才能正确修改 default_params
+            $list = $buildQuery()
+                ->field('t.id, t.template_name, t.cover_image, t.category, t.category_ids, t.model_id, t.default_params, t.description, t.output_quantity, t.auto_tags, t.auto_tag_status, t.base_price, t.business_price, t.price_unit, t.lvprice, t.lvprice_data, m.model_name, p.provider_name')
+                ->order('t.sort ASC, t.id DESC')
+                ->page($page, $limit)
+                ->select()
+                ->toArray();
+
+            // 处理 default_params 和 auto_tags JSON 字段（在普通数组上引用修改才能生效）
+            foreach ($list as &$item) {
+                if (!empty($item['default_params']) && is_string($item['default_params'])) {
+                    $item['default_params'] = json_decode($item['default_params'], true) ?: [];
+                }
+                if (empty($item['default_params'])) {
+                    $item['default_params'] = [];
+                }
+                // 解析自动标签JSON
+                if (!empty($item['auto_tags']) && is_string($item['auto_tags'])) {
+                    $item['auto_tags'] = json_decode($item['auto_tags'], true) ?: [];
+                }
+                if (empty($item['auto_tags'])) {
+                    $item['auto_tags'] = [];
+                }
+                // 解析会员价格数据JSON
+                if (!empty($item['lvprice_data']) && is_string($item['lvprice_data'])) {
+                    $item['lvprice_data'] = json_decode($item['lvprice_data'], true) ?: [];
+                }
+                if (empty($item['lvprice_data']) || !is_array($item['lvprice_data'])) {
+                    $item['lvprice_data'] = [];
+                }
+            }
+            unset($item);
+
+            return json([
+                'code' => 0,
+                'msg' => '获取成功',
+                'count' => $count,
+                'data' => $list
+            ]);
+        } catch (\Exception $e) {
+            return json([
+                'code' => 1,
+                'msg' => $e->getMessage(),
+                'count' => 0,
+                'data' => []
+            ]);
+        }
+    }
+
+    /**
      * 合成模板 - 列表
      * GET /AiTravelPhoto/synthesis_template_list
      */
@@ -5353,32 +5659,74 @@ class AiTravelPhoto extends Common
         // 如果是AJAX请求，返回JSON数据
         if (request()->isAjax()) {
             $where = [
-                ['aid', '=', $this->aid],
-                ['bid', '=', $this->bid]
+                ['st.aid', '=', $this->aid],
+                ['st.bid', '=', $this->bid]
             ];
 
             // 关键词搜索
             $keyword = input('param.keyword');
             if ($keyword) {
-                $where[] = ['name', 'like', '%' . $keyword . '%'];
+                $where[] = ['st.name', 'like', '%' . $keyword . '%'];
             }
 
             // 状态筛选
             $status = input('param.status', '');
             if ($status !== '' && $status !== 'all') {
-                $where[] = ['status', '=', $status];
+                $where[] = ['st.status', '=', $status];
             }
 
             $page = input('page/d', 1);
             $limit = input('limit/d', 20);
 
             $list = Db::name('ai_travel_photo_synthesis_template')
+                ->alias('st')
+                ->leftJoin('generation_scene_template gst', 'st.scene_template_id = gst.id')
                 ->where($where)
-                ->order('sort ASC, id DESC')
+                ->field('st.*, gst.template_name as scene_template_name')
+                ->order('st.sort ASC, st.id DESC')
                 ->page($page, $limit)
-                ->select();
+                ->select()
+                ->toArray();
+
+            // 获取所有涉及的门店ID，批量查询名称
+            $allStoreIds = [];
+            foreach ($list as $item) {
+                if ($item['store_scope'] == 1 && !empty($item['store_ids'])) {
+                    $ids = array_filter(explode(',', $item['store_ids']));
+                    $allStoreIds = array_merge($allStoreIds, $ids);
+                }
+            }
+            $storeNameMap = [];
+            if (!empty($allStoreIds)) {
+                $allStoreIds = array_unique($allStoreIds);
+                $storeNames = Db::name('mendian')
+                    ->field('id, name')
+                    ->whereIn('id', $allStoreIds)
+                    ->select()
+                    ->toArray();
+                foreach ($storeNames as $s) {
+                    $storeNameMap[$s['id']] = $s['name'];
+                }
+            }
+
+            // 处理来源模板已删除的情况 + 门店名称解析
+            foreach ($list as &$item) {
+                if ($item['scene_template_id'] > 0 && empty($item['scene_template_name'])) {
+                    $item['scene_template_name'] = '已删除';
+                }
+                // 解析门店名称列表
+                $item['store_names'] = [];
+                if ($item['store_scope'] == 1 && !empty($item['store_ids'])) {
+                    $ids = array_filter(explode(',', $item['store_ids']));
+                    foreach ($ids as $sid) {
+                        $item['store_names'][] = $storeNameMap[$sid] ?? ('门店#' . $sid);
+                    }
+                }
+            }
+            unset($item);
 
             $count = Db::name('ai_travel_photo_synthesis_template')
+                ->alias('st')
                 ->where($where)
                 ->count();
 
@@ -5424,6 +5772,17 @@ class AiTravelPhoto extends Common
         }
         
         $info = [];
+        $sceneTemplateName = '';
+        $autoTagString = '';
+        $sceneCategoryNames = '';
+        $sceneBasePrice = '0.00';
+        $sceneBusinessPrice = '0.50';
+        $sceneLvprice = 0;
+        $sceneLvpriceList = [];
+        // 默认值（新建模式 $id==0 时不会进入下方if块，需要预设）
+        View::assign('auto_tags', []);
+        View::assign('auto_tag_status', 0);
+
         if ($id > 0) {
             $info = Db::name('ai_travel_photo_synthesis_template')
                 ->where('id', $id)
@@ -5433,9 +5792,107 @@ class AiTravelPhoto extends Common
             if (!empty($info['images'])) {
                 $info['images'] = json_decode($info['images'], true) ?: [];
             }
+
+            // 查询来源场景模板名称和自动标签
+            if (!empty($info['scene_template_id'])) {
+                $sceneTemplateData = Db::name('generation_scene_template')
+                    ->field('template_name, auto_tags, auto_tag_status, category_ids, base_price, business_price, price_unit, lvprice, lvprice_data')
+                    ->where('id', $info['scene_template_id'])
+                    ->find();
+                if ($sceneTemplateData) {
+                    $sceneTemplateName = $sceneTemplateData['template_name'];
+                    // 解析自动标签
+                    $autoTags = $sceneTemplateData['auto_tags'];
+                    if (!empty($autoTags) && is_string($autoTags)) {
+                        $autoTags = json_decode($autoTags, true);
+                    }
+                    View::assign('auto_tags', $autoTags ?: []);
+                    View::assign('auto_tag_status', $sceneTemplateData['auto_tag_status'] ?? 0);
+                    // 准备自动标签展示字符串
+                    if (!empty($autoTags) && is_array($autoTags)) {
+                        if (!empty($autoTags['tag_string'])) {
+                            $autoTagString = $autoTags['tag_string'];
+                        } elseif (!empty($autoTags['primary_tags']) && is_array($autoTags['primary_tags'])) {
+                            $autoTagString = implode(',', $autoTags['primary_tags']);
+                        }
+                    }
+                    // 解析所属分类名称
+                    if (!empty($sceneTemplateData['category_ids'])) {
+                        $catIds = array_filter(explode(',', $sceneTemplateData['category_ids']));
+                        if (!empty($catIds)) {
+                            $catNames = Db::name('generation_scene_category')
+                                ->whereIn('id', $catIds)
+                                ->column('name');
+                            $sceneCategoryNames = implode('、', $catNames);
+                        }
+                    }
+                    // 解析价格设置（商采价格）
+                    $sceneBasePrice = $sceneTemplateData['base_price'] ?? '0.00';
+                    $sceneBusinessPrice = $sceneTemplateData['business_price'] ?? '0.50';
+                    $sceneLvprice = intval($sceneTemplateData['lvprice'] ?? 0);
+                    if ($sceneLvprice == 1 && !empty($sceneTemplateData['lvprice_data'])) {
+                        $lvpriceRaw = $sceneTemplateData['lvprice_data'];
+                        if (is_string($lvpriceRaw)) {
+                            $lvpriceRaw = json_decode($lvpriceRaw, true) ?: [];
+                        }
+                        if (!empty($lvpriceRaw) && is_array($lvpriceRaw)) {
+                            // 获取会员等级列表（show_business=1的商户等级）
+                            $default_cid = Db::name('member_level_category')->where('aid', $this->aid)->where('isdefault', 1)->value('id');
+                            $default_cid = $default_cid ? $default_cid : 0;
+                            $levellist = Db::name('member_level')
+                                ->where('aid', $this->aid)
+                                ->where('cid', $default_cid)
+                                ->where('show_business', 1)
+                                ->order('sort asc, id asc')
+                                ->select()->toArray();
+                            foreach ($levellist as $lv) {
+                                if (isset($lvpriceRaw[$lv['id']])) {
+                                    $sceneLvpriceList[] = [
+                                        'level_id' => $lv['id'],
+                                        'level_name' => $lv['name'],
+                                        'price' => $lvpriceRaw[$lv['id']]
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    $sceneTemplateName = '已删除';
+                    View::assign('auto_tags', []);
+                    View::assign('auto_tag_status', 0);
+                }
+            } else {
+                View::assign('auto_tags', []);
+                View::assign('auto_tag_status', 0);
+            }
         }
 
         View::assign('info', $info);
+        View::assign('scene_template_name', $sceneTemplateName);
+        View::assign('auto_tag_string', $autoTagString);
+        View::assign('scene_category_names', $sceneCategoryNames);
+        View::assign('scene_base_price', $sceneBasePrice);
+        View::assign('scene_business_price', $sceneBusinessPrice);
+
+        // 获取当前商户下的门店列表（供门店范围选择）
+        $mendianQuery = Db::name('mendian')
+            ->field('id, name')
+            ->where('status', 1);
+        if ($this->bid > 0) {
+            // 商户：只查该商户下的门店
+            $mendianQuery->where('bid', $this->bid);
+        } else {
+            // 平台管理员编辑已有模板时，按模板所属商户过滤；新建时展示该平台下所有门店
+            if ($id > 0 && !empty($info['bid'])) {
+                $mendianQuery->where('bid', $info['bid']);
+            } else {
+                $mendianQuery->where('aid', $this->aid);
+            }
+        }
+        $mendianList = $mendianQuery->order('id asc')->select()->toArray();
+        View::assign('mendian_list', $mendianList);
+        View::assign('mendian_list_json', json_encode($mendianList, JSON_UNESCAPED_UNICODE));
+
         return View::fetch();
     }
 
@@ -5468,6 +5925,20 @@ class AiTravelPhoto extends Common
             $prompt = input('post.prompt/s', '');
             $status = input('post.status/d', 1);
             $sort = input('post.sort/d', 0);
+            $sceneTemplateId = input('post.scene_template_id/d', 0);
+            $defaultParams = input('post.default_params/s', '');
+            $description = input('post.description/s', '');
+            $coverImage = input('post.cover_image/s', '');
+            $storeScope = input('post.store_scope/d', 0);
+            $storeIds = input('post.store_ids/s', '');
+
+            // 调试日志：记录门店范围接收数据
+            \think\facade\Log::info('synthesis_template_save store data', [
+                'store_scope' => $storeScope,
+                'store_ids_raw' => $storeIds,
+                'post_store_scope' => $_POST['store_scope'] ?? 'NOT_SET',
+                'post_store_ids' => $_POST['store_ids'] ?? 'NOT_SET',
+            ]);
 
             if (empty($name)) {
                 return json(['code' => 1, 'msg' => '请输入模板名称']);
@@ -5489,13 +5960,18 @@ class AiTravelPhoto extends Common
                 'model_name' => $modelName,
                 'images' => json_encode($images, JSON_UNESCAPED_UNICODE),
                 'prompt' => $prompt,
+                'default_params' => $defaultParams,
+                'description' => $description,
+                'cover_image' => $coverImage,
+                'store_scope' => $storeScope,
+                'store_ids' => ($storeScope == 1) ? $storeIds : '',
                 'status' => $status,
                 'sort' => $sort,
                 'update_time' => time()
             ];
 
             if ($id > 0) {
-                // 更新
+                // 更新：scene_template_id 不可变更，从 data 中排除
                 Db::name('ai_travel_photo_synthesis_template')
                     ->where('id', $id)
                     ->where('aid', $this->aid)
@@ -5504,7 +5980,21 @@ class AiTravelPhoto extends Common
 
                 return json(['code' => 0, 'msg' => '保存成功']);
             } else {
-                // 新增
+                // 新增：验证 scene_template_id
+                if ($sceneTemplateId <= 0) {
+                    return json(['code' => 1, 'msg' => '请选择来源场景模板']);
+                }
+
+                // 验证场景模板存在
+                $sceneTemplate = Db::name('generation_scene_template')
+                    ->where('id', $sceneTemplateId)
+                    ->where('status', 1)
+                    ->find();
+                if (!$sceneTemplate) {
+                    return json(['code' => 1, 'msg' => '所选场景模板不存在或已禁用']);
+                }
+
+                $data['scene_template_id'] = $sceneTemplateId;
                 $data['create_time'] = time();
                 Db::name('ai_travel_photo_synthesis_template')->insert($data);
 
@@ -5543,6 +6033,39 @@ class AiTravelPhoto extends Common
 
         } catch (\Exception $e) {
             return json(['code' => 1, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 合成模板 - 获取门店列表（供门店范围选择）
+     * GET /AiTravelPhoto/get_synthesis_stores
+     */
+    public function get_synthesis_stores()
+    {
+        try {
+            $query = Db::name('mendian')
+                ->field('id, name')
+                ->where('status', 1);
+            if ($this->bid > 0) {
+                // 商户：只查该商户下的门店
+                $query->where('bid', $this->bid);
+            } else {
+                // 平台管理员：查平台下所有门店
+                $query->where('aid', $this->aid);
+            }
+            $list = $query->order('id asc')->select()->toArray();
+
+            return json([
+                'code' => 0,
+                'msg' => '获取成功',
+                'data' => $list
+            ]);
+        } catch (\Exception $e) {
+            return json([
+                'code' => 1,
+                'msg' => $e->getMessage(),
+                'data' => []
+            ]);
         }
     }
 
@@ -5612,34 +6135,35 @@ class AiTravelPhoto extends Common
             'template_ids' => $setting['template_ids'] ?? 'none'
         ]);
 
-        // 获取可用的照片场景模板列表（从generation_scene_template表查询，generation_type=1为照片生成）
-        // 仅加载模型能力包含「多张参考图生成」(multi_input)的场景模板
+        // 获取商户合成模板列表（从ai_travel_photo_synthesis_template表查询）
         try {
-            $templates = Db::name('generation_scene_template')
-                ->alias('t')
-                ->leftJoin('model_info m', 't.model_id = m.id')
-                ->leftJoin('model_provider p', 'm.provider_id = p.id')
-                ->where('t.aid', $this->aid)
-                ->where(function ($query) use ($targetBid) {
-                    $query->where('t.bid', 0)
-                          ->whereOr('t.bid', $targetBid);
-                })
-                ->where('t.generation_type', 1) // 照片生成
-                ->where('t.status', 1)
-                ->whereRaw("JSON_CONTAINS(m.capability_tags, '\"multi_input\"')")
-                ->field('t.id, t.template_name as scene_name, t.category, t.cover_image, t.model_id, t.output_quantity, t.use_count, t.sort, m.model_name, p.provider_name')
-                ->order('t.sort ASC, t.id DESC')
+            $templates = Db::name('ai_travel_photo_synthesis_template')
+                ->where('aid', $this->aid)
+                ->where('bid', $targetBid)
+                ->where('status', 1)
+                ->field('id, name, model_id, model_name, images, cover_image, prompt, status, sort')
+                ->order('sort ASC, id DESC')
                 ->select();
 
-            // 处理分类标签
+            // 处理images字段和封面图
             foreach ($templates as &$tpl) {
-                $tpl['scene_type_label'] = !empty($tpl['category']) ? $tpl['category'] : '未分类';
+                $tpl['images_arr'] = [];
+                if (!empty($tpl['images'])) {
+                    $decoded = json_decode($tpl['images'], true);
+                    if (is_array($decoded)) {
+                        $tpl['images_arr'] = $decoded;
+                    }
+                }
+                // 若无cover_image，取images数组第一张
+                if (empty($tpl['cover_image']) && !empty($tpl['images_arr'])) {
+                    $tpl['cover_image'] = $tpl['images_arr'][0];
+                }
             }
             unset($tpl);
         } catch (\Exception $e) {
             // 如果查询失败，返回空数组
             $templates = [];
-            \think\facade\Log::error('获取照片场景模板失败: ' . $e->getMessage());
+            \think\facade\Log::error('获取合成模板失败: ' . $e->getMessage());
         }
 
         View::assign('portrait_id', 0);
@@ -5671,7 +6195,7 @@ class AiTravelPhoto extends Common
             $generateMode = input('post.generate_mode/d', 1); // 1顺序 2随机
 
             if (empty($templateIds)) {
-                return json(['code' => 1, 'msg' => '请关联至少一个照片场景模板']);
+                return json(['code' => 1, 'msg' => '请关联至少一个合成模板']);
             }
 
             if ($generateCount < 1 || $generateCount > 10) {
@@ -5693,7 +6217,7 @@ class AiTravelPhoto extends Common
             // 确保 templateIds 是数组并过滤空值
             $templateIds = is_array($templateIds) ? array_filter($templateIds) : [];
             if (empty($templateIds)) {
-                return json(['code' => 1, 'msg' => '请关联至少一个照片场景模板']);
+                return json(['code' => 1, 'msg' => '请关联至少一个合成模板']);
             }
             
             $data = [
@@ -5787,20 +6311,32 @@ class AiTravelPhoto extends Common
             $generateCount = $setting['generate_count'];
             $generateMode = $setting['generate_mode']; // 1顺序 2随机
 
-            // 获取模板信息（从照片场景模板表查询）
+            // 获取模板信息（从商户合成模板表查询）
             if (empty($templateIds)) {
-                return json(['code' => 1, 'msg' => '请先关联照片场景模板']);
+                return json(['code' => 1, 'msg' => '请先关联合成模板']);
             }
-            $templates = Db::name('generation_scene_template')
+            $templates = Db::name('ai_travel_photo_synthesis_template')
                 ->whereIn('id', $templateIds)
-                ->where('generation_type', 1) // 照片生成
                 ->where('status', 1)
-                ->field('id, aid, bid, template_name, model_id, cover_image, default_params, output_quantity, description, category')
+                ->field('id, aid, bid, name as template_name, model_id, model_name, cover_image, images, prompt, default_params, description, scene_template_id, sort')
                 ->orderRaw('field(id, ' . $setting['template_ids'] . ')')
                 ->select();
 
+            // 补充 business_price：通过 scene_template_id 回查，或使用默认值
+            foreach ($templates as &$_tpl) {
+                $_tpl['output_quantity'] = 1; // 合成模板固定输出1张
+                $_tpl['business_price'] = 0.50; // 默认值
+                if (!empty($_tpl['scene_template_id'])) {
+                    $scenePrice = Db::name('generation_scene_template')->where('id', $_tpl['scene_template_id'])->value('business_price');
+                    if ($scenePrice !== null && $scenePrice !== false) {
+                        $_tpl['business_price'] = floatval($scenePrice);
+                    }
+                }
+            }
+            unset($_tpl);
+
             if (count($templates) < count($templateIds)) {
-                return json(['code' => 1, 'msg' => '部分场景模板已失效，请重新设置']);
+                return json(['code' => 1, 'msg' => '部分合成模板已失效，请重新设置']);
             }
 
             // 根据模式选择模板（支持循环：当N>模板数时重复使用模板，1个模板生成1张）
@@ -5823,10 +6359,66 @@ class AiTravelPhoto extends Common
                 }
             }
 
+            // ======== 扣费逻辑（与批量合成/重试合成对齐） ========
+            $unitCost = $this->getSynthesisUnitCost($targetBid, $selectedTemplates);
+            $templateCount = count($selectedTemplates);
+            $totalCost = round($unitCost * $templateCount, 2);
+            $deductId = 0;
+
+            if ($totalCost > 0) {
+                $balanceService = new \app\service\BalanceDeductService();
+                $balanceCheck = $balanceService->checkBalance($targetBid, $totalCost);
+                if (!$balanceCheck['allowed']) {
+                    Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])->update([
+                        'synthesis_status' => 5,
+                        'synthesis_error' => '余额不足，需要¥' . $totalCost . '，当前¥' . $balanceCheck['balance'],
+                        'update_time' => time()
+                    ]);
+                    return json(['code' => 2, 'msg' => '账户余额不足', 'type' => 'balance_insufficient', 'data' => [
+                        'required' => $totalCost,
+                        'balance' => $balanceCheck['balance'],
+                        'shortfall' => $balanceCheck['shortfall']
+                    ]]);
+                }
+
+                $deductResult = $balanceService->preDeduct($targetBid, $totalCost, $portrait['id'], '合成预扣费 人像ID:' . $portrait['id'] . ' 商采价¥' . $unitCost . '×' . $templateCount . '张=¥' . $totalCost);
+                if (!$deductResult['status']) {
+                    Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])->update([
+                        'synthesis_status' => 5,
+                        'synthesis_error' => '预扣费失败（并发冲突）',
+                        'update_time' => time()
+                    ]);
+                    return json(['code' => 2, 'msg' => '余额扣费失败，请重试', 'type' => 'balance_insufficient']);
+                }
+                $deductId = $deductResult['deductId'];
+            }
+
+            // 空间预检
+            $spaceService = new \app\service\SpaceCheckService();
+            $estimatedSpace = $spaceService->estimateRequired($templateCount, 'image');
+            $spaceCheck = $spaceService->checkSpace($targetBid, $estimatedSpace);
+            if (!$spaceCheck['allowed']) {
+                // 空间不足，退还已扣余额
+                if ($deductId > 0 && $totalCost > 0) {
+                    $balanceService->refundSingle($targetBid, $totalCost, $deductId, '空间不足退款');
+                }
+                Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])->update([
+                    'synthesis_status' => 6,
+                    'synthesis_error' => '云空间不足，需要' . $estimatedSpace . 'MB，剩余' . $spaceCheck['remainingMB'] . 'MB',
+                    'update_time' => time()
+                ]);
+                return json(['code' => 3, 'msg' => '云空间不足', 'type' => 'space_insufficient', 'data' => [
+                    'required' => $estimatedSpace,
+                    'remaining' => $spaceCheck['remainingMB'],
+                    'shortfall' => $spaceCheck['shortfallMB']
+                ]]);
+            }
+            // ======== 扣费逻辑结束 ========
+
             // 调用合成服务执行生成
             $synthesisService = new \app\service\AiTravelPhotoSynthesisService();
             $operatorName = $this->user['un'] ?? '';
-            $result = $synthesisService->generate($portrait, $selectedTemplates, $operatorName);
+            $result = $synthesisService->generate($portrait, $selectedTemplates, $operatorName, $deductId, $unitCost);
 
             if ($result['code'] === 0) {
                 return json(['code' => 0, 'msg' => '生成成功', 'data' => $result['data']]);
@@ -5946,20 +6538,32 @@ class AiTravelPhoto extends Common
                 return json(['code' => 1, 'msg' => '没有需要处理的人像']);
             }
 
-            // 获取模板信息（从generation_scene_template表查询）
+            // 获取模板信息（从商户合成模板表查询）
             if (empty($templateIds)) {
-                return json(['code' => 1, 'msg' => '请先关联照片场景模板']);
+                return json(['code' => 1, 'msg' => '请先关联合成模板']);
             }
-            $templates = Db::name('generation_scene_template')
+            $templates = Db::name('ai_travel_photo_synthesis_template')
                 ->whereIn('id', $templateIds)
-                ->where('generation_type', 1) // 照片生成
                 ->where('status', 1)
-                ->field('id, aid, bid, template_name, model_id, cover_image, default_params, output_quantity, description, category')
+                ->field('id, aid, bid, name as template_name, model_id, model_name, cover_image, images, prompt, default_params, description, scene_template_id, sort')
                 ->orderRaw('field(id, ' . $setting['template_ids'] . ')')
                 ->select();
 
+            // 补充 business_price：通过 scene_template_id 回查，或使用默认值
+            foreach ($templates as &$_tpl) {
+                $_tpl['output_quantity'] = 1;
+                $_tpl['business_price'] = 0.50;
+                if (!empty($_tpl['scene_template_id'])) {
+                    $scenePrice = Db::name('generation_scene_template')->where('id', $_tpl['scene_template_id'])->value('business_price');
+                    if ($scenePrice !== null && $scenePrice !== false) {
+                        $_tpl['business_price'] = floatval($scenePrice);
+                    }
+                }
+            }
+            unset($_tpl);
+
             if (count($templates) === 0) {
-                return json(['code' => 1, 'msg' => '没有可用的照片场景模板']);
+                return json(['code' => 1, 'msg' => '没有可用的合成模板']);
             }
 
             // 调用合成服务批量生成
@@ -6040,7 +6644,7 @@ class AiTravelPhoto extends Common
                         break;
                     }
 
-                    $deductResult = $balanceService->preDeduct($bid, $totalCost, $portrait['id'], '批量合成预扣费 人像ID:' . $portrait['id']);
+                    $deductResult = $balanceService->preDeduct($bid, $totalCost, $portrait['id'], '批量合成预扣费 人像ID:' . $portrait['id'] . ' 商采价¥' . $unitCost . '×' . $templateCount . '张=¥' . $totalCost);
                     if (!$deductResult['status']) {
                         Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])->update([
                             'synthesis_status' => 5,
@@ -6210,20 +6814,32 @@ class AiTravelPhoto extends Common
             $generateMode = $setting['generate_mode'];
 
             if (empty($templateIds)) {
-                return json(['code' => 1, 'msg' => '请先关联照片场景模板']);
+                return json(['code' => 1, 'msg' => '请先关联合成模板']);
             }
 
-            // 获取模板信息（从generation_scene_template表查询）
-            $templates = Db::name('generation_scene_template')
+            // 获取模板信息（从商户合成模板表查询）
+            $templates = Db::name('ai_travel_photo_synthesis_template')
                 ->whereIn('id', $templateIds)
-                ->where('generation_type', 1) // 照片生成
                 ->where('status', 1)
-                ->field('id, aid, bid, template_name, model_id, cover_image, default_params, output_quantity, description, category')
+                ->field('id, aid, bid, name as template_name, model_id, model_name, cover_image, images, prompt, default_params, description, scene_template_id, sort')
                 ->orderRaw('field(id, ' . $setting['template_ids'] . ')')
                 ->select();
 
+            // 补充 business_price：通过 scene_template_id 回查，或使用默认值
+            foreach ($templates as &$_tpl) {
+                $_tpl['output_quantity'] = 1;
+                $_tpl['business_price'] = 0.50;
+                if (!empty($_tpl['scene_template_id'])) {
+                    $scenePrice = Db::name('generation_scene_template')->where('id', $_tpl['scene_template_id'])->value('business_price');
+                    if ($scenePrice !== null && $scenePrice !== false) {
+                        $_tpl['business_price'] = floatval($scenePrice);
+                    }
+                }
+            }
+            unset($_tpl);
+
             if (count($templates) === 0) {
-                return json(['code' => 1, 'msg' => '没有可用的照片场景模板']);
+                return json(['code' => 1, 'msg' => '没有可用的合成模板']);
             }
 
             // 更新状态为处理中
@@ -6293,7 +6909,7 @@ class AiTravelPhoto extends Common
                 }
 
                 // 预扣费
-                $deductResult = $balanceService->preDeduct($bid, $totalCost, $portraitId, '合成预扣费 人像ID:' . $portraitId);
+                $deductResult = $balanceService->preDeduct($bid, $totalCost, $portraitId, '合成预扣费 人像ID:' . $portraitId . ' 商采价¥' . $unitCost . '×' . $templateCount . '张=¥' . $totalCost);
                 if (!$deductResult['status']) {
                     Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
                         'synthesis_status' => 5,
@@ -6380,6 +6996,74 @@ class AiTravelPhoto extends Common
     }
 
     /**
+     * 获取合成失败详情（人像级 + 各任务级错误信息）
+     * POST /AiTravelPhoto/synthesis_error_detail
+     */
+    public function synthesis_error_detail()
+    {
+        try {
+            $portraitId = input('post.portrait_id/d', 0);
+            if ($portraitId <= 0) {
+                return json(['code' => 1, 'msg' => '参数错误']);
+            }
+
+            // 获取人像基本信息
+            $portrait = Db::name('ai_travel_photo_portrait')
+                ->field('id,synthesis_status,synthesis_error,synthesis_count,synthesis_time,create_time,file_name')
+                ->where('id', $portraitId)
+                ->where('aid', $this->aid)
+                ->find();
+
+            if (!$portrait) {
+                return json(['code' => 1, 'msg' => '人像不存在']);
+            }
+
+            // 状态文字映射
+            $statusTextMap = [
+                0 => '未处理', 1 => '已提交', 2 => '处理中',
+                3 => '成功', 4 => '失败', 5 => '余额不足暂停', 6 => '空间不足暂停'
+            ];
+
+            // 获取关联的合成任务记录
+            $generations = Db::name('ai_travel_photo_generation')
+                ->alias('g')
+                ->leftJoin('ai_travel_photo_synthesis_template t', 'g.template_id = t.id')
+                ->field('g.id, g.template_id, g.status, g.error_msg, g.error_code, g.model_name, g.cost_time, g.create_time, g.finish_time, t.name as template_name')
+                ->where('g.portrait_id', $portraitId)
+                ->order('g.id DESC')
+                ->limit(50)
+                ->select()
+                ->toArray();
+
+            // 格式化时间
+            foreach ($generations as &$gen) {
+                $gen['create_time_text'] = $gen['create_time'] ? date('m-d H:i:s', $gen['create_time']) : '-';
+                $gen['finish_time_text'] = $gen['finish_time'] ? date('m-d H:i:s', $gen['finish_time']) : '-';
+                $gen['template_name'] = $gen['template_name'] ?: ('模板ID:' . ($gen['template_id'] ?? '-'));
+            }
+            unset($gen);
+
+            return json([
+                'code' => 0,
+                'data' => [
+                    'portrait_id' => $portrait['id'],
+                    'file_name' => $portrait['file_name'] ?? '',
+                    'status_text' => $statusTextMap[$portrait['synthesis_status']] ?? '未知',
+                    'synthesis_status' => $portrait['synthesis_status'],
+                    'synthesis_error' => $portrait['synthesis_error'] ?: '',
+                    'synthesis_count' => $portrait['synthesis_count'],
+                    'synthesis_time' => $portrait['synthesis_time'] ? date('Y-m-d H:i:s', $portrait['synthesis_time']) : '',
+                    'create_time' => $portrait['create_time'] ? date('Y-m-d H:i:s', $portrait['create_time']) : '',
+                    'generations' => $generations
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return json(['code' => 1, 'msg' => '获取失败: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
      * 恢复暂停任务（充值/扩容后调用）
      * POST /AiTravelPhoto/resume_paused_tasks
      */
@@ -6419,8 +7103,25 @@ class AiTravelPhoto extends Common
                     ->find();
                 $generateCount = $setting ? intval($setting['generate_count']) : 1;
 
-                // 粗略估算总费用
-                $unitCost = floatval(Db::name('business')->where('id', $targetBid)->value('ai_photo_price') ?? 0);
+                // 从商户合成模板获取 business_price 作为单价
+                $unitCost = 0.50; // 默认值
+                if ($setting && !empty($setting['template_ids'])) {
+                    $firstTemplateId = explode(',', $setting['template_ids'])[0];
+                    // 先查合成模板的 scene_template_id，再回查场景模板的 business_price
+                    $synthTemplate = Db::name('ai_travel_photo_synthesis_template')
+                        ->where('id', $firstTemplateId)
+                        ->where('status', 1)
+                        ->field('scene_template_id')
+                        ->find();
+                    if ($synthTemplate && !empty($synthTemplate['scene_template_id'])) {
+                        $businessPrice = Db::name('generation_scene_template')
+                            ->where('id', $synthTemplate['scene_template_id'])
+                            ->value('business_price');
+                        if ($businessPrice !== null && $businessPrice !== false) {
+                            $unitCost = floatval($businessPrice);
+                        }
+                    }
+                }
                 $totalEstimate = round($unitCost * $generateCount * $pausedCount, 2);
 
                 $balanceService = new \app\service\BalanceDeductService();

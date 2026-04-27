@@ -1156,7 +1156,7 @@ class AiTravelPhotoSelfieService
         $effectiveEmbedding = !empty($backendEmbedding) ? $backendEmbedding : $faceEmbedding;
 
         // 创建人像记录
-        $portraitId = Db::name('ai_travel_photo_portrait')->insertGetId([
+        $portraitId = (int) Db::name('ai_travel_photo_portrait')->insertGetId([
             'aid' => $aid,
             'bid' => $bid,
             'mdid' => $mdid,
@@ -1186,7 +1186,7 @@ class AiTravelPhotoSelfieService
                 if ($milvusService->isHealthy()) {
                     $milvusService->insert([$effectiveEmbedding], ['portrait_id' => $portraitId]);
                 }
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 Log::warning('Milvus插入失败', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
             }
 
@@ -1195,7 +1195,7 @@ class AiTravelPhotoSelfieService
             if (!empty($openid)) {
                 try {
                     $this->aggregateUserEmbeddings($openid, $bid, $portraitId);
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     Log::warning('向量聚合异常，不影响主流程', [
                         'openid' => $openid, 'error' => $e->getMessage()
                     ]);
@@ -1205,8 +1205,10 @@ class AiTravelPhotoSelfieService
             Log::info('自拍端：手动拍摄模式无face_embedding，跳过Milvus插入', ['portrait_id' => $portraitId]);
         }
 
-        // ===== 获取合成设置和模板（与 SmileCapture 保持一致） =====
-        // 从 ai_travel_photo_synthesis_setting 表获取已配置的模板ID
+        // ===== 获取合成设置并触发合成（整体 try-catch 保障 synthesis_status 不会卡在 0） =====
+        $templateCount = 0;
+        $estimatedSeconds = 30;
+        try {
         $setting = Db::name('ai_travel_photo_synthesis_setting')
             ->where('portrait_id', 0)
             ->where('aid', $aid)
@@ -1221,12 +1223,11 @@ class AiTravelPhotoSelfieService
             $generateCount = (int)($setting['generate_count'] ?? 4);
             $generateMode = (int)($setting['generate_mode'] ?? 1);
 
-            // 从 generation_scene_template 表查询模板（与 SmileCapture 一致）
-            $availableTemplates = Db::name('generation_scene_template')
+            // 从商户合成模板表查询模板
+            $availableTemplates = Db::name('ai_travel_photo_synthesis_template')
                 ->whereIn('id', $templateIds)
-                ->where('generation_type', 1) // 照片生成
                 ->where('status', 1)
-                ->field('id, template_name, model_id, cover_image, default_params, output_quantity, description, category')
+                ->field('id, name as template_name, model_id, model_name, cover_image, images, prompt, default_params, description, scene_template_id')
                 ->select()
                 ->toArray();
 
@@ -1340,6 +1341,18 @@ class AiTravelPhotoSelfieService
             Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
                 'synthesis_status' => 4,
                 'synthesis_error' => '未配置合成模板，请管理员先在合成设置中关联模板',
+                'update_time' => time()
+            ]);
+        }
+
+        } catch (\Throwable $e) {
+            // 兜底：合成触发阶段异常，确保 portrait 不会永久卡在 status=0
+            Log::error('自拍端合成触发异常', [
+                'portrait_id' => $portraitId, 'error' => $e->getMessage()
+            ]);
+            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                'synthesis_status' => 4,
+                'synthesis_error' => '合成触发异常: ' . mb_substr($e->getMessage(), 0, 200),
                 'update_time' => time()
             ]);
         }

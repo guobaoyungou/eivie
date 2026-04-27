@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vue-cli-service serve",
-    "build:h5": "vue-cli-service build",
+    "build:h5": "cross-env NODE_ENV=production UNI_PLATFORM=h5 vue-cli-service uni-build",
     "dev:h5": "vue-cli-service serve --mode h5",
     "rebuild:h5": "node rebuild_h5.js",
     "build:mp-weixin": "vue-cli-service build --mode mp-weixin",
@@ -18,6 +18,7 @@
   "dependencies": {
     "@dcloudio/uni-app": "2.0.2-5000520260324002",
     "@dcloudio/uni-app-plus": "2.0.2-5000520260324002",
+    "@dcloudio/uni-cli-i18n": "^2.0.2-5000520260324002",
     "@dcloudio/uni-h5": "2.0.2-5000520260324002",
     "@dcloudio/uni-i18n": "2.0.2-5000520260324002",
     "@dcloudio/uni-mp-360": "2.0.2-5000520260324002",
@@ -43,12 +44,19 @@
     "vuex": "3.6.2"
   },
   "devDependencies": {
-    "@dcloudio/uni-cli-shared": "^2.0.0",
+    "@babel/plugin-proposal-nullish-coalescing-operator": "^7.18.6",
+    "@babel/plugin-proposal-optional-chaining": "^7.21.0",
+    "@dcloudio/uni-cli-shared": "^2.0.2-5000520260324002",
+    "@dcloudio/uni-migration": "^2.0.2-5000520260324002",
     "@dcloudio/uni-template-compiler": "^2.0.2-5000520260324002",
     "@dcloudio/vue-cli-plugin-uni": "^2.0.0",
     "@dcloudio/webpack-uni-mp-loader": "^2.0.2-5000520260324002",
     "@dcloudio/webpack-uni-pages-loader": "^2.0.2-5000520260324002",
+    "@vue/cli-plugin-babel": "~4.5.19",
     "@vue/cli-service": "~4.5.19",
+    "less": "^4.6.4",
+    "less-loader": "^7.3.0",
+    "postcss-comment": "^2.0.0",
     "sass": "^1.53.0",
     "sass-loader": "^10.2.1",
     "webpack": "^4.46.0"

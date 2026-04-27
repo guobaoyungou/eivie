@@ -669,6 +669,17 @@
 				  <input type="text"  name="info[show_producttext]" value="{$info.show_producttext?$info.show_producttext:'本店商品'}" class="layui-input" style="width: 100px;display: inline-block;">
 			  </div>
 		  </div>
+		  {if getcustom('ai_travel_photo')}
+		  <div class="layui-form-item">
+			  <label class="layui-form-label">首页显示旅拍商品：</label>
+			  <div class="layui-input-inline" style="width:300px;display: flex;">
+				  <input type="radio" name="info[show_travel_photo]" value="0" title="隐藏" {if $info['id'] && $info['show_travel_photo']==0}checked{/if}/>
+				  <input type="radio" name="info[show_travel_photo]" value="1" title="显示" {if !$info['id'] ||  $info['show_travel_photo']==1}checked{/if}/>
+				  <input type="text"  name="info[show_travel_phototext]" value="{$info.show_travel_phototext?$info.show_travel_phototext:'旅拍商品'}" class="layui-input" style="width: 100px;display: inline-block;">
+			  </div>
+			  <div class="layui-form-mid layui-word-aux">需商家启用AI旅拍功能且有可用合成模板时才会在C端显示</div>
+		  </div>
+		  {/if}
 		  <div class="layui-form-item">
 			  <label class="layui-form-label">首页显示店铺评价：</label>
 			  <div class="layui-input-inline" style="width:300px;display: flex;">

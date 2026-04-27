@@ -156,6 +156,22 @@ class ApiBusiness extends ApiCommon{
 				$bset['show_mianndan'] = 1;
 			}
 		}
+		// AI旅拍商品Tab可见性判定
+		if(getcustom('ai_travel_photo')){
+			$aiEnabled = Db::name('business')->where('id', $bid)->value('ai_travel_photo_enabled');
+			if($aiEnabled == 1 && !empty($bset['show_travel_photo'])){
+				$hasTemplate = Db::name('ai_travel_photo_synthesis_template')
+					->where('aid', aid)
+					->where('bid', $bid)
+					->where('status', 1)
+					->count();
+				$bset['show_travel_photo'] = $hasTemplate > 0 ? 1 : 0;
+			} else {
+				$bset['show_travel_photo'] = 0;
+			}
+		} else {
+			$bset['show_travel_photo'] = 0;
+		}
 		Db::name('business')->where('id',$bid)->inc('viewnum',$addviewnum)->update();
         $business['turnover'] = 0;
         if(getcustom('business_show_turnover')){
@@ -788,6 +804,53 @@ class ApiBusiness extends ApiCommon{
 					$datalist = [];
 				}
 				return $this->json(['status'=>1,'data'=>$datalist]);
+			}
+		}elseif($st == 4){
+			// 旅拍商品 - 合成模板列表
+			if(getcustom('ai_travel_photo')){
+				$bid = $id;
+				$aiEnabled = Db::name('business')->where('id', $bid)->value('ai_travel_photo_enabled');
+				if($aiEnabled != 1){
+					return $this->json(['status'=>1,'data'=>[]]);
+				}
+				$pernum = 10;
+				$pagenum = input('post.pagenum');
+				if(!$pagenum) $pagenum = 1;
+				$where = [];
+				$where[] = ['aid','=',aid];
+				$where[] = ['bid','=',$bid];
+				$where[] = ['status','=',1];
+				// 门店范围过滤
+				if($mendian_id > 0){
+					$where[] = Db::raw("store_scope=0 OR (store_scope=1 AND FIND_IN_SET({$mendian_id}, store_ids))");
+				}
+				$templateList = Db::name('ai_travel_photo_synthesis_template')
+					->where($where)
+					->field('id,name,cover_image,description,scene_template_id,sort')
+					->order('sort desc,id desc')
+					->page($pagenum,$pernum)
+					->select()
+					->toArray();
+				if(!$templateList) $templateList = [];
+				$sceneTypes = config('ai_travel_photo.scene_type');
+				foreach($templateList as $k => &$tpl){
+					// 获取场景模板信息
+					$sceneTpl = null;
+					if($tpl['scene_template_id']){
+						$sceneTpl = Db::name('ai_travel_photo_scene')
+							->where('id', $tpl['scene_template_id'])
+							->field('category,tags')
+							->find();
+					}
+					$tpl['scene_type'] = $sceneTpl ? ($sceneTpl['category'] ?? '') : '';
+					$tpl['scene_type_text'] = $tpl['scene_type'] ? ($sceneTypes[$tpl['scene_type']] ?? '') : '';
+					$tpl['price'] = '0.00';
+					$tpl['tags'] = $sceneTpl ? ($sceneTpl['tags'] ?? '') : '';
+				}
+				unset($tpl);
+				return $this->json(['status'=>1,'data'=>$templateList]);
+			} else {
+				return $this->json(['status'=>1,'data'=>[]]);
 			}
 		}else{//评价
 			$pernum = 10;

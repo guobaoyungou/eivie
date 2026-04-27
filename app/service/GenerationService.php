@@ -743,7 +743,17 @@ class GenerationService
         
         // prompt（必填）
         $prompt = $inputParams['prompt'] ?? $inputParams['text'] ?? '';
-        if (!empty($prompt)) {
+        
+        // negative_prompt 负面提示词处理（API不支持独立字段，需拼接到prompt尾部）
+        $negativePrompt = $inputParams['negative_prompt'] ?? '';
+        if (is_string($negativePrompt)) {
+            $negativePrompt = trim($negativePrompt);
+        } else {
+            $negativePrompt = '';
+        }
+        if (!empty($prompt) && !empty($negativePrompt)) {
+            $body['prompt'] = $prompt . '，请避免以下元素：' . $negativePrompt;
+        } elseif (!empty($prompt)) {
             $body['prompt'] = $prompt;
         }
         

@@ -49,6 +49,8 @@
       regsource:'',//注册来源，如海报邀请码
 			copyinfo:'',//剪切版
 			mdid:'',//门店id
+      bid:0,//商户ID
+      visitor_log:0,//访客日志0关闭1开启
 		},
 		onLaunch: function(options) {
 			var extConfig = uni.getExtConfigSync ? uni.getExtConfigSync() : {};
@@ -125,6 +127,9 @@
 			if(opts && opts.mdid){
 				this.globalData.mdid = opts.mdid;
 			}
+      if (opts && opts.bid) {
+        this.globalData.bid = opts.bid;
+      }
 			// #ifdef APP-PLUS
 			this.globalData.platform = 'app';
 			var app = this;
@@ -313,6 +318,17 @@
 			}
 			//#endif
 		},
+    onHide() {
+
+      //访客日志
+      if(this.globalData.visitor_log && this.globalData.visitor_log == 1){
+        // 判断用户是否退出小程序或关闭页面：延迟1.5秒判断（避免接电话、切聊天等短暂切后台误判）
+        setTimeout(() => {
+          this.get('ApiIndex/quitVisitorLog',{}, function (customs) {});
+        }, 1500);
+      }
+
+    },
 		methods: {
 			isPhone: function(param, type=1) {
 				if(this.globalData.tel_foreign){
@@ -1497,7 +1513,8 @@
 									yqcode:!params?'':params.yqcode,
 									regbid:app.globalData.regbid,
                   regsource:app.globalData.regsource,
-									mdid:app.globalData.mdid
+									mdid:app.globalData.mdid,
+                  bid:app.globalData.bid,
 								}, function(res) {
 									typeof callback == "function" && callback(res);
 								});
@@ -1520,7 +1537,8 @@
 											yqcode:!params?'':params.yqcode,
 											regbid:app.globalData.regbid,
                       regsource:app.globalData.regsource,
-											mdid:app.globalData.mdid
+											mdid:app.globalData.mdid,
+                      bid:app.globalData.bid,
 										}, function(res) {
 											typeof callback == "function" && callback(res);
 										});
@@ -1566,7 +1584,8 @@
                       silent:1,
                       regbid:app.globalData.regbid,
                       regsource:app.globalData.regsource,
-											mdid:app.globalData.mdid
+											mdid:app.globalData.mdid,
+                      bid:app.globalData.bid,
 						        }, function(res2) {
 									typeof callback == "function" && callback(res2);
 						        });
@@ -1577,7 +1596,7 @@
 						});
 					}else{
 						location.href = app.globalData.pre_url + '/index.php?s=ApiIndex/shouquan&aid=' + app.globalData
-							.aid + '&session_id=' + app.globalData.session_id + '&pid=' + app.globalData.pid + '&authlogin=' + authlogin + '&regbid=' + app.globalData.regbid + '&regsource=' + app.globalData.regsource +'&mdid=' + app.globalData.mdid +
+							.aid + '&session_id=' + app.globalData.session_id + '&pid=' + app.globalData.pid + '&authlogin=' + authlogin + '&regbid=' + app.globalData.regbid + '&regsource=' + app.globalData.regsource +'&mdid=' + app.globalData.mdid +'&bid=' + app.globalData.bid +
 							'&frompage=' + encodeURIComponent(frompage);
 					}
 					//#endif
@@ -1602,7 +1621,8 @@
 								pid: app.globalData.pid,
                 regbid:app.globalData.regbid,
                 regsource:app.globalData.regsource,
-                mdid:app.globalData.mdid
+                mdid:app.globalData.mdid,
+                bid:app.globalData.bid,
 							}, function(res) {
 								typeof callback == "function" && callback(res);
 							});
@@ -1630,7 +1650,8 @@
 								pid: app.globalData.pid,
                 regbid:app.globalData.regbid,
                 regsource:app.globalData.regsource,
-                mdid:app.globalData.mdid
+                mdid:app.globalData.mdid,
+                bid:app.globalData.bid,
 							}, function(res) {
 								typeof callback == "function" && callback(res);
 							});
@@ -1653,7 +1674,8 @@
 									pid: app.globalData.pid,
                   regbid:app.globalData.regbid,
                   regsource:app.globalData.regsource,
-                  mdid:app.globalData.mdid
+                  mdid:app.globalData.mdid,
+                  bid:app.globalData.bid,
 								}, function(res) {
 									typeof callback == "function" && callback(res);
 								});
@@ -1683,7 +1705,8 @@
 									pid: app.globalData.pid,
                   regbid:app.globalData.regbid,
                   regsource:app.globalData.regsource,
-                  mdid:app.globalData.mdid
+                  mdid:app.globalData.mdid,
+                  bid:app.globalData.bid,
 								}, function(res) {
 									typeof callback == "function" && callback(res);
 								});
@@ -1714,7 +1737,8 @@
 									pid: app.globalData.pid,
                   regbid:app.globalData.regbid,
                   regsource:app.globalData.regsource,
-                  mdid:app.globalData.mdid
+                  mdid:app.globalData.mdid,
+                  bid:app.globalData.bid,
 								}, function(res) {
 									typeof callback == "function" && callback(res);
 								});
@@ -1763,6 +1787,7 @@
 						app.copy(res.data._initdata.copyinfo);
 					}
 					app.globalData.tel_foreign = res.data._initdata.tel_foreign || 0;
+          app.globalData.visitor_log = res.data._initdata.visitor_log || 0;
 					if (app.globalData.platform == 'mp') {
 						//#ifdef H5
 						var share_package = res.data.share_package;

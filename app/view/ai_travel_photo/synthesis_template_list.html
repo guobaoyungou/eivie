@@ -112,9 +112,27 @@
         {type: 'checkbox', fixed: 'left'},
         {field: 'id', title: 'ID', width: 80, sort: true},
         {field: 'name', title: '模板名称', width: 150},
+        {field: 'scene_template_name', title: '来源场景模板', width: 160, templet: function(d){
+          if(d.scene_template_id > 0){
+            var name = d.scene_template_name || '已删除';
+            if(name === '已删除'){
+              return '<span class="layui-badge">' + name + '</span>';
+            }
+            return '<span title="ID:' + d.scene_template_id + '">' + name + '</span>';
+          }
+          return '<span style="color:#ccc">手动创建</span>';
+        }},
         {field: 'model_name', title: '绑定模型', width: 150},
+        {field: 'store_scope', title: '门店范围', minWidth: 180, templet: function(d){
+          if(d.store_scope == 0){
+            return '<span style="color:#5FB878;">全部门店</span>';
+          } else {
+            var names = d.store_names || [];
+            if(names.length === 0) return '<span style="color:#FF5722;">未指定门店</span>';
+            return '<span title="' + names.join('、') + '">' + names.join('、') + '</span>';
+          }
+        }},
         {field: 'images', title: '模板图片', width: 250, templet: '#imagesTpl'},
-        {field: 'prompt', title: '提示词', width: 200},
         {field: 'sort', title: '排序', width: 80, edit: 'text'},
         {field: 'status', title: '状态', width: 100, templet: '#statusTpl'},
         {field: 'create_time', title: '创建时间', width: 170, templet: function(d){
@@ -139,12 +157,15 @@
       var data = obj.data;
       $.post('{:url("synthesis_template_save")}', {
         id: data.id,
+        scene_template_id: data.scene_template_id || 0,
         name: data.name,
         model_id: data.model_id,
         model_name: data.model_name,
         images: JSON.parse(data.images || '[]'),
         prompt: data.prompt,
         status: data.status,
+        store_scope: data.store_scope || 0,
+        store_ids: data.store_ids || '',
         sort: value
       }, function(res){
         if(res.code !== 0){

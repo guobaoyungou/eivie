@@ -1,8 +1,8 @@
 <template>
 <view class="container">
 	<block v-if="isload">
-		<view class="module_tab" v-if="is_cashdesk_commission">
-			<dd-tab :itemdata="['商城订单','收银台订单']" :itemst="['shop','cashdesk']" :st="module" :isfixed="false" @changetab="changemoduletab"></dd-tab>
+		<view class="module_tab" v-if="is_cashdesk_commission || is_ai_pick_commission">
+			<dd-tab :itemdata="moduleTabData" :itemst="moduleTabSt" :st="module" :isfixed="false" @changetab="changemoduletab"></dd-tab>
 		</view>
 		<view class="topfix " :class="is_cashdesk_commission?'top90':''">
 			<view class="toplabel">
@@ -101,10 +101,26 @@ export default {
 	  pre_url:app.globalData.pre_url,
 	  tabitem:['所有订单','待付款','已付款','已完成','退款/售后'],
 	  tabst:['0','1','2','3','5'],
-	  module:'shop',//模块  shop:商城 cashdesk:收银台
-	  is_cashdesk_commission:0//是否展示 收银台佣金
+	  module:'shop',//模块  shop:商城 cashdesk:收银台 ai_pick:AI旅拍
+	  is_cashdesk_commission:0,//是否展示 收银台佣金
+	  is_ai_pick_commission:0//是否展示 AI旅拍佣金
 	  
     };
+  },
+
+  computed: {
+	moduleTabData: function() {
+		var tabs = ['商城订单'];
+		if(this.is_cashdesk_commission) tabs.push('收银台订单');
+		if(this.is_ai_pick_commission) tabs.push('AI旅拍订单');
+		return tabs;
+	},
+	moduleTabSt: function() {
+		var sts = ['shop'];
+		if(this.is_cashdesk_commission) sts.push('cashdesk');
+		if(this.is_ai_pick_commission) sts.push('ai_pick');
+		return sts;
+	}
   },
 
   onLoad: function (opt) {
@@ -134,6 +150,7 @@ export default {
 				that.loading = false;
 				var data = res.datalist;
 				that.is_cashdesk_commission = res.is_cashdesk_commission;
+				that.is_ai_pick_commission = res.is_ai_pick_commission || 0;
         if (pagenum == 1) {
 					that.commissionyj = res.commissionyj;
 					that.count = res.count;
@@ -197,6 +214,9 @@ export default {
 	  }else if(module =='cashdesk'){
 		  this.tabitem = ['所有订单','已完成','退款/售后'];
 		  this.tabst = ['0','2','5'];
+	  }else if(module =='ai_pick'){
+		  this.tabitem = ['所有订单','待付款','已付款','已完成','退款/售后'];
+		  this.tabst = ['0','1','2','3','5'];
 	  }
 	  this.datalist = [];
 	  uni.pageScrollTo({

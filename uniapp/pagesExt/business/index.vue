@@ -124,6 +124,7 @@
 						<view class="shop_tab">
 							<view v-if="showfw" :class="'cptab_text ' + (st==-1?'cptab_current':'')" @tap="changetab" data-st="-1">本店服务<view class="after" :style="{background:t('color1')}"></view></view>
 							<view v-if="bset && bset.show_product" :class="'cptab_text ' + (st==0?'cptab_current':'')" @tap="changetab" data-st="0">{{bset && bset.show_producttext?bset.show_producttext:'本店商品'}}<view class="after" :style="{background:t('color1')}"></view></view>
+							<view v-if="bset && bset.show_travel_photo" :class="'cptab_text ' + (st==4?'cptab_current':'')" @tap="changetab" data-st="4">{{bset && bset.show_travel_phototext?bset.show_travel_phototext:'旅拍商品'}}<view class="after" :style="{background:t('color1')}"></view></view>
 							<view v-if="bset && bset.show_comment" :class="'cptab_text ' + (st==1?'cptab_current':'')" @tap="changetab" data-st="1">{{bset && bset.show_commenttext?bset.show_commenttext:'店铺评价'}}({{countcomment}})<view class="after" :style="{background:t('color1')}"></view></view>
 							<view v-if="bset && bset.show_detail" :class="'cptab_text ' + (st==2?'cptab_current':'')" @tap="changetab" data-st="2">{{bset && bset.show_detailtext?bset.show_detailtext:'商家详情'}}<view class="after" :style="{background:t('color1')}"></view></view>
 							<view v-if="bset && bset.show_mianndan" :class="'cptab_text ' + (st==3?'cptab_current':'')" @tap="changetab" data-st="3">免单项目<view class="after" :style="{background:t('color1')}"></view></view>												
@@ -148,6 +149,29 @@
 						<view class="cp_detail" v-if="st==0" style="padding-top:20rpx">
 							<dp-product-itemlist :data="datalist" :menuindex="menuindex"></dp-product-itemlist>
 							
+							<nomore v-if="nomore"></nomore>
+							<nodata v-if="nodata"></nodata>
+						</view>
+
+						<view class="cp_detail" v-if="st==4" style="padding:20rpx">
+							<view v-if="datalist.length>0" class="travel_template_list">
+								<view v-for="(item, index) in datalist" :key="index" class="travel_tpl_card" @tap="goto" :data-url="'/pagesExt/ai_travel_photo/template_detail?template_id=' + item.id + '&bid=' + business.id">
+									<view class="tpl_cover">
+										<image :src="item.cover_image" mode="aspectFill"/>
+									</view>
+									<view class="tpl_info">
+										<view class="tpl_name">{{item.name}}</view>
+										<view class="tpl_meta">
+											<text class="tpl_type" v-if="item.scene_type_text">{{item.scene_type_text}}</text>
+											<text class="tpl_price" v-if="item.price && item.price > 0">¥{{item.price}}</text>
+										</view>
+										<view class="tpl_desc" v-if="item.description">{{item.description}}</view>
+										<view class="tpl_tags" v-if="item.tags">
+											<text class="tpl_tag" v-for="(tag, ti) in item.tags.split(',')" :key="ti">{{tag}}</text>
+										</view>
+									</view>
+								</view>
+							</view>
 							<nomore v-if="nomore"></nomore>
 							<nodata v-if="nodata"></nodata>
 						</view>
@@ -510,6 +534,8 @@ export default {
 				if(bset){
 						if(bset.show_product){
 								that.st = 0;
+						}else if(bset.show_travel_photo){
+								that.st = 4;
 						}else if(bset.show_comment){
 								that.st = 1;
 						}else if(bset.show_detail){
@@ -842,6 +868,20 @@ export default {
 .contentbox .free_product .hexiao button{ color: #fff; border-radius: 50rpx;padding:0 40rpx; height: 60rpx; line-height: 60rpx;}
 .contentbox .free_product .itemlist{ border-bottom: 1rpx solid #EDEDED;display: flex; padding:20rpx; }
 .contentbox .pic image{ width: 130rpx; height: 130rpx; border-radius: 10rpx;}
+
+/* 旅拍商品模板卡片 */
+.travel_template_list{width:100%}
+.travel_tpl_card{display:flex;background:#fff;border-radius:12rpx;margin-bottom:20rpx;overflow:hidden;box-shadow:0 2rpx 12rpx rgba(0,0,0,0.06)}
+.travel_tpl_card .tpl_cover{width:220rpx;height:220rpx;flex-shrink:0}
+.travel_tpl_card .tpl_cover image{width:100%;height:100%}
+.travel_tpl_card .tpl_info{flex:1;padding:16rpx 20rpx;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.travel_tpl_card .tpl_name{font-size:30rpx;font-weight:bold;color:#222;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.travel_tpl_card .tpl_meta{display:flex;align-items:center;margin-top:8rpx}
+.travel_tpl_card .tpl_type{font-size:22rpx;color:#666;background:#f5f5f5;padding:4rpx 16rpx;border-radius:6rpx;margin-right:16rpx}
+.travel_tpl_card .tpl_price{font-size:28rpx;color:#EF3835;font-weight:bold}
+.travel_tpl_card .tpl_desc{font-size:24rpx;color:#999;margin-top:8rpx;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.travel_tpl_card .tpl_tags{display:flex;flex-wrap:wrap;margin-top:8rpx}
+.travel_tpl_card .tpl_tag{font-size:20rpx;color:#5B8FF9;background:rgba(91,143,249,0.1);padding:2rpx 12rpx;border-radius:4rpx;margin-right:10rpx;margin-bottom:6rpx}
 
 .nodiydata .nomore-footer-tips{background:#fff!important}
 

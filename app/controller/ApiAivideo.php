@@ -952,6 +952,9 @@ class ApiAivideo extends ApiCommon
                 // 如果模型支持图生图，标记
                 $modelCapability['model_name'] = $modelInfo['model_name'] ?? '';
                 $modelCapability['model_code'] = $modelInfo['model_code'] ?? '';
+                
+                // ===== 构建 generation_limits（组图约束信息） =====
+                $modelCapability['generation_limits'] = $this->buildGenerationLimits($inputSchema);
             }
         }
         
@@ -997,7 +1000,9 @@ class ApiAivideo extends ApiCommon
             'original_image' => $refImage ?: $template['cover_image'],
             'effect_images' => !empty($sampleImages) ? $sampleImages : [$template['cover_image']],
             'model_capability' => $modelCapability,
-            'default_params' => $defaultParams
+            'default_params' => $defaultParams,
+            'max_ref_images' => intval($template['max_ref_images'] ?? 1),
+            'need_ref_image' => intval($template['need_ref_image'] ?? 1)
         ];
         
         // ===== 积分支付信息 =====
@@ -1296,6 +1301,98 @@ class ApiAivideo extends ApiCommon
             }
         }
         return $ratios;
+    }
+
+    /**
+     * 构建组图生成数量约束信息 (generation_limits)
+     * 解析模型 input_schema 中的 sequential_image_generation 和 n 参数
+     * 用于前端动态计算可选生成张数
+     * 
+     * @param array $inputSchema 模型的 input_schema
+     * @return array generation_limits 约束对象
+     */
+    private function buildGenerationLimits($inputSchema)
+    {
+        $limits = [
+            'max_total' => 1,
+            'supports_group' => false,
+            'input_output_sum_limit' => null,
+            'single_image_max_output' => 1,
+            'text_only_max_output' => 1,
+            'min_output' => 1
+        ];
+        
+        // 支持两种 schema 格式：
+        // 1. parameters 数组格式: {"parameters": [{"name": "sequential_image_generation", ...}]}
+        // 2. properties 对象格式: {"properties": {"sequential_image_generation": {...}}}
+        
+        $seqParam = null;
+        $seqOptionsParam = null;
+        $nParam = null;
+        
+        if (isset($inputSchema['parameters']) && is_array($inputSchema['parameters'])) {
+            // parameters 数组格式
+            foreach ($inputSchema['parameters'] as $param) {
+                $name = $param['name'] ?? '';
+                if ($name === 'sequential_image_generation') {
+                    $seqParam = $param;
+                } elseif ($name === 'sequential_image_generation_options') {
+                    $seqOptionsParam = $param;
+                } elseif ($name === 'n') {
+                    $nParam = $param;
+                }
+            }
+        } elseif (isset($inputSchema['properties'])) {
+            // properties 对象格式
+            $props = $inputSchema['properties'];
+            if (isset($props['sequential_image_generation'])) {
+                $seqParam = $props['sequential_image_generation'];
+            }
+            if (isset($props['sequential_image_generation_options'])) {
+                $seqOptionsParam = $props['sequential_image_generation_options'];
+            }
+            if (isset($props['n'])) {
+                $nParam = $props['n'];
+            }
+        }
+        
+        // 检查是否支持组图生成
+        if ($seqParam) {
+            $options = $seqParam['options'] ?? $seqParam['enum'] ?? [];
+            if (in_array('auto', $options)) {
+                $limits['supports_group'] = true;
+                
+                // 从 sequential_image_generation_options 解析 max_images
+                $maxTotal = 15; // 默认值
+                if ($seqOptionsParam) {
+                    $defaultVal = $seqOptionsParam['default'] ?? [];
+                    if (is_array($defaultVal) && isset($defaultVal['max_images'])) {
+                        $maxTotal = intval($defaultVal['max_images']);
+                    } elseif (isset($seqOptionsParam['max_images'])) {
+                        $maxTotal = intval($seqOptionsParam['max_images']);
+                    }
+                }
+                
+                if ($maxTotal < 1) $maxTotal = 15;
+                
+                $limits['max_total'] = $maxTotal;
+                $limits['input_output_sum_limit'] = $maxTotal;
+                $limits['single_image_max_output'] = $maxTotal - 1;
+                $limits['text_only_max_output'] = $maxTotal;
+            }
+        }
+        
+        // 如果不支持组图，检查 n 参数
+        if (!$limits['supports_group'] && $nParam) {
+            $maxN = intval($nParam['maximum'] ?? $nParam['max'] ?? 1);
+            if ($maxN > 1) {
+                $limits['max_total'] = $maxN;
+                $limits['text_only_max_output'] = $maxN;
+                $limits['single_image_max_output'] = $maxN;
+            }
+        }
+        
+        return $limits;
     }
 
     // =====================================================

@@ -207,7 +207,7 @@
     },
     "h5" : {
         "router" : {
-            "base" : "/h5/"
+            "base" : "./"
         },
         "title" : "果宝AI电商系统",
         "sdkConfigs" : {

@@ -449,8 +449,8 @@ class AiTravelPhotoSelfie extends BaseController
                     'template_count' => $result['template_count'],
                 ],
             ]);
-        } catch (\Exception $e) {
-            Log::error('自拍上传比对异常', ['error' => $e->getMessage(), 'openid' => $openid]);
+        } catch (\Throwable $e) {
+            Log::error('自拍上传比对异常', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString(), 'openid' => $openid]);
             return json(['code' => 500, 'msg' => '处理失败: ' . $e->getMessage()]);
         }
     }

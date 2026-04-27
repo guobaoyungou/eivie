@@ -48,6 +48,10 @@ class AiTravelPhotoPackage extends Model
         'update_time' => 'integer',
         'unit_price' => 'float',
         'is_default' => 'integer',
+        'min_num' => 'integer',
+        'max_num' => 'integer',
+        'min_video_num' => 'integer',
+        'max_video_num' => 'integer',
     ];
     
     // 状态常量
@@ -134,6 +138,56 @@ class AiTravelPhotoPackage extends Model
         return true;
     }
     
+    /**
+     * 获取图片档位展示文本
+     * 如 "3~4张" 或 "10张及以上"
+     */
+    public function getTierDisplayAttr($value, $data)
+    {
+        $minNum = $data['min_num'] ?? 0;
+        $maxNum = $data['max_num'] ?? 0;
+        if ($minNum <= 0) return '';
+        if ($maxNum == 0) {
+            return $minNum . '张及以上';
+        }
+        if ($maxNum == $minNum + 1) {
+            return $minNum . '张';
+        }
+        return $minNum . '~' . ($maxNum - 1) . '张';
+    }
+
+    /**
+     * 获取视频档位展示文本
+     */
+    public function getVideoTierDisplayAttr($value, $data)
+    {
+        $minNum = $data['min_video_num'] ?? 0;
+        $maxNum = $data['max_video_num'] ?? 0;
+        if ($minNum <= 0 && $maxNum <= 0) return '不限';
+        if ($maxNum == 0) {
+            return $minNum . '个及以上';
+        }
+        if ($maxNum == $minNum + 1) {
+            return $minNum . '个';
+        }
+        return $minNum . '~' . ($maxNum - 1) . '个';
+    }
+
+    /**
+     * 判断选片数量是否命中此档位区间
+     * 区间规则：min_num ≤ count < max_num（max_num=0表示不限上限）
+     */
+    public function matchesTier(int $count): bool
+    {
+        if ($count < $this->min_num) {
+            return false;
+        }
+        if ($this->max_num == 0) {
+            return true; // 不限上限
+        }
+        return $count < $this->max_num;
+    }
+
     /**
      * 搜索器：按商家ID搜索
      */

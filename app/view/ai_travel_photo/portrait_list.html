@@ -224,6 +224,8 @@
                   <option value="2">处理中</option>
                   <option value="3">成功</option>
                   <option value="4">失败</option>
+                  <option value="5">余额暂停</option>
+                  <option value="6">空间暂停</option>
                 </select>
               </div>
             </div>
@@ -310,7 +312,8 @@
           <!-- 操作列模板 -->
           <script type="text/html" id="barTpl">
             <button class="table-btn" onclick="openmax('{:url('portrait_detail')}/id/{{d.id}}')">查看详情</button>
-            {{# if(d.synthesis_status == 4){ }}
+            {{# if(d.synthesis_status == 4 || d.synthesis_status == 5 || d.synthesis_status == 6){ }}
+            <button class="table-btn" style="color:#1e9fff" onclick="showSynthesisError({{d.id}})">查看原因</button>
             <button class="table-btn" style="color:#ff5722" onclick="retrySynthesis({{d.id}})">重试</button>
             {{# } }}
             <button class="table-btn" onclick="deletePortrait({{d.id}})">删除</button>
@@ -416,21 +419,25 @@
           return md || '-';
         }},
         {field: 'result_count', title: '生成结果数', width: 120},
-        {field: 'synthesis_status', title: '合成状态', width: 100, templet: function(d){
-          var statusMap = {
-            0: '<span style="color:#999">未处理</span>',
-            1: '<span style="color:#ffb800">已提交</span>',
-            2: '<span style="color:#1e9fff">处理中</span>',
-            3: '<span style="color:#5fb878">成功</span>',
-            4: '<span style="color:#ff5722">失败</span>'
-          };
-          return statusMap[d.synthesis_status] || statusMap[0];
+        {field: 'synthesis_status', title: '合成状态', width: 110, templet: function(d){
+          var s = parseInt(d.synthesis_status) || 0;
+          if(s === 0) return '<span style="color:#999">未处理</span>';
+          if(s === 1) return '<span style="color:#ffb800">已提交</span>';
+          if(s === 2) return '<span style="color:#1e9fff"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop" style="font-size:14px"></i> 处理中</span>';
+          if(s === 3) return '<span style="color:#5fb878">成功</span>';
+          if(s === 4){
+            var errTip = d.synthesis_error || '未知原因';
+            return '<span style="color:#ff5722;cursor:pointer;text-decoration:underline;" onclick="showSynthesisError('+d.id+')" title="点击查看失败原因"><i class="layui-icon layui-icon-about" style="font-size:14px;"></i> 失败</span>';
+          }
+          if(s === 5) return '<span style="color:#ff9800;cursor:pointer;" onclick="showSynthesisError('+d.id+')" title="'+( d.synthesis_error||'余额不足')+'">⚠ 余额暂停</span>';
+          if(s === 6) return '<span style="color:#ff9800;cursor:pointer;" onclick="showSynthesisError('+d.id+')" title="'+( d.synthesis_error||'空间不足')+'">⚠ 空间暂停</span>';
+          return '<span style="color:#999">未知('+s+')</span>';
         }},
         {field: 'synthesis_count', title: '合成数量', width: 90},
         {field: 'create_time', title: '创建时间', width: 160, templet: function(d){
           return d.create_time ? date('Y-m-d H:i:s', d.create_time) : '-';
         }},
-        {fixed: 'right', title: '操作', width: 150, toolbar: '#barTpl'}
+        {fixed: 'right', title: '操作', width: 220, toolbar: '#barTpl'}
       ]]
     });
     
@@ -715,6 +722,80 @@
         layer.msg('请求失败，请稍后重试', {icon: 2});
       });
     });
+  }
+
+  // 查看合成失败详情
+  function showSynthesisError(portraitId) {
+    var loadIndex = layer.load(2, {shade: [0.3, '#000']});
+    $.post("{:url('synthesis_error_detail')}", {portrait_id: portraitId}, function(res) {
+      layer.close(loadIndex);
+      if (res.code !== 0) {
+        layer.msg(res.msg || '获取失败信息失败', {icon: 2});
+        return;
+      }
+      var data = res.data;
+      var html = '<div style="padding:20px;max-height:500px;overflow-y:auto;">';
+
+      // 人像基本信息
+      html += '<div style="margin-bottom:15px;padding:12px;background:#f8f8f8;border-radius:6px;">';
+      html += '<div style="font-weight:bold;margin-bottom:8px;">\u4eba\u50cf\u4fe1\u606f</div>';
+      html += '<div style="font-size:13px;color:#666;">ID: ' + data.portrait_id + ' &nbsp;|&nbsp; \u72b6\u6001: ' + data.status_text + '</div>';
+      if (data.synthesis_error) {
+        html += '<div style="margin-top:8px;padding:10px;background:#fff2f0;border:1px solid #ffccc7;border-radius:4px;color:#ff4d4f;font-size:13px;">';
+        html += '<i class="layui-icon layui-icon-close-fill" style="color:#ff4d4f;margin-right:5px;"></i>';
+        html += '<b>\u5931\u8d25\u539f\u56e0\uff1a</b>' + escapeHtml(data.synthesis_error);
+        html += '</div>';
+      }
+      html += '</div>';
+
+      // 合成任务详情
+      if (data.generations && data.generations.length > 0) {
+        html += '<div style="font-weight:bold;margin-bottom:10px;">\u5408\u6210\u4efb\u52a1\u8be6\u60c5 (' + data.generations.length + '\u4e2a)</div>';
+        html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+        html += '<tr style="background:#f0f0f0;"><th style="padding:8px;border:1px solid #e0e0e0;">\u4efb\u52a1ID</th><th style="padding:8px;border:1px solid #e0e0e0;">\u6a21\u677f</th><th style="padding:8px;border:1px solid #e0e0e0;">\u72b6\u6001</th><th style="padding:8px;border:1px solid #e0e0e0;">\u9519\u8bef\u4fe1\u606f</th><th style="padding:8px;border:1px solid #e0e0e0;">\u65f6\u95f4</th></tr>';
+        for (var i = 0; i < data.generations.length; i++) {
+          var g = data.generations[i];
+          var statusColor = g.status == 2 ? '#5fb878' : (g.status == 3 ? '#ff5722' : '#999');
+          var statusText = g.status == 0 ? '\u5f85\u5904\u7406' : (g.status == 1 ? '\u5904\u7406\u4e2d' : (g.status == 2 ? '\u6210\u529f' : (g.status == 3 ? '\u5931\u8d25' : '\u672a\u77e5')));
+          html += '<tr>';
+          html += '<td style="padding:6px 8px;border:1px solid #e0e0e0;text-align:center;">' + g.id + '</td>';
+          html += '<td style="padding:6px 8px;border:1px solid #e0e0e0;">' + escapeHtml(g.template_name || '-') + '</td>';
+          html += '<td style="padding:6px 8px;border:1px solid #e0e0e0;text-align:center;color:' + statusColor + ';">' + statusText + '</td>';
+          html += '<td style="padding:6px 8px;border:1px solid #e0e0e0;color:#ff5722;word-break:break-all;">' + escapeHtml(g.error_msg || '-') + '</td>';
+          html += '<td style="padding:6px 8px;border:1px solid #e0e0e0;white-space:nowrap;">' + (g.create_time_text || '-') + '</td>';
+          html += '</tr>';
+        }
+        html += '</table>';
+      } else {
+        html += '<div style="color:#999;text-align:center;padding:20px;">\u6682\u65e0\u5408\u6210\u4efb\u52a1\u8bb0\u5f55</div>';
+      }
+
+      html += '</div>';
+
+      layer.open({
+        type: 1,
+        title: '\u5408\u6210\u5931\u8d25\u8be6\u60c5 - \u4eba\u50cfID:' + portraitId,
+        area: ['700px', 'auto'],
+        maxmin: true,
+        content: html,
+        btn: ['\u91cd\u8bd5\u5408\u6210', '\u5173\u95ed'],
+        yes: function(idx) {
+          layer.close(idx);
+          retrySynthesis(portraitId);
+        }
+      });
+    }).fail(function() {
+      layer.close(loadIndex);
+      layer.msg('\u7f51\u7edc\u8bf7\u6c42\u5931\u8d25', {icon: 2});
+    });
+  }
+
+  // HTML转义工具函数
+  function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
   }
 
   // ========== 自动监控功能 ==========

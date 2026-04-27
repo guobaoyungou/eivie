@@ -1293,8 +1293,41 @@ class GenerationOrderService
             }
         }
         
-        // 设置生成数量
+        // 设置生成数量（含服务端 quantity 校验）
         if ($quantity > 0) {
+            // 获取模型的组图约束
+            $modelId = $template['model_id'] ?? 0;
+            if ($modelId > 0) {
+                $modelInfo = Db::name('model_info')->where('id', $modelId)->field('input_schema')->find();
+                if ($modelInfo) {
+                    $schema = is_string($modelInfo['input_schema']) ? json_decode($modelInfo['input_schema'], true) : ($modelInfo['input_schema'] ?: []);
+                    $genLimits = $this->parseGenerationLimits($schema);
+                    
+                    if (!$genLimits['supports_group']) {
+                        // 不支持组图，强制 quantity = 1
+                        if ($quantity > 1) {
+                            Log::info('quantity 截断：模型不支持组图，从 ' . $quantity . ' 截断为 1', ['order_id' => $orderId, 'model_id' => $modelId]);
+                            $quantity = 1;
+                        }
+                    } elseif ($genLimits['input_output_sum_limit']) {
+                        // 支持组图，校验输入图数 + 输出图数 ≤ 总限制
+                        $refCount = count($refImages);
+                        if ($refCount > 0) {
+                            $maxAllowed = $genLimits['input_output_sum_limit'] - $refCount;
+                        } else {
+                            $maxAllowed = $genLimits['text_only_max_output'];
+                        }
+                        if ($maxAllowed < 1) $maxAllowed = 1;
+                        if ($quantity > $maxAllowed) {
+                            Log::info('quantity 截断：超出组图限制，从 ' . $quantity . ' 截断为 ' . $maxAllowed, [
+                                'order_id' => $orderId, 'model_id' => $modelId,
+                                'ref_count' => $refCount, 'limit' => $genLimits['input_output_sum_limit']
+                            ]);
+                            $quantity = $maxAllowed;
+                        }
+                    }
+                }
+            }
             $inputParams['max_images'] = $quantity;
         }
         
@@ -1525,5 +1558,76 @@ class GenerationOrderService
         }
         
         return $this->triggerGenerationTaskWithParams($orderId);
+    }
+
+    /**
+     * 解析模型 input_schema 中的组图生成数量约束
+     * 用于服务端 quantity 校验
+     * 
+     * @param array $inputSchema 模型的 input_schema
+     * @return array generation_limits
+     */
+    protected function parseGenerationLimits($inputSchema)
+    {
+        $limits = [
+            'supports_group' => false,
+            'max_total' => 1,
+            'input_output_sum_limit' => null,
+            'single_image_max_output' => 1,
+            'text_only_max_output' => 1,
+            'min_output' => 1
+        ];
+        
+        $seqParam = null;
+        $seqOptionsParam = null;
+        $nParam = null;
+        
+        if (isset($inputSchema['parameters']) && is_array($inputSchema['parameters'])) {
+            foreach ($inputSchema['parameters'] as $param) {
+                $name = $param['name'] ?? '';
+                if ($name === 'sequential_image_generation') {
+                    $seqParam = $param;
+                } elseif ($name === 'sequential_image_generation_options') {
+                    $seqOptionsParam = $param;
+                } elseif ($name === 'n') {
+                    $nParam = $param;
+                }
+            }
+        } elseif (isset($inputSchema['properties'])) {
+            $props = $inputSchema['properties'];
+            if (isset($props['sequential_image_generation'])) $seqParam = $props['sequential_image_generation'];
+            if (isset($props['sequential_image_generation_options'])) $seqOptionsParam = $props['sequential_image_generation_options'];
+            if (isset($props['n'])) $nParam = $props['n'];
+        }
+        
+        if ($seqParam) {
+            $options = $seqParam['options'] ?? $seqParam['enum'] ?? [];
+            if (in_array('auto', $options)) {
+                $limits['supports_group'] = true;
+                $maxTotal = 15;
+                if ($seqOptionsParam) {
+                    $defaultVal = $seqOptionsParam['default'] ?? [];
+                    if (is_array($defaultVal) && isset($defaultVal['max_images'])) {
+                        $maxTotal = intval($defaultVal['max_images']);
+                    }
+                }
+                if ($maxTotal < 1) $maxTotal = 15;
+                $limits['max_total'] = $maxTotal;
+                $limits['input_output_sum_limit'] = $maxTotal;
+                $limits['single_image_max_output'] = $maxTotal - 1;
+                $limits['text_only_max_output'] = $maxTotal;
+            }
+        }
+        
+        if (!$limits['supports_group'] && $nParam) {
+            $maxN = intval($nParam['maximum'] ?? $nParam['max'] ?? 1);
+            if ($maxN > 1) {
+                $limits['max_total'] = $maxN;
+                $limits['text_only_max_output'] = $maxN;
+                $limits['single_image_max_output'] = $maxN;
+            }
+        }
+        
+        return $limits;
     }
 }

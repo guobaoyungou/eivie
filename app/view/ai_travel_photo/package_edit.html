@@ -35,19 +35,42 @@
             </div>
             
             <div class="layui-form-item">
-              <label class="layui-form-label">包含图片数：</label>
+              <label class="layui-form-label">图片档位下限：</label>
               <div class="layui-input-inline">
-                <input type="text" name="num" value="{$info.num|default='10'}" lay-verify="required|number" class="layui-input" placeholder="请输入包含图片数量">
+                <input type="text" name="min_num" value="{$info.min_num|default='1'}" lay-verify="required|number" class="layui-input" placeholder="选片数≥此值时适用">
               </div>
-              <div class="layui-form-mid layui-word-aux">张</div>
+              <div class="layui-form-mid layui-word-aux">张（选片数 ≥ 此值时适用此档位）</div>
             </div>
             
             <div class="layui-form-item">
-              <label class="layui-form-label">包含视频数：</label>
+              <label class="layui-form-label">图片档位上限：</label>
               <div class="layui-input-inline">
-                <input type="text" name="video_num" value="{$info.video_num|default='0'}" lay-verify="required|number" class="layui-input" placeholder="请输入包含视频数量">
+                <input type="text" name="max_num" value="{$info.max_num|default='0'}" lay-verify="required|number" class="layui-input" placeholder="选片数<此值；填0不限">
+              </div>
+              <div class="layui-form-mid layui-word-aux">张（选片数 < 此值；填 0 表示不限上限）</div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label"></label>
+              <div class="layui-input-block" style="margin-left:130px;">
+                <p id="tierHint" style="color:#FF9500;font-size:12px;line-height:36px;"></p>
+              </div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">视频档位下限：</label>
+              <div class="layui-input-inline">
+                <input type="text" name="min_video_num" value="{$info.min_video_num|default='0'}" lay-verify="required|number" class="layui-input" placeholder="视频数≥此值">
               </div>
               <div class="layui-form-mid layui-word-aux">个</div>
+            </div>
+            
+            <div class="layui-form-item">
+              <label class="layui-form-label">视频档位上限：</label>
+              <div class="layui-input-inline">
+                <input type="text" name="max_video_num" value="{$info.max_video_num|default='0'}" lay-verify="required|number" class="layui-input" placeholder="视频数<此值；填0不限">
+              </div>
+              <div class="layui-form-mid layui-word-aux">个（填 0 表示不限上限）</div>
             </div>
             
             <div class="layui-form-item">
@@ -71,7 +94,7 @@
               <div class="layui-input-inline">
                 <input type="text" name="unit_price" value="{$info.unit_price|default='0.00'}" class="layui-input" placeholder="系统自动计算" readonly style="background:#f2f2f2">
               </div>
-              <div class="layui-form-mid layui-word-aux">元/张（自动计算：套餐价÷包含数）</div>
+              <div class="layui-form-mid layui-word-aux">元/张（自动计算：套餐价÷图片档位下限）</div>
             </div>
             
             <div class="layui-form-item">
@@ -111,6 +134,127 @@
                 <input type="radio" name="status" value="0" title="禁用" {if $info['id'] && $info['status']==0}checked{/if}>
               </div>
             </div>
+
+            <!-- ========== 分销设置区域 ========== -->
+            <div class="layui-form-item" style="border-top:1px solid #e6e6e6;padding-top:20px;margin-top:20px;">
+              <label class="layui-form-label" style="font-weight:bold;color:#333">分销设置：</label>
+              <div class="layui-input-block">
+                <input type="radio" name="info[commissionset]" value="0" title="按会员等级" lay-filter="commissionsetSwitch" {if isset($info['commissionset']) && $info.commissionset == 0}checked{/if}>
+                <input type="radio" name="info[commissionset]" value="1" title="单独设置提成比例" lay-filter="commissionsetSwitch" {if isset($info['commissionset']) && $info.commissionset == 1}checked{/if}>
+                <input type="radio" name="info[commissionset]" value="2" title="单独设置提成金额" lay-filter="commissionsetSwitch" {if isset($info['commissionset']) && $info.commissionset == 2}checked{/if}>
+                <input type="radio" name="info[commissionset]" value="3" title="分销送积分" lay-filter="commissionsetSwitch" {if isset($info['commissionset']) && $info.commissionset == 3}checked{/if}>
+                <input type="radio" name="info[commissionset]" value="-1" title="不参与分销" lay-filter="commissionsetSwitch" {if !isset($info['commissionset']) || $info.commissionset == -1}checked{/if}>
+              </div>
+            </div>
+
+            <!-- 按会员等级提示 -->
+            <div class="layui-form-item" id="commissiondata0Box" style="{if !isset($info['commissionset']) || $info.commissionset != 0}display:none{/if}">
+              <label class="layui-form-label"></label>
+              <div class="layui-input-block">
+                <div class="layui-form-mid layui-word-aux" style="margin-left:0">
+                  <i class="layui-icon layui-icon-about" style="color:#1E9FFF"></i>
+                  按照会员等级中设置的提成比例进行分配<br>
+                  <b>计算公式：</b>提成 = 会员等级提成比例 × 实付金额 × 数量
+                </div>
+              </div>
+            </div>
+
+            <!-- 单独设置提成比例 -->
+            <div id="commissionset1" {if !isset($info['commissionset']) || $info.commissionset != 1}style="display:none"{/if}>
+              {if !$aglevellist}
+              <div class="layui-form-item">
+                <label class="layui-form-label">提成比例：</label>
+                <div class="layui-form-mid" style="color:red">未设置具有分销权限的会员等级，请先在[会员]-[等级及分销]设置分销权限</div>
+              </div>
+              {else}
+              {foreach $aglevellist as $level}
+              <div class="layui-form-item">
+                <label class="layui-form-label" style="width:120px">{$level.name}：</label>
+                <div class="layui-input-inline" style="width:100px">
+                  <div>一级(%)</div>
+                  <input type="text" name="commissiondata1[{$level.id}][commission1]" class="layui-input" value="{$commissiondata1[$level['id']]['commission1']}">
+                </div>
+                {if $level['can_agent']>1}
+                <div class="layui-input-inline" style="width:100px">
+                  <div>二级(%)</div>
+                  <input type="text" name="commissiondata1[{$level.id}][commission2]" class="layui-input" value="{$commissiondata1[$level['id']]['commission2']}">
+                </div>
+                {/if}
+                {if $level['can_agent']>2}
+                <div class="layui-input-inline" style="width:100px">
+                  <div>三级(%)</div>
+                  <input type="text" name="commissiondata1[{$level.id}][commission3]" class="layui-input" value="{$commissiondata1[$level['id']]['commission3']}">
+                </div>
+                {/if}
+              </div>
+              {/foreach}
+              {/if}
+            </div>
+
+            <!-- 单独设置提成金额 -->
+            <div id="commissionset2" {if !isset($info['commissionset']) || $info.commissionset != 2}style="display:none"{/if}>
+              {if !$aglevellist}
+              <div class="layui-form-item">
+                <label class="layui-form-label">提成金额：</label>
+                <div class="layui-form-mid" style="color:red">未设置具有分销权限的会员等级，请先在[会员]-[等级及分销]设置分销权限</div>
+              </div>
+              {else}
+              {foreach $aglevellist as $level}
+              <div class="layui-form-item">
+                <label class="layui-form-label" style="width:120px">{$level.name}：</label>
+                <div class="layui-input-inline" style="width:100px">
+                  <div>一级(元)</div>
+                  <input type="text" name="commissiondata2[{$level.id}][commission1]" class="layui-input" value="{$commissiondata2[$level['id']]['commission1']}">
+                </div>
+                {if $level['can_agent']>1}
+                <div class="layui-input-inline" style="width:100px">
+                  <div>二级(元)</div>
+                  <input type="text" name="commissiondata2[{$level.id}][commission2]" class="layui-input" value="{$commissiondata2[$level['id']]['commission2']}">
+                </div>
+                {/if}
+                {if $level['can_agent']>2}
+                <div class="layui-input-inline" style="width:100px">
+                  <div>三级(元)</div>
+                  <input type="text" name="commissiondata2[{$level.id}][commission3]" class="layui-input" value="{$commissiondata2[$level['id']]['commission3']}">
+                </div>
+                {/if}
+              </div>
+              {/foreach}
+              {/if}
+            </div>
+
+            <!-- 分销送积分 -->
+            <div id="commissionset3" {if !isset($info['commissionset']) || $info.commissionset != 3}style="display:none"{/if}>
+              {if !$aglevellist}
+              <div class="layui-form-item">
+                <label class="layui-form-label">提成积分：</label>
+                <div class="layui-form-mid" style="color:red">未设置具有分销权限的会员等级，请先在[会员]-[等级及分销]设置分销权限</div>
+              </div>
+              {else}
+              {foreach $aglevellist as $level}
+              <div class="layui-form-item">
+                <label class="layui-form-label" style="width:120px">{$level.name}：</label>
+                <div class="layui-input-inline" style="width:100px">
+                  <div>一级(积分)</div>
+                  <input type="text" name="commissiondata3[{$level.id}][commission1]" class="layui-input" value="{$commissiondata3[$level['id']]['commission1']}">
+                </div>
+                {if $level['can_agent']>1}
+                <div class="layui-input-inline" style="width:100px">
+                  <div>二级(积分)</div>
+                  <input type="text" name="commissiondata3[{$level.id}][commission2]" class="layui-input" value="{$commissiondata3[$level['id']]['commission2']}">
+                </div>
+                {/if}
+                {if $level['can_agent']>2}
+                <div class="layui-input-inline" style="width:100px">
+                  <div>三级(积分)</div>
+                  <input type="text" name="commissiondata3[{$level.id}][commission3]" class="layui-input" value="{$commissiondata3[$level['id']]['commission3']}">
+                </div>
+                {/if}
+              </div>
+              {/foreach}
+              {/if}
+            </div>
+            <!-- ========== 分销设置区域结束 ========== -->
             
             <div class="layui-form-item">
               <div class="layui-input-block" style="margin-left:130px;">
@@ -127,15 +271,35 @@
   // 自动计算折合单价
   function calcUnitPrice() {
     var price = parseFloat($('input[name=price]').val()) || 0;
-    var num = parseInt($('input[name=num]').val()) || 0;
+    var num = parseInt($('input[name=min_num]').val()) || 0;
     var unitPrice = (num > 0) ? (price / num).toFixed(2) : '0.00';
     $('input[name=unit_price]').val(unitPrice);
   }
-  $('input[name=price], input[name=num]').on('input change', calcUnitPrice);
+  $('input[name=price], input[name=min_num]').on('input change', calcUnitPrice);
   calcUnitPrice();
+
+  // 档位区间提示
+  function updateTierHint() {
+    var minNum = parseInt($('input[name=min_num]').val()) || 0;
+    var maxNum = parseInt($('input[name=max_num]').val()) || 0;
+    var hint = '';
+    if (minNum > 0) {
+      if (maxNum == 0) {
+        hint = '当前档位范围：选择 ' + minNum + ' 张及以上';
+      } else if (maxNum > minNum) {
+        hint = '当前档位范围：选择 ' + minNum + '~' + (maxNum - 1) + ' 张';
+      }
+    }
+    $('#tierHint').text(hint);
+  }
+  $('input[name=min_num], input[name=max_num]').on('input change', updateTierHint);
+  updateTierHint();
 
   layui.form.on('submit(formsubmit)', function(obj){
     var field = obj.field;
+    // 自动回填 num 字段以兼容旧逻辑
+    field.num = field.min_num || '0';
+    field.video_num = field.min_video_num || '0';
     var index = layer.load();
     $.post("{:url('package_edit')}", field, function(data){
       layer.close(index);
@@ -148,6 +312,24 @@
       }
     })
     return false;
+  })
+
+  // 分销模式切换
+  layui.form.on('radio(commissionsetSwitch)', function(data){
+    var val = data.value;
+    $('#commissiondata0Box').hide();
+    $('#commissionset1').hide();
+    $('#commissionset2').hide();
+    $('#commissionset3').hide();
+    if(val == '0') {
+      $('#commissiondata0Box').show();
+    } else if(val == '1') {
+      $('#commissionset1').show();
+    } else if(val == '2') {
+      $('#commissionset2').show();
+    } else if(val == '3') {
+      $('#commissionset3').show();
+    }
   })
   </script>
   {include file="public/copyright"/}

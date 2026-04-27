@@ -138,8 +138,13 @@ class GenerationRecord extends Model
             ->select()->toArray();
         
         foreach ($data as &$item) {
-            $item['create_time_text'] = $item['create_time'] ? date('Y-m-d H:i:s', $item['create_time']) : '';
-            $item['finish_time_text'] = $item['finish_time'] ? date('Y-m-d H:i:s', $item['finish_time']) : '';
+            // create_time 可能已被 Model::toArray() 自动格式化为字符串，需兼容处理
+            $item['create_time_text'] = $item['create_time']
+                ? (is_numeric($item['create_time']) ? date('Y-m-d H:i:s', $item['create_time']) : $item['create_time'])
+                : '';
+            $item['finish_time_text'] = $item['finish_time']
+                ? (is_numeric($item['finish_time']) ? date('Y-m-d H:i:s', $item['finish_time']) : $item['finish_time'])
+                : '';
             $item['cost_time_text'] = $item['cost_time'] > 0 ? round($item['cost_time'] / 1000, 2) . 's' : '-';
             
             // 获取输出数量

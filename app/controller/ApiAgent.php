@@ -3043,6 +3043,94 @@ class ApiAgent extends ApiCommon
                     ->sum('parent3commission');
             $commissionyj = 0 + $commissionyj1 + $commissionyj2 + $commissionyj3;
         }
+		elseif($module == 'ai_pick'){
+			// AI旅拍选片订单分销
+			$where = [];
+			$where[] = ['o.aid', '=', aid];
+			if($st == 1) $where[] = ['o.status', '=', 0]; // 待付款
+			if($st == 2) $where[] = ['o.status', '=', 1]; // 已付款
+			if($st == 3) $where[] = ['o.status', '=', 2]; // 已完成
+			if($st == 5) $where[] = ['o.refund_status', '>', 0]; // 退款/售后
+
+			$field = 'o.id,o.order_no as ordernum,o.uid as mid,o.status,o.create_time as createtime,o.pay_time as paytime,o.actual_amount as totalprice,o.package_id,o.parent1,o.parent2,o.parent3,o.parent1commission,o.parent2commission,o.parent3commission,m.nickname,m.headimg';
+
+			$datalist = Db::name('ai_travel_photo_order')->alias('o')
+				->join('member m', 'm.id = o.uid', 'left')
+				->where($where)
+				->where('o.parent1|o.parent2|o.parent3', mid)
+				->field($field)
+				->page($pagenum, $pernum)
+				->order('o.id desc')
+				->select()->toArray();
+			if(!$datalist) $datalist = [];
+
+			$newdatalist = [];
+			foreach($datalist as $k => $v){
+				$data = [];
+				$data['ordernum'] = $v['ordernum'];
+				// 套餐名称
+				$pkgName = 'AI旅拍选片';
+				if($v['package_id'] > 0){
+					$pkgName = Db::name('ai_travel_photo_package')->where('id', $v['package_id'])->value('name') ?: 'AI旅拍选片';
+				}
+				$data['name'] = $pkgName;
+				$data['pic'] = ''; // AI旅拍无商品图
+				$data['num'] = 1;
+				$data['totalprice'] = $v['totalprice'];
+				$data['createtime'] = $v['createtime'] ? date('Y-m-d H:i', $v['createtime']) : '';
+				$data['status'] = $v['status'];
+				$data['nickname'] = $v['nickname'] ?: '';
+				$data['headimg'] = $v['headimg'] ?: '';
+
+				if($v['parent1'] == mid){
+					$data['dengji'] = t('一级');
+					$data['commission'] = $v['parent1commission'] . '元';
+				}
+				if($v['parent2'] == mid){
+					$data['dengji'] = t('二级');
+					$data['commission'] = $v['parent2commission'] . '元';
+				}
+				if($v['parent3'] == mid){
+					$data['dengji'] = t('三级');
+					$data['commission'] = $v['parent3commission'] . '元';
+				}
+				$data['order_info'] = false; // 选片订单无需跳转详情
+				$newdatalist[] = $data;
+			}
+
+			if(request()->isPost()){
+				return $this->json(['data' => $newdatalist]);
+			}
+
+			// 统计
+			$count = 0 + Db::name('ai_travel_photo_order')->alias('o')
+				->where('o.aid', aid)
+				->where('o.parent1|o.parent2|o.parent3', mid)
+				->count();
+			$count1 = 0 + Db::name('ai_travel_photo_order')->alias('o')
+				->where('o.aid', aid)->where('o.status', 0)
+				->where('o.parent1|o.parent2|o.parent3', mid)
+				->count();
+			$count2 = 0 + Db::name('ai_travel_photo_order')->alias('o')
+				->where('o.aid', aid)->where('o.status', 1)
+				->where('o.parent1|o.parent2|o.parent3', mid)
+				->count();
+			$count3 = 0 + Db::name('ai_travel_photo_order')->alias('o')
+				->where('o.aid', aid)->where('o.status', 2)
+				->where('o.parent1|o.parent2|o.parent3', mid)
+				->count();
+
+			$commissionyj1 = 0 + Db::name('ai_travel_photo_order')->alias('o')
+				->where('o.aid', aid)->where('o.status', '>=', 1)
+				->where('o.parent1', mid)->sum('parent1commission');
+			$commissionyj2 = 0 + Db::name('ai_travel_photo_order')->alias('o')
+				->where('o.aid', aid)->where('o.status', '>=', 1)
+				->where('o.parent2', mid)->sum('parent2commission');
+			$commissionyj3 = 0 + Db::name('ai_travel_photo_order')->alias('o')
+				->where('o.aid', aid)->where('o.status', '>=', 1)
+				->where('o.parent3', mid)->sum('parent3commission');
+			$commissionyj = 0 + $commissionyj1 + $commissionyj2 + $commissionyj3;
+		}
 		else{
 		    $field = 'og.id,og.mid,o.ordernum,o.status,o.createtime,o.paytime,og.name,og.proid,og.pic,og.num,og.parent1,og.parent2,og.parent3,og.parent1commission,og.parent2commission,og.parent3commission,og.parent1score,og.parent2score,og.parent3score,og.totalprice,og.real_totalprice';
             if(getcustom('commission_money_percent')){
@@ -3172,6 +3260,19 @@ class ApiAgent extends ApiCommon
             $is_cashdesk_commission = 1;
         }
         $rdata['is_cashdesk_commission'] = $is_cashdesk_commission;
+
+		// AI旅拍选片分销标记：检查是否有ai_travel_photo_order表且有分销数据
+		$is_ai_pick_commission = 0;
+		try {
+			$aiPickCount = Db::name('ai_travel_photo_order')
+				->where('aid', aid)
+				->where('parent1|parent2|parent3', mid)
+				->count();
+			if($aiPickCount > 0) $is_ai_pick_commission = 1;
+		} catch (\Exception $e) {
+			// 表不存在时静默忽略
+		}
+		$rdata['is_ai_pick_commission'] = $is_ai_pick_commission;
 		return $this->json($rdata);
 	}
 

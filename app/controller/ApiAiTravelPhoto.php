@@ -45,9 +45,9 @@ class ApiAiTravelPhoto extends ApiCommon
                 $where[] = ['mdid', '=', 0];
             }
             
-            // 场景类型筛选
+            // 场景类型筛选（使用category字段）
             if ($sceneType !== '') {
-                $where[] = ['scene_type', '=', $sceneType];
+                $where[] = ['category', '=', $sceneType];
             }
             
             // 分类筛选
@@ -57,20 +57,22 @@ class ApiAiTravelPhoto extends ApiCommon
             
             // 查询场景列表
             $list = AiTravelPhotoScene::where($where)
-                ->field('id, scene_type, name, category, cover, desc, tags, sort')
+                ->field('id, category, name, cover, desc, tags, sort')
                 ->order('sort DESC, id DESC')
                 ->page($page, $limit)
                 ->select()
                 ->each(function($item) {
                     // 添加场景类型文本
                     $sceneTypes = config('ai_travel_photo.scene_type');
-                    $item['scene_type_text'] = $sceneTypes[$item['scene_type']] ?? '未知类型';
+                    $item['scene_type'] = $item['category'] ?? '';
+                    $item['scene_type_text'] = $sceneTypes[$item['category']] ?? ($item['category'] ?: '未知类型');
                     return $item;
                 });
             
             $total = AiTravelPhotoScene::where($where)->count();
             
-            return $this->success([
+            return $this->json([
+                'status' => 1,
                 'list' => $list,
                 'total' => $total,
                 'page' => $page,
@@ -78,7 +80,7 @@ class ApiAiTravelPhoto extends ApiCommon
             ]);
             
         } catch (\Exception $e) {
-            return $this->error($e->getMessage());
+            return $this->json(['status' => 0, 'msg' => $e->getMessage()]);
         }
     }
     
@@ -93,7 +95,7 @@ class ApiAiTravelPhoto extends ApiCommon
             $sceneId = input('scene_id/d', 0);
             
             if ($sceneId <= 0) {
-                return $this->error('参数错误');
+                return $this->json(['status' => 0, 'msg' => '参数错误']);
             }
             
             // 查询场景信息（必须是公开且启用的）
@@ -103,16 +105,17 @@ class ApiAiTravelPhoto extends ApiCommon
                 ->find();
             
             if (!$scene) {
-                return $this->error('场景不存在或无权限访问');
+                return $this->json(['status' => 0, 'msg' => '场景不存在或无权限访问']);
             }
             
             // 获取场景类型文本
             $sceneTypes = config('ai_travel_photo.scene_type');
-            $scene['scene_type_text'] = $sceneTypes[$scene['scene_type']] ?? '未知类型';
+            $scene['scene_type'] = $scene['category'] ?? '';
+            $scene['scene_type_text'] = $sceneTypes[$scene['category']] ?? ($scene['category'] ?: '未知类型');
             
             // 获取场景类型对应的输入要求
             $sceneTypeInput = config('ai_travel_photo.scene_type_input');
-            $scene['input_requirements'] = $sceneTypeInput[$scene['scene_type']] ?? [];
+            $scene['input_requirements'] = $sceneTypeInput[$scene['category']] ?? [];
             
             // 解析模型参数
             $scene['model_params'] = $scene['model_params'] ? json_decode($scene['model_params'], true) : [];
@@ -131,10 +134,10 @@ class ApiAiTravelPhoto extends ApiCommon
                 'input_requirements' => $scene['input_requirements']
             ];
             
-            return $this->success($data);
+            return $this->json(array_merge(['status' => 1], $data));
             
         } catch (\Exception $e) {
-            return $this->error($e->getMessage());
+            return $this->json(['status' => 0, 'msg' => $e->getMessage()]);
         }
     }
     
@@ -155,7 +158,7 @@ class ApiAiTravelPhoto extends ApiCommon
             
             // 参数验证
             if ($sceneId <= 0 || $portraitId <= 0) {
-                return $this->error('参数错误');
+                return $this->json(['status' => 0, 'msg' => '参数错误']);
             }
             
             // 查询场景信息
@@ -165,7 +168,7 @@ class ApiAiTravelPhoto extends ApiCommon
                 ->find();
             
             if (!$scene) {
-                return $this->error('场景不存在或不可用');
+                return $this->json(['status' => 0, 'msg' => '场景不存在或不可用']);
             }
             
             // 查询人像素材
@@ -174,12 +177,12 @@ class ApiAiTravelPhoto extends ApiCommon
                 ->find();
             
             if (!$portrait) {
-                return $this->error('人像素材不存在');
+                return $this->json(['status' => 0, 'msg' => '人像素材不存在']);
             }
             
             // 验证场景类型的输入要求
             $sceneTypeInput = config('ai_travel_photo.scene_type_input');
-            $requiredInputs = $sceneTypeInput[$scene['scene_type']] ?? [];
+            $requiredInputs = $sceneTypeInput[$scene['category']] ?? [];
             
             // TODO: 根据场景类型验证必需的输入参数
             // 例如：scene_type=4（首尾帧）需要tail_image_url
@@ -196,8 +199,7 @@ class ApiAiTravelPhoto extends ApiCommon
                 'bid' => $bid,
                 'mdid' => $mdid,
                 'type' => 2, // 用户手动
-                'generation_type' => $scene['scene_type'] <= 2 ? 1 : 3, // 1图生图 3图生视频
-                'scene_type' => $scene['scene_type'], // 记录场景类型
+                'generation_type' => 1, // 1图生图
                 'model_type' => 'aliyun_tongyi', // TODO: 从API配置读取
                 'model_name' => '', // TODO: 从模型实例读取
                 'model_params' => json_encode($modelParams, JSON_UNESCAPED_UNICODE),
@@ -209,26 +211,22 @@ class ApiAiTravelPhoto extends ApiCommon
             $generationId = AiTravelPhotoGeneration::insertGetId($generationData);
             
             // 加入异步队列
-            $queueName = $scene['scene_type'] >= 3 && $scene['scene_type'] <= 6 
-                ? 'ai_video_generation'  // 视频生成队列
-                : 'ai_image_generation'; // 图生图队列
-            
-            $jobClass = $scene['scene_type'] >= 3 && $scene['scene_type'] <= 6
-                ? 'app\\job\\VideoGenerationJob'
-                : 'app\\job\\ImageGenerationJob';
+            $queueName = 'ai_image_generation'; // 图生图队列
+            $jobClass = 'app\\job\\ImageGenerationJob';
             
             \think\facade\Queue::push($jobClass, [
                 'generation_id' => $generationId
             ], $queueName);
             
-            return $this->success([
+            return $this->json([
+                'status' => 1,
                 'generation_id' => $generationId,
                 'task_status' => 0,
                 'message' => '任务已提交，正在处理中...'
             ]);
             
         } catch (\Exception $e) {
-            return $this->error('提交失败：' . $e->getMessage());
+            return $this->json(['status' => 0, 'msg' => '提交失败：' . $e->getMessage()]);
         }
     }
     
@@ -243,14 +241,14 @@ class ApiAiTravelPhoto extends ApiCommon
             $generationId = input('generation_id/d', 0);
             
             if ($generationId <= 0) {
-                return $this->error('参数错误');
+                return $this->json(['status' => 0, 'msg' => '参数错误']);
             }
             
             // 查询生成记录
             $generation = AiTravelPhotoGeneration::where('id', $generationId)->find();
             
             if (!$generation) {
-                return $this->error('生成记录不存在');
+                return $this->json(['status' => 0, 'msg' => '生成记录不存在']);
             }
             
             // 基础返回数据
@@ -258,7 +256,7 @@ class ApiAiTravelPhoto extends ApiCommon
                 'generation_id' => $generation['id'],
                 'status' => $generation['status'],
                 'status_text' => $generation->status_text ?? '',
-                'scene_type' => $generation['scene_type'],
+                'scene_type' => '',
                 'cost_time' => $generation['cost_time'],
                 'error_msg' => $generation['error_msg']
             ];
@@ -271,7 +269,7 @@ class ApiAiTravelPhoto extends ApiCommon
                     ->select();
                 
                 // 根据场景类型判断输出类型
-                if ($generation['scene_type'] >= 3 && $generation['scene_type'] <= 6) {
+                if (false) { // 暂不支持视频类型
                     // 视频类型场景（type=19）
                     $videoResult = $results->where('type', 19)->first();
                     if ($videoResult) {
@@ -307,12 +305,180 @@ class ApiAiTravelPhoto extends ApiCommon
                         }
                     }
                 }
+
+                // 返回选片链接
+                $portraitId = $generation['portrait_id'] ?? 0;
+                if ($portraitId > 0) {
+                    $qrcodeRecord = Db::name('ai_travel_photo_qrcode')
+                        ->where('portrait_id', $portraitId)
+                        ->where('status', 1)
+                        ->find();
+                    if ($qrcodeRecord) {
+                        $data['pick_url'] = '/xpd/templates/template_1/index.html?qrcode=' . $qrcodeRecord['qrcode'];
+                        $data['pick_qrcode'] = $qrcodeRecord['qrcode_url'] ?? '';
+                    }
+                }
             }
             
-            return $this->success($data);
+            return $this->json(array_merge(['status' => 1], $data));
             
         } catch (\Exception $e) {
-            return $this->error($e->getMessage());
+            return $this->json(['status' => 0, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 获取商户合成模板详情
+     * 供C端图生图详情页使用
+     */
+    public function merchantTemplateDetail()
+    {
+        try {
+            $templateId = input('template_id/d', 0);
+            $bid = input('bid/d', 0);
+
+            if ($templateId <= 0 || $bid <= 0) {
+                return $this->json(['status' => 0, 'msg' => '参数错误']);
+            }
+
+            // 查询合成模板（必须属于该商家且状态启用）
+            $template = Db::name('ai_travel_photo_synthesis_template')
+                ->where('id', $templateId)
+                ->where('bid', $bid)
+                ->where('status', 1)
+                ->find();
+
+            if (!$template) {
+                return $this->json(['status' => 0, 'msg' => '模板不存在或不可用']);
+            }
+
+            // 获取场景模板信息
+            $sceneTypes = config('ai_travel_photo.scene_type');
+            $sceneTypeInput = config('ai_travel_photo.scene_type_input');
+            $sceneTpl = null;
+            if ($template['scene_template_id']) {
+                $sceneTpl = Db::name('ai_travel_photo_scene')
+                    ->where('id', $template['scene_template_id'])
+                    ->find();
+            }
+
+            $sceneType = $sceneTpl ? ($sceneTpl['category'] ?? '') : '';
+            $images = [];
+            if (!empty($template['cover_image'])) {
+                $images[] = $template['cover_image'];
+            }
+
+            $data = [
+                'id' => $template['id'],
+                'name' => $template['name'],
+                'cover_image' => $template['cover_image'] ?? '',
+                'images' => $images,
+                'description' => $template['description'] ?? '',
+                'scene_type' => $sceneType,
+                'scene_type_text' => $sceneType ? ($sceneTypes[$sceneType] ?? '') : '',
+                'input_requirements' => $sceneType ? ($sceneTypeInput[$sceneType] ?? []) : [],
+                'model_name' => $template['model_name'] ?? '',
+                'price' => '0.00',
+            ];
+
+            return $this->json(array_merge(['status' => 1], $data));
+
+        } catch (\Exception $e) {
+            return $this->json(['status' => 0, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * C端用户通过商户首页旅拍商品发起的合成任务
+     */
+    public function merchantGenerate()
+    {
+        try {
+            $templateId = input('template_id/d', 0);
+            $bid = input('bid/d', 0);
+            $imageUrl = input('image_url', '');
+            $uid = $this->uid ?? 0;
+
+            // 参数验证
+            if ($templateId <= 0 || $bid <= 0) {
+                return $this->json(['status' => 0, 'msg' => '参数错误']);
+            }
+            if (empty($imageUrl)) {
+                return $this->json(['status' => 0, 'msg' => '请上传照片']);
+            }
+
+            // 验证模板归属当前商家且状态启用
+            $template = Db::name('ai_travel_photo_synthesis_template')
+                ->where('id', $templateId)
+                ->where('bid', $bid)
+                ->where('status', 1)
+                ->find();
+
+            if (!$template) {
+                return $this->json(['status' => 0, 'msg' => '模板不存在或不可用']);
+            }
+
+            // 获取场景模板信息
+            $sceneTpl = null;
+            if ($template['scene_template_id']) {
+                $sceneTpl = Db::name('ai_travel_photo_scene')
+                    ->where('id', $template['scene_template_id'])
+                    ->where('status', 1)
+                    ->find();
+            }
+            if (!$sceneTpl) {
+                return $this->json(['status' => 0, 'msg' => '关联场景模板不存在或已禁用']);
+            }
+
+            // 创建人像记录（source_type=4 C端商户首页上传）
+            $portraitData = [
+                'aid' => $template['aid'],
+                'bid' => $bid,
+                'uid' => $uid,
+                'source_type' => 4,
+                'original_image' => $imageUrl,
+                'status' => 1,
+                'create_time' => time(),
+                'update_time' => time()
+            ];
+            $portraitId = Db::name('ai_travel_photo_portrait')->insertGetId($portraitData);
+
+            // 解析模型参数
+            $modelParams = $sceneTpl['model_params'] ? json_decode($sceneTpl['model_params'], true) : [];
+
+            // 创建生成记录（type=3 C端用户触发-商户旅拍商品）
+            $generationData = [
+                'aid' => $template['aid'],
+                'portrait_id' => $portraitId,
+                'scene_id' => $sceneTpl['id'],
+                'uid' => $uid,
+                'bid' => $bid,
+                'type' => 3,
+                'generation_type' => 1,
+                'model_type' => $template['model_name'] ?? 'aliyun_tongyi',
+                'model_name' => $template['model_name'] ?? '',
+                'model_params' => json_encode($modelParams, JSON_UNESCAPED_UNICODE),
+                'status' => 0,
+                'create_time' => time(),
+                'update_time' => time()
+            ];
+            $generationId = Db::name('ai_travel_photo_generation')->insertGetId($generationData);
+
+            // 推送至异步合成队列
+            \think\facade\Queue::push('app\\job\\ImageGenerationJob', [
+                'generation_id' => $generationId
+            ], 'ai_image_generation');
+
+            return $this->json([
+                'status' => 1,
+                'generation_id' => $generationId,
+                'portrait_id' => $portraitId,
+                'task_status' => 0,
+                'message' => '任务已提交，正在处理中...'
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->json(['status' => 0, 'msg' => '提交失败：' . $e->getMessage()]);
         }
     }
 }

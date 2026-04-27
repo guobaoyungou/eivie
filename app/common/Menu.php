@@ -155,7 +155,7 @@ class Menu
 			$ai_travel_photo_child[] = ['name'=>'人像管理','path'=>'AiTravelPhoto/portrait_list','authdata'=>'AiTravelPhoto/portrait_list,AiTravelPhoto/portrait_delete,AiTravelPhoto/portrait_batch,AiTravelPhoto/getPackages,AiTravelPhoto/createPayOrder,AiTravelPhoto/checkPayStatus,AiTravelPhoto/payReturn,AiTravelPhoto/portrait_upload,AiTravelPhoto/balance_log,AiTravelPhoto/synthesis_settings,AiTravelPhoto/synthesis_settings_save,AiTravelPhoto/synthesis_get_pending,AiTravelPhoto/portrait_batch_delete,AiTravelPhoto/smile_capture_page'];
 
 			// 合成模板
-			$ai_travel_photo_child[] = ['name'=>'合成模板','path'=>'AiTravelPhoto/synthesis_template_list','authdata'=>'AiTravelPhoto/synthesis_template_list,AiTravelPhoto/synthesis_template_edit,AiTravelPhoto/synthesis_template_save,AiTravelPhoto/synthesis_template_delete'];
+			$ai_travel_photo_child[] = ['name'=>'合成模板','path'=>'AiTravelPhoto/synthesis_template_list','authdata'=>'AiTravelPhoto/synthesis_template_list,AiTravelPhoto/synthesis_template_edit,AiTravelPhoto/synthesis_template_save,AiTravelPhoto/synthesis_template_delete,AiTravelPhoto/get_available_scene_templates,AiTravelPhoto/get_scene_categories,AiTravelPhoto/get_synthesis_stores'];
 
 			// 生成结果（隐藏菜单，通过人像列表进入）
 			$ai_travel_photo_child[] = ['name'=>'生成结果','path'=>'AiTravelPhoto/portrait_detail','authdata'=>'AiTravelPhoto/portrait_detail,AiTravelPhoto/synthesis_retry,AiTravelPhoto/synthesis_batch_generate,AiTravelPhoto/resume_paused_tasks','hide'=>true];
@@ -195,7 +195,7 @@ class Menu
 				$ai_travel_photo_child[] = ['name'=>'人像管理','path'=>'AiTravelPhoto/portrait_list','authdata'=>'AiTravelPhoto/portrait_list,AiTravelPhoto/portrait_delete,AiTravelPhoto/portrait_batch,AiTravelPhoto/getPackages,AiTravelPhoto/createPayOrder,AiTravelPhoto/checkPayStatus,AiTravelPhoto/payReturn,AiTravelPhoto/portrait_upload,AiTravelPhoto/balance_log,AiTravelPhoto/synthesis_settings,AiTravelPhoto/synthesis_settings_save,AiTravelPhoto/synthesis_get_pending,AiTravelPhoto/portrait_batch_delete,AiTravelPhoto/smile_capture_page'];
 
 				// 合成模板
-				$ai_travel_photo_child[] = ['name'=>'合成模板','path'=>'AiTravelPhoto/synthesis_template_list','authdata'=>'AiTravelPhoto/synthesis_template_list,AiTravelPhoto/synthesis_template_edit,AiTravelPhoto/synthesis_template_save,AiTravelPhoto/synthesis_template_delete'];
+				$ai_travel_photo_child[] = ['name'=>'合成模板','path'=>'AiTravelPhoto/synthesis_template_list','authdata'=>'AiTravelPhoto/synthesis_template_list,AiTravelPhoto/synthesis_template_edit,AiTravelPhoto/synthesis_template_save,AiTravelPhoto/synthesis_template_delete,AiTravelPhoto/get_available_scene_templates,AiTravelPhoto/get_scene_categories,AiTravelPhoto/get_synthesis_stores'];
 
 				// 生成结果（隐藏菜单，通过人像列表进入）
 				$ai_travel_photo_child[] = ['name'=>'生成结果','path'=>'AiTravelPhoto/portrait_detail','authdata'=>'AiTravelPhoto/portrait_detail,AiTravelPhoto/synthesis_retry,AiTravelPhoto/synthesis_batch_generate,AiTravelPhoto/resume_paused_tasks','hide'=>true];

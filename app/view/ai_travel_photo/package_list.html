@@ -47,11 +47,21 @@
       cols: [[
         {field: 'id', title: 'ID', width: 80, sort: true},
         {field: 'name', title: '套餐名称', width: 200},
-        {field: 'num', title: '包含图片数', width: 120, templet: function(d){
-          return d.num + '张';
+        {field: 'min_num', title: '图片档位', width: 140, templet: function(d){
+          var minNum = d.min_num || 0;
+          var maxNum = d.max_num || 0;
+          if (minNum <= 0) return d.num + '张';
+          if (maxNum == 0) return minNum + '张及以上';
+          if (maxNum == minNum + 1) return minNum + '张';
+          return minNum + '~' + (maxNum - 1) + '张';
         }},
-        {field: 'video_num', title: '包含视频数', width: 120, templet: function(d){
-          return d.video_num + '个';
+        {field: 'min_video_num', title: '视频档位', width: 140, templet: function(d){
+          var minNum = d.min_video_num || 0;
+          var maxNum = d.max_video_num || 0;
+          if (minNum <= 0 && maxNum <= 0) return '不限';
+          if (maxNum == 0) return minNum + '个及以上';
+          if (maxNum == minNum + 1) return minNum + '个';
+          return minNum + '~' + (maxNum - 1) + '个';
         }},
         {field: 'price', title: '套餐价格', width: 120, templet: function(d){
           return '¥' + d.price;

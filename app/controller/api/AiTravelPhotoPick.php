@@ -448,6 +448,7 @@ class AiTravelPhotoPick extends BaseController
 
         $selectedCount = (int)$this->request->post('selected_count', 0);
         $bid = (int)$this->request->post('bid', 0);
+        $videoCount = (int)$this->request->post('video_count', 0);
 
         if ($selectedCount <= 0) {
             return json(['code' => 400, 'msg' => '请至少选择一张']);
@@ -457,7 +458,7 @@ class AiTravelPhotoPick extends BaseController
         }
 
         try {
-            $data = $this->pickService->recommendPackage($selectedCount, $bid);
+            $data = $this->pickService->recommendPackage($selectedCount, $bid, $videoCount);
             return json(['code' => 200, 'msg' => '成功', 'data' => $data]);
         } catch (\Exception $e) {
             return json(['code' => 500, 'msg' => $e->getMessage()]);

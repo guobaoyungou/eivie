@@ -248,6 +248,7 @@ var app = getApp();
 				popupMaxRefImages: 1,
 				popupRatioOptions: ['1:1','2:3','3:2','3:4','4:3','9:16','16:9'],
 				quantityOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+				popupGenerationLimits: null,
 				showRatioPanel: false,
 				showQuantityPanel: false,
 				currentTemplateId: 0
@@ -485,8 +486,25 @@ var app = getApp();
 				} else {
 					this.popupSelectedRatio = '3:4';
 				}
-				// 数量
+			// 数量
 				this.popupQuantity = parseInt(detail.output_quantity) || 1;
+				
+				// ===== 组图约束：动态 quantityOptions =====
+				var limits = (detail.model_capability && detail.model_capability.generation_limits) ? detail.model_capability.generation_limits : null;
+				this.popupGenerationLimits = limits;
+				if (limits && limits.supports_group) {
+					var maxCount = limits.text_only_max_output || 15;
+					var arr = [];
+					for (var qi = 1; qi <= maxCount; qi++) { arr.push(qi); }
+					this.quantityOptions = arr;
+					if (this.popupQuantity > maxCount) this.popupQuantity = maxCount;
+				} else if (limits && !limits.supports_group && limits.max_total <= 1) {
+					this.quantityOptions = [1];
+					this.popupQuantity = 1;
+				} else {
+					this.quantityOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+					if (this.popupQuantity > 9) this.popupQuantity = 9;
+				}
 				// 模型
 				if (detail.model_capability && detail.model_capability.model_id) {
 					this.popupSelectedModelId = detail.model_capability.model_id;
@@ -561,15 +579,18 @@ var app = getApp();
 						} catch(e) {
 							that.popupRefImages.push(tempPath);
 						}
+						that.recalcPopupQuantityOptions();
 					},
 					fail: function() {
 						that.popupRefImages.push(tempPath);
+						that.recalcPopupQuantityOptions();
 					}
 				});
 			},
 			// 删除参考图
 			removeRefImage(idx) {
 				this.popupRefImages.splice(idx, 1);
+				this.recalcPopupQuantityOptions();
 			},
 			// 提交生成
 			submitPopupGeneration() {
@@ -652,6 +673,27 @@ var app = getApp();
 					}
 				}
 				});
+			},
+			// 参考图数量变化后重算 quantityOptions
+			recalcPopupQuantityOptions() {
+				var limits = this.popupGenerationLimits;
+				if (!limits || !limits.supports_group) return;
+				var refCount = this.popupRefImages ? this.popupRefImages.length : 0;
+				var maxCount = 1;
+				if (refCount === 0) {
+					maxCount = limits.text_only_max_output || 15;
+				} else if (refCount === 1) {
+					maxCount = limits.single_image_max_output || 14;
+				} else {
+					maxCount = (limits.input_output_sum_limit || 15) - refCount;
+				}
+				if (maxCount < 1) maxCount = 1;
+				var arr = [];
+				for (var i = 1; i <= maxCount; i++) { arr.push(i); }
+				this.quantityOptions = arr;
+				if (this.popupQuantity > maxCount) {
+					this.popupQuantity = maxCount;
+				}
 			}
 		}
 	}

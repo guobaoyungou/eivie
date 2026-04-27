@@ -7,14 +7,111 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
   {include file="public/css"/}
+  <style>
+    .scene-tpl-selector { margin-bottom: 20px; }
+    .scene-tpl-list { display: flex; flex-wrap: wrap; gap: 12px; max-height: 400px; overflow-y: auto; padding: 10px 0; }
+    .scene-tpl-card { width: 160px; border: 2px solid #e6e6e6; border-radius: 8px; cursor: pointer; transition: all .2s; overflow: hidden; background: #fff; }
+    .scene-tpl-card:hover { border-color: #1E9FFF; box-shadow: 0 2px 8px rgba(30,159,255,0.15); }
+    .scene-tpl-card.active { border-color: #1E9FFF; background: #f0f9ff; }
+    .scene-tpl-card .cover { width: 100%; height: 120px; object-fit: cover; display: block; }
+    .scene-tpl-card .info { padding: 8px; }
+    .scene-tpl-card .info .name { font-size: 13px; font-weight: bold; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .scene-tpl-card .info .model { font-size: 11px; color: #999; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .scene-source-badge { display: inline-block; padding: 4px 12px; background: #f0f9ff; border: 1px solid #b3e0ff; border-radius: 4px; color: #1E9FFF; font-size: 13px; margin-bottom: 15px; }
+    .scene-source-badge.deleted { background: #fff3f3; border-color: #ffb3b3; color: #ff5722; }
+    .preview-panel { background: #f8f9fa; border-radius: 6px; padding: 15px; margin: 10px 0; }
+    .preview-panel .preview-item { margin-bottom: 8px; }
+    .preview-panel .preview-item label { font-weight: bold; color: #666; margin-right: 8px; }
+    .store-checkbox-list { max-height: 200px; overflow-y: auto; border: 1px solid #e6e6e6; border-radius: 4px; padding: 10px; background: #fafafa; }
+    .store-checkbox-list label { display: inline-block; margin-right: 15px; margin-bottom: 5px; }
+    .search-box { margin-bottom: 10px; }
+    .auto-tags-box { margin-bottom: 15px; padding: 10px 15px; background: #f0f9ff; border-radius: 4px; border: 1px solid #d6eeff; }
+    .auto-tags-box .auto-tags-label { color: #666; font-size: 13px; margin-right: 8px; }
+    .auto-tags-box .auto-tag-item { display: inline-block; padding: 2px 10px; margin: 2px 6px 2px 0; background: #e8f4ff; border: 1px solid #b3d9ff; border-radius: 3px; color: #1E9FFF; font-size: 12px; }
+    .auto-tags-box .auto-tag-status { color: #999; font-size: 12px; }
+    .scene-info-box { margin-bottom: 10px; padding: 10px 15px; background: #f8f9fa; border-radius: 4px; border: 1px solid #eee; font-size: 13px; color: #666; }
+    .scene-info-box .scene-info-label { margin-right: 8px; font-weight: bold; }
+    .scene-info-box .scene-cat-item { display: inline-block; padding: 2px 8px; margin: 2px 4px 2px 0; background: #fff3e0; border: 1px solid #ffcc80; border-radius: 3px; color: #e65100; font-size: 12px; }
+    .scene-price-table { margin-top: 6px; border-collapse: collapse; font-size: 12px; }
+    .scene-tpl-card .info .tags { font-size: 11px; color: #1E9FFF; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
 </head>
 <body>
   <div class="layui-fluid">
     <div class="layui-card">
       <div class="layui-card-header">{$info.id ? '编辑' : '新增'}合成模板</div>
       <div class="layui-card-body">
+
+        <!-- 编辑模式：显示来源场景模板标识 -->
+        {notempty name="info.id"}
+        {notempty name="info.scene_template_id"}
+        <div class="scene-source-badge {if condition="$scene_template_name=='已删除'"}deleted{/if}">
+          <i class="layui-icon layui-icon-link"></i> 来源场景模板：{$scene_template_name}（ID: {$info.scene_template_id}）
+        </div>
+        {/notempty}
+        {/notempty}
+
+        <!-- 自动标签显示区域（编辑模式和新建模式通用） -->
+        <div class="auto-tags-box" id="autoTagsArea" style="display:none;">
+          <span class="auto-tags-label"><i class="layui-icon layui-icon-note"></i> 自动标签：</span>
+          <span id="autoTagsDisplay"></span>
+        </div>
+
+        <!-- 所属分类显示区域 -->
+        <div class="scene-info-box" id="sceneCategoryArea" style="display:none;">
+          <span class="scene-info-label"><i class="layui-icon layui-icon-app"></i> 所属分类：</span>
+          <span id="sceneCategoryDisplay"></span>
+        </div>
+
+        <!-- 价格设置显示区域 -->
+        <div class="scene-info-box" id="scenePriceArea" style="display:none;">
+          <span class="scene-info-label"><i class="layui-icon layui-icon-rmb"></i> 价格设置：</span>
+          <span id="scenePriceDisplay"></span>
+        </div>
+
+        <!-- 新增模式：场景模板选择器 -->
+        {empty name="info.id"}
+        <div class="scene-tpl-selector">
+          <div class="layui-form-item">
+            <label class="layui-form-label"><span class="layui-required">*</span>选择场景模板</label>
+            <div class="layui-input-block">
+              <!-- 分类筛选 + 关键词搜索 -->
+              <div class="filter-bar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;">
+                <div class="layui-input-inline" style="width:180px;margin:0;">
+                  <select id="categoryFilter" lay-filter="categoryFilter">
+                    <option value="0">全部分类</option>
+                  </select>
+                </div>
+                <div class="layui-input-inline" style="width:180px;margin:0;">
+                  <select id="subCategoryFilter" lay-filter="subCategoryFilter" style="display:none;">
+                    <option value="0">全部子分类</option>
+                  </select>
+                </div>
+                <div class="layui-input-inline" style="width:200px;margin:0;">
+                  <input type="text" id="sceneSearch" placeholder="搜索模板名称..." class="layui-input">
+                </div>
+                <button type="button" class="layui-btn layui-btn-sm" onclick="searchSceneTemplates()">
+                  <i class="layui-icon layui-icon-search"></i> 搜索
+                </button>
+                <span id="sceneTplCount" style="color:#999;font-size:12px;"></span>
+              </div>
+              <div class="scene-tpl-list" id="sceneTplList">
+                <div style="color:#999;padding:20px;">请先选择分类或搜索模板...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/empty}
+
         <form class="layui-form" lay-filter="formData">
           <input type="hidden" name="id" value="{$info.id|default='0'}">
+          <input type="hidden" name="scene_template_id" id="sceneTemplateId" value="{$info.scene_template_id|default='0'}">
+          <input type="hidden" name="cover_image" id="coverImage" value="{$info.cover_image|default=''}">
+          <input type="hidden" name="default_params" id="defaultParams" value='{$info.default_params|default=""}'>
+          <input type="hidden" id="editAutoTagString" value="{$auto_tag_string|default=''}">
+          <input type="hidden" id="editAutoTagStatus" value="{$auto_tag_status|default=0}">
+          <input type="hidden" id="editSceneCategoryNames" value="{$scene_category_names|default=''}">
+          <input type="hidden" id="editSceneBusinessPrice" value="{$scene_business_price|default='0.50'}">
 
           <div class="layui-form-item">
             <label class="layui-form-label"><span class="layui-required">*</span>模板名称</label>
@@ -26,22 +123,68 @@
           <div class="layui-form-item">
             <label class="layui-form-label"><span class="layui-required">*</span>绑定模型</label>
             <div class="layui-input-block">
-              <select name="model_id" id="modelSelect" lay-verify="required" lay-filter="modelSelect">
-                <option value="">请选择AI模型...</option>
-              </select>
+              <input type="text" id="modelDisplay" class="layui-input" readonly style="background:#f2f2f2;" value="{$info.model_name|default='请先选择场景模板'}">
+              <input type="hidden" name="model_id" id="modelId" value="{$info.model_id|default='0'}">
+              <input type="hidden" name="model_name" id="modelName" value="{$info.model_name|default=''}">
             </div>
           </div>
 
-          <!-- 模型参数信息展示 -->
-          <div class="layui-form-item" id="modelInfoPanel" style="display:none;">
-            <label class="layui-form-label">模型参数</label>
+          <div class="layui-form-item">
+            <label class="layui-form-label">模板描述</label>
             <div class="layui-input-block">
-              <div class="layui-card">
-                <div class="layui-card-body" style="background:#f8f9fa;padding:15px;">
-                  <div id="modelInfoContent"></div>
-                </div>
-              </div>
+              <textarea name="description" placeholder="模板描述" class="layui-textarea" style="min-height:60px;">{$info.description|default=''}</textarea>
             </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label"><span class="layui-required">*</span>生成数量</label>
+            <div class="layui-input-inline" style="width:200px;">
+              <select name="output_quantity" id="outputQuantity" lay-filter="outputQuantity">
+                <option value="1">1张</option>
+                <option value="2">2张</option>
+                <option value="3">3张</option>
+                <option value="4">4张</option>
+                <option value="5">5张</option>
+                <option value="6">6张</option>
+                <option value="7">7张</option>
+                <option value="8">8张</option>
+                <option value="9">9张</option>
+              </select>
+            </div>
+            <div class="layui-form-mid layui-word-aux">每次合成生成的图片张数</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">图片比例</label>
+            <div class="layui-input-inline" style="width:200px;">
+              <select name="ratio" id="ratioSelect" lay-filter="ratioSelect">
+                <option value="">默认（不指定）</option>
+                <option value="1:1">1:1（正方形）</option>
+                <option value="2:3">2:3（竖版）</option>
+                <option value="3:2">3:2（横版）</option>
+                <option value="3:4">3:4（竖版）</option>
+                <option value="4:3">4:3（横版）</option>
+                <option value="9:16">9:16（手机竖屏）</option>
+                <option value="16:9">16:9（宽屏横版）</option>
+              </select>
+            </div>
+            <div class="layui-form-mid layui-word-aux">生成图片的宽高比</div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">图片尺寸</label>
+            <div class="layui-input-inline" style="width:200px;">
+              <select name="size" id="sizeSelect" lay-filter="sizeSelect">
+                <option value="">默认</option>
+                <option value="512x768">512x768</option>
+                <option value="768x1024">768x1024</option>
+                <option value="1024x1024">1024x1024</option>
+                <option value="1024x1536">1024x1536</option>
+                <option value="1K">1K</option>
+                <option value="2K">2K</option>
+              </select>
+            </div>
+            <div class="layui-form-mid layui-word-aux">生成图片的分辨率</div>
           </div>
 
           <div class="layui-form-item">
@@ -69,7 +212,7 @@
             <label class="layui-form-label">提示词</label>
             <div class="layui-input-block">
               <textarea name="prompt" placeholder="请输入AI合成提示词（Prompt）" class="layui-textarea" style="min-height:120px;">{$info.prompt|default=''}</textarea>
-              <div style="color:#999;font-size:12px;margin-top:5px;">提示词将用于AI图像合成，可使用占位符：{person}表示人像</div>
+              <div style="color:#999;font-size:12px;margin-top:5px;">提示词将用于AI图像合成，可使用占位符：{literal}{person}{/literal}表示人像</div>
             </div>
           </div>
 
@@ -84,8 +227,28 @@
           <div class="layui-form-item">
             <label class="layui-form-label">状态</label>
             <div class="layui-input-block">
-              <input type="radio" name="status" value="1" title="启用" {eq name="info.status" value="1"}checked{/eq}>
+              <input type="radio" name="status" value="1" title="启用" {eq name="info.status" value="1"}checked{/eq} {empty name="info.id"}checked{/empty}>
               <input type="radio" name="status" value="0" title="禁用" {eq name="info.status" value="0"}checked{/eq}>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">门店范围</label>
+            <div class="layui-input-block">
+              <input type="radio" name="store_scope" value="0" title="全部门店可用" lay-filter="storeScope" {if condition="!isset($info['store_scope']) || $info['store_scope']==0"}checked{/if}>
+              <input type="radio" name="store_scope" value="1" title="指定门店可用" lay-filter="storeScope" {if condition="isset($info['store_scope']) && $info['store_scope']==1"}checked{/if}>
+              <div id="storeScopeSummary" style="margin-top:8px;padding:8px 12px;background:#f8f8f8;border-radius:4px;font-size:13px;color:#666;">全部门店</div>
+            </div>
+          </div>
+
+          <div class="layui-form-item" id="storeSelectArea" style="display:none;">
+            <label class="layui-form-label">选择门店</label>
+            <div class="layui-input-block">
+              <div class="store-checkbox-list" id="storeCheckboxList">
+                加载中...
+              </div>
+              <input type="hidden" name="store_ids" id="storeIds" value="{$info.store_ids|default=''}">
+              <div style="color:#999;font-size:12px;margin-top:5px;">勾选该模板可用的门店，未勾选的门店将不能使用此模板</div>
             </div>
           </div>
 
@@ -100,44 +263,101 @@
   </div>
   {include file="public/js"/}
   <script>
-  var currentModelId = parseInt('{$info.model_id|default=0}') || 0;
-  var currentModelName = '{$info.model_name|default=""}';
+  var isEditMode = parseInt('{$info.id|default=0}') > 0;
+  var selectedSceneTemplate = null;
+  var categoryTree = []; // 分类树缓存
+  var currentCategoryId = 0;
+  var mendianList = {$mendian_list_json}; // 门店列表
+  var savedStoreIds = '{$info.store_ids|default=""}'.split(',').filter(function(v){ return v; });
+  // JS状态追踪：维护已勾选的门店ID集合，避免依赖DOM查询
+  var checkedStoreIdSet = {};
+  savedStoreIds.forEach(function(id){ checkedStoreIdSet[id] = true; });
 
   layui.use(['form', 'layer'], function(){
     var form = layui.form;
     var layer = layui.layer;
 
-    // 加载模型列表
-    loadModelList();
+    // 渲染门店复选框列表
+    renderStoreCheckboxes();
 
-    // 监听模型选择
-    form.on('select(modelSelect)', function(data){
-      var modelId = data.value;
-      if(modelId){
-        var model = modelDataCache[modelId];
-        currentModelId = modelId;
-        currentModelName = model ? model.model_name : '';
-        // 显示模型参数信息
-        showModelInfo(modelId);
+    // 初始化门店范围显示
+    var initScope = parseInt('{$info.store_scope|default=0}');
+    if(initScope === 1){
+      $('#storeSelectArea').show();
+    }
+    // 初始化门店范围摘要显示
+    updateStoreScopeSummary();
+
+    // 监听门店范围切换
+    form.on('radio(storeScope)', function(data){
+      if(data.value == '1'){
+        $('#storeSelectArea').show();
       } else {
-        currentModelId = 0;
-        currentModelName = '';
-        $('#modelInfoPanel').hide();
+        $('#storeSelectArea').hide();
       }
+      updateStoreScopeSummary();
+    });
+
+    // 监听门店复选框变化（使用Layui事件的data对象，不依赖DOM查询）
+    form.on('checkbox(storeCheck)', function(data){
+      if(data.elem.checked){
+        checkedStoreIdSet[data.value] = true;
+      } else {
+        delete checkedStoreIdSet[data.value];
+      }
+      syncStoreIds();
+      updateStoreScopeSummary();
+    });
+
+    // 编辑模式：从已保存的default_params回填表单
+    if(isEditMode){
+      initEditModeParams();
+      // 显示来源场景模板的自动标签
+      var editTagStr = document.getElementById('editAutoTagString') ? document.getElementById('editAutoTagString').value : '';
+      var editTagStatus = parseInt(document.getElementById('editAutoTagStatus') ? document.getElementById('editAutoTagStatus').value : '0') || 0;
+      renderAutoTags(editTagStr, editTagStatus);
+      // 显示来源场景模板的分类和价格
+      var editCatNames = document.getElementById('editSceneCategoryNames') ? document.getElementById('editSceneCategoryNames').value : '';
+      var editBusinessPrice = document.getElementById('editSceneBusinessPrice') ? document.getElementById('editSceneBusinessPrice').value : '0.50';
+      renderSceneCategory(editCatNames);
+      renderScenePrice(editBusinessPrice);
+    }
+
+    // 新增模式时加载分类和模板
+    if(!isEditMode){
+      loadCategories();
+      loadSceneTemplates(); // 默认加载全部
+    }
+
+    // 监听一级分类选择
+    form.on('select(categoryFilter)', function(data){
+      var catId = parseInt(data.value) || 0;
+      currentCategoryId = catId;
+      // 更新子分类下拉
+      updateSubCategories(catId);
+      form.render('select');
+      // 加载模板
+      loadSceneTemplates();
+    });
+
+    // 监听子分类选择
+    form.on('select(subCategoryFilter)', function(data){
+      var subId = parseInt(data.value) || 0;
+      currentCategoryId = subId > 0 ? subId : (parseInt($('#categoryFilter').val()) || 0);
+      loadSceneTemplates();
     });
 
     // 表单提交
     form.on('submit(submitBtn)', function(data){
-      data.field.model_id = currentModelId;
-      data.field.model_name = currentModelName;
-      // 获取图片列表（从隐藏input获取）
-      data.field.images = $('#images').val();
-
+      if(!isEditMode && !selectedSceneTemplate){
+        layer.msg('请先选择一个场景模板');
+        return false;
+      }
       if(!data.field.name){
         layer.msg('请输入模板名称');
         return false;
       }
-      if(!data.field.model_id){
+      if(!data.field.model_id || data.field.model_id == '0'){
         layer.msg('请选择AI模型');
         return false;
       }
@@ -146,97 +366,481 @@
         return false;
       }
 
+      // 提交前：确保门店范围数据已同步到data.field
+      syncStoreIds();
+      data.field.store_scope = $('input[name="store_scope"]:checked').val() || '0';
+      data.field.store_ids = document.getElementById('storeIds').value || '';
+
+      // 构建最终的default_params（合并表单字段到已有的default_params）
+      var baseDp = {};
+      try { baseDp = JSON.parse(data.field.default_params || '{}'); } catch(e){}
+      data.field.default_params = JSON.stringify(buildDefaultParams(baseDp));
+
       $.post('{:url("synthesis_template_save")}', data.field, function(res){
         if(res.code === 0){
           var index = parent.layer.getFrameIndex(window.name);
           parent.layer.close(index);
           parent.layer.msg('保存成功');
+          if(parent.tableIns) parent.tableIns.reload();
         } else {
           layer.msg(res.msg);
         }
       });
-
       return false;
     });
   });
 
-  // 模型数据缓存
-  var modelDataCache = {};
-
-  // 加载模型列表
-  function loadModelList(){
+  // 加载分类列表
+  function loadCategories(){
     $.ajax({
-      url: '{:url("AiTravelPhoto/get_model_list")}',
+      url: '{:url("AiTravelPhoto/get_scene_categories")}',
       type: 'GET',
       dataType: 'json',
       success: function(res){
         if(res.code === 0 && res.data && res.data.length > 0){
-          var html = '<option value="">请选择AI模型...</option>';
-          var currentModelIdNum = parseInt(currentModelId) || 0;
-          res.data.forEach(function(model){
-            // 缓存模型数据用于后续展示
-            modelDataCache[model.id] = model;
-            
-            // 转换为数字比较，确保选中状态正确
-            var selected = (model.id == currentModelIdNum) ? 'selected' : '';
-            // 显示配置类型标签：商户自配置 / 平台预充值
-            var configLabel = model.config_type_label || (model.is_merchant_config ? '商户自配置' : '平台预充值');
-            // 显示价格信息
-            var priceInfo = model.cost_per_image > 0 ? '¥' + model.cost_per_image + '/张' : '';
-            html += '<option value="' + model.id + '" ' + selected + ' data-price="' + priceInfo + '">' + model.model_name + ' (' + model.provider + ') - ' + configLabel + ' ' + priceInfo + '</option>';
+          categoryTree = res.data;
+          var html = '<option value="0">全部分类</option>';
+          res.data.forEach(function(cat){
+            html += '<option value="' + cat.id + '">' + cat.name;
+            if(cat.children && cat.children.length > 0){
+              html += ' (' + cat.children.length + '个子分类)';
+            }
+            html += '</option>';
           });
-          $('#modelSelect').html(html);
+          $('#categoryFilter').html(html);
           layui.form.render('select');
-          
-          // 如果已有选中模型，显示参数信息
-          if(currentModelIdNum > 0 && modelDataCache[currentModelIdNum]){
-            showModelInfo(currentModelIdNum);
-          }
-        } else {
-          layer.msg('暂无可用模型，请先配置AI模型');
         }
-      },
-      error: function(){
-        layer.msg('加载模型列表失败');
       }
     });
   }
 
-  // 显示模型参数信息
-  function showModelInfo(modelId){
-    var model = modelDataCache[modelId];
-    if(!model) return;
-    
-    var html = '<div style="display:flex;flex-wrap:wrap;gap:15px;">';
-    
-    // 基础信息
-    html += '<div style="flex:1;min-width:200px;"><strong>基本信息</strong><hr style="margin:5px 0;">';
-    html += '<p><b>模型名称：</b>' + (model.model_name || '-') + '</p>';
-    html += '<p><b>模型类型：</b>' + (model.model_type || '-') + '</p>';
-    html += '<p><b>服务提供商：</b>' + (model.provider || '-') + '</p>';
-    html += '<p><b>API地址：</b><span style="font-size:11px;color:#666;">' + (model.api_base_url || '-') + '</span></p>';
-    html += '</div>';
-    
-    // 价格信息
-    html += '<div style="flex:1;min-width:200px;"><strong>价格与计费</strong><hr style="margin:5px 0;">';
-    html += '<p><b>成本价格：</b><span style="color:#e6a23c;">¥' + (model.cost_per_image || 0) + '/张</span></p>';
-    html += '<p><b>配置类型：</b>' + (model.config_type_label || '-') + '</p>';
-    html += '</div>';
-    
-    // 限制信息
-    html += '<div style="flex:1;min-width:200px;"><strong>参数限制</strong><hr style="margin:5px 0;">';
-    html += '<p><b>超时时间：</b>' + (model.timeout || 180) + '秒</p>';
-    html += '<p><b>最大重试：</b>' + (model.max_retry || 3) + '次</p>';
-    html += '</div>';
-    
-    html += '</div>';
-    
-    $('#modelInfoContent').html(html);
-    $('#modelInfoPanel').show();
+  // 更新子分类下拉
+  function updateSubCategories(parentId){
+    var html = '<option value="0">全部子分类</option>';
+    var hasChildren = false;
+    if(parentId > 0){
+      for(var i = 0; i < categoryTree.length; i++){
+        if(categoryTree[i].id == parentId && categoryTree[i].children && categoryTree[i].children.length > 0){
+          categoryTree[i].children.forEach(function(sub){
+            html += '<option value="' + sub.id + '">' + sub.name + '</option>';
+          });
+          hasChildren = true;
+          break;
+        }
+      }
+    }
+    if(hasChildren){
+      $('#subCategoryFilter').html(html).closest('.layui-input-inline').show();
+    } else {
+      $('#subCategoryFilter').html('<option value="0">全部子分类</option>').closest('.layui-input-inline').hide();
+    }
+  }
+
+  // 加载场景模板列表
+  function loadSceneTemplates(keyword){
+    var params = { limit: 200 };
+    if(keyword) params.keyword = keyword;
+    if(!keyword) params.keyword = $('#sceneSearch').val() || '';
+    if(currentCategoryId > 0) params.category_id = currentCategoryId;
+
+    $('#sceneTplList').html('<div style="color:#999;padding:20px;">加载中...</div>');
+
+    $.ajax({
+      url: '{:url("AiTravelPhoto/get_available_scene_templates")}',
+      type: 'GET',
+      data: params,
+      dataType: 'json',
+      success: function(res){
+        if(res.code === 0 && res.data && res.data.length > 0){
+          renderSceneTemplates(res.data);
+          $('#sceneTplCount').text('共 ' + res.count + ' 个模板');
+        } else if(res.code === 0){
+          $('#sceneTplList').html('<div style="color:#999;padding:20px;">该分类下暂无可用场景模板（需照片生成类型 + 启用 + 模型支持multi_input）</div>');
+          $('#sceneTplCount').text('');
+        } else {
+          $('#sceneTplList').html('<div style="color:red;padding:20px;">' + (res.msg || '加载失败') + '</div>');
+          $('#sceneTplCount').text('');
+        }
+      },
+      error: function(xhr){
+        var errMsg = '加载场景模板失败';
+        if(xhr.status === 302 || xhr.responseText && xhr.responseText.indexOf('登录') > -1){
+          errMsg = '会话已过期，请刷新页面重新登录';
+        }
+        $('#sceneTplList').html('<div style="color:red;padding:20px;">' + errMsg + '</div>');
+        $('#sceneTplCount').text('');
+      }
+    });
+  }
+
+  // 搜索场景模板
+  function searchSceneTemplates(){
+    loadSceneTemplates();
+  }
+
+  // 渲染场景模板卡片
+  function renderSceneTemplates(list){
+    var html = '';
+    list.forEach(function(tpl){
+      var coverSrc = tpl.cover_image || '/static/images/no-image.png';
+      var modelLabel = (tpl.model_name || '未知') + (tpl.provider_name ? ' (' + tpl.provider_name + ')' : '');
+      html += '<div class="scene-tpl-card" data-id="' + tpl.id + '" onclick="selectSceneTemplate(this, ' + tpl.id + ')">';
+      html += '  <img class="cover" src="' + coverSrc + '" onerror="this.src=\'/static/images/no-image.png\'">';
+      html += '  <div class="info">';
+      html += '    <div class="name" title="' + tpl.template_name + '">' + tpl.template_name + '</div>';
+      html += '    <div class="model" title="' + modelLabel + '">' + modelLabel + '</div>';
+      // 显示自动标签
+      var cardTagStr = '';
+      if(tpl.auto_tags && tpl.auto_tag_status == 2){
+        var at = tpl.auto_tags;
+        if(typeof at === 'string'){ try{ at = JSON.parse(at); }catch(e){ at = null; } }
+        if(at && at.tag_string) cardTagStr = at.tag_string;
+      }
+      if(cardTagStr){
+        html += '    <div class="tags" title="' + cardTagStr + '">🏷 ' + cardTagStr + '</div>';
+      }
+      html += '  </div>';
+      html += '</div>';
+    });
+    $('#sceneTplList').html(html);
+
+    // 缓存数据（预先解析default_params字符串为对象）
+    window._sceneTemplateData = {};
+    list.forEach(function(tpl){
+      if(tpl.default_params && typeof tpl.default_params === 'string'){
+        try { tpl.default_params = JSON.parse(tpl.default_params); } catch(e){ tpl.default_params = {}; }
+      }
+      if(!tpl.default_params || typeof tpl.default_params !== 'object') tpl.default_params = {};
+      window._sceneTemplateData[tpl.id] = tpl;
+    });
+  }
+
+  // 编辑模式：从已保存的default_params回填output_quantity/ratio/size
+  function initEditModeParams(){
+    var dpStr = $('#defaultParams').val();
+    if(!dpStr) return;
+    try {
+      var dp = JSON.parse(dpStr);
+      // 回填生成数量
+      if(dp.output_quantity){
+        $('#outputQuantity').val(dp.output_quantity);
+      }
+      // 回填比例
+      if(dp.ratio){
+        $('#ratioSelect').val(dp.ratio);
+      }
+      // 回填尺寸
+      if(dp.size){
+        $('#sizeSelect').val(dp.size);
+      }
+      layui.form.render('select');
+    } catch(e){}
+  }
+
+  // 构建default_params JSON（合并表单字段值）
+  function buildDefaultParams(baseDp){
+    var dp = baseDp || {};
+    // 从表单获取可编辑字段值
+    var oq = parseInt($('#outputQuantity').val()) || 1;
+    var ratio = $('#ratioSelect').val() || '';
+    var size = $('#sizeSelect').val() || '';
+    dp.output_quantity = oq;
+    if(ratio) dp.ratio = ratio; else delete dp.ratio;
+    if(size) dp.size = size; else if(!dp.size) delete dp.size;
+    return dp;
+  }
+
+  // 选择场景模板
+  function selectSceneTemplate(el, id){
+    // 移除其他卡片的选中样式
+    $('.scene-tpl-card').removeClass('active');
+    $(el).addClass('active');
+
+    var tpl = window._sceneTemplateData[id];
+    if(!tpl) return;
+
+    selectedSceneTemplate = tpl;
+    // 兼容处理：default_params可能是JSON字符串或对象
+    var dp = tpl.default_params;
+    if(typeof dp === 'string'){
+      try { dp = JSON.parse(dp); } catch(e){ dp = {}; }
+    }
+    if(typeof dp !== 'object' || dp === null) dp = {};
+
+    // 自动填充表单字段
+    $('input[name="scene_template_id"]').val(tpl.id);
+    $('input[name="name"]').val(tpl.template_name);
+    $('input[name="model_id"]').val(tpl.model_id);
+    $('input[name="model_name"]').val(tpl.model_name || '');
+    $('#modelDisplay').val((tpl.model_name || '未知') + (tpl.provider_name ? ' (' + tpl.provider_name + ')' : ''));
+
+    // 描述
+    $('textarea[name="description"]').val(tpl.description || '');
+
+    // 封面图
+    $('#coverImage').val(tpl.cover_image || '');
+
+    // 提示词：优先从default_params.prompt提取，其次用description
+    var prompt = '';
+    if(dp.prompt){
+      prompt = dp.prompt;
+    } else if(tpl.description){
+      prompt = tpl.description;
+    }
+    $('textarea[name="prompt"]').val(prompt);
+
+    // 生成数量：从场景模板的output_quantity字段获取
+    var outputQty = parseInt(tpl.output_quantity) || 1;
+    if(outputQty < 1) outputQty = 1;
+    if(outputQty > 9) outputQty = 9;
+    $('#outputQuantity').val(outputQty);
+
+    // 比例：从default_params.ratio获取
+    if(dp.ratio){
+      $('#ratioSelect').val(dp.ratio);
+    } else {
+      $('#ratioSelect').val('');
+    }
+
+    // 尺寸：从default_params.size获取
+    if(dp.size){
+      $('#sizeSelect').val(dp.size);
+    } else {
+      $('#sizeSelect').val('');
+    }
+
+    // 刷新layui select渲染
+    layui.form.render('select');
+
+    // 将output_quantity合并到default_params中存储
+    dp.output_quantity = outputQty;
+    $('#defaultParams').val(JSON.stringify(dp));
+
+    // 图片：优先从default_params.image(单图URL)或images提取，其次用cover_image
+    var images = [];
+    if(dp.images){
+      var dpImages = dp.images;
+      if(typeof dpImages === 'string'){
+        images = dpImages.split(',').filter(function(v){ return v.trim(); });
+      } else if(Array.isArray(dpImages)){
+        images = dpImages;
+      }
+    }
+    if(images.length === 0 && dp.image){
+      // default_params里的image字段（单个URL）
+      images = [dp.image];
+    }
+    if(images.length === 0 && tpl.cover_image){
+      images = [tpl.cover_image];
+    }
+
+    // 渲染图片预览
+    var previewHtml = '';
+    images.forEach(function(img){
+      previewHtml += '<div class="layui-imgbox" style="float:left;margin-right:10px;margin-bottom:10px;">';
+      previewHtml += '  <a class="layui-imgbox-close" href="javascript:void(0)" onclick="$(this).parent().remove();getpicsval(\'images\',\'imagesPreview\')" title="删除"><i class="layui-icon layui-icon-close-fill-opaque"></i></a>';
+      previewHtml += '  <span class="layui-imgbox-img"><img src="' + img + '" style="max-height:100%;" onclick="preview(this)"></span>';
+      previewHtml += '</div>';
+    });
+    $('#imagesPreview').html(previewHtml);
+    $('#images').val(images.join(','));
+
+    // 显示所选模板的自动标签
+    var selAutoTags = tpl.auto_tags;
+    if(selAutoTags && typeof selAutoTags === 'string'){
+      try { selAutoTags = JSON.parse(selAutoTags); } catch(e){ selAutoTags = null; }
+    }
+    var selTagStr = '';
+    var selTagStatus = parseInt(tpl.auto_tag_status) || 0;
+    if(selAutoTags && selAutoTags.tag_string){
+      selTagStr = selAutoTags.tag_string;
+    }
+    renderAutoTags(selTagStr, selTagStatus);
+
+    // 显示所选模板的分类
+    var catNames = [];
+    if(tpl.category_ids){
+      var catIdList = String(tpl.category_ids).split(',').filter(function(v){ return v.trim(); });
+      catIdList.forEach(function(cid){
+        var name = getCategoryNameFromTree(parseInt(cid));
+        if(name) catNames.push(name);
+      });
+    }
+    renderSceneCategory(catNames.join('、'));
+
+    // 显示所选模板的价格（商采价格）
+    var selBusinessPrice = tpl.business_price || '0.50';
+    renderScenePrice(selBusinessPrice);
+
+    layui.layer.msg('已选择：' + tpl.template_name, {time: 1500});
+  }
+
+  // 回车搜索
+  $('#sceneSearch').on('keydown', function(e){
+    if(e.keyCode === 13){
+      e.preventDefault();
+      searchSceneTemplates();
+    }
+  });
+
+  // 渲染门店复选框列表
+  function renderStoreCheckboxes(){
+    if(!mendianList || mendianList.length === 0){
+      $('#storeCheckboxList').html('<div style="color:#999;padding:10px;">暂无可用门店</div>');
+      return;
+    }
+    var html = '';
+    mendianList.forEach(function(store){
+      var isChecked = checkedStoreIdSet[String(store.id)] === true;
+      html += '<input type="checkbox" lay-filter="storeCheck" value="' + store.id + '"' + (isChecked ? ' checked' : '') + ' lay-skin="primary" title="' + store.name + '">';
+    });
+    $('#storeCheckboxList').html(html);
+    layui.form.render('checkbox');
+    // 渲染后立即同步一次
+    syncStoreIds();
+  }
+
+  // 更新门店范围摘要显示（显示门店名称）
+  function updateStoreScopeSummary(){
+    var scope = $('input[name="store_scope"]:checked').val() || '0';
+    var el = document.getElementById('storeScopeSummary');
+    if(!el) return;
+    if(scope == '0'){
+      el.innerHTML = '<span style="color:#5FB878;">✔ 全部门店</span>';
+    } else {
+      var selectedNames = [];
+      var checkedIds = Object.keys(checkedStoreIdSet);
+      if(mendianList && mendianList.length > 0){
+        mendianList.forEach(function(store){
+          if(checkedStoreIdSet[String(store.id)] === true){
+            selectedNames.push(store.name);
+          }
+        });
+      }
+      if(selectedNames.length > 0){
+        el.innerHTML = '<span style="color:#1E9FFF;">✔ ' + selectedNames.join('、') + '</span>';
+      } else {
+        el.innerHTML = '<span style="color:#FF5722;">⚠ 请勾选门店</span>';
+      }
+    }
+  }
+
+  // 同步勾选的门店ID到隐藏字段（优先从JS状态集合读取，兼容DOM查询）
+  function syncStoreIds(){
+    var ids = Object.keys(checkedStoreIdSet);
+    // 如果JS状态为空，尝试从DOM回补（兼容首次加载等场景）
+    if(ids.length === 0){
+      var container = document.getElementById('storeCheckboxList');
+      if(container){
+        var inputs = container.querySelectorAll('input[type="checkbox"]');
+        for(var i = 0; i < inputs.length; i++){
+          if(inputs[i].checked){
+            ids.push(inputs[i].value);
+            checkedStoreIdSet[inputs[i].value] = true;
+          }
+        }
+      }
+    }
+    var val = ids.join(',');
+    var el = document.getElementById('storeIds');
+    if(el) el.value = val;
+    return val;
+  }
+
+  // 渲染自动标签显示
+  function renderAutoTags(tagString, status){
+    var el = document.getElementById('autoTagsDisplay');
+    var area = document.getElementById('autoTagsArea');
+    if(!el || !area) return;
+    if(status === undefined || status === null) status = 2;
+    // 状态判断
+    if(status == 1){
+      el.innerHTML = '<span class="auto-tag-status"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 标签识别中...</span>';
+      area.style.display = '';
+      return;
+    }
+    if(status == 3){
+      el.innerHTML = '<span style="color:#FF5722;font-size:12px;">标签识别失败</span>';
+      area.style.display = '';
+      return;
+    }
+    // status==0 且无标签：不显示
+    if(!tagString && status == 0){
+      area.style.display = 'none';
+      return;
+    }
+    // status==2 或有标签字符串：显示标签
+    if(!tagString){
+      area.style.display = 'none';
+      return;
+    }
+    var tags = tagString.split(',').filter(function(t){ return t.trim(); });
+    if(tags.length === 0){
+      area.style.display = 'none';
+      return;
+    }
+    var html = '';
+    tags.forEach(function(tag){
+      html += '<span class="auto-tag-item">' + tag.trim() + '</span>';
+    });
+    el.innerHTML = html;
+    area.style.display = '';
+  }
+
+  // 渲染所属分类显示
+  function renderSceneCategory(names){
+    var el = document.getElementById('sceneCategoryDisplay');
+    var area = document.getElementById('sceneCategoryArea');
+    if(!el || !area) return;
+    if(!names){
+      area.style.display = 'none';
+      return;
+    }
+    var catArr = names.split('、').filter(function(n){ return n.trim(); });
+    if(catArr.length === 0){
+      area.style.display = 'none';
+      return;
+    }
+    var html = '';
+    catArr.forEach(function(name){
+      html += '<span class="scene-cat-item">' + name.trim() + '</span>';
+    });
+    el.innerHTML = html;
+    area.style.display = '';
+  }
+
+  // 渲染价格设置显示（商采价格）
+  function renderScenePrice(businessPrice){
+    var el = document.getElementById('scenePriceDisplay');
+    var area = document.getElementById('scenePriceArea');
+    if(!el || !area) return;
+    var bp = parseFloat(businessPrice) || 0;
+    if(bp <= 0){
+      area.style.display = 'none';
+      return;
+    }
+    var html = '<span style="color:#333;">商采价格：<b style="color:#FF5722;">¥' + bp.toFixed(2) + '</b>/张</span>';
+    el.innerHTML = html;
+    area.style.display = '';
+  }
+
+  // 从分类树中查找分类名称
+  function getCategoryNameFromTree(id){
+    for(var i = 0; i < categoryTree.length; i++){
+      if(categoryTree[i].id == id) return categoryTree[i].name;
+      if(categoryTree[i].children){
+        for(var j = 0; j < categoryTree[i].children.length; j++){
+          if(categoryTree[i].children[j].id == id) return categoryTree[i].children[j].name;
+        }
+      }
+    }
+    return null;
   }
 
   // 提交表单（供父窗口调用）
   window.submitForm = function(){
+    // 提交前同步门店ID
+    syncStoreIds();
     $('button[lay-filter="submitBtn"]').click();
   };
   </script>

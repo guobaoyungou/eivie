@@ -378,7 +378,8 @@
 				{"path": "shop/mendian","style": {"navigationBarTitleText": "门店","enablePullDownRefresh": false}},
 
 				{"path": "ailvpai/detail","style": {"navigationBarTitleText": "订单详情","enablePullDownRefresh": true}},
-				{"path": "ailvpai/download","style": {"navigationBarTitleText": "成片下载","enablePullDownRefresh": false}}
+				{"path": "ailvpai/download","style": {"navigationBarTitleText": "成片下载","enablePullDownRefresh": false}},
+				{"path": "ai_travel_photo/template_detail","style": {"navigationBarTitleText": "模板详情","enablePullDownRefresh": false}}
 			]
 		},
 		{
