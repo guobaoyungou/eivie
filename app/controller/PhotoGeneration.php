@@ -511,6 +511,14 @@ class PhotoGeneration extends Common
             return $this->error('记录不存在');
         }
         
+        // 调试：记录输出数据（生产环境可注释）
+        \think\facade\Log::info('record_detail输出数据', [
+            'record_id' => $recordId,
+            'status' => $record['status'],
+            'outputs_count' => count($record['outputs'] ?? []),
+            'outputs' => $record['outputs'] ?? []
+        ]);
+        
         View::assign('record', $record);
         return View::fetch();
     }
@@ -2104,11 +2112,14 @@ class PhotoGeneration extends Common
             return json(['status' => 0, 'msg' => '参数错误']);
         }
         
-        // 这里实现获取下载链接的逻辑
-        // 实际项目中可能需要生成临时下载链接
+        // 使用路由地址方式生成 URL，避免 ?s= 格式导致参数丢失
+        $downloadUrl = '/index.php?s=/PhotoGeneration/download_result/record_id/' . $recordId;
         
-        // 模拟下载链接
-        $downloadUrl = url('PhotoGeneration/download_result', ['record_id' => $recordId])->build();
+        // 如果有 pathinfo 分隔符配置，使用配置的格式
+        $pathinfoDepr = config('route.pathinfo_depr', '/');
+        if ($pathinfoDepr !== '/') {
+            $downloadUrl = '/index.php?s=' . $pathinfoDepr . 'PhotoGeneration' . $pathinfoDepr . 'download_result' . $pathinfoDepr . 'record_id' . $pathinfoDepr . $recordId;
+        }
         
         return json([
             'status' => 1,
@@ -2129,11 +2140,94 @@ class PhotoGeneration extends Common
             return $this->error('参数错误');
         }
         
-        // 这里实现下载逻辑
-        // 实际项目中可能需要打包生成的文件并提供下载
+        // 获取记录详情
+        $record = $this->service->getRecordDetail($recordId);
+        if (!$record) {
+            return $this->error('记录不存在');
+        }
         
-        // 模拟下载响应
-        return $this->error('下载功能开发中');
+        // 检查记录状态
+        if ($record['status'] != 2) {
+            return $this->error('生成未完成，无法下载');
+        }
+        
+        // 获取输出文件列表
+        $outputs = Db::name('generation_output')
+            ->where('record_id', $recordId)
+            ->where('output_type', 'image')
+            ->select()
+            ->toArray();
+        
+        if (empty($outputs)) {
+            return $this->error('没有可下载的文件');
+        }
+        
+        // 如果只有单个文件，直接下载
+        if (count($outputs) == 1) {
+            $output = $outputs[0];
+            $downloadUrl = $output['output_url'];
+            if (!empty($downloadUrl)) {
+                header('Location: ' . $downloadUrl);
+                exit;
+            }
+        }
+        
+        // 多个文件时打包下载（如果 zip 扩展可用）
+        if (count($outputs) > 1 && class_exists('ZipArchive')) {
+            $zip = new \ZipArchive();
+            $zipFileName = '生成结果_' . $recordId . '_' . date('YmdHis') . '.zip';
+            $zipTempPath = runtime_path() . 'downloads/';
+            if (!is_dir($zipTempPath)) {
+                mkdir($zipTempPath, 0755, true);
+            }
+            $zipFilePath = $zipTempPath . $zipFileName;
+            
+            if ($zip->open($zipFilePath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true) {
+                foreach ($outputs as $index => $output) {
+                    if (!empty($output['output_url'])) {
+                        $fileContent = $this->fetchRemoteFile($output['output_url']);
+                        if ($fileContent !== false) {
+                            $ext = pathinfo(parse_url($output['output_url'], PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'png';
+                            $zip->addFromString('image_' . ($index + 1) . '.' . $ext, $fileContent);
+                        }
+                    }
+                }
+                $zip->close();
+                
+                // 发送下载头
+                header('Content-Type: application/zip');
+                header('Content-Disposition: attachment; filename="' . $zipFileName . '"');
+                header('Content-Length: ' . filesize($zipFilePath));
+                readfile($zipFilePath);
+                
+                // 删除临时文件
+                @unlink($zipFilePath);
+                exit;
+            }
+        }
+        
+        // 回退：下载第一张图片
+        $output = $outputs[0];
+        if (!empty($output['output_url'])) {
+            header('Location: ' . $output['output_url']);
+            exit;
+        }
+        
+        return $this->error('下载失败，请稍后重试');
+    }
+    
+    /**
+     * 获取远程文件内容
+     */
+    private function fetchRemoteFile($url)
+    {
+        $context = stream_context_create([
+            'http' => [
+                'timeout' => 30,
+                'user_agent' => 'Mozilla/5.0'
+            ]
+        ]);
+        return @file_get_contents($url, false, $context);
     }
     
     /**

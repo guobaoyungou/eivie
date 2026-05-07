@@ -20,8 +20,21 @@ use think\facade\Log;
 function jsonEncode($arr){
 	return json_encode($arr, JSON_UNESCAPED_UNICODE);
 }
+
+/**
+ * 统一API响应格式
+ * @param int $code 状态码（0成功，非0失败）
+ * @param string $msg 提示信息
+ * @param mixed $data 返回数据
+ * @return \think\response\Json
+ */
+if (!function_exists('api_response')) {
+function api_response($code = 0, $msg = 'success', $data = null) {
+	return json(['code' => $code, 'msg' => $msg, 'data' => $data]);
+}
+}
 function request_post($url, $keysArr=array(), $timeout = 60){
-	$client = new \GuzzleHttp\Client(['timeout'=>$timeout,'verify'=>false]);
+	$client = new \GuzzleHttp\Client(['timeout'=>$timeout,'verify'=>true]);
 	try {
 		if(is_array($keysArr)){
 			$response = $client->request('POST',$url,['form_params'=>$keysArr]);
@@ -36,7 +49,7 @@ function request_post($url, $keysArr=array(), $timeout = 60){
 	return $rs;
 }
 function request_get($url, $keysArr=array(), $timeout = 60){
-	$client = new \GuzzleHttp\Client(['timeout'=>$timeout,'verify'=>false]);
+	$client = new \GuzzleHttp\Client(['timeout'=>$timeout,'verify'=>true]);
 	try {
 		if($keysArr){
 			$response = $client->request('GET',$url,['query'=>$keysArr]);

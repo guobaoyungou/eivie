@@ -111,7 +111,15 @@
             <div class="output-gallery">
               {volist name="record.outputs" id="output"}
               <div class="output-item">
-                <img src="{$output.output_url}" onclick="previewImage('{$output.output_url}')" title="点击查看大图">
+                {if $output.output_url}
+                <img src="{$output.output_url}" onclick="if(this.src) previewImage(this.src)" title="点击查看大图" onerror="this.onerror=null; this.style.display='none'; this.nextSibling.style.display='block';">
+                <div class="output-error" style="display:none;color:#FF5722;font-size:12px;text-align:center;padding:5px;">加载失败<br><a href="{$output.output_url}" target="_blank" style="color:#1E9FFF">在新窗口打开</a></div>
+                {else}
+                <div style="width:100%;height:150px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;">
+                  无图片URL<br>
+                  <span style="color:#ccc;font-size:10px;margin-top:5px;">output_id:{$output.id}</span>
+                </div>
+                {/if}
                 <div class="output-info">
                   {if $output.width && $output.height}
                   {$output.width}x{$output.height}
@@ -137,7 +145,28 @@
 
   {include file="public/js"/}
   <script>
+  // 调试：页面加载时输出所有输出信息到控制台
+  console.log('生成记录详情页调试信息:');
+  console.log('记录ID: {$record.id}');
+  console.log('状态: {$record.status}');
+  console.log('输出数量: {$record.outputs|count}');
+  {volist name="record.outputs" id="output"}
+  console.log('输出{$key}:', {
+    id: '{$output.id}',
+    output_url: '{$output.output_url}',
+    thumbnail_url: '{$output.thumbnail_url}',
+    output_type: '{$output.output_type}',
+    width: '{$output.width}',
+    height: '{$output.height}',
+    file_size: '{$output.file_size}'
+  });
+  {/volist}
+  
   function previewImage(url) {
+    if (!url) {
+      layer.msg('图片URL为空', {icon: 0});
+      return;
+    }
     layer.photos({
       photos: {
         data: [{src: url}]
@@ -145,6 +174,22 @@
       anim: 5
     });
   }
+  
+  // 图片加载错误时提供诊断信息
+  window.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.output-item img').forEach(function(img, idx) {
+      img.addEventListener('error', function() {
+        console.error('图片' + (idx+1) + '加载失败, URL:', this.src);
+        // 尝试在新窗口打开以获取更多信息
+        if (this.src && this.src !== window.location.href) {
+          var link = document.createElement('a');
+          link.href = this.src;
+          link.target = '_blank';
+          link.click();
+        }
+      });
+    });
+  });
   </script>
 </body>
 </html>

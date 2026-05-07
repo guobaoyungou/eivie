@@ -1,1 +1,1 @@
-<?php return ['wx_channels'];
+<?php return ['wx_channels','ai_travel_photo'];

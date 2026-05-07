@@ -45,6 +45,9 @@ Page({
     ],
     countOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9],
     maxImages: 1, // 默认1张，由模板 max_ref_images 控制
+    generationLimits: null, // 模型组图约束信息
+    generationLimitHint: '', // 组图提示文案
+    refImageOverflow: false, // 参考图超出限制
     promptVisible: true,
     showIdPhotoGuide: false,
     idPhotoGuideShownMap: {},
@@ -127,7 +130,6 @@ Page({
         
         // 默认选择该模板的每单输出数量
         var defaultQuantity = parseInt(detail.output_quantity) || 1;
-        if (defaultQuantity > 9) defaultQuantity = 9;
         if (defaultQuantity < 1) defaultQuantity = 1;
         
         // 提示词可见性
@@ -138,6 +140,24 @@ Page({
         if (maxImages > 9) maxImages = 9;
         if (maxImages < 1) maxImages = 1;
         
+        // ===== 组图约束：动态 countOptions =====
+        var limits = (detail.model_capability && detail.model_capability.generation_limits) ? detail.model_capability.generation_limits : null;
+        var countOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+        var limitHint = '';
+        
+        if (limits && limits.supports_group) {
+          var maxCount = limits.text_only_max_output || 15;
+          countOptions = [];
+          for (var ci = 1; ci <= maxCount; ci++) { countOptions.push(ci); }
+          if (defaultQuantity > maxCount) defaultQuantity = maxCount;
+          limitHint = '当前模型最多可生成 ' + maxCount + ' 张组图';
+        } else if (limits && !limits.supports_group && limits.max_total <= 1) {
+          countOptions = [1];
+          defaultQuantity = 1;
+        } else {
+          if (defaultQuantity > 9) defaultQuantity = 9;
+        }
+        
         // 证件照指引信息
         var idPhotoTips = that.getIdPhotoTips(detail.id_photo_type || 0);
         
@@ -147,6 +167,10 @@ Page({
           quantity: defaultQuantity,
           promptVisible: promptVisible,
           maxImages: maxImages,
+          countOptions: countOptions,
+          generationLimits: limits,
+          generationLimitHint: limitHint,
+          refImageOverflow: false,
           idPhotoTypeName: detail.id_photo_type_name || '',
           idPhotoCorrectTips: idPhotoTips.correct,
           idPhotoWrongTips: idPhotoTips.wrong,
@@ -189,6 +213,50 @@ Page({
     var price = parseFloat(detail.price) || 0;
     var total = this.data.generationType == 1 ? (price * this.data.quantity).toFixed(2) : price.toFixed(2);
     this.setData({ totalPrice: total });
+  },
+
+  // 参考图数量变化时重算可用生成数量
+  recalcCountOptions: function() {
+    var limits = this.data.generationLimits;
+    if (!limits || !limits.supports_group) {
+      this.setData({ refImageOverflow: false });
+      return;
+    }
+    var refCount = this.data.refImages ? this.data.refImages.length : 0;
+    var maxCount = 1;
+    var hint = '';
+    
+    if (refCount === 0) {
+      maxCount = limits.text_only_max_output || 15;
+      hint = '当前模型最多可生成 ' + maxCount + ' 张组图';
+    } else if (refCount === 1) {
+      maxCount = limits.single_image_max_output || 14;
+      hint = '上传1张参考图，最多可生成 ' + maxCount + ' 张';
+    } else {
+      maxCount = (limits.input_output_sum_limit || 15) - refCount;
+      if (maxCount >= 1) {
+        hint = '已上传 ' + refCount + ' 张参考图，最多还可生成 ' + maxCount + ' 张';
+      }
+    }
+    
+    if (maxCount < 1) {
+      this.setData({ refImageOverflow: true, countOptions: [], generationLimitHint: '' });
+      return;
+    }
+    
+    var arr = [];
+    for (var i = 1; i <= maxCount; i++) { arr.push(i); }
+    
+    var quantity = this.data.quantity;
+    if (quantity > maxCount) quantity = maxCount;
+    
+    this.setData({
+      refImageOverflow: false,
+      countOptions: arr,
+      quantity: quantity,
+      generationLimitHint: hint
+    });
+    this.calcTotalPrice();
   },
 
   // 文件校验：校验单个文件的大小和格式
@@ -394,6 +462,7 @@ Page({
               refImages: refImages,
               uploadingFiles: updatedUploading
             });
+            that.recalcCountOptions();
           } else {
             // 标记上传失败
             that._updateUploadingFileStatus(filePath, 'failed');
@@ -463,6 +532,7 @@ Page({
     var refImages = this.data.refImages;
     refImages.splice(idx, 1);
     this.setData({ refImages: refImages });
+    this.recalcCountOptions();
   },
 
   previewUploadImage: function(e) {

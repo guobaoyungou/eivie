@@ -85,6 +85,8 @@ var HdApi = (function() {
         deleteLotteryTheme: function(aid, id) { return this.post('/lottery/' + aid + '/themes/' + id + '/delete'); },
         getChoujiangConfig: function(aid) { return this.get('/lottery/' + aid + '/choujiang'); },
         updateChoujiangConfig: function(aid, d) { return this.post('/lottery/' + aid + '/choujiang', d); },
+        getScreenSettings: function(aid) { return this.get('/lottery/' + aid + '/screen-settings'); },
+        updateScreenSettings: function(aid, d) { return this.post('/lottery/' + aid + '/screen-settings', d); },
 
         // ============ Speed (拼手速) ============
         getShakeConfig: function(aid) { return this.get('/speed/' + aid + '/shake/config'); },

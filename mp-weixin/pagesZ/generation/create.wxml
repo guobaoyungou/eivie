@@ -97,7 +97,7 @@
   </view>
 
   <!-- 生成张数选择 -->
-  <view class="section" wx:if="{{generationType == 1}}">
+  <view class="section" wx:if="{{generationType == 1 && countOptions.length > 0}}">
     <view class="section-title">
       <text class="title-text">生成张数</text>
     </view>
@@ -108,6 +108,13 @@
         </view>
       </view>
     </scroll-view>
+    <view class="generation-limit-hint" wx:if="{{generationLimitHint}}">
+      <text class="hint-text">{{generationLimitHint}}</text>
+    </view>
+  </view>
+  <!-- 参考图过多提示 -->
+  <view class="section" wx:if="{{generationType == 1 && refImageOverflow}}">
+    <view class="generation-limit-warning">⚠️ 参考图数量已达上限，请减少参考图后再选择生成数量</view>
   </view>
 
   <!-- 证件照拍照指引弹窗 -->

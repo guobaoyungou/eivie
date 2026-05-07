@@ -33,6 +33,13 @@ class ImagePersistService
      */
     public function persistAndCompress(string $tempUrl, int $aid = 0, string $bizType = 'ai_result', int $quality = self::DEFAULT_QUALITY): string
     {
+        Log::info('ImagePersistService::persistAndCompress: 开始处理', [
+            'tempUrl' => substr($tempUrl, 0, 120),
+            'aid' => $aid,
+            'bizType' => $bizType,
+            'quality' => $quality,
+        ]);
+        
         if (empty($tempUrl)) {
             return '';
         }
@@ -46,22 +53,64 @@ class ImagePersistService
 
             // 2. 下载远程图片到本地临时目录
             $tempFilePath = $this->downloadToTemp($tempUrl);
+            Log::info('ImagePersistService::persistAndCompress: downloadToTemp返回', [
+                'tempFilePath' => $tempFilePath ?: 'NULL',
+            ]);
+            
             if (empty($tempFilePath)) {
                 Log::warning('ImagePersistService: 下载失败，返回原始URL', ['url' => substr($tempUrl, 0, 120)]);
                 return $tempUrl;
             }
 
-            // 3. WebP 压缩
-            $uploadFilePath = $tempFilePath;
-            $webpPath = $this->compressToWebp($tempFilePath, $quality);
-            if ($webpPath !== false && $webpPath !== $tempFilePath) {
-                $uploadFilePath = $webpPath;
+            // 3. 验证文件大小
+            $fileSize = file_exists($tempFilePath) ? filesize($tempFilePath) : 0;
+            Log::info('ImagePersistService: 文件下载完成', [
+                'file' => $tempFilePath,
+                'size' => $fileSize,
+            ]);
+            
+            if ($fileSize < 100) {
+                Log::warning('ImagePersistService: 下载的文件太小，可能无效', [
+                    'url' => substr($tempUrl, 0, 120),
+                    'file' => $tempFilePath,
+                    'size' => $fileSize,
+                ]);
+                $this->cleanup([$tempFilePath]);
+                return $tempUrl;
             }
 
-            // 4. 上传到云存储
-            $permanentUrl = $this->uploadToPermanentStorage($uploadFilePath, $aid, $bizType);
+            // 4. WebP 压缩（如果失败，使用原文件）
+            Log::info('ImagePersistService: 步骤4-WebP压缩开始', ['tempFilePath' => $tempFilePath]);
+            $uploadFilePath = $tempFilePath;
+            $webpPath = null;
+            try {
+                Log::info('ImagePersistService: 调用compressToWebp...');
+                $webpPath = $this->compressToWebp($tempFilePath, $quality);
+                Log::info('ImagePersistService: compressToWebp返回', ['webpPath' => $webpPath ?: 'NULL/false']);
+                
+                if ($webpPath !== false && $webpPath !== $tempFilePath && file_exists($webpPath)) {
+                    $uploadFilePath = $webpPath;
+                    Log::info('ImagePersistService: WebP压缩成功', ['webpPath' => $webpPath]);
+                } else {
+                    Log::info('ImagePersistService: WebP压缩跳过，使用原文件');
+                }
+            } catch (\Exception $e) {
+                Log::warning('ImagePersistService: WebP压缩失败，使用原文件', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            Log::info('ImagePersistService: 步骤4完成，即将上传', ['uploadFilePath' => $uploadFilePath]);
 
-            // 5. 清理临时文件
+            // 5. 上传到云存储
+            Log::info('ImagePersistService: 开始上传到云存储', [
+                'uploadFilePath' => $uploadFilePath,
+                'aid' => $aid,
+                'bizType' => $bizType,
+            ]);
+            $permanentUrl = $this->uploadToPermanentStorage($uploadFilePath, $aid, $bizType);
+            Log::info('ImagePersistService: 上传完成', ['permanentUrl' => substr($permanentUrl, 0, 120) ?: 'EMPTY']);
+
+            // 6. 清理临时文件
             $this->cleanup([$tempFilePath, $webpPath]);
 
             if (!empty($permanentUrl)) {
@@ -83,6 +132,55 @@ class ImagePersistService
             ]);
             return $tempUrl;
         }
+    }
+    
+    /**
+     * 验证文件是否是有效的图片
+     *
+     * @param string $filePath 本地文件路径
+     * @return bool 是否是有效图片
+     */
+    protected function isValidImage(string $filePath): bool
+    {
+        if (!file_exists($filePath) || filesize($filePath) < 1000) {
+            return false;
+        }
+        
+        // 检查文件头部是否是图片格式
+        $handle = fopen($filePath, 'rb');
+        if (!$handle) {
+            return false;
+        }
+        
+        $header = fread($handle, 16);
+        fclose($handle);
+        
+        // JPEG: FF D8 FF
+        if (substr($header, 0, 3) === "\xFF\xD8\xFF") {
+            return true;
+        }
+        
+        // PNG: 89 50 4E 47 0D 0A 1A 0A
+        if (substr($header, 0, 8) === "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") {
+            return true;
+        }
+        
+        // WebP: RIFF....WEBP
+        if (substr($header, 0, 4) === "RIFF" && strpos($header, 'WEBP') !== false) {
+            return true;
+        }
+        
+        // GIF: 47 49 46 38 (GIF8)
+        if (substr($header, 0, 4) === "GIF8") {
+            return true;
+        }
+        
+        // BMP: 42 4D (BM)
+        if (substr($header, 0, 2) === "BM") {
+            return true;
+        }
+        
+        return false;
     }
 
     /**
@@ -115,6 +213,11 @@ class ImagePersistService
      */
     protected function isAlreadyPersisted(string $url): bool
     {
+        // 排除代理路径（如 /p/img/），这些需要转存到云存储
+        if (strpos($url, '/p/img/') !== false) {
+            return false;
+        }
+
         // 本地存储
         if (defined('PRE_URL') && !empty(PRE_URL) && strpos($url, PRE_URL) === 0) {
             return true;
@@ -226,19 +329,37 @@ class ImagePersistService
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        curl_setopt($ch, CURLOPT_REFERER, '');
+        curl_setopt($ch, CURLOPT_ENCODING, '');
+        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Accept: image/webp,image/apng,image/*,*/*;q=0.8',
+            'Accept-Language: zh-CN,zh;q=0.9,en;q=0.8',
+        ]);
+        
         $content = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $error = curl_error($ch);
+        $effectiveUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
         curl_close($ch);
 
-        if ($httpCode !== 200 || $content === false) {
+        if ($httpCode !== 200 || $content === false || empty($content)) {
             Log::warning('ImagePersistService: cURL下载失败', [
+                'url' => substr($url, 0, 120),
+                'effective_url' => substr($effectiveUrl, 0, 120),
                 'http_code' => $httpCode,
+                'content_length' => strlen($content ?: ''),
                 'error' => $error,
             ]);
             return null;
         }
+
+        Log::info('ImagePersistService: cURL下载成功', [
+            'url' => substr($url, 0, 120),
+            'content_length' => strlen($content),
+        ]);
 
         return $content;
     }

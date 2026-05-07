@@ -510,6 +510,103 @@
             card.classList.remove('selected');
         }
         showToast('已选择模板', 'info');
+        
+        // 加载模板详情以获取 generation_limits，动态更新生成数量下拉
+        if(templateId && typeof Api !== 'undefined' && Api.getSceneDetail){
+            Api.getSceneDetail({template_id: templateId}, function(err, res){
+                if(!err && res && res.status === 1 && res.data){
+                    var detail = res.data;
+                    var limits = (detail.model_capability && detail.model_capability.generation_limits) ? detail.model_capability.generation_limits : null;
+                    if(limits && limits.supports_group){
+                        var maxCount = limits.text_only_max_output || 15;
+                        updateCountDropdown(maxCount);
+                    } else if(limits && limits.max_total > 1){
+                        updateCountDropdown(limits.max_total);
+                    } else {
+                        updateCountDropdown(9); // 默认
+                    }
+                    // 填充模板的默认生成数量
+                    var defaultQty = detail.output_quantity || 1;
+                    setCountValue(defaultQty);
+                }
+            });
+        }
+    }
+    
+    /**
+     * 动态更新生成数量下拉菜单
+     */
+    function updateCountDropdown(maxCount){
+        var dropdown = document.getElementById('countDropdown');
+        if(!dropdown) return;
+        if(maxCount < 1) maxCount = 1;
+        
+        // 获取当前选中值
+        var currentCard = dropdown.closest('.gf-popover-wrap');
+        var card = currentCard ? currentCard.querySelector('.gf-popover-card') : null;
+        var currentValue = card ? parseInt(card.getAttribute('data-value')) || 1 : 1;
+        if(currentValue > maxCount) currentValue = maxCount;
+        
+        // 重建选项
+        var html = '';
+        for(var i = 1; i <= maxCount; i++){
+            var activeClass = (i === currentValue) ? ' active' : '';
+            html += '<div class="gf-popover-option' + activeClass + '" data-value="' + i + '">' + i + '</div>';
+        }
+        dropdown.innerHTML = html;
+        
+        // 更新卡片显示
+        if(card){
+            var textEl = card.querySelector('.gf-popover-card-text');
+            if(textEl) textEl.textContent = currentValue + ' 张';
+            card.setAttribute('data-value', currentValue);
+        }
+        
+        // 重新绑定选项点击事件
+        dropdown.querySelectorAll('.gf-popover-option').forEach(function(option){
+            option.addEventListener('click', function(e){
+                e.stopPropagation();
+                var value = this.getAttribute('data-value');
+                dropdown.querySelectorAll('.gf-popover-option').forEach(function(opt){ opt.classList.remove('active'); });
+                this.classList.add('active');
+                if(card){
+                    var textEl = card.querySelector('.gf-popover-card-text');
+                    if(textEl) textEl.textContent = value + ' 张';
+                    card.setAttribute('data-value', value);
+                    card.classList.add('has-value');
+                    card.classList.remove('open');
+                }
+                dropdown.classList.remove('active');
+            });
+        });
+    }
+    
+    /**
+     * 设置生成数量选中值
+     */
+    function setCountValue(value){
+        var dropdown = document.getElementById('countDropdown');
+        if(!dropdown) return;
+        var options = dropdown.querySelectorAll('.gf-popover-option');
+        var found = false;
+        options.forEach(function(opt){
+            opt.classList.remove('active');
+            if(parseInt(opt.getAttribute('data-value')) === value){
+                opt.classList.add('active');
+                found = true;
+            }
+        });
+        if(!found && options.length > 0){
+            options[0].classList.add('active');
+            value = parseInt(options[0].getAttribute('data-value')) || 1;
+        }
+        var wrap = dropdown.closest('.gf-popover-wrap');
+        var card = wrap ? wrap.querySelector('.gf-popover-card') : null;
+        if(card){
+            var textEl = card.querySelector('.gf-popover-card-text');
+            if(textEl) textEl.textContent = value + ' 张';
+            card.setAttribute('data-value', value);
+        }
     }
 
     // ====================================================
@@ -650,6 +747,8 @@
     // 暴露给外部
     window.Generation = {
         loadTemplateData: loadTemplateData,
+        updateCountDropdown: updateCountDropdown,
+        setCountValue: setCountValue,
         showToast: showToast
     };
 })();

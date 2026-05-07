@@ -428,25 +428,32 @@ class AiTravelPhotoSelfie extends BaseController
                 // dedupStatus == 4（全部失败）：不拦截，允许重新提交
             }
 
-            // ===== 第三步：未命中 → 将人像数据存入数据库并进行合成 =====
-            // 去掉base64头部
+            // ===== 第三步：未命中 → 返回 choose_template 引导用户选模板合成 =====
+            // 去掉base64头部并上传保存图片（仅存图，不建人像记录）
             $imageData = $image;
             if (strpos($imageData, 'base64,') !== false) {
                 $imageData = substr($imageData, strpos($imageData, 'base64,') + 7);
             }
 
-            $result = $this->selfieService->createSelfiePortraitAndSynthesize(
-                $imageData, $faceEmbedding, $aid, $bid, $mdid, $openid
-            );
+            $capturedImageUrl = $this->selfieService->uploadSelfieImage($imageData, $aid);
+
+            // 获取门店名称
+            $mendian = Db::name('mendian')->where('id', $mdid)->find();
+            $storeName = $mendian ? ($mendian['name'] ?: '门店') : '门店';
+
+            // 获取用户性别
+            $member = Db::name('member')->where('mpopenid', $openid)->where('aid', $aid)->find();
+            $userGender = $member ? (int)($member['sex'] ?? 3) : 3;
 
             return json([
                 'code' => 200,
-                'msg' => '照片已接收，正在为您生成旅拍照片',
+                'msg' => '未找到您在' . $storeName . '的旅拍照片',
                 'data' => [
                     'matched' => false,
-                    'portrait_id' => $result['portrait_id'],
-                    'estimated_seconds' => $result['estimated_seconds'],
-                    'template_count' => $result['template_count'],
+                    'action' => 'choose_template',
+                    'store_name' => $storeName,
+                    'user_gender' => $userGender,
+                    'captured_image_url' => $capturedImageUrl,
                 ],
             ]);
         } catch (\Throwable $e) {
@@ -523,6 +530,139 @@ class AiTravelPhotoSelfie extends BaseController
                 ],
             ]);
         } catch (\Exception $e) {
+            return json(['code' => 500, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 保存用户性别
+     * POST /api/ai_travel_photo/selfie/save_gender
+     */
+    public function save_gender(): Response
+    {
+        $openid = $this->getOpenid();
+        if (empty($openid)) {
+            return json(['code' => 302, 'msg' => '请先完成微信授权']);
+        }
+
+        $gender = $this->request->post('gender/d', 0);
+        if (!in_array($gender, [1, 2])) {
+            return json(['code' => 400, 'msg' => '性别参数无效，请选择男或女']);
+        }
+
+        $aid = Session::get('selfie_aid', 0);
+
+        try {
+            $member = Db::name('member')->where('mpopenid', $openid)->where('aid', $aid)->find();
+            if (!$member) {
+                return json(['code' => 404, 'msg' => '用户信息不存在']);
+            }
+
+            Db::name('member')->where('id', $member['id'])->update(['sex' => $gender]);
+
+            return json([
+                'code' => 200,
+                'msg' => '性别保存成功',
+            ]);
+        } catch (\Exception $e) {
+            return json(['code' => 500, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 获取推荐模板列表（基于性别筛选）
+     * GET /api/ai_travel_photo/selfie/recommend_templates
+     */
+    public function recommend_templates(): Response
+    {
+        $openid = $this->getOpenid();
+        if (empty($openid)) {
+            return json(['code' => 302, 'msg' => '请先完成微信授权']);
+        }
+
+        $bid = $this->request->get('bid/d', 0) ?: (int)Session::get('selfie_bid', 0);
+        $mdid = $this->request->get('mdid/d', 0) ?: (int)Session::get('selfie_mdid', 0);
+        $gender = $this->request->get('gender/d', 0);
+        $aid = Session::get('selfie_aid', 0);
+
+        if (!$bid || !$mdid) {
+            return json(['code' => 400, 'msg' => '缺少门店参数']);
+        }
+
+        // 未传gender则从member表读取
+        if (!$gender) {
+            $member = Db::name('member')->where('mpopenid', $openid)->where('aid', $aid)->find();
+            $gender = $member ? (int)($member['sex'] ?? 3) : 3;
+        }
+
+        try {
+            $result = $this->selfieService->getRecommendTemplates($bid, $mdid, $gender);
+
+            $genderLabel = '';
+            if ($gender == 1) $genderLabel = '男性';
+            elseif ($gender == 2) $genderLabel = '女性';
+
+            return json([
+                'code' => 200,
+                'msg' => '成功',
+                'data' => [
+                    'templates' => $result,
+                    'total' => count($result),
+                    'gender_label' => $genderLabel,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return json(['code' => 500, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 自拍端选模板合成
+     * POST /api/ai_travel_photo/selfie/generate_with_template
+     */
+    public function generate_with_template(): Response
+    {
+        $openid = $this->getOpenid();
+        if (empty($openid)) {
+            return json(['code' => 302, 'msg' => '请先完成微信授权']);
+        }
+
+        $templateId = $this->request->post('template_id/d', 0);
+        $bid = $this->request->post('bid/d', 0) ?: (int)Session::get('selfie_bid', 0);
+        $mdid = $this->request->post('mdid/d', 0) ?: (int)Session::get('selfie_mdid', 0);
+        $imageUrl = $this->request->post('image_url', '');
+        $aid = Session::get('selfie_aid', 0);
+
+        if (!$templateId) {
+            return json(['code' => 400, 'msg' => '请选择合成模板']);
+        }
+        if (!$bid || !$mdid || !$aid) {
+            return json(['code' => 400, 'msg' => '门店参数无效']);
+        }
+        if (empty($imageUrl)) {
+            return json(['code' => 400, 'msg' => '缺少自拍照片']);
+        }
+
+        try {
+            $result = $this->selfieService->generateWithTemplate(
+                $templateId, $imageUrl, $aid, $bid, $mdid, $openid
+            );
+
+            if (isset($result['dedup']) && $result['dedup']) {
+                return json([
+                    'code' => 200,
+                    'msg' => '您今天已提交过合成',
+                    'data' => $result,
+                ]);
+            }
+
+            return json([
+                'code' => 200,
+                'msg' => '合成任务已提交',
+                'data' => $result,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('自拍端选模板合成异常', ['error' => $e->getMessage(), 'openid' => $openid]);
             return json(['code' => 500, 'msg' => $e->getMessage()]);
         }
     }

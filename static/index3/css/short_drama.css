@@ -1,4 +1,4 @@
-/* short_drama.css — 短剧创作页面样式 v1.0 */
+/* short_drama.css — 短剧创作页面样式 v2.0 (AntV X6) */
 
 /* ========== 项目列表页 ========== */
 .sd-container {
@@ -595,121 +595,194 @@
     color: var(--text-primary);
 }
 
-/* 中央画布区 */
+/* 中央画布区 — AntV X6 容器 */
 .sd-canvas-area {
     flex: 1;
     position: relative;
     overflow: hidden;
-    background:
-        radial-gradient(circle, var(--border-light) 1px, transparent 1px);
-    background-size: 24px 24px;
 }
 
-.sd-canvas-inner {
-    position: absolute;
-    top: 0; left: 0;
+/* X6 自定义 HTML 节点样式 */
+.x6-node-wrap {
     width: 100%;
     height: 100%;
-    overflow: auto;
-}
-
-/* 画布节点 */
-.sd-canvas-node {
-    position: absolute;
-    min-width: 180px;
-    background: var(--bg-card);
-    border: 2px solid var(--border-color);
+    background: var(--bg-card, #fff);
+    border: 2px solid var(--border-color, #e5e7eb);
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,.06);
-    cursor: move;
+    overflow: hidden;
+    font-family: inherit;
     transition: box-shadow .2s, border-color .2s;
-    z-index: 10;
 }
 
-.sd-canvas-node:hover {
+.x6-node-wrap:hover {
     box-shadow: 0 4px 16px rgba(0,0,0,.1);
 }
 
-.sd-canvas-node.selected {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 0 3px var(--accent-color-light, rgba(99,102,241,.2));
-}
-
-.sd-canvas-node.running {
+.x6-node-wrap.status-running {
     border-color: #3b82f6;
     animation: sdNodePulse 1.5s infinite;
 }
+
+.x6-node-wrap.status-completed { border-color: #22c55e; }
+.x6-node-wrap.status-failed    { border-color: #ef4444; }
 
 @keyframes sdNodePulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,.3); }
     50% { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
 }
 
-.sd-canvas-node.completed { border-color: #22c55e; }
-.sd-canvas-node.failed { border-color: #ef4444; }
-
-.sd-node-header {
+.x6-node-header {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 10px 14px;
-    border-bottom: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-light, #f0f0f0);
 }
 
-.sd-node-header .node-icon {
-    width: 24px;
-    height: 24px;
+.x6-node-header .node-icon {
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
+    border-radius: 7px;
+    flex-shrink: 0;
+    font-size: 15px;
 }
 
-.sd-node-header .node-icon i { width: 14px; height: 14px; }
+.x6-node-header .node-icon.script    { background: #dbeafe; color: #2563eb; }
+.x6-node-header .node-icon.character  { background: #fce7f3; color: #db2777; }
+.x6-node-header .node-icon.storyboard { background: #d1fae5; color: #059669; }
+.x6-node-header .node-icon.video      { background: #ede9fe; color: #7c3aed; }
+.x6-node-header .node-icon.voice      { background: #ffedd5; color: #ea580c; }
+.x6-node-header .node-icon.compose    { background: #fef3c7; color: #d97706; }
 
-.sd-node-header .node-label {
+.x6-node-header .node-label {
     font-size: 13px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-primary, #1f2937);
     flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.sd-node-header .node-status-dot {
+.x6-node-header .node-status-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--text-tertiary);
+    background: #d1d5db;
+    flex-shrink: 0;
 }
 
-.sd-node-header .node-status-dot.running { background: #3b82f6; }
-.sd-node-header .node-status-dot.completed { background: #22c55e; }
-.sd-node-header .node-status-dot.failed { background: #ef4444; }
+.x6-node-header .node-status-dot.running   { background: #3b82f6; }
+.x6-node-header .node-status-dot.completed { background: #22c55e; }
+.x6-node-header .node-status-dot.failed    { background: #ef4444; }
 
-.sd-node-body {
-    padding: 10px 14px;
+.x6-node-body {
+    padding: 8px 14px 10px;
     font-size: 12px;
-    color: var(--text-secondary);
+    color: var(--text-secondary, #6b7280);
+    line-height: 1.5;
 }
 
-.sd-node-ports {
-    display: flex;
-    justify-content: space-between;
-    padding: 6px 14px 10px;
+.x6-node-body .node-model-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    background: var(--accent-color-light, rgba(99,102,241,.08));
+    color: var(--accent-color, #6366f1);
+    margin-top: 4px;
 }
 
-.sd-port {
-    width: 12px;
-    height: 12px;
+/* X6 选中态（通过 x6 classname 机制） */
+.x6-cell-selected .x6-node-wrap {
+    border-color: var(--accent-color, #6366f1);
+    box-shadow: 0 0 0 3px rgba(99,102,241,.18);
+}
+
+/* X6 端口样式 */
+.x6-port-body {
+    width: 10px;
+    height: 10px;
+    background: var(--bg-card, #fff);
+    border: 2px solid var(--accent-color, #6366f1);
     border-radius: 50%;
-    border: 2px solid var(--accent-color);
+}
+
+.x6-port-body:hover {
+    background: var(--accent-color, #6366f1);
+}
+
+/* X6 Dnd 拖拽幽灵 */
+.x6-widget-dnd-wrap {
+    opacity: .65;
+}
+
+/* X6 Snapline 样式 */
+.x6-widget-snapline-horizontal,
+.x6-widget-snapline-vertical {
+    border-color: var(--accent-color, #6366f1) !important;
+}
+
+/* 缩放控件 */
+.sd-zoom-controls {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    display: flex;
+    gap: 4px;
+    z-index: 20;
+}
+
+.sd-zoom-controls button {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
     background: var(--bg-card);
-    cursor: crosshair;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
     transition: all .15s;
 }
 
-.sd-port:hover {
-    background: var(--accent-color);
-    transform: scale(1.3);
+.sd-zoom-controls button:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.sd-zoom-label {
+    min-width: 48px;
+    height: 32px;
+    line-height: 32px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    user-select: none;
+}
+
+/* minimap 小地图 */
+.sd-minimap {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    width: 180px;
+    height: 120px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-card);
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    z-index: 20;
 }
 
 /* 右侧配置面板 */
@@ -779,27 +852,7 @@
     width: 0%;
 }
 
-/* SVG连线 */
-.sd-canvas-svg {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 5;
-}
-
-.sd-canvas-svg path {
-    fill: none;
-    stroke: var(--border-color);
-    stroke-width: 2;
-    pointer-events: stroke;
-}
-
-.sd-canvas-svg path:hover {
-    stroke: var(--accent-color);
-    stroke-width: 3;
-}
+/* X6 边连线全局样式调整（通过 Graph 配置生效） */
 
 /* ========== 预设模板列表（一键生成模式） ========== */
 .sd-template-grid {

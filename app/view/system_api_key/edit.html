@@ -83,6 +83,27 @@
                     <div id="authFieldsContent">
                       <!-- 动态生成的认证字段 -->
                     </div>
+                    <!-- 自定义接口地址 -->
+                    <div class="layui-form-item" style="margin-bottom:5px;margin-top:15px;padding-top:15px;border-top:1px dashed #e6e6e6">
+                      <label class="layui-form-label" style="width:100px">自定义接口地址</label>
+                      <div class="layui-input-inline" style="width:350px">
+                        <input type="text" name="info[custom_endpoint]" id="custom_endpoint" value="{$info.custom_endpoint|default=''}" class="layui-input" placeholder="例如 https://your-proxy.com/v1/images/generations">
+                      </div>
+                    </div>
+                    <div style="padding-left:100px;margin-top:-5px">
+                      <div class="field-tip">可选，填写中转/代理服务地址后将覆盖模型默认接口。留空则使用官方默认地址</div>
+                    </div>
+                    <!-- 认证方式选择器 -->
+                    <div class="layui-form-item" style="margin-bottom:5px;margin-top:10px">
+                      <label class="layui-form-label" style="width:100px">认证方式</label>
+                      <div class="layui-input-inline" style="width:350px">
+                        <input type="radio" name="info[auth_mode]" value="bearer" title="Bearer Token" {if $info.auth_mode != 'key_only'}checked{/if}>
+                        <input type="radio" name="info[auth_mode]" value="key_only" title="纯Key（无Bearer前缀）" {if $info.auth_mode == 'key_only'}checked{/if}>
+                      </div>
+                    </div>
+                    <div style="padding-left:100px;margin-top:-5px">
+                      <div class="field-tip">官方API选 Bearer Token；速创API等中转平台选 纯Key</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -167,7 +188,8 @@
     id: "{$info.id|default=0}",
     provider_id: "{$info.provider_id|default=0}",
     api_key: "{$info.api_key_decrypted|default=''}",
-    api_secret: "{$info.api_secret_decrypted|default=''}"
+    api_secret: "{$info.api_secret_decrypted|default=''}",
+    custom_endpoint: "{$info.custom_endpoint|default=''}"
   };
   
   // 供应商选择事件

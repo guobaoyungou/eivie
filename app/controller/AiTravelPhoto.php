@@ -6149,7 +6149,9 @@ class AiTravelPhoto extends Common
         try {
             $templates = Db::name('ai_travel_photo_synthesis_template')
                 ->where('aid', $this->aid)
-                ->where('bid', $targetBid)
+                ->where(function($q) use ($targetBid) {
+                    $q->whereOr('bid', 0)->whereOr('bid', $targetBid);
+                })
                 ->where('status', 1)
                 ->field('id, name, model_id, model_name, images, cover_image, prompt, status, sort')
                 ->order('sort ASC, id DESC')

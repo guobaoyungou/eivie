@@ -1434,17 +1434,17 @@
                 '<div class="column-left"><form class="layui-form" lay-filter="screenSettings">' +
                 '<div class="form-section"><div class="section-title">显示方式</div>' +
                 '<div class="layui-form-item"><div class="layui-input-block">' +
-                '<input type="radio" name="display_mode" value="nickname" title="昵称" lay-filter="display">' +
-                '<input type="radio" name="display_mode" value="name" title="姓名" style="margin-left:15px;">' +
-                '<input type="radio" name="display_mode" value="name_phone" title="姓名+手机号" style="margin-left:15px;">' +
+'<input type="radio" name="display_mode" value="nickname" title="昵称" lay-filter="display">' +
+'<input type="radio" name="display_mode" value="name" title="姓名" lay-filter="display" style="margin-left:15px;">' +
+'<input type="radio" name="display_mode" value="name_phone" title="姓名+手机号" lay-filter="display" style="margin-left:15px;">' +
                 '</div></div>' +
                 '</div>' +
-                '<div class="form-section"><div class="section-title">选择模板</div>' +
+                '<div class="form-section"><div class="section-title">选择抽奖模式</div>' +
                 '<div class="layui-form-item"><div class="layui-input-block">' +
-                '<input type="radio" name="template" value="gold" title="金色" lay-filter="template" style="color:#D4AF37;">' +
-                '<input type="radio" name="template" value="red" title="红色" style="margin-left:15px;color:#E53935;">' +
-                '<input type="radio" name="template" value="blue" title="蓝色" style="margin-left:15px;color:#1E88E5;">' +
-                '<input type="radio" name="template" value="gray" title="灰色" style="margin-left:15px;color:#757575;">' +
+'<input type="radio" name="template" value="normal" title="经典滚动" lay-filter="template" style="color:#6366f1;">' +
+'<input type="radio" name="template" value="3d" title="3D翻牌" lay-filter="template" style="margin-left:15px;color:#f093fb;">' +
+'<input type="radio" name="template" value="egg" title="砸金蛋" lay-filter="template" style="margin-left:15px;color:#f6d365;">' +
+'<input type="radio" name="template" value="box" title="超级抽奖箱" lay-filter="template" style="margin-left:15px;color:#a18cd1;">' +
                 '</div></div>' +
                 '</div>' +
                 '<div class="form-section"><div class="section-title">背景设置</div>' +
@@ -1458,7 +1458,7 @@
                 '</div>' +
                 '<div class="form-section"><div class="section-title">基本设置</div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">功能开关</label><div class="layui-input-block"><input type="checkbox" name="screen_enabled" lay-skin="switch" lay-text="开启|关闭"></div></div>' +
-                '<div class="layui-form-item"><label class="layui-form-label">抽奖模式</label><div class="layui-input-block"><select name="screen_mode"><option value="normal">普通模式</option><option value="3d">3D模式</option><option value="egg">砸金蛋</option><option value="box">抽奖箱</option></select></div></div>' +
+                '<div class="layui-form-item" style="display:none"><input type="hidden" name="screen_mode" value="normal"></div>' +
                 '<div class="layui-form-item"><label class="layui-form-label">动画时长</label><div class="layui-input-inline"><input type="number" name="screen_animation_duration" class="layui-input" placeholder="3000" min="1000" max="10000"></div><div class="layui-form-mid">毫秒</div></div>' +
                 '</div>' +
                 '<div class="layui-form-item" style="margin-top:20px;"><button type="button" class="btn btn-primary" id="btn-save-screen-settings" onclick="LotteryPage._saveScreenSettings()"><i class="fas fa-save"></i> 保存设置</button></div>' +
@@ -1533,11 +1533,13 @@
             
             // 显示方式变化时更新预览
             layui.form.on('radio(display)', function(data) {
+                console.log('显示方式变化:', data.value);
                 self._updatePreview();
             });
             
             // 模板变化时更新预览
             layui.form.on('radio(template)', function(data) {
+                console.log('模板变化:', data.value);
                 self._updatePreview();
             });
             
@@ -1553,9 +1555,9 @@
                     // 设置表单值
                     layui.form.val('screenSettings', {
                         display_mode: data.display_mode || 'nickname',
-                        template: data.template || 'gold',
+                        template: data.template || 'normal',
                         screen_enabled: data.screen_enabled === 1,
-                        screen_mode: data.screen_mode || 'normal',
+                        screen_mode: data.template || 'normal', // 同步为template值
                         screen_animation_duration: data.screen_animation_duration || 3000
                     });
                     // 更新预览
@@ -1568,8 +1570,9 @@
 
         _updatePreview: function() {
             // 获取当前选中的模板和显示方式
-            var template = document.querySelector('[name="template"]:checked')?.value || 'gold';
+            var template = document.querySelector('[name="template"]:checked')?.value || 'normal';
             var displayMode = document.querySelector('[name="display_mode"]:checked')?.value || 'nickname';
+            console.log('更新预览:', template, displayMode);
             
             // 显示方式文本映射
             var displayTexts = {
@@ -1581,67 +1584,66 @@
             
             // 模板配置
             var templateConfigs = {
-                gold: {
-                    background: 'radial-gradient(circle at 50% 50%, #FFD700 0%, #D4AF37 30%, #B8860B 70%, #8B6914 100%)',
-                    titleColor: '#FFD700',
-                    centerBorderColor: '#D4AF37',
-                    centerBg: 'rgba(255, 215, 0, 0.1)',
-                    buttonBg: '#D4AF37',
-                    buttonShadow: 'rgba(212, 175, 55, 0.4)',
-                    buttonHoverBg: '#FFD700',
-                    effect: 'radial-gradient(circle at 50% 50%, rgba(255, 215, 0, 0.3) 0%, transparent 70%)',
-                    lightColor: '#FFD700',
-                    hasLightEffect: false,
-                    style: '奢华金色科技抽奖风格'
-                },
-                red: {
-                    background: 'radial-gradient(circle at 50% 50%, #8B0000 0%, #B22222 30%, #DC143C 70%, #FF0000 100%)',
-                    titleColor: '#FF6B6B',
-                    centerBorderColor: '#E53935',
-                    centerBg: 'rgba(229, 57, 53, 0.1)',
-                    buttonBg: '#E53935',
-                    buttonShadow: 'rgba(229, 57, 53, 0.4)',
-                    buttonHoverBg: '#FF5252',
-                    effect: 'radial-gradient(circle at 50% 50%, rgba(255, 107, 107, 0.3) 0%, transparent 70%)',
-                    lightColor: '#FF6B6B',
+                normal: {
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    titleColor: '#ffffff',
+                    centerBorderColor: '#8b5cf6',
+                    centerBg: 'rgba(99, 102, 241, 0.15)',
+                    buttonBg: '#6366f1',
+                    buttonShadow: 'rgba(99, 102, 241, 0.4)',
+                    buttonHoverBg: '#818cf8',
+                    effect: 'radial-gradient(circle at 50% 50%, rgba(129, 140, 248, 0.3) 0%, transparent 70%)',
+                    lightColor: '#8b5cf6',
                     hasLightEffect: true,
-                    style: '喜庆红色抽奖风格'
+                    style: '经典滚动抽奖风格'
                 },
-                blue: {
-                    background: 'radial-gradient(circle at 50% 50%, #0D47A1 0%, #1565C0 30%, #1976D2 70%, #1E88E5 100%)',
-                    titleColor: '#64B5F6',
-                    centerBorderColor: '#1E88E5',
-                    centerBg: 'rgba(30, 136, 229, 0.1)',
-                    buttonBg: '#1E88E5',
-                    buttonShadow: 'rgba(30, 136, 229, 0.4)',
-                    buttonHoverBg: '#42A5F5',
-                    effect: 'radial-gradient(circle at 50% 50%, rgba(100, 181, 246, 0.3) 0%, transparent 70%)',
-                    lightColor: '#64B5F6',
-                    hasLightEffect: true,
-                    style: '科技蓝色动感抽奖风格'
-                },
-                gray: {
-                    background: 'radial-gradient(circle at 50% 50%, #000000 0%, #212121 30%, #424242 70%, #616161 100%)',
-                    titleColor: '#E0E0E0',
-                    centerBorderColor: '#BDBDBD',
-                    centerBg: 'rgba(189, 189, 189, 0.1)',
-                    buttonBg: '#757575',
-                    buttonShadow: 'rgba(117, 117, 117, 0.4)',
-                    buttonHoverBg: '#9E9E9E',
-                    effect: 'radial-gradient(circle at 50% 50%, rgba(187, 134, 252, 0.3) 0%, transparent 70%)',
-                    lightColor: '#BB86FC',
+                '3d': {
+                    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                    titleColor: '#ffffff',
+                    centerBorderColor: '#f97316',
+                    centerBg: 'rgba(249, 115, 22, 0.15)',
+                    buttonBg: '#f97316',
+                    buttonShadow: 'rgba(249, 115, 22, 0.4)',
+                    buttonHoverBg: '#fb923c',
+                    effect: 'radial-gradient(circle at 50% 50%, rgba(251, 146, 60, 0.3) 0%, transparent 70%)',
+                    lightColor: '#f97316',
                     hasLightEffect: false,
-                    style: '简约科技风抽奖风格'
+                    style: '3D翻牌抽奖风格'
+                },
+                egg: {
+                    background: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
+                    titleColor: '#7c2d12',
+                    centerBorderColor: '#f59e0b',
+                    centerBg: 'rgba(245, 158, 11, 0.15)',
+                    buttonBg: '#f59e0b',
+                    buttonShadow: 'rgba(245, 158, 11, 0.4)',
+                    buttonHoverBg: '#fbbf24',
+                    effect: 'radial-gradient(circle at 50% 50%, rgba(252, 211, 77, 0.3) 0%, transparent 70%)',
+                    lightColor: '#fbbf24',
+                    hasLightEffect: false,
+                    style: '砸金蛋抽奖风格'
+                },
+                box: {
+                    background: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
+                    titleColor: '#ffffff',
+                    centerBorderColor: '#8b5cf6',
+                    centerBg: 'rgba(139, 92, 246, 0.15)',
+                    buttonBg: '#8b5cf6',
+                    buttonShadow: 'rgba(139, 92, 246, 0.4)',
+                    buttonHoverBg: '#a78bfa',
+                    effect: 'radial-gradient(circle at 50% 50%, rgba(167, 139, 250, 0.3) 0%, transparent 70%)',
+                    lightColor: '#a78bfa',
+                    hasLightEffect: false,
+                    style: '超级抽奖箱风格'
                 }
             };
             
-            var config = templateConfigs[template] || templateConfigs.gold;
+            var config = templateConfigs[template] || templateConfigs.normal;
             
             // 更新背景
             var previewBg = document.getElementById('preview-background');
             if (previewBg) {
-                previewBg.style.background = config.background;
-                // 添加动态效果
+                // 设置背景图像（主渐变 + 特效渐变）
                 previewBg.style.backgroundImage = config.background + ', ' + config.effect;
                 previewBg.style.animation = 'pulse 3s infinite alternate';
             }
@@ -1701,7 +1703,7 @@
             this._removeParticleEffect();
             this._removeLightEffect();
             
-            if (template === 'gray') {
+            if (template === 'box') {
                 this._addParticleEffect();
             } else if (config.hasLightEffect) {
                 this._addLightEffect(config.lightColor);
@@ -1807,9 +1809,9 @@
             
             var formData = {
                 display_mode: document.querySelector('[name="display_mode"]:checked')?.value || 'nickname',
-                template: document.querySelector('[name="template"]:checked')?.value || 'gold',
+                template: document.querySelector('[name="template"]:checked')?.value || 'normal',
                 screen_enabled: document.querySelector('[name="screen_enabled"]').checked ? 1 : 0,
-                screen_mode: document.querySelector('[name="screen_mode"]').value,
+                screen_mode: document.querySelector('[name="template"]:checked')?.value || 'normal',
                 screen_animation_duration: parseInt(document.querySelector('[name="screen_animation_duration"]').value) || 3000
             };
             

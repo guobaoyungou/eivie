@@ -7,5 +7,6 @@ return [
     'commands' => [
         'plantask'=>'app\command\PlanTask',//奖金发放计划任务
         'clean_stuck_generations'=>'app\command\CleanStuckGenerations',//清理卡住的生成记录
+        'aivideo:cron'=>'app\command\AivideoCron',//AI旅拍定时任务
     ],
 ];

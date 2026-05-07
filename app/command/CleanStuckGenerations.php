@@ -46,13 +46,15 @@ class CleanStuckGenerations extends Command
 
         $fixedRecords = $this->cleanStuckGenerationRecords($output);
         $fixedPhotos = $this->cleanStuckPhotoGenerations($output);
+        $cleanedTemp = $this->cleanOrphanedTempFiles($output);
 
         $total = $fixedRecords + $fixedPhotos;
         if ($total > 0) {
-            $output->info("共修复 {$total} 条卡住的记录（generation_record: {$fixedRecords}, ai_travel_photo_generation: {$fixedPhotos}）");
-            Log::info("CleanStuckGenerations: 共修复 {$total} 条卡住的记录", [
+            $output->info("共修复 {$total} 条卡住的记录（generation_record: {$fixedRecords}, ai_travel_photo_generation: {$fixedPhotos}），清理临时文件 {$cleanedTemp} 个）");
+            Log::info("CleanStuckGenerations: 共修复 {$total} 条卡住的记录，清理临时文件 {$cleanedTemp} 个", [
                 'generation_record' => $fixedRecords,
                 'ai_travel_photo_generation' => $fixedPhotos,
+                'cleaned_temp_files' => $cleanedTemp,
             ]);
         } else {
             $output->writeln('未发现需要修复的卡住记录');
@@ -206,6 +208,51 @@ class CleanStuckGenerations extends Command
         }
 
         return $fixed;
+    }
+
+    /**
+     * 清理 runtime/temp 目录下超过24小时的孤儿临时文件
+     * 这些文件通常由 GenerationService 等创建，进程崩溃时未被清理
+     *
+     * @param Output $output
+     * @return int 清理的文件数
+     */
+    private function cleanOrphanedTempFiles(Output $output): int
+    {
+        $cleaned = 0;
+        $tempDir = runtime_path() . 'temp/';
+
+        if (!is_dir($tempDir)) {
+            return 0;
+        }
+
+        $cutoffTime = time() - 86400; // 24小时
+
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($tempDir, \RecursiveDirectoryIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::LEAVES_ONLY
+            );
+
+            foreach ($iterator as $file) {
+                if ($file->isFile() && $file->getMTime() < $cutoffTime) {
+                    $filePath = $file->getPathname();
+                    if (@unlink($filePath)) {
+                        $cleaned++;
+                        $output->writeln("  [temp] 清理孤儿文件: {$filePath}");
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            $output->error("cleanOrphanedTempFiles 异常: {$e->getMessage()}");
+            Log::error('CleanStuckGenerations: cleanOrphanedTempFiles 异常: ' . $e->getMessage());
+        }
+
+        if ($cleaned > 0) {
+            Log::info('CleanStuckGenerations: 清理了 ' . $cleaned . ' 个孤儿临时文件');
+        }
+
+        return $cleaned;
     }
 
     /**

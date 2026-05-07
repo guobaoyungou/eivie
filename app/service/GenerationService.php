@@ -175,8 +175,9 @@ class GenerationService
         // 在Web(PHP-FPM)上下文中会被 max_execution_time 杀死进程，
         // 导致 markFailed() 永远不执行、记录永远卡在 status=1
         $needQueue = false;
+        $maxImages = 1;
+        
         if ($this->isSeedreamImageModel($model['model_code'])) {
-            $maxImages = 1;
             $seqOpts = $inputParams['sequential_image_generation_options'] ?? null;
             if (is_string($seqOpts)) {
                 $seqOpts = json_decode($seqOpts, true);
@@ -189,12 +190,24 @@ class GenerationService
                 $needQueue = true;
             }
         }
+        
+        // 速创API多图生成（max_images > 1）也需要队列支持以确保轮询稳定
+        if ($this->isSucaiModel($model['provider_code'] ?? '')) {
+            $maxImages = intval($inputParams['max_images'] ?? $inputParams['n'] ?? 1);
+            if ($maxImages > 1) {
+                $needQueue = true;
+                Log::info('速创API多图任务推入队列', [
+                    'record_id' => $record->id,
+                    'max_images' => $maxImages,
+                ]);
+            }
+        }
 
         if ($needQueue) {
             // 异步队列执行：CLI worker 无 max_execution_time 限制
             // 使用专属队列 seedream_generation，worker --timeout 1200 以支持多图长耗时
             Queue::push('app\job\GenerationJob', ['record_id' => $record->id], 'seedream_generation');
-            Log::info('SeeDream多图任务已推送队列异步执行', [
+            Log::info('SeeDream/速创多图任务已推送队列异步执行', [
                 'record_id' => $record->id,
                 'model_code' => $model['model_code'],
                 'max_images' => $maxImages ?? 1,
@@ -328,6 +341,15 @@ class GenerationService
     protected function callModelApi($model, $apiKeyConfig, $inputParams)
     {
         $endpoint = $model['endpoint_url'];
+        
+        // 自定义接口地址优先：如果 API Key 配置了 custom_endpoint，则覆盖模型默认的 endpoint_url
+        // 适用于 OpenAI 等供应商使用中转/代理服务的场景
+        $customEndpoint = $apiKeyConfig['custom_endpoint'] ?? '';
+        if (!empty($customEndpoint)) {
+            \think\facade\Log::info('callModelApi: 使用自定义接口地址 custom_endpoint=' . $customEndpoint . ' 替代原始 endpoint=' . $endpoint);
+            $endpoint = $customEndpoint;
+        }
+        
         $apiKey = $apiKeyConfig['api_key_decrypted'];
         $apiSecret = $apiKeyConfig['api_secret_decrypted'] ?? '';
         
@@ -371,8 +393,32 @@ class GenerationService
             return $this->callVoxCPMApi($model, $apiKeyConfig, $inputParams);
         }
         
+        // OpenAI GPT-Image 图片编辑模式（有参考图时使用 /v1/images/edits multipart 接口）
+        if ($this->isGptImageModel($model['model_code']) && $this->hasGptImageInput($inputParams)) {
+            return $this->callGptImageEditApi($model, $apiKeyConfig, $inputParams);
+        }
+
+        // 速创API中转平台：使用专门的JSON请求格式
+        // 速创API只接受 {"prompt": "...", "urls": [...], "size": "auto"} 格式
+        $authMode = $apiKeyConfig['auth_mode'] ?? 'bearer';
+        if ($authMode === 'key_only' && !empty($customEndpoint) && strpos($customEndpoint, 'wuyinkeji') !== false) {
+            return $this->callSucaiApi($model, $apiKeyConfig, $inputParams);
+        }
+
         // 构建请求头
         $headers = $this->buildAuthHeaders($providerCode, $apiKey, $apiSecret, $model['auth_config'] ?? []);
+        
+        // 自定义接口地址场景下，根据 auth_mode 覆盖认证头格式
+        // key_only 模式: Authorization: <key> (无Bearer前缀，适用于速创API等中转平台)
+        $authMode = $apiKeyConfig['auth_mode'] ?? 'bearer';
+        if ($authMode === 'key_only' && !empty($customEndpoint)) {
+            foreach ($headers as $i => $h) {
+                if (stripos($h, 'Authorization:') === 0) {
+                    $headers[$i] = 'Authorization: ' . $apiKey;
+                    break;
+                }
+            }
+        }
         
         // 构建请求体（含类型转换）
         $requestBody = $this->buildRequestBody($model, $inputParams);
@@ -614,6 +660,11 @@ class GenerationService
         // 检查是否是豆包SeeDream图像生成模型（需要严格参数白名单过滤）
         if ($this->isSeedreamImageModel($modelCode)) {
             return $this->buildSeedreamRequestBody($modelCode, $inputParams);
+        }
+        
+        // 检查是否是OpenAI GPT-Image图像生成模型（需要严格参数白名单过滤）
+        if ($this->isGptImageModel($modelCode)) {
+            return $this->buildGptImageRequestBody($modelCode, $inputParams);
         }
         
         $body = [
@@ -901,6 +952,695 @@ class GenerationService
         return $body;
     }
     
+    /**
+     * 检查是否为OpenAI GPT-Image图像生成模型
+     * 
+     * @param string $modelCode 模型代码
+     * @return bool
+     */
+    protected function isGptImageModel($modelCode)
+    {
+        return strpos($modelCode, 'gpt-image') === 0;
+    }
+    
+    /**
+     * 检查GPT-Image输入参数中是否包含参考图（决定使用generations还是edits接口）
+     * 
+     * @param array $inputParams 输入参数
+     * @return bool
+     */
+    protected function hasGptImageInput($inputParams)
+    {
+        $imageValue = $inputParams['image'] ?? $inputParams['reference_image'] ?? null;
+        if (!empty($imageValue)) {
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * 为OpenAI GPT-Image模型构建请求体（严格参数白名单过滤）
+     * 
+     * GPT-Image-1 API（文生图）支持的参数：
+     *   model, prompt, n, size, quality, output_format, background, moderation
+     * 
+     * 尺寸选项：1024x1024、1536x1024(横版)、1024x1536(竖版)、auto
+     * 质量选项：auto、low、medium、high
+     * 输出格式：png、jpeg、webp
+     * 背景模式：auto、transparent(仅png/webp)、opaque
+     * 
+     * 注意：图片编辑模式使用 /v1/images/edits 接口（multipart/form-data），
+     * 由 callGptImageEditApi 单独处理，本方法仅构建文生图的JSON请求体。
+     * 
+     * @param string $modelCode 模型代码
+     * @param array $inputParams 用户输入参数
+     * @return array 符合GPT-Image API格式的请求体
+     */
+    protected function buildGptImageRequestBody($modelCode, $inputParams)
+    {
+        $body = [
+            'model' => $modelCode,
+        ];
+        
+        // prompt（必填）
+        $prompt = $inputParams['prompt'] ?? $inputParams['text'] ?? '';
+        if (!empty($prompt)) {
+            $body['prompt'] = $prompt;
+        }
+        
+        // n 生成数量 (1-10)
+        if (isset($inputParams['n']) && $inputParams['n'] !== '' && $inputParams['n'] !== null) {
+            $body['n'] = max(1, min(10, intval($inputParams['n'])));
+        }
+        
+        // size 尺寸
+        $validSizes = ['1024x1024', '1536x1024', '1024x1536', 'auto'];
+        if (!empty($inputParams['size'])) {
+            $size = $inputParams['size'];
+            // 尝试将常见格式转换为 GPT-Image 支持的格式
+            if (!in_array($size, $validSizes)) {
+                // 尝试将 WxH 格式匹配到最接近的支持尺寸
+                if (preg_match('/^(\d+)[x*](\d+)$/i', $size, $m)) {
+                    $w = (int)$m[1];
+                    $h = (int)$m[2];
+                    $ratio = $w / max($h, 1);
+                    if ($ratio > 1.2) {
+                        $size = '1536x1024'; // 横版
+                    } elseif ($ratio < 0.8) {
+                        $size = '1024x1536'; // 竖版
+                    } else {
+                        $size = '1024x1024'; // 正方形
+                    }
+                } else {
+                    $size = 'auto';
+                }
+            }
+            $body['size'] = $size;
+        }
+        
+        // quality 质量
+        $validQualities = ['auto', 'low', 'medium', 'high'];
+        if (!empty($inputParams['quality']) && in_array($inputParams['quality'], $validQualities)) {
+            $body['quality'] = $inputParams['quality'];
+        }
+        
+        // output_format 输出格式
+        $validFormats = ['png', 'jpeg', 'webp'];
+        if (!empty($inputParams['output_format']) && in_array($inputParams['output_format'], $validFormats)) {
+            $body['output_format'] = $inputParams['output_format'];
+        }
+        
+        // background 背景模式
+        $validBgs = ['auto', 'transparent', 'opaque'];
+        if (!empty($inputParams['background']) && in_array($inputParams['background'], $validBgs)) {
+            // transparent 仅在 png/webp 时有效
+            if ($inputParams['background'] === 'transparent') {
+                $format = $body['output_format'] ?? 'png';
+                if (!in_array($format, ['png', 'webp'])) {
+                    $body['background'] = 'opaque';
+                } else {
+                    $body['background'] = 'transparent';
+                }
+            } else {
+                $body['background'] = $inputParams['background'];
+            }
+        }
+        
+        // moderation 审核强度
+        if (!empty($inputParams['moderation']) && in_array($inputParams['moderation'], ['auto', 'low'])) {
+            $body['moderation'] = $inputParams['moderation'];
+        }
+        
+        \think\facade\Log::info('buildGptImageRequestBody: 构建GPT-Image请求体', [
+            'model' => $modelCode,
+            'body_keys' => array_keys($body),
+            'filtered_params' => array_keys(array_diff_key($inputParams, $body))
+        ]);
+        
+        return $body;
+    }
+    
+    /**
+     * 调用OpenAI GPT-Image图片编辑API（/v1/images/edits）
+     * 
+     * 当用户传入了参考图时，需要使用 /v1/images/edits 接口，
+     * 该接口使用 multipart/form-data 格式，不能使用 JSON body。
+     * 需要将图片URL下载为临时文件后以文件上传方式发送。
+     * 
+     * @param array $model 模型信息
+     * @param array $apiKeyConfig API Key配置
+     * @param array $inputParams 输入参数
+     * @return array 响应结果
+     */
+    protected function callGptImageEditApi($model, $apiKeyConfig, $inputParams)
+    {
+        $apiKey = $apiKeyConfig['api_key_decrypted'];
+        if (empty($apiKey)) {
+            return [
+                'status' => 0,
+                'error_code' => 'API_KEY_MISSING',
+                'msg' => 'OpenAI API Key未配置'
+            ];
+        }
+        
+        $editEndpoint = 'https://api.openai.com/v1/images/edits';
+        // 自定义接口地址优先：中转/代理场景下直接使用自定义地址（不追加路径）
+        // 中转平台通常用同一个地址处理所有GPT-Image操作（文生图和编辑）
+        $customEndpoint = $apiKeyConfig['custom_endpoint'] ?? '';
+        $useRelayMode = false;
+        if (!empty($customEndpoint)) {
+            $editEndpoint = rtrim($customEndpoint, '/');
+            $useRelayMode = true;
+            \think\facade\Log::info('GPT-Image编辑: 使用自定义接口地址(中转模式) ' . $editEndpoint);
+        }
+        $modelCode = $model['model_code'];
+        
+        // 收集参考图 URL
+        $imageUrls = [];
+        $imageValue = $inputParams['image'] ?? $inputParams['reference_image'] ?? null;
+        if (!empty($imageValue)) {
+            if (is_array($imageValue)) {
+                $imageUrls = $imageValue;
+            } elseif (is_string($imageValue) && strpos($imageValue, ',') !== false) {
+                $imageUrls = array_filter(array_map('trim', explode(',', $imageValue)));
+            } elseif (is_string($imageValue)) {
+                $imageUrls = [$imageValue];
+            }
+        }
+        
+        // ====== 中转平台模式：JSON请求 + URLs直传（不下载文件）======
+        if ($useRelayMode) {
+            $authMode = $apiKeyConfig['auth_mode'] ?? 'bearer';
+            return $this->callGptImageEditViaRelay($editEndpoint, $apiKey, $modelCode, $imageUrls, $inputParams, $model, $authMode);
+        }
+        
+        // ====== 标准OpenAI模式：multipart/form-data + 文件上传 ======
+        // 下载图片到临时文件
+        $tempFiles = [];
+        $tempDir = runtime_path() . 'temp/gpt_image_edit/';
+        if (!is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+        
+        try {
+            foreach ($imageUrls as $idx => $url) {
+                if (empty($url)) continue;
+                $ext = pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'png';
+                $tempPath = $tempDir . 'edit_' . date('YmdHis') . '_' . $idx . '_' . substr(md5(uniqid((string)mt_rand(), true)), 0, 6) . '.' . $ext;
+                $imageData = @file_get_contents($url);
+                if ($imageData === false) {
+                    \think\facade\Log::warning('GPT-Image编辑: 下载参考图失败 url=' . $url);
+                    continue;
+                }
+                file_put_contents($tempPath, $imageData);
+                $tempFiles[] = $tempPath;
+            }
+            
+            if (empty($tempFiles)) {
+                return [
+                    'status' => 0,
+                    'error_code' => 'IMAGE_DOWNLOAD_FAILED',
+                    'msg' => '参考图下载失败，无法进行图片编辑'
+                ];
+            }
+            
+            // 构建 multipart 请求
+            $multipart = [];
+            
+            // model
+            $multipart[] = ['name' => 'model', 'contents' => $modelCode];
+            
+            // prompt
+            $prompt = $inputParams['prompt'] ?? $inputParams['text'] ?? '';
+            if (!empty($prompt)) {
+                $multipart[] = ['name' => 'prompt', 'contents' => $prompt];
+            }
+            
+            // image[] 文件
+            foreach ($tempFiles as $filePath) {
+                $multipart[] = [
+                    'name' => 'image[]',
+                    'contents' => fopen($filePath, 'r'),
+                    'filename' => basename($filePath)
+                ];
+            }
+            
+            // n
+            if (isset($inputParams['n']) && $inputParams['n'] !== '' && $inputParams['n'] !== null) {
+                $multipart[] = ['name' => 'n', 'contents' => (string)max(1, min(10, intval($inputParams['n'])))];
+            }
+            
+            // size
+            $validSizes = ['1024x1024', '1536x1024', '1024x1536', 'auto'];
+            if (!empty($inputParams['size']) && in_array($inputParams['size'], $validSizes)) {
+                $multipart[] = ['name' => 'size', 'contents' => $inputParams['size']];
+            }
+            
+            // quality
+            $validQualities = ['auto', 'low', 'medium', 'high'];
+            if (!empty($inputParams['quality']) && in_array($inputParams['quality'], $validQualities)) {
+                $multipart[] = ['name' => 'quality', 'contents' => $inputParams['quality']];
+            }
+            
+            \think\facade\Log::info('GPT-Image编辑请求: endpoint=' . $editEndpoint
+                . ' model=' . $modelCode
+                . ' image_count=' . count($tempFiles)
+                . ' prompt_len=' . strlen($prompt));
+            
+            // 根据 auth_mode 构建认证头
+            $authMode = $apiKeyConfig['auth_mode'] ?? 'bearer';
+            $authHeader = ($authMode === 'key_only') ? $apiKey : ('Bearer ' . $apiKey);
+            
+            $client = new \GuzzleHttp\Client([
+                'timeout' => 300,
+                'headers' => [
+                    'Authorization' => $authHeader,
+                ]
+            ]);
+            
+            $response = $client->post($editEndpoint, [
+                'multipart' => $multipart,
+            ]);
+            
+            $responseBody = $response->getBody()->getContents();
+            $result = json_decode($responseBody, true);
+            
+            \think\facade\Log::info('GPT-Image编辑响应: ' . substr($responseBody, 0, 2000));
+            
+            // 解析响应（复用parseApiResponse）
+            return $this->parseApiResponse($model, $result);
+            
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $response = $e->getResponse();
+            $body = $response ? json_decode($response->getBody()->getContents(), true) : [];
+            $errorMsg = $body['error']['message'] ?? $e->getMessage();
+            $httpCode = $response ? $response->getStatusCode() : 0;
+            
+            return [
+                'status' => 0,
+                'error_code' => 'HTTP_' . $httpCode,
+                'msg' => 'GPT-Image编辑失败: ' . $errorMsg
+            ];
+        } catch (\Exception $e) {
+            return [
+                'status' => 0,
+                'error_code' => 'EXCEPTION',
+                'msg' => 'GPT-Image编辑异常: ' . $e->getMessage()
+            ];
+        } finally {
+            // 清理临时文件
+            foreach ($tempFiles as $f) {
+                if (file_exists($f)) {
+                    @unlink($f);
+                }
+            }
+        }
+    }
+    
+    /**
+     * 通过中转平台调用GPT-Image编辑（JSON格式，直传URL）
+     * 中转平台接受 JSON 请求体：{"prompt": "...", "size": "auto", "urls": ["..."]}
+     * 不需要下载图片再上传，直接传递图片URL即可
+     *
+     * @param string $endpoint 中转平台接口地址
+     * @param string $apiKey API Key
+     * @param string $modelCode 模型代码
+     * @param array $imageUrls 参考图URL数组
+     * @param array $inputParams 输入参数
+     * @param array $model 模型信息
+     * @return array
+     */
+    protected function callGptImageEditViaRelay($endpoint, $apiKey, $modelCode, $imageUrls, $inputParams, $model, $authMode = 'bearer')
+    {
+        if (empty($imageUrls)) {
+            return [
+                'status' => 0,
+                'error_code' => 'IMAGE_MISSING',
+                'msg' => '未提供参考图URL'
+            ];
+        }
+        
+        $prompt = $inputParams['prompt'] ?? $inputParams['text'] ?? '';
+        if (empty($prompt)) {
+            return [
+                'status' => 0,
+                'error_code' => 'PROMPT_MISSING',
+                'msg' => '中转平台要求必填prompt'
+            ];
+        }
+        
+        // 构建中转平台请求体
+        $requestBody = [
+            'prompt' => $prompt,
+            'urls' => array_values($imageUrls),
+        ];
+        
+        // size转换：像素格式(WxH)转换为比例格式，或直接传auto
+        $size = $inputParams['size'] ?? 'auto';
+        $requestBody['size'] = $this->convertSizeToRatio($size);
+        
+        \think\facade\Log::info('GPT-Image编辑请求(中转模式): endpoint=' . $endpoint
+            . ' model=' . $modelCode
+            . ' urls=' . json_encode($imageUrls)
+            . ' size=' . $requestBody['size']
+            . ' prompt_len=' . strlen($prompt));
+        
+        try {
+            $client = new \GuzzleHttp\Client([
+                'timeout' => 300,
+                'headers' => [
+                    'Authorization' => ($authMode === 'key_only') ? $apiKey : ('Bearer ' . $apiKey),
+                    'Content-Type' => 'application/json',
+                ]
+            ]);
+            
+            $response = $client->post($endpoint, [
+                'json' => $requestBody,
+            ]);
+            
+            $responseBody = $response->getBody()->getContents();
+            $result = json_decode($responseBody, true);
+            
+            \think\facade\Log::info('GPT-Image编辑响应(中转模式): ' . substr($responseBody, 0, 2000));
+            
+            // 中转平台业务错误：HTTP 200 但 code 非 200/0
+            // 格式：{"code": 403, "msg": "请求密钥KEY不正确！", "data": null}
+            if (isset($result['code']) && !in_array(intval($result['code']), [200, 0])) {
+                return [
+                    'status' => 0,
+                    'error_code' => 'RELAY_' . $result['code'],
+                    'msg' => 'GPT-Image编辑(中转)失败: ' . ($result['msg'] ?? '未知错误')
+                ];
+            }
+            
+            // 中转平台异步模式：返回 task_id（格式如 image_xxx）
+            // 支持两种格式：
+            // 1. data 是字符串: {"data": "image_xxx"}
+            // 2. data 是对象: {"data": {"id": "image_xxx"}}
+            $asyncTaskId = '';
+            if (isset($result['data'])) {
+                if (is_string($result['data']) && strpos($result['data'], 'image_') === 0) {
+                    // 格式1: data 是字符串
+                    $asyncTaskId = $result['data'];
+                } elseif (is_array($result['data']) && !empty($result['data']['id'])) {
+                    // 格式2: data 是对象，包含 id 字段
+                    $asyncTaskId = $result['data']['id'];
+                } elseif (is_array($result['data']) && !empty($result['data']['task_id'])) {
+                    // 格式2b: data 是对象，包含 task_id 字段
+                    $asyncTaskId = $result['data']['task_id'];
+                }
+            }
+
+            if (!empty($asyncTaskId)) {
+                return [
+                    'async' => true,
+                    'external_task_id' => $asyncTaskId,
+                    'status' => 1,
+                    'msg' => '任务已提交到中转平台，等待处理'
+                ];
+            }
+            
+            // 同步模式：直接解析结果
+            return $this->parseApiResponse($model, $result);
+            
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $response = $e->getResponse();
+            $body = $response ? $response->getBody()->getContents() : '';
+            $bodyDecoded = json_decode($body, true);
+            $errorMsg = $bodyDecoded['error']['message'] ?? $bodyDecoded['msg'] ?? $bodyDecoded['message'] ?? $e->getMessage();
+            $httpCode = $response ? $response->getStatusCode() : 0;
+            
+            return [
+                'status' => 0,
+                'error_code' => 'HTTP_' . $httpCode,
+                'msg' => 'GPT-Image编辑(中转)失败: ' . $errorMsg
+            ];
+        } catch (\GuzzleHttp\Exception\ServerException $e) {
+            $response = $e->getResponse();
+            $httpCode = $response ? $response->getStatusCode() : 500;
+            return [
+                'status' => 0,
+                'error_code' => 'HTTP_' . $httpCode,
+                'msg' => 'GPT-Image编辑(中转)服务端错误: ' . $e->getMessage()
+            ];
+        } catch (\Exception $e) {
+            return [
+                'status' => 0,
+                'error_code' => 'EXCEPTION',
+                'msg' => 'GPT-Image编辑(中转)异常: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * 调用速创API中转平台
+     * 速创API只接受简化的JSON格式：{"prompt": "...", "urls": [...], "size": "auto", "n": 1}
+     *
+     * 速创API提交接口: POST https://api.wuyinkeji.com/api/async/image_gpt
+     * 速创API查询接口: GET https://api.wuyinkeji.com/api/async/detail?key=密钥&id=任务ID
+     *
+     * @param array $model 模型信息
+     * @param array $apiKeyConfig API Key配置
+     * @param array $inputParams 输入参数
+     * @return array
+     */
+    protected function callSucaiApi($model, $apiKeyConfig, $inputParams)
+    {
+        $apiKey = $apiKeyConfig['api_key_decrypted'] ?? '';
+        if (empty($apiKey)) {
+            return [
+                'status' => 0,
+                'error_code' => 'API_KEY_MISSING',
+                'msg' => '速创API Key未配置'
+            ];
+        }
+
+        $endpoint = 'https://api.wuyinkeji.com/api/async/image_gpt';
+
+        $prompt = $inputParams['prompt'] ?? $inputParams['text'] ?? '';
+        if (empty($prompt)) {
+            return [
+                'status' => 0,
+                'error_code' => 'PROMPT_MISSING',
+                'msg' => '速创API要求必填prompt'
+            ];
+        }
+
+        // 收集参考图URL（支持多种参数名）
+        $imageUrls = [];
+        // 优先取 images（数组，模板驱动分支）
+        if (!empty($inputParams['images']) && is_array($inputParams['images'])) {
+            $imageUrls = $inputParams['images'];
+        }
+        // 其次取 image（单张或逗号分隔字符串）
+        elseif (!empty($inputParams['image']) || !empty($inputParams['reference_image'])) {
+            $imageValue = $inputParams['image'] ?? $inputParams['reference_image'];
+            if (is_array($imageValue)) {
+                $imageUrls = $imageValue;
+            } elseif (is_string($imageValue) && strpos($imageValue, ',') !== false) {
+                $imageUrls = array_filter(array_map('trim', explode(',', $imageValue)));
+            } elseif (is_string($imageValue)) {
+                $imageUrls = [$imageValue];
+            }
+        }
+
+        // 构建速创API请求体（简化格式）
+        $requestBody = [
+            'prompt' => $prompt,
+        ];
+
+        // 如果有参考图，添加urls参数
+        if (!empty($imageUrls)) {
+            $requestBody['urls'] = array_values($imageUrls);
+        }
+
+        // size转换：速创API支持比例格式（1:1, 16:9等）
+        $size = $inputParams['size'] ?? 'auto';
+        // 如果是像素尺寸（如1024x1024），先转换为比例
+        if (preg_match('/^\d+x\d+$/i', $size)) {
+            $requestBody['size'] = $this->convertSizeToRatio($size);
+        } else {
+            // 已经是比例格式或auto，直接使用
+            $requestBody['size'] = $size;
+        }
+        
+        // 生成数量：优先从 max_images（组图参数）获取，其次从 n 获取
+        // 速创API支持 count 参数控制生成数量
+        $n = intval($inputParams['max_images'] ?? $inputParams['n'] ?? 1);
+        if ($n < 1) $n = 1;
+        if ($n > 10) $n = 10;
+        $requestBody['count'] = $n;
+
+        \think\facade\Log::info('速创API请求: endpoint=' . $endpoint
+            . ' requestBody=' . json_encode($requestBody)
+            . ' prompt_len=' . strlen($prompt));
+
+        try {
+            $client = new \GuzzleHttp\Client([
+                'timeout' => 300,
+                'headers' => [
+                    'Authorization' => $apiKey,  // 速创API使用纯Key，无Bearer前缀
+                    'Content-Type' => 'application/json',
+                ]
+            ]);
+
+            $response = $client->post($endpoint, [
+                'json' => $requestBody,
+            ]);
+
+            $responseBody = $response->getBody()->getContents();
+            $result = json_decode($responseBody, true);
+
+            \think\facade\Log::info('速创API响应: ' . substr($responseBody, 0, 2000));
+
+            // 检查业务错误
+            $code = intval($result['code'] ?? 0);
+            if ($code !== 200) {
+                return [
+                    'status' => 0,
+                    'error_code' => 'SUCAI_' . $code,
+                    'msg' => '速创API错误: ' . ($result['msg'] ?? '未知错误')
+                ];
+            }
+
+            // 解析异步任务ID
+            $asyncTaskId = '';
+            if (isset($result['data'])) {
+                if (is_string($result['data'])) {
+                    $asyncTaskId = $result['data'];
+                } elseif (is_array($result['data'])) {
+                    $asyncTaskId = $result['data']['id'] ?? $result['data']['task_id'] ?? '';
+                }
+            }
+
+            if (!empty($asyncTaskId)) {
+                return [
+                    'async' => true,
+                    'external_task_id' => $asyncTaskId,
+                    'status' => 1,
+                    'msg' => '任务已提交到速创API，等待处理'
+                ];
+            }
+
+            // 如果没有task_id，检查是否是同步返回（直接返回图片URL）
+            if (isset($result['data']['result']) && is_array($result['data']['result'])) {
+                $outputs = [];
+                foreach ($result['data']['result'] as $url) {
+                    if (!empty($url)) {
+                        $outputs[] = [
+                            'type' => 'image',
+                            'url' => $url,
+                            'thumbnail' => '',
+                            'width' => 0,
+                            'height' => 0
+                        ];
+                    }
+                }
+                if (!empty($outputs)) {
+                    return [
+                        'status' => 1,
+                        'outputs' => $outputs,
+                        'tokens' => 0,
+                        'cost' => 0
+                    ];
+                }
+            }
+
+            return [
+                'status' => 0,
+                'error_code' => 'SUCAI_NO_RESULT',
+                'msg' => '速创API未返回有效结果'
+            ];
+
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $response = $e->getResponse();
+            $body = $response ? $response->getBody()->getContents() : '';
+            $bodyDecoded = json_decode($body, true);
+            $errorMsg = $bodyDecoded['error']['message'] ?? $bodyDecoded['msg'] ?? $e->getMessage();
+            $httpCode = $response ? $response->getStatusCode() : 0;
+
+            return [
+                'status' => 0,
+                'error_code' => 'HTTP_' . $httpCode,
+                'msg' => '速创API客户端错误: ' . $errorMsg
+            ];
+        } catch (\GuzzleHttp\Exception\ServerException $e) {
+            $response = $e->getResponse();
+            $httpCode = $response ? $response->getStatusCode() : 500;
+            $body = $response ? $response->getBody()->getContents() : '';
+            $bodyDecoded = json_decode($body, true);
+
+            return [
+                'status' => 0,
+                'error_code' => 'HTTP_' . $httpCode,
+                'msg' => '速创API服务端错误: ' . ($bodyDecoded['msg'] ?? $e->getMessage())
+            ];
+        } catch (\Exception $e) {
+            return [
+                'status' => 0,
+                'error_code' => 'EXCEPTION',
+                'msg' => '速创API异常: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * 将像素尺寸格式转换为中转平台支持的比例格式
+     * 支持的比例格式：auto, 1:1, 3:2, 2:3, 16:9, 9:16, 4:3, 3:4
+     *
+     * @param string $size 像素格式如 "1024x1024" 或 "auto"
+     * @return string 比例格式如 "1:1"
+     */
+    protected function convertSizeToRatio($size)
+    {
+        if (empty($size) || $size === 'auto') {
+            return 'auto';
+        }
+        
+        // 已经是比例格式，直接返回
+        if (preg_match('/^\d+:\d+$/', $size)) {
+            return $size;
+        }
+        
+        // 像素格式 WxH 转换为比例
+        if (preg_match('/^(\d+)x(\d+)$/i', $size, $matches)) {
+            $w = intval($matches[1]);
+            $h = intval($matches[2]);
+            
+            if ($w <= 0 || $h <= 0) {
+                return 'auto';
+            }
+            
+            $ratio = $w / $h;
+            
+            // 匹配常见比例（允许5%误差）
+            $ratioMap = [
+                '1:1'  => 1.0,
+                '3:2'  => 1.5,
+                '2:3'  => 0.6667,
+                '16:9' => 1.7778,
+                '9:16' => 0.5625,
+                '4:3'  => 1.3333,
+                '3:4'  => 0.75,
+            ];
+            
+            $bestMatch = 'auto';
+            $bestDiff = 0.05; // 5%误差阈值
+            
+            foreach ($ratioMap as $label => $targetRatio) {
+                $diff = abs($ratio - $targetRatio) / $targetRatio;
+                if ($diff < $bestDiff) {
+                    $bestDiff = $diff;
+                    $bestMatch = $label;
+                }
+            }
+            
+            return $bestMatch;
+        }
+        
+        return 'auto';
+    }
+
     /**
      * 检查是否为爱诗科技PixVerse视频生成模型
      * PixVerse模型通过阿里云百炼DashScope接入，使用 model+input+parameters 三层格式
@@ -2714,6 +3454,33 @@ class GenerationService
             ];
         }
         
+        // 中转平台业务错误响应：HTTP 200 但业务code非200/0
+        // 格式：{"code": 403, "msg": "请求密钥KEY不正确！", "data": null}
+        if (isset($response['code']) && isset($response['msg']) && !in_array(intval($response['code']), [200, 0])) {
+            return [
+                'status' => 0,
+                'error_code' => 'RELAY_' . $response['code'],
+                'msg' => '中转平台错误: ' . $response['msg']
+            ];
+        }
+        
+        // 中转平台异步任务响应：data 是字符串 task_id（如 image_xxx）
+        // 格式：{"code": 200, "msg": "成功", "data": "image_4d39239e-xxx"}
+        if (isset($response['data']) && is_string($response['data']) && !empty($response['data'])) {
+            $relayTaskId = $response['data'];
+            if (strpos($relayTaskId, 'image_') === 0) {
+                \think\facade\Log::info('中转平台异步任务创建成功, external_task_id=' . $relayTaskId);
+                return [
+                    'status' => 1,
+                    'async' => true,
+                    'external_task_id' => $relayTaskId,
+                    'outputs' => [],
+                    'tokens' => 0,
+                    'cost' => 0
+                ];
+            }
+        }
+        
         // 豆包SeeDream / 火山引擎 图片生成响应格式
         // {"created": 1234, "data": [{"url": "...", "b64_json": "..."}]}
         if (isset($response['data']) && is_array($response['data'])) {
@@ -3062,6 +3829,12 @@ class GenerationService
                 } elseif ($this->isVolcengineSeeDreamModel($modelCode, $providerCode)) {
                     // 火山引擎/豆包 SeeDream 图片生成模型（同步调用，仅做超时兜底）
                     $this->checkSeeDreamTimeout($record);
+                } elseif ($this->isSucaiModel($providerCode) || $this->isSucaiTaskByTaskId($record['task_id'] ?? '')) {
+                    // 速创API中转平台模型
+                    // 支持两种识别方式：
+                    // 1. 通过供应商代码识别 (provider_code='sucai')
+                    // 2. 通过task_id格式识别 (速创API的task_id格式为 image_xxx)
+                    $this->pollSucaiTaskStatus($record);
                 }
                 // 其他模型暂不支持异步轮询，跳过
             }
@@ -3103,7 +3876,31 @@ class GenerationService
     {
         return in_array($providerCode, ['aliyun', 'dashscope', 'alibaba', 'aishi']);
     }
-    
+
+    /**
+     * 检查是否为速创API中转平台模型
+     *
+     * @param string $providerCode 供应商代码
+     * @return bool
+     */
+    protected function isSucaiModel($providerCode)
+    {
+        return $providerCode === 'sucai';
+    }
+
+    /**
+     * 通过task_id格式判断是否为速创API任务
+     * 速创API的task_id格式为 image_xxx (UUID格式)
+     *
+     * @param string $taskId 任务ID
+     * @return bool
+     */
+    protected function isSucaiTaskByTaskId($taskId)
+    {
+        // 速创API的task_id格式: image_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        return !empty($taskId) && strpos($taskId, 'image_') === 0;
+    }
+
     /**
      * 检查是否为火山引擎/豆包 SeeDream 图片生成模型
      * SeeDream模型通过同步SSE调用，不支持异步轮询，仅用于超时兜底检测
@@ -3257,6 +4054,11 @@ class GenerationService
                 } elseif ($this->isDashScopeModel($providerCode)) {
                     // DashScope图片生成模型
                     $pollResult = $this->pollDashScopeTaskStatus($record);
+                    $progress = $pollResult['progress'] ?? 0;
+                } elseif ($this->isSucaiModel($providerCode) || $this->isSucaiTaskByTaskId($record['task_id'] ?? '')) {
+                    // 速创API中转平台模型
+                    // 支持两种识别方式：通过供应商代码 或 task_id格式
+                    $pollResult = $this->pollSucaiTaskStatus($record);
                     $progress = $pollResult['progress'] ?? 0;
                 }
             }
@@ -3614,7 +4416,217 @@ class GenerationService
         
         return $pollResult;
     }
-    
+
+    /**
+     * 主动轮询速创API中转平台异步任务状态
+     * 支持GPT-Image等模型
+     *
+     * 速创API查询接口: GET https://api.wuyinkeji.com/api/async/detail?key=API密钥&id=任务ID
+     * 返回格式:
+     * {
+     *   "code": 200,
+     *   "data": {
+     *     "task_id": "image_xxx",
+     *     "status": 2,  // 2=完成, 其他=处理中
+     *     "result": ["https://xxx.com/image.png"],
+     *     "message": ""
+     *   }
+     * }
+     *
+     * @param array $record 生成记录（数据库行）
+     * @return array ['progress' => int] 返回进度信息
+     */
+    protected function pollSucaiTaskStatus($record)
+    {
+        $externalTaskId = $record['task_id'];
+        $pollResult = ['progress' => 0];
+
+        \think\facade\Log::info('pollSucaiTaskStatus 开始处理', [
+            'record_id' => $record['id'],
+            'task_id' => $externalTaskId,
+            'model_id' => $record['model_id'] ?? 'unknown'
+        ]);
+
+        // 获取模型信息以确定API Key
+        $model = $this->getModelDetail($record['model_id']);
+        if (!$model) {
+            \think\facade\Log::warning('pollSucaiTaskStatus: 模型不存在 model_id=' . $record['model_id']);
+            return $pollResult;
+        }
+
+        \think\facade\Log::info('pollSucaiTaskStatus: 模型信息', [
+            'model_id' => $model['id'],
+            'model_code' => $model['model_code'] ?? '',
+            'provider_code' => $model['provider_code'] ?? '',
+            'provider_id' => $model['provider_id'] ?? ''
+        ]);
+
+        $apiKeyConfig = $this->apiKeyService->getActiveConfigByProvider($model['provider_code']);
+        if (!$apiKeyConfig) {
+            \think\facade\Log::warning('pollSucaiTaskStatus: API Key未配置 provider=' . $model['provider_code']);
+            return $pollResult;
+        }
+
+        $apiKey = $apiKeyConfig['api_key_decrypted'] ?? '';
+        if (empty($apiKey)) {
+            \think\facade\Log::warning('pollSucaiTaskStatus: API Key为空 provider=' . $model['provider_code']);
+            return $pollResult;
+        }
+
+        \think\facade\Log::info('pollSucaiTaskStatus: API Key获取成功', [
+            'provider' => $model['provider_code'],
+            'key_length' => strlen($apiKey)
+        ]);
+
+        try {
+            // 速创API查询接口
+            $queryEndpoint = 'https://api.wuyinkeji.com/api/async/detail';
+            $queryUrl = $queryEndpoint . '?key=' . urlencode($apiKey) . '&id=' . urlencode($externalTaskId);
+
+            \think\facade\Log::info('pollSucaiTaskStatus 查询任务状态', [
+                'record_id' => $record['id'],
+                'task_id' => $externalTaskId,
+                'query_url' => str_replace(urlencode($apiKey), '***', $queryUrl)  // 隐藏API Key
+            ]);
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $queryUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            if ($curlError) {
+                \think\facade\Log::warning('pollSucaiTaskStatus: cURL错误 ' . $curlError, [
+                    'record_id' => $record['id'],
+                    'task_id' => $externalTaskId
+                ]);
+                return $pollResult;
+            }
+
+            $result = json_decode($response, true);
+            if (!$result) {
+                \think\facade\Log::warning('pollSucaiTaskStatus: JSON解析失败', [
+                    'record_id' => $record['id'],
+                    'response' => substr($response, 0, 500)
+                ]);
+                return $pollResult;
+            }
+
+            \think\facade\Log::info('pollSucaiTaskStatus 查询结果', [
+                'record_id' => $record['id'],
+                'external_task_id' => $externalTaskId,
+                'code' => $result['code'] ?? 'unknown',
+                'status' => $result['data']['status'] ?? 'unknown'
+            ]);
+
+            // 检查业务错误
+            $code = intval($result['code'] ?? 0);
+            if ($code !== 200) {
+                $errorMsg = $result['msg'] ?? '未知错误';
+                \think\facade\Log::warning('pollSucaiTaskStatus: 查询失败', [
+                    'record_id' => $record['id'],
+                    'task_id' => $externalTaskId,
+                    'code' => $code,
+                    'msg' => $errorMsg
+                ]);
+                return $pollResult;
+            }
+
+            // 解析任务状态
+            $taskStatus = intval($result['data']['status'] ?? 0);
+            $outputs = [];
+
+            if ($taskStatus === 2) {
+                // 任务完成
+                $resultUrls = $result['data']['result'] ?? [];
+
+                \think\facade\Log::info('pollSucaiTaskStatus succeeded，准备保存输出', [
+                    'record_id' => $record['id'],
+                    'result_count' => count($resultUrls)
+                ]);
+
+                // 处理图片输出
+                foreach ($resultUrls as $url) {
+                    if (!empty($url) && is_string($url)) {
+                        $outputs[] = [
+                            'type' => 'image',
+                            'url' => $url,
+                            'thumbnail' => '',
+                            'width' => 0,
+                            'height' => 0
+                        ];
+                    }
+                }
+
+                if (!empty($outputs)) {
+                    // 对图片类型的输出执行 WebP 压缩转存
+                    $outputs = $this->persistImageOutputs($outputs, $record['aid'] ?? 0);
+                    GenerationOutput::createOutputs($record['id'], $outputs);
+                    \think\facade\Log::info('pollSucaiTaskStatus 已保存outputs', [
+                        'record_id' => $record['id'],
+                        'outputs_count' => count($outputs)
+                    ]);
+                } else {
+                    \think\facade\Log::warning('pollSucaiTaskStatus: 任务成功但未获取到图片URL', [
+                        'record_id' => $record['id'],
+                        'result' => $result['data']['result'] ?? []
+                    ]);
+                }
+
+                // 计算耗时
+                $costTime = ($record['start_time'] > 0) ? (time() - $record['start_time']) * 1000 : 0;
+
+                $recordModel = GenerationRecord::find($record['id']);
+                if ($recordModel) {
+                    $recordModel->markSuccess($costTime);
+                }
+
+                $pollResult['progress'] = 100;
+
+                \think\facade\Log::info('速创API图片生成成功', [
+                    'record_id' => $record['id'],
+                    'outputs_count' => count($outputs),
+                    'cost_time' => $costTime
+                ]);
+            } elseif ($taskStatus === -1 || $taskStatus === 3) {
+                // 任务失败 (-1 或 3 表示失败)
+                $errorMsg = $result['data']['message'] ?? $result['msg'] ?? '生成失败';
+
+                $recordModel = GenerationRecord::find($record['id']);
+                if ($recordModel) {
+                    $recordModel->markFailed('SUCAI_FAILED', $errorMsg);
+                }
+
+                \think\facade\Log::warning('速创API生成失败', [
+                    'record_id' => $record['id'],
+                    'task_id' => $externalTaskId,
+                    'status' => $taskStatus,
+                    'msg' => $errorMsg
+                ]);
+            } else {
+                // 任务处理中 (0=待处理, 1=处理中)
+                $pollResult['progress'] = 50;  // 进度百分比（未知具体进度时设为50%）
+                \think\facade\Log::info('pollSucaiTaskStatus: 任务处理中', [
+                    'record_id' => $record['id'],
+                    'task_id' => $externalTaskId,
+                    'status' => $taskStatus
+                ]);
+            }
+        } catch (\Exception $e) {
+            \think\facade\Log::error('pollSucaiTaskStatus 异常: ' . $e->getMessage(), [
+                'record_id' => $record['id'],
+                'external_task_id' => $externalTaskId,
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+
+        return $pollResult;
+    }
+
     /**
      * 重试生成任务
      */

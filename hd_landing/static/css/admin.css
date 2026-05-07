@@ -249,3 +249,301 @@ a { color: inherit; text-decoration: none; }
     .act-header { flex-direction: column; align-items: flex-start; gap: 10px; }
     .item-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   抽奖模式选择器 - 左右分栏
+   ============================================================ */
+.lottery-mode-selector {
+    display: flex;
+    gap: 24px;
+    min-height: 380px;
+}
+
+/* 左侧：模式列表 */
+.mode-list-panel {
+    width: 380px;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.lottery-mode-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+}
+.lottery-mode-card:hover {
+    border-color: #a78bfa;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.1);
+    transform: translateY(-2px);
+}
+.lottery-mode-card.selected {
+    border-color: #6366f1;
+    background: linear-gradient(135deg, #eef2ff 0%, #ede9fe 100%);
+    box-shadow: 0 4px 16px rgba(99,102,241,0.15);
+}
+.lottery-mode-card.selected::after {
+    content: '\2713';
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    color: #6366f1;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.mode-card-icon {
+    font-size: 36px;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    border-radius: 12px;
+    transition: all 0.25s ease;
+}
+.lottery-mode-card:hover .mode-card-icon,
+.lottery-mode-card.selected .mode-card-icon {
+    background: #c7d2fe;
+    transform: scale(1.08);
+}
+
+.mode-card-info { flex: 1; }
+.mode-card-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 4px;
+}
+.mode-card-desc {
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.4;
+    margin-bottom: 6px;
+}
+.mode-card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.mini-tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    background: #e0e7ff;
+    color: #4338ca;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+/* 右侧：预览区域 */
+.mode-preview-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.mode-preview-container {
+    flex: 1;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    transition: opacity 0.25s ease;
+}
+
+.mode-preview-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 340px;
+    background: #f8fafc;
+    border: 2px dashed #d1d5db;
+    border-radius: 12px;
+    color: #9ca3af;
+    font-size: 15px;
+}
+
+/* 预览内容内部 */
+.mode-preview-inner {
+    padding: 32px 28px;
+    text-align: center;
+    color: #fff;
+    min-height: 340px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+}
+
+.mode-preview-icon {
+    font-size: 56px;
+    line-height: 1;
+    animation: previewFloat 3s ease-in-out infinite;
+}
+@keyframes previewFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.mode-preview-name {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.mode-preview-desc {
+    font-size: 13px;
+    opacity: 0.9;
+    max-width: 280px;
+    line-height: 1.5;
+}
+.mode-preview-tags {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+.mode-tag {
+    font-size: 12px;
+    padding: 4px 14px;
+    background: rgba(255,255,255,0.22);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 20px;
+    backdrop-filter: blur(4px);
+}
+
+/* 模拟大屏效果示意 */
+.mode-preview-mockup {
+    margin-top: 12px;
+}
+.mockup-screen {
+    background: rgba(0,0,0,0.35);
+    border-radius: 10px;
+    padding: 14px 20px;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.15);
+    min-width: 240px;
+}
+.mockup-title {
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0.7;
+    margin-bottom: 10px;
+    letter-spacing: 3px;
+}
+.mockup-avatars, .mockup-cards, .mockup-eggs {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    min-height: 36px;
+}
+.mockup-avatar, .mockup-card, .mockup-egg {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    transition: all 0.3s ease;
+}
+.mockup-avatar.active {
+    background: rgba(255,215,0,0.3);
+    border-color: gold;
+    transform: scale(1.15);
+    animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,215,0,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(255,215,0,0); }
+}
+.mockup-card {
+    border-radius: 8px;
+    font-size: 18px;
+}
+.mockup-card.flip {
+    background: rgba(255,255,255,0.25);
+    transform: rotateY(-15deg);
+    border-color: #ffd700;
+}
+.mockup-egg {
+    border-radius: 50% 50% 48% 48%;
+    background: linear-gradient(135deg, #ffd700, #ffaa00);
+    border-color: #cc8800;
+}
+.mockup-egg.cracked {
+    background: linear-gradient(135deg, #ff69b4, #ff1493);
+    border-color: #c71585;
+    transform: scale(1.1) rotate(-5deg);
+}
+.mockup-box {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+}
+.box-body {
+    width: 60px;
+    height: 40px;
+    background: linear-gradient(135deg, #8B4513, #D2691E);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    border: 2px solid #A0522D;
+}
+.box-lid.open {
+    width: 64px;
+    height: 16px;
+    background: linear-gradient(135deg, #CD853F, #DEB887);
+    border-radius: 4px 4px 0 0;
+    border: 2px solid #A0522D;
+    transform: translateY(-8px) rotateX(-30deg);
+    transform-origin: bottom;
+}
+
+/* 操作按钮栏 */
+.mode-action-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding-top: 4px;
+}
+
+/* 响应式适配 */
+@media (max-width: 900px) {
+    .lottery-mode-selector {
+        flex-direction: column;
+        min-height: auto;
+    }
+    .mode-list-panel {
+        width: 100%;
+        min-width: unset;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    .lottery-mode-card {
+        flex: 1;
+        min-width: 200px;
+    }
+    .mode-preview-container .mode-preview-inner {
+        min-height: 260px;
+        padding: 24px 16px;
+    }
+}

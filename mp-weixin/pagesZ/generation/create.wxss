@@ -65,6 +65,11 @@
 .chip-label { font-size: 26rpx; color: #666; white-space: nowrap; }
 .ratio-chip.active .chip-label, .count-chip.active .chip-label { color: #FF6B00; font-weight: bold; }
 
+/* 生成数量提示 */
+.generation-limit-hint { margin-top: 12rpx; padding: 0 8rpx; }
+.generation-limit-hint .hint-text { font-size: 24rpx; color: #999; }
+.generation-limit-warning { font-size: 26rpx; color: #F59E0B; padding: 16rpx 20rpx; background: #FFF8E1; border-radius: 12rpx; text-align: center; }
+
 /* 底部操作栏 */
 .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; align-items: center; padding: 20rpx 30rpx; box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05); padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); z-index: 100; }
 .price-display { flex: 1; }

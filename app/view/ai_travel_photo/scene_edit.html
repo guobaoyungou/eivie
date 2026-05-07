@@ -97,6 +97,41 @@
                   </select>
                 </div>
               </div>
+              <!-- 自动匹配标签 -->
+              <div class="layui-form-item">
+                <label class="layui-form-label">适用性别：</label>
+                <div class="layui-input-block">
+                  <select name="gender_tag">
+                    <option value="">通用（不限）</option>
+                    <option value="male" {if $info.gender_tag=='male'}selected{/if}>男</option>
+                    <option value="female" {if $info.gender_tag=='female'}selected{/if}>女</option>
+                  </select>
+                </div>
+              </div>
+              <div class="layui-form-item">
+                <label class="layui-form-label">适用年龄：</label>
+                <div class="layui-input-block">
+                  <select name="age_tag">
+                    <option value="">通用（不限）</option>
+                    <option value="0-2" {if $info.age_tag=='0-2'}selected{/if}>婴幼儿 (0-2岁)</option>
+                    <option value="3-9" {if $info.age_tag=='3-9'}selected{/if}>儿童 (3-9岁)</option>
+                    <option value="10-19" {if $info.age_tag=='10-19'}selected{/if}>青少年 (10-19岁)</option>
+                    <option value="20-29" {if $info.age_tag=='20-29'}selected{/if}>青年 (20-29岁)</option>
+                    <option value="30-39" {if $info.age_tag=='30-39'}selected{/if}>中青年 (30-39岁)</option>
+                    <option value="40-49" {if $info.age_tag=='40-49'}selected{/if}>中年 (40-49岁)</option>
+                    <option value="50-59" {if $info.age_tag=='50-59'}selected{/if}>中老年 (50-59岁)</option>
+                    <option value="60-100" {if $info.age_tag=='60-100'}selected{/if}>老年 (60岁以上)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="layui-form-item">
+                <label class="layui-form-label">多人模板：</label>
+                <div class="layui-input-block">
+                  <input type="checkbox" name="is_multi_template" value="1" lay-skin="switch" lay-text="是|否" {if $info.is_multi_template==1}checked{/if}>
+                  <div class="layui-form-mid" style="color:#999; padding-left:10px;">勾选表示此模板适用于多人合影</div>
+                </div>
+              </div>
+              </div>
               
               <!-- 动态模型参数将插入到这里 -->
               <div id="dynamic_params"></div>

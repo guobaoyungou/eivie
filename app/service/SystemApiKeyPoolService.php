@@ -71,6 +71,8 @@ class SystemApiKeyPoolService extends SystemApiKeyService
             'config_name' => $selectedKey['config_name'],
             'api_key' => $this->decryptApiKey($selectedKey['api_key']),
             'api_secret' => $this->decryptApiKey($selectedKey['api_secret']),
+            'custom_endpoint' => $selectedKey['custom_endpoint'] ?? '',
+            'auth_mode' => $selectedKey['auth_mode'] ?? 'bearer',
             'extra_config' => json_decode($selectedKey['extra_config'] ?: '{}', true)
         ];
     }

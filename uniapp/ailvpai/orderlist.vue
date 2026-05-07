@@ -27,7 +27,12 @@
 				<text :class="['status-tag', getStatusClass(item)]">{{getStatusText(item)}}</text>
 			</view>
 			<view class="order-body">
-				<image :src="item.cover_image || '/static/img/placeholder.png'" class="scene-cover" mode="aspectFill"></image>
+				<view class="cover-wrapper">
+					<image :src="item.cover_image || '/static/img/placeholder.png'" class="scene-cover" mode="aspectFill"></image>
+					<view class="quantity-tag" v-if="item.output_quantity > 0">
+						<text>{{item.output_quantity}}张</text>
+					</view>
+				</view>
 				<view class="order-info">
 					<text class="scene-name">{{item.scene_name || item.template_name || '场景模板'}}</text>
 					<text class="type-label">{{item.generation_type == 1 ? '图片创作' : '视频创作'}}</text>
@@ -250,7 +255,13 @@ export default {
 .status-tag.info { background: rgba(181,216,254,0.15); color: #91C2FF; }
 .status-tag.default { background: #F5F5F5; color: #9E9E9E; }
 .order-body { display: flex; padding: 20rpx; }
+.cover-wrapper { position: relative; }
 .scene-cover { width: 160rpx; height: 160rpx; border-radius: 16rpx; flex-shrink: 0; background: #F5F0FA; }
+.quantity-tag { 
+	position: absolute; top: 8rpx; right: 8rpx; 
+	background: rgba(145,194,255,0.9); color: #fff; 
+	font-size: 20rpx; padding: 4rpx 12rpx; border-radius: 12rpx; 
+}
 .order-info { flex: 1; margin-left: 20rpx; display: flex; flex-direction: column; justify-content: space-between; }
 .scene-name { font-size: 28rpx; color: #555555; line-height: 1.4; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .type-label { font-size: 24rpx; color: #999; }

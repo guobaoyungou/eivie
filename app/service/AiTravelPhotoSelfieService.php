@@ -1997,6 +1997,349 @@ class AiTravelPhotoSelfieService
     }
 
     /**
+     * 仅上传保存自拍图片（不创建人像记录）
+     *
+     * @param string $imageBase64 图片base64数据
+     * @param int $aid 平台ID
+     * @return string 上传后的图片URL
+     */
+    public function uploadSelfieImage(string $imageBase64, int $aid): string
+    {
+        $imageData = base64_decode($imageBase64);
+        if (!$imageData) {
+            throw new \Exception('图片数据无效');
+        }
+
+        if (!defined('aid')) {
+            define('aid', $aid);
+        }
+
+        $dateDir = date('Ymd');
+        $uniqueName = md5(uniqid((string)mt_rand(), true)) . '.jpg';
+        $savePath = 'upload/' . $aid . '/' . $dateDir . '/';
+
+        if (!is_dir(ROOT_PATH . $savePath)) {
+            mk_dir(ROOT_PATH . $savePath);
+        }
+
+        $originalPath = $savePath . 'selfie_' . $uniqueName;
+        $writeResult = file_put_contents(ROOT_PATH . $originalPath, $imageData);
+        if ($writeResult === false) {
+            throw new \Exception('图片保存失败');
+        }
+
+        $uploadPath = PRE_URL . '/' . $originalPath;
+        $originalUrl = \app\common\Pic::uploadoss($uploadPath, false, false);
+
+        if (!$originalUrl) {
+            Log::warning('自拍端OSS上传失败，使用本地存储', ['uploadPath' => $uploadPath]);
+            $originalUrl = '/' . $originalPath;
+        } else {
+            if (strpos($originalUrl, 'http') === 0 && strpos($originalUrl, PRE_URL) !== 0) {
+                @unlink(ROOT_PATH . $originalPath);
+            }
+        }
+
+        return $originalUrl;
+    }
+
+    /**
+     * 获取推荐合成模板列表（基于性别筛选）
+     *
+     * @param int $bid 商家ID
+     * @param int $mdid 门店ID
+     * @param int $gender 性别 1=男 2=女 3=未知
+     * @return array 推荐模板列表
+     */
+    public function getRecommendTemplates(int $bid, int $mdid, int $gender): array
+    {
+        // 查询该商家下所有启用的合成模板
+        $query = Db::name('ai_travel_photo_synthesis_template')
+            ->where('bid', $bid)
+            ->where('status', 1);
+
+        // 门店维度过滤：检查store_scope和store_ids
+        $templates = $query->field('id, name, cover_image, description, model_name, scene_template_id, store_scope, store_ids')
+            ->order('sort ASC, id DESC')
+            ->select()
+            ->toArray();
+
+        // 过滤门店范围
+        $filteredTemplates = [];
+        foreach ($templates as $tpl) {
+            $storeScope = (int)($tpl['store_scope'] ?? 0);
+            if ($storeScope == 1 && !empty($tpl['store_ids'])) {
+                // 指定门店范围，检查是否包含当前门店
+                $storeIds = array_map('intval', explode(',', $tpl['store_ids']));
+                if (!in_array($mdid, $storeIds)) {
+                    continue;
+                }
+            }
+            $filteredTemplates[] = $tpl;
+        }
+
+        // 性别标签映射
+        $genderKeyword = '';
+        if ($gender == 1) $genderKeyword = '男性';
+        elseif ($gender == 2) $genderKeyword = '女性';
+
+        $matchedPool = [];  // 性别精确匹配
+        $generalPool = [];  // 通用模板
+
+        // 批量查询关联的场景模板 auto_tags
+        $sceneTemplateIds = array_filter(array_column($filteredTemplates, 'scene_template_id'));
+        $sceneTagMap = [];
+        if (!empty($sceneTemplateIds)) {
+            $sceneTags = Db::name('generation_scene_template')
+                ->whereIn('id', array_unique($sceneTemplateIds))
+                ->field('id, auto_tags')
+                ->select()
+                ->toArray();
+            foreach ($sceneTags as $st) {
+                $sceneTagMap[(int)$st['id']] = $st['auto_tags'];
+            }
+        }
+
+        foreach ($filteredTemplates as $tpl) {
+            $sceneId = (int)($tpl['scene_template_id'] ?? 0);
+            $tagString = '';
+
+            if ($sceneId > 0 && isset($sceneTagMap[$sceneId])) {
+                $autoTagsRaw = $sceneTagMap[$sceneId];
+                if (!empty($autoTagsRaw) && is_string($autoTagsRaw)) {
+                    $autoTags = json_decode($autoTagsRaw, true);
+                    if (is_array($autoTags) && !empty($autoTags['tag_string'])) {
+                        $tagString = $autoTags['tag_string'];
+                    }
+                }
+            }
+
+            $tplData = [
+                'id' => (int)$tpl['id'],
+                'name' => $tpl['name'] ?? '',
+                'cover_image' => $tpl['cover_image'] ?? '',
+                'description' => $tpl['description'] ?? '',
+                'model_name' => $tpl['model_name'] ?? '',
+                'tags' => $tagString,
+            ];
+
+            // 性别筛选逻辑
+            if (empty($genderKeyword) || $gender == 3) {
+                // 未知性别，全部返回
+                $generalPool[] = $tplData;
+            } elseif (empty($tagString)) {
+                // 无标签，归入通用池
+                $generalPool[] = $tplData;
+            } elseif (strpos($tagString, $genderKeyword) !== false) {
+                // 包含用户性别关键字，精确匹配
+                $matchedPool[] = $tplData;
+            } else {
+                // 有标签但不包含用户性别，检查是否包含另一性别
+                $oppositeKeyword = ($gender == 1) ? '女性' : '男性';
+                if (strpos($tagString, $oppositeKeyword) !== false) {
+                    // 明确包含对立性别，排除
+                    continue;
+                } else {
+                    // 有标签但无性别关键字，归入通用池
+                    $generalPool[] = $tplData;
+                }
+            }
+        }
+
+        // 优先返回匹配池，追加通用池
+        return array_merge($matchedPool, $generalPool);
+    }
+
+    /**
+     * 自拍端选模板合成
+     *
+     * @param int $templateId 用户选择的合成模板ID
+     * @param string $imageUrl 自拍照片URL
+     * @param int $aid 平台ID
+     * @param int $bid 商家ID
+     * @param int $mdid 门店ID
+     * @param string $openid 用户openid
+     * @return array ['portrait_id'=>int, 'generation_id'=>int, 'estimated_seconds'=>int]
+     */
+    public function generateWithTemplate(
+        int $templateId, string $imageUrl, int $aid, int $bid, int $mdid, string $openid
+    ): array {
+        // 防重检测：同一用户同一门店当天是否已提交过合成
+        $sinceTime = strtotime('today');
+        $existingPortrait = Db::name('ai_travel_photo_portrait')
+            ->where('user_openid', $openid)
+            ->where('bid', $bid)
+            ->where('mdid', $mdid)
+            ->where('source_type', 3)
+            ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL)
+            ->where('create_time', '>=', $sinceTime)
+            ->field('id, synthesis_status')
+            ->order('id', 'desc')
+            ->find();
+
+        if ($existingPortrait) {
+            $dedupStatus = (int)($existingPortrait['synthesis_status'] ?? 0);
+            if (in_array($dedupStatus, [2, 3])) {
+                return [
+                    'portrait_id' => (int)$existingPortrait['id'],
+                    'generation_id' => 0,
+                    'estimated_seconds' => 0,
+                    'dedup' => true,
+                ];
+            }
+            // status=4(失败) 或 0(未处理) 允许重新提交
+        }
+
+        // 验证模板属于该商家且状态启用
+        $template = Db::name('ai_travel_photo_synthesis_template')
+            ->where('id', $templateId)
+            ->where('bid', $bid)
+            ->where('status', 1)
+            ->find();
+
+        if (!$template) {
+            throw new \Exception('模板不存在或已禁用');
+        }
+
+        // 确保 aid 常量已定义
+        if (!defined('aid')) {
+            define('aid', $aid);
+        }
+
+        // 后端提取人脸特征
+        $faceEmbedding = [];
+        try {
+            $faceEmbeddingService = new FaceEmbeddingService();
+            $faceResult = $faceEmbeddingService->extractFromUrl($imageUrl);
+            if ($faceResult && !empty($faceResult['embedding'])) {
+                $faceEmbedding = $faceResult['embedding'];
+                Log::info('自拍端选模板合成: 人脸特征提取成功', [
+                    'dim' => $faceResult['dim'], 'det_score' => $faceResult['det_score'],
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::warning('自拍端选模板合成: 人脸特征提取失败', ['error' => $e->getMessage()]);
+        }
+
+        // 获取图片元信息
+        $imgWidth = 0;
+        $imgHeight = 0;
+        $fileSize = 0;
+        $fileMd5 = '';
+        try {
+            $imgContent = file_get_contents($imageUrl);
+            if ($imgContent) {
+                $imageInfo = getimagesizefromstring($imgContent);
+                $imgWidth = $imageInfo ? (int)$imageInfo[0] : 0;
+                $imgHeight = $imageInfo ? (int)$imageInfo[1] : 0;
+                $fileSize = strlen($imgContent);
+                $fileMd5 = md5($imgContent);
+            }
+        } catch (\Exception $e) {
+            Log::warning('获取图片元信息失败', ['error' => $e->getMessage()]);
+        }
+
+        $fileName = 'selfie_tpl_' . date('YmdHis') . '_' . sprintf('%04d', mt_rand(0, 9999)) . '.jpg';
+
+        // 创建人像记录
+        $portraitId = (int) Db::name('ai_travel_photo_portrait')->insertGetId([
+            'aid' => $aid,
+            'bid' => $bid,
+            'mdid' => $mdid,
+            'uid' => 0,
+            'device_id' => 0,
+            'original_url' => $imageUrl,
+            'cutout_url' => $imageUrl,
+            'thumbnail_url' => '',
+            'file_name' => $fileName,
+            'file_size' => $fileSize,
+            'width' => $imgWidth,
+            'height' => $imgHeight,
+            'md5' => $fileMd5,
+            'face_embedding' => !empty($faceEmbedding) ? json_encode($faceEmbedding) : '[]',
+            'type' => AiTravelPhotoPortrait::TYPE_USER,
+            'source_type' => 3, // 用户自拍
+            'user_openid' => $openid,
+            'status' => AiTravelPhotoPortrait::STATUS_NORMAL,
+            'synthesis_status' => 2, // 处理中
+            'create_time' => time(),
+            'update_time' => time(),
+        ]);
+
+        // 保存到Milvus
+        if (!empty($faceEmbedding)) {
+            try {
+                $milvusService = new MilvusService();
+                if ($milvusService->isHealthy()) {
+                    $milvusService->insert([$faceEmbedding], ['portrait_id' => $portraitId]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Milvus插入失败', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+            }
+        }
+
+        // 创建 generation 记录并推送到队列
+        $generationId = 0;
+        try {
+            $generationId = (int) Db::name('ai_travel_photo_generation')->insertGetId([
+                'aid' => $aid,
+                'portrait_id' => $portraitId,
+                'scene_id' => 0,
+                'template_id' => $templateId,
+                'uid' => 0,
+                'bid' => $bid,
+                'mdid' => $mdid,
+                'type' => 1,
+                'generation_type' => 1,
+                'status' => 0, // 待处理
+                'create_time' => time(),
+                'update_time' => time(),
+                'queue_time' => time()
+            ]);
+
+            // 推送到ai_image_generation队列
+            \think\facade\Queue::push(
+                'app\\job\\ImageGenerationJob',
+                ['generation_id' => $generationId],
+                'ai_image_generation'
+            );
+
+            Log::info('自拍端选模板合成任务已推送', [
+                'portrait_id' => $portraitId,
+                'template_id' => $templateId,
+                'generation_id' => $generationId,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('自拍端选模板合成任务推送失败', [
+                'portrait_id' => $portraitId, 'error' => $e->getMessage()
+            ]);
+            // 标记失败
+            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                'synthesis_status' => 4,
+                'synthesis_error' => '合成任务推送失败: ' . $e->getMessage(),
+                'update_time' => time()
+            ]);
+            throw new \Exception('合成任务提交失败，请稍后重试');
+        }
+
+        // 更新二维码统计
+        AiTravelPhotoSelfieQrcode::where('aid', $aid)
+            ->where('bid', $bid)
+            ->where('mdid', $mdid)
+            ->inc('selfie_count')
+            ->update([]);
+
+        $queuePending = $this->getQueuePendingCount();
+        $estimatedSeconds = 15 + $queuePending * 5;
+
+        return [
+            'portrait_id' => $portraitId,
+            'generation_id' => $generationId,
+            'estimated_seconds' => $estimatedSeconds,
+        ];
+    }
+
+    /**
      * 获取自拍端数据统计
      *
      * @param int $aid 平台ID

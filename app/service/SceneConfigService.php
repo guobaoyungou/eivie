@@ -74,7 +74,9 @@ class SceneConfigService
                 // 火山引擎Doubao图像/视频生成模型（支持图生）
                 // 注意：Seedream 3.0-t2i 仅文生图，不支持图生图，需排除
                 (stripos($modelCode, 'doubao-seedream') !== false && stripos($modelCode, '3-0-t2i') === false) ||
-                stripos($modelCode, 'doubao-seedance') !== false
+                stripos($modelCode, 'doubao-seedance') !== false ||
+                // OpenAI GPT-Image模型（支持图片编辑/图生图）
+                stripos($modelCode, 'gpt-image') === 0
             );
 
             // 只返回具有图生图能力的模型
@@ -310,6 +312,9 @@ class SceneConfigService
             'status' => $data['status'] ?? 1,
             'is_public' => $data['is_public'] ?? 0,
             'is_recommend' => $data['is_recommend'] ?? 0,
+            'gender_tag' => $data['gender_tag'] ?? '',
+            'age_tag' => $data['age_tag'] ?? '',
+            'is_multi_template' => $data['is_multi_template'] ?? 0,
             'update_time' => time()
         ];
         

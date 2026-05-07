@@ -315,7 +315,13 @@
       // 显示来源场景模板的自动标签
       var editTagStr = document.getElementById('editAutoTagString') ? document.getElementById('editAutoTagString').value : '';
       var editTagStatus = parseInt(document.getElementById('editAutoTagStatus') ? document.getElementById('editAutoTagStatus').value : '0') || 0;
-      renderAutoTags(editTagStr, editTagStatus);
+      var editExtraData = {
+        gender: $('[name="gender_tag"]').val() || '',
+        age: $('[name="age_tag"]').val() || '',
+        is_multi: parseInt($('[name="is_multi_template"]').prop('checked') ? 1 : 0) || 0,
+        face_count: parseInt($('[name="face_count"]').val() || 0) || 0
+      };
+      renderAutoTags(editTagStr, editTagStatus, editExtraData);
       // 显示来源场景模板的分类和价格
       var editCatNames = document.getElementById('editSceneCategoryNames') ? document.getElementById('editSceneCategoryNames').value : '';
       var editBusinessPrice = document.getElementById('editSceneBusinessPrice') ? document.getElementById('editSceneBusinessPrice').value : '0.50';
@@ -499,6 +505,10 @@
       if(cardTagStr){
         html += '    <div class="tags" title="' + cardTagStr + '">🏷 ' + cardTagStr + '</div>';
       }
+      html += '    <div class="tags">';
+      html += (tpl.is_multi_template == 1 ? '<span class="layui-badge layui-bg-orange">多人</span>' : '<span class="layui-badge layui-bg-gray">单人</span>');
+      if(tpl.face_count > 0) html += ' <span style="color:#999;font-size:11px">' + tpl.face_count + '人脸</span>';
+      html += '</div>';
       html += '  </div>';
       html += '</div>';
     });
@@ -655,7 +665,13 @@
     if(selAutoTags && selAutoTags.tag_string){
       selTagStr = selAutoTags.tag_string;
     }
-    renderAutoTags(selTagStr, selTagStatus);
+    var selExtraData = {
+      gender: tpl.gender_tag || '',
+      age: tpl.age_tag || '',
+      is_multi: parseInt(tpl.is_multi_template) || 0,
+      face_count: parseInt(tpl.face_count) || 0
+    };
+    renderAutoTags(selTagStr, selTagStatus, selExtraData);
 
     // 显示所选模板的分类
     var catNames = [];
@@ -748,12 +764,14 @@
   }
 
   // 渲染自动标签显示
-  function renderAutoTags(tagString, status){
+  function renderAutoTags(tagString, status, extraData){
     var el = document.getElementById('autoTagsDisplay');
     var area = document.getElementById('autoTagsArea');
     if(!el || !area) return;
     if(status === undefined || status === null) status = 2;
-    // 状态判断
+    extraData = extraData || {};
+    var genderTextMap = {Male: '<span class="layui-badge layui-bg-blue">男</span>', Female: '<span class="layui-badge layui-bg-cyan">女</span>'};
+    var ageTextMap = {'0-2': '婴幼儿', '3-9': '儿童', '10-19': '青少年', '20-29': '青年', '30-39': '中青年', '40-49': '中年', '50-59': '中老年', '60-100': '老年'};
     if(status == 1){
       el.innerHTML = '<span class="auto-tag-status"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 标签识别中...</span>';
       area.style.display = '';
@@ -764,24 +782,26 @@
       area.style.display = '';
       return;
     }
-    // status==0 且无标签：不显示
     if(!tagString && status == 0){
       area.style.display = 'none';
       return;
     }
-    // status==2 或有标签字符串：显示标签
     if(!tagString){
       area.style.display = 'none';
       return;
     }
-    var tags = tagString.split(',').filter(function(t){ return t.trim(); });
-    if(tags.length === 0){
-      area.style.display = 'none';
-      return;
-    }
     var html = '';
-    tags.forEach(function(tag){
-      html += '<span class="auto-tag-item">' + tag.trim() + '</span>';
+    var gender = extraData.gender || '';
+    if(genderTextMap[gender]) html += genderTextMap[gender] + ' ';
+    var age = extraData.age || '';
+    if(ageTextMap[age]) html += '<span class="layui-badge layui-bg-green">' + ageTextMap[age] + '</span> ';
+    var isMulti = extraData.is_multi;
+    html += (isMulti == 1 ? '<span class="layui-badge layui-bg-orange">多人</span>' : '<span class="layui-badge layui-bg-gray">单人</span>') + ' ';
+    var faceCount = parseInt(extraData.face_count) || 0;
+    if(faceCount > 0) html += '<span style="color:#999;font-size:11px">' + faceCount + '人脸</span> ';
+    var tagParts = tagString.split(',').filter(function(t){ return t.trim(); });
+    tagParts.forEach(function(tag){
+      html += '<span class="auto-tag-item">' + tag.trim() + '</span> ';
     });
     el.innerHTML = html;
     area.style.display = '';

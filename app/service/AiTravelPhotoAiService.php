@@ -523,6 +523,12 @@ class AiTravelPhotoAiService
     /**
      * 轮询任务状态
      * 
+     * TODO: 此方法使用阻塞式 sleep() 轮询，会阻塞队列 Worker 进程。
+     * 视频任务最长阻塞 5 分钟。需要在 Sprint 1 重构为异步模式：
+     * 1. 保存 task_id 后立即返回/退出
+     * 2. 由 aivideo:cron 定时任务轮询结果
+     * 3. 或使用 ThinkPHP Queue 的 release() 延迟重试
+     * 
      * @param string $taskId 任务ID
      * @param string $type 类型（image/video）
      * @param int $maxWaitTime 最长等待时间（秒）

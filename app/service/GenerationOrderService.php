@@ -561,7 +561,23 @@ class GenerationOrderService
             $item['refund_status_text'] = $this->getRefundStatusText($item['refund_status']);
             $item['task_status_text'] = $this->getTaskStatusText($item['task_status']);
             $item['generation_type_text'] = $item['generation_type'] == self::TYPE_PHOTO ? '照片生成' : '视频生成';
-            
+
+            // 计算生成数量
+            if ($item['record_id'] > 0) {
+                $item['output_quantity'] = Db::name('generation_output')
+                    ->alias('go')
+                    ->leftJoin('generation_record gr', 'go.record_id = gr.id')
+                    ->where('gr.order_id', $item['id'])
+                    ->count();
+            } else {
+                $item['output_quantity'] = 0;
+            }
+
+            // 封面图兜底：如果订单没有封面图，使用模板封面
+            if (empty($item['cover_image']) && !empty($item['template_cover_image'])) {
+                $item['cover_image'] = $item['template_cover_image'];
+            }
+
             // 用户显示fallback：优先 member.nickname → 再取 template_snapshot.operator_name → 最终显示操作者账号名
             $item['operator_name'] = '';
             $item['account_name'] = '';
@@ -1463,8 +1479,15 @@ class GenerationOrderService
             if ($quantity > 0) {
                 $inputParams['max_images'] = $quantity;
             }
+            // 质量参数（也传递给速创API）
+            if (!empty($quality) && in_array($quality, ['standard', 'hd', 'ultra'])) {
+                $inputParams['quality'] = $quality;
+            } else {
+                $inputParams['quality'] = 'hd'; // 默认高质量
+            }
+            
             if (!empty($ratio)) {
-                $qualityVal = (!empty($quality) && in_array($quality, ['standard', 'hd', 'ultra'])) ? $quality : 'hd';
+                $qualityVal = $inputParams['quality'];
                 $ratioSizeMap = [
                     '1:1' => ['standard' => '512x512', 'hd' => '1024x1024', 'ultra' => '2048x2048'],
                     '2:3' => ['standard' => '512x768', 'hd' => '1024x1536', 'ultra' => '2048x3072'],

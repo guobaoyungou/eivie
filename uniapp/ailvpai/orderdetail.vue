@@ -16,6 +16,9 @@
 			<view class="scene-info">
 				<text class="scene-name">{{detail.scene_name || detail.template_name || '场景模板'}}</text>
 				<text class="scene-type">{{detail.generation_type == 1 ? '照片生成' : '视频生成'}}</text>
+				<view class="quantity-badge" v-if="detail.output_quantity > 0">
+					<text class="quantity-text">共 {{detail.output_quantity}} 张</text>
+				</view>
 			</view>
 		</view>
 		
@@ -87,24 +90,42 @@
 			</view>
 		</view>
 		
+		<!-- 原图对比 -->
+		<view class="section" v-if="detail.original_images && detail.original_images.length > 0">
+			<view class="section-title">参考原图</view>
+			<view class="original-grid">
+				<image v-for="(img, idx) in detail.original_images" :key="idx"
+				       :src="img" class="original-image" mode="aspectFill"
+				       @tap="previewImage(img)" />
+			</view>
+		</view>
+		
 		<!-- 生成结果 -->
 		<view class="section" v-if="detail.record && detail.record.outputs && detail.record.outputs.length > 0">
 			<view class="section-title">生成结果</view>
 			<view class="result-grid">
 				<block v-for="(output, idx) in detail.record.outputs" :key="idx">
-					<image 
-						v-if="output.output_type != 'video'" 
-						:src="output.output_url" 
-						class="result-image" 
-						mode="aspectFill"
-						@tap="previewImage(output.output_url)"
-					></image>
-					<video 
-						v-else 
-						:src="output.output_url" 
-						class="result-video" 
-						controls
-					></video>
+					<view class="result-item" v-if="output.output_type != 'video'">
+						<image 
+							:src="output.output_url" 
+							class="result-image" 
+							mode="aspectFill"
+							@tap="previewImage(output.output_url)"
+							@error="onImageError(idx)"
+							@load="onImageLoad(idx)"
+						></image>
+						<view v-if="output.loadError" class="image-error-overlay">
+							<text class="error-icon">⚠</text>
+							<text class="error-text">加载失败</text>
+						</view>
+					</view>
+					<view v-else class="result-item video-item">
+						<video 
+							:src="output.output_url" 
+							class="result-video" 
+							controls
+						></video>
+					</view>
 				</block>
 			</view>
 		</view>
@@ -229,6 +250,17 @@ export default {
 			}
 		},
 		
+		onImageError(idx) {
+			if (this.detail && this.detail.record && this.detail.record.outputs && this.detail.record.outputs[idx]) {
+				this.$set(this.detail.record.outputs[idx], 'loadError', true);
+			}
+		},
+		onImageLoad(idx) {
+			if (this.detail && this.detail.record && this.detail.record.outputs && this.detail.record.outputs[idx]) {
+				this.$set(this.detail.record.outputs[idx], 'loadError', false);
+			}
+		},
+		
 		previewImage(url) {
 			var urls = [];
 			if (this.detail.record && this.detail.record.outputs) {
@@ -292,7 +324,9 @@ export default {
 .scene-cover { width: 160rpx; height: 160rpx; border-radius: 16rpx; flex-shrink: 0; background: #F5F0FA; }
 .scene-info { flex: 1; margin-left: 24rpx; }
 .scene-name { font-size: 32rpx; color: #555555; font-weight: bold; display: block; margin-bottom: 12rpx; }
-.scene-type { font-size: 26rpx; color: #999; }
+.scene-type { font-size: 26rpx; color: #999; display: block; }
+.quantity-badge { display: inline-flex; align-items: center; background: rgba(145,194,255,0.15); padding: 6rpx 16rpx; border-radius: 20rpx; margin-top: 8rpx; }
+.quantity-text { font-size: 22rpx; color: #91C2FF; font-weight: bold; }
 .info-item { display: flex; justify-content: space-between; padding: 16rpx 0; }
 .info-item .label { font-size: 28rpx; color: #666; }
 .info-item .value { font-size: 28rpx; color: #555555; text-align: right; flex: 1; margin-left: 30rpx; }
@@ -301,8 +335,20 @@ export default {
 .info-item .value.warning { color: #FFC3D8; }
 .info-item .value.danger { color: #FFA0B8; }
 .result-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.result-item { position: relative; }
 .result-image { width: calc(33.33% - 12rpx); aspect-ratio: 1; border-radius: 16rpx; background: #F5F0FA; }
+.video-item { width: 100%; }
 .result-video { width: 100%; border-radius: 16rpx; }
+.image-error-overlay { 
+	position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
+	display: flex; flex-direction: column; align-items: center; justify-content: center; 
+	background: rgba(245,240,250,0.95); border-radius: 16rpx; 
+}
+.error-icon { font-size: 48rpx; margin-bottom: 8rpx; }
+.error-text { font-size: 24rpx; color: #FF5722; }
+
+.original-grid { display: flex; gap: 12rpx; flex-wrap: wrap; }
+.original-image { width: 120rpx; height: 120rpx; border-radius: 12rpx; background: #F5F0FA; }
 .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 20rpx 30rpx; display: flex; gap: 20rpx; box-shadow: 0 -4rpx 20rpx rgba(0,0,0,0.05); padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); }
 .btn { flex: 1; height: 88rpx; line-height: 88rpx; text-align: center; font-size: 30rpx; border-radius: 40rpx; }
 .btn-primary { background: linear-gradient(135deg, #91C2FF, #B5D8FE); color: #fff; box-shadow: 0 8rpx 24rpx rgba(145,194,255,0.3); }

@@ -1176,8 +1176,36 @@ class ApiAivideo extends ApiCommon
                     ->where('record_id', $record['id'])
                     ->select()
                     ->toArray();
+
+                // 附加 model_name 和 error_msg 到记录
+                $order['model_name'] = $record['model_name'] ?? '';
+                $order['error_msg'] = $record['error_msg'] ?? '';
+
+                // 解析 input_params
+                if (!empty($record['input_params'])) {
+                    $order['input_params'] = is_string($record['input_params'])
+                        ? json_decode($record['input_params'], true) : $record['input_params'];
+                }
             }
             $order['record'] = $record;
+        }
+
+        // 计算生成数量
+        $order['output_quantity'] = !empty($order['record']['outputs'])
+            ? count($order['record']['outputs']) : 0;
+
+        // 解析原图列表（从 template_snapshot 或模板获取）
+        $order['original_images'] = [];
+        if (!empty($order['template_snapshot'])) {
+            $snapshot = is_string($order['template_snapshot'])
+                ? json_decode($order['template_snapshot'], true) : $order['template_snapshot'];
+            if (!empty($snapshot['original_images'])) {
+                $order['original_images'] = $snapshot['original_images'];
+            }
+        }
+        if (empty($order['original_images']) && !empty($order['original_images_raw'])) {
+            $order['original_images'] = is_string($order['original_images_raw'])
+                ? json_decode($order['original_images_raw'], true) : $order['original_images_raw'];
         }
 
         // ===== 详情页扩展信息（门店/佣金，订单页不展示升级优惠） =====
@@ -1566,12 +1594,47 @@ class ApiAivideo extends ApiCommon
             return jsonEncode(['status' => 0, 'msg' => '记录不存在']);
         }
 
-        // 返回结果
+        // 获取模板信息（通过订单 scene_id 或记录 scene_id）
+        $templateInfo = null;
+        $sceneId = $order['scene_id'] ?? ($record['scene_id'] ?? 0);
+        if ($sceneId > 0) {
+            $templateInfo = Db::name('generation_scene_template')
+                ->where('id', $sceneId)
+                ->field('template_name, cover_image, description, original_images, effect_images')
+                ->find();
+        }
+
+        // 解析原图列表（优先从模板获取，其次从 input_params 获取）
+        $originalImages = [];
+        if ($templateInfo && !empty($templateInfo['original_images'])) {
+            $originalImages = is_string($templateInfo['original_images'])
+                ? json_decode($templateInfo['original_images'], true) : [];
+        } elseif (!empty($record['input_params']) && is_array($record['input_params'])) {
+            $inputParams = $record['input_params'];
+            if (!empty($inputParams['ref_images'])) {
+                $originalImages = $inputParams['ref_images'];
+            }
+        }
+
+        // 构建增强返回数据
         $result = [
             'record_id' => $record['id'],
             'status' => $record['status'],
             'status_text' => $this->getTaskStatusText($record['status']),
+            'error_msg' => $record['error_msg'] ?? '',
             'generation_type' => $record['generation_type'],
+
+            // 模板信息
+            'template_name' => $templateInfo['template_name'] ?? '',
+            'template_cover_image' => $templateInfo['cover_image'] ?? '',
+            'model_name' => $record['model_name'] ?? '',
+
+            // 原图列表
+            'original_images' => $originalImages,
+
+            // 生成数量
+            'output_quantity' => !empty($record['outputs']) ? count($record['outputs']) : 0,
+
             'create_time' => $record['create_time_text'],
             'finish_time' => $record['finish_time_text'],
             'outputs' => []

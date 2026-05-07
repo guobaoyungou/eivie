@@ -158,6 +158,14 @@ class MilvusService
                 'vector' => $vector,
             ];
             
+            // 添加元数据字段，使向量可关联到具体人像/用户
+            if (isset($metadata['portrait_id'])) {
+                $insertData['portrait_id'] = (int)$metadata['portrait_id'];
+            }
+            if (isset($metadata['user_id'])) {
+                $insertData['user_id'] = (int)$metadata['user_id'];
+            }
+            
             $data['data'][] = $insertData;
         }
         

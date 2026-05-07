@@ -161,22 +161,22 @@ class Menu
 			$ai_travel_photo_child[] = ['name'=>'生成结果','path'=>'AiTravelPhoto/portrait_detail','authdata'=>'AiTravelPhoto/portrait_detail,AiTravelPhoto/synthesis_retry,AiTravelPhoto/synthesis_batch_generate,AiTravelPhoto/resume_paused_tasks','hide'=>true];
 
 			// 订单管理
-			$ai_travel_photo_child[] = ['name'=>'订单管理','path'=>'AiTravelPhoto/order_list','authdata'=>'AiTravelPhoto/order_list,AiTravelPhoto/order_detail,AiTravelPhoto/order_refund'];
+			$ai_travel_photo_child[] = ['name'=>'B端选片订单','path'=>'AiTravelPhoto/order_list','authdata'=>'AiTravelPhoto/order_list,AiTravelPhoto/order_detail,AiTravelPhoto/order_refund'];
 
 			// 设备管理
 			$ai_travel_photo_child[] = ['name'=>'设备管理','path'=>'AiTravelPhoto/device_list','authdata'=>'AiTravelPhoto/device_list,AiTravelPhoto/device_generate_token,AiTravelPhoto/device_delete'];
 
 			// 选片列表
-			$ai_travel_photo_child[] = ['name'=>'选片列表','path'=>'AiTravelPhoto/qrcode_list','authdata'=>'AiTravelPhoto/qrcode_list'];
+			$ai_travel_photo_child[] = ['name'=>'B端选片列表','path'=>'AiTravelPhoto/qrcode_list','authdata'=>'AiTravelPhoto/qrcode_list'];
 
 			// 成品列表
-			$ai_travel_photo_child[] = ['name'=>'成品列表','path'=>'AiTravelPhoto/result_list','authdata'=>'AiTravelPhoto/result_list'];
+			$ai_travel_photo_child[] = ['name'=>'C端成品列表','path'=>'AiTravelPhoto/result_list','authdata'=>'AiTravelPhoto/result_list'];
 
 			// 数据统计
 			$ai_travel_photo_child[] = ['name'=>'数据统计','path'=>'AiTravelPhoto/statistics','authdata'=>'AiTravelPhoto/statistics'];
 
 			// 自拍端管理
-			$ai_travel_photo_child[] = ['name'=>'自拍端管理','path'=>'AiTravelPhoto/selfie_manage','authdata'=>'AiTravelPhoto/selfie_manage,AiTravelPhoto/selfie_qrcode,AiTravelPhoto/selfie_push_config,AiTravelPhoto/selfie_stats,AiTravelPhoto/selfie_toggle_enable'];
+			$ai_travel_photo_child[] = ['name'=>'C端二维码管理','path'=>'AiTravelPhoto/selfie_manage','authdata'=>'AiTravelPhoto/selfie_manage,AiTravelPhoto/selfie_qrcode,AiTravelPhoto/selfie_push_config,AiTravelPhoto/selfie_stats,AiTravelPhoto/selfie_toggle_enable'];
 
 			// 系统设置
 			$ai_travel_photo_child[] = ['name'=>'系统设置','path'=>'AiTravelPhoto/settings','authdata'=>'AiTravelPhoto/settings'];
@@ -201,22 +201,22 @@ class Menu
 				$ai_travel_photo_child[] = ['name'=>'生成结果','path'=>'AiTravelPhoto/portrait_detail','authdata'=>'AiTravelPhoto/portrait_detail,AiTravelPhoto/synthesis_retry,AiTravelPhoto/synthesis_batch_generate,AiTravelPhoto/resume_paused_tasks','hide'=>true];
 
 				// 订单管理
-				$ai_travel_photo_child[] = ['name'=>'订单管理','path'=>'AiTravelPhoto/order_list','authdata'=>'AiTravelPhoto/order_list,AiTravelPhoto/order_detail,AiTravelPhoto/order_refund'];
+				$ai_travel_photo_child[] = ['name'=>'B端选片订单','path'=>'AiTravelPhoto/order_list','authdata'=>'AiTravelPhoto/order_list,AiTravelPhoto/order_detail,AiTravelPhoto/order_refund'];
 				
 				// 设备管理
 				$ai_travel_photo_child[] = ['name'=>'设备管理','path'=>'AiTravelPhoto/device_list','authdata'=>'AiTravelPhoto/device_list,AiTravelPhoto/device_generate_token,AiTravelPhoto/device_delete'];
 				
 				// 选片列表
-				$ai_travel_photo_child[] = ['name'=>'选片列表','path'=>'AiTravelPhoto/qrcode_list','authdata'=>'AiTravelPhoto/qrcode_list'];
+				$ai_travel_photo_child[] = ['name'=>'B端选片列表','path'=>'AiTravelPhoto/qrcode_list','authdata'=>'AiTravelPhoto/qrcode_list'];
 				
 				// 成品列表
-				$ai_travel_photo_child[] = ['name'=>'成品列表','path'=>'AiTravelPhoto/result_list','authdata'=>'AiTravelPhoto/result_list'];
+				$ai_travel_photo_child[] = ['name'=>'C端成品列表','path'=>'AiTravelPhoto/result_list','authdata'=>'AiTravelPhoto/result_list'];
 				
 				// 数据统计
 				$ai_travel_photo_child[] = ['name'=>'数据统计','path'=>'AiTravelPhoto/statistics','authdata'=>'AiTravelPhoto/statistics'];
 
 				// 自拍端管理
-				$ai_travel_photo_child[] = ['name'=>'自拍端管理','path'=>'AiTravelPhoto/selfie_manage','authdata'=>'AiTravelPhoto/selfie_manage,AiTravelPhoto/selfie_qrcode,AiTravelPhoto/selfie_push_config,AiTravelPhoto/selfie_stats,AiTravelPhoto/selfie_toggle_enable'];
+				$ai_travel_photo_child[] = ['name'=>'C端二维码管理','path'=>'AiTravelPhoto/selfie_manage','authdata'=>'AiTravelPhoto/selfie_manage,AiTravelPhoto/selfie_qrcode,AiTravelPhoto/selfie_push_config,AiTravelPhoto/selfie_stats,AiTravelPhoto/selfie_toggle_enable'];
 				
 				// 系统设置
 				$ai_travel_photo_child[] = ['name'=>'系统设置','path'=>'AiTravelPhoto/settings','authdata'=>'AiTravelPhoto/settings'];

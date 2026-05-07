@@ -946,6 +946,9 @@
     var outputCount = outputs.length;
     var costTime = data.cost_time || 0;
     
+    // 调试：输出数据结构
+    console.log('生成结果数据:', JSON.stringify(outputs, null, 2));
+    
     // 构建结果展示HTML
     var resultHtml = '<div style="padding:20px">';
     resultHtml += '<h3 style="text-align:center; margin-bottom:20px; color:#5FB878">✅ 生成成功！</h3>';
@@ -959,8 +962,17 @@
       
       outputs.forEach(function(output, index) {
         if (index < 6) { // 最多显示6个预览
-          resultHtml += '<div style="width:120px; border:1px solid #e6e6e6; border-radius:6px; overflow:hidden">';
-          resultHtml += '<img src="' + output.output_url + '" style="width:120px; height:120px; object-fit:cover; cursor:pointer" onclick="previewImage(\'' + output.output_url + '\')" title="点击查看大图">';
+          var imgUrl = output.output_url || output.url || '';
+          if (!imgUrl) {
+            console.warn('第' + (index+1) + '张图片URL为空:', output);
+          }
+          resultHtml += '<div style="width:120px; border:1px solid #e6e6e6; border-radius:6px; overflow:hidden; background:#f5f5f5; display:flex; align-items:center; justify-content:center; height:120px">';
+          if (imgUrl) {
+            resultHtml += '<img src="' + imgUrl + '" style="width:120px; height:120px; object-fit:cover; cursor:pointer" onclick="previewImage(\'' + imgUrl + '\')" title="点击查看大图" onerror="this.style.display=\'none\'; this.nextSibling.style.display=\'flex\';">';
+            resultHtml += '<span style="display:none; color:#999; font-size:12px; text-align:center; padding:5px;">加载失败</span>';
+          } else {
+            resultHtml += '<span style="color:#999; font-size:12px; text-align:center; padding:5px;">无图片</span>';
+          }
           resultHtml += '</div>';
         }
       });

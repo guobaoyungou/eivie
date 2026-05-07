@@ -26,6 +26,12 @@ class ModelParameterValidator
             return $seedreamResult;
         }
 
+        // GPT-Image模型参数校验
+        $gptImageResult = self::validateGptImageParams($modelCode, $params);
+        if ($gptImageResult !== null && !$gptImageResult['valid']) {
+            return $gptImageResult;
+        }
+
         // 获取模型配置
         $model = AiModelInstance::where('model_code', $modelCode)->find();
         if (!$model) {
@@ -55,6 +61,11 @@ class ModelParameterValidator
         // 合并 Seedream 校验后的参数
         if ($seedreamResult !== null && isset($seedreamResult['params'])) {
             $validated = array_merge($validated, $seedreamResult['params']);
+        }
+
+        // 合并 GPT-Image 校验后的参数
+        if ($gptImageResult !== null && isset($gptImageResult['params'])) {
+            $validated = array_merge($validated, $gptImageResult['params']);
         }
         
         if (!empty($errors)) {
@@ -142,6 +153,111 @@ class ModelParameterValidator
             default:
                 return $value;
         }
+    }
+
+    // ============================================================
+    // GPT-Image 模型参数校验
+    // ============================================================
+
+    /**
+     * GPT-Image 专属校验逻辑
+     * 校验 size、quality、output_format、background、n 等参数
+     *
+     * @param string $modelCode 模型代码
+     * @param array $params 业务参数
+     * @return array|null null=非GPT-Image模型，跳过
+     */
+    protected static function validateGptImageParams($modelCode, $params)
+    {
+        if (strpos(strtolower($modelCode), 'gpt-image') !== 0) {
+            return null;
+        }
+
+        $errors = [];
+        $validated = $params;
+
+        // ---- size 校验 ----
+        if (isset($params['size'])) {
+            $validSizes = ['1024x1024', '1536x1024', '1024x1536', 'auto'];
+            if (!in_array($params['size'], $validSizes)) {
+                // 尝试转换为最接近的支持尺寸
+                if (preg_match('/^(\d+)[x*](\d+)$/i', $params['size'], $m)) {
+                    $w = (int)$m[1];
+                    $h = (int)$m[2];
+                    $ratio = $w / max($h, 1);
+                    if ($ratio > 1.2) {
+                        $validated['size'] = '1536x1024';
+                    } elseif ($ratio < 0.8) {
+                        $validated['size'] = '1024x1536';
+                    } else {
+                        $validated['size'] = '1024x1024';
+                    }
+                } else {
+                    $validated['size'] = 'auto';
+                }
+            }
+        }
+
+        // ---- quality 校验 ----
+        if (isset($params['quality'])) {
+            $validQualities = ['auto', 'low', 'medium', 'high'];
+            if (!in_array($params['quality'], $validQualities)) {
+                $validated['quality'] = 'auto';
+            }
+        }
+
+        // ---- output_format 校验 ----
+        if (isset($params['output_format'])) {
+            $validFormats = ['png', 'jpeg', 'webp'];
+            if (!in_array($params['output_format'], $validFormats)) {
+                $validated['output_format'] = 'png';
+            }
+        }
+
+        // ---- background 校验 ----
+        if (isset($params['background'])) {
+            $validBgs = ['auto', 'transparent', 'opaque'];
+            if (!in_array($params['background'], $validBgs)) {
+                $validated['background'] = 'auto';
+            }
+            // transparent 仅在 png/webp 时有效
+            if ($params['background'] === 'transparent') {
+                $format = $validated['output_format'] ?? 'png';
+                if (!in_array($format, ['png', 'webp'])) {
+                    $validated['background'] = 'opaque';
+                }
+            }
+        }
+
+        // ---- n 数量校验 ----
+        if (isset($params['n'])) {
+            $n = (int)$params['n'];
+            if ($n < 1 || $n > 10) {
+                $errors[] = "GPT-Image 生成数量范围为 [1, 10]，当前: {$n}";
+            }
+        }
+
+        // ---- 移除不支持的参数 ----
+        $unsupported = ['seed', 'guidance_scale', 'strength', 'edit_mode', 'num_inference_steps',
+            'output_quality', 'prompt_extend', 'watermark', 'stream',
+            'sequential_image_generation', 'sequential_image_generation_options',
+            'optimize_prompt_options', 'tools'];
+        foreach ($unsupported as $key) {
+            unset($validated[$key]);
+        }
+
+        if (!empty($errors)) {
+            return [
+                'valid' => false,
+                'errors' => $errors,
+                'message' => implode('; ', $errors)
+            ];
+        }
+
+        return [
+            'valid' => true,
+            'params' => $validated
+        ];
     }
 
     // ============================================================

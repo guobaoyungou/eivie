@@ -62,6 +62,37 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
 .btn-primary{background:linear-gradient(135deg,#1E9FFF,#0078D7);color:#fff;}
 .btn-secondary{background:#f0f0f0;color:#666;}
 .btn-success{background:linear-gradient(135deg,#4CAF50,#2E7D32);color:#fff;}
+/* 性别选择页 */
+#page-gender{background:#f5f5f5;padding:30px;}
+.gender-card{display:inline-block;width:140px;margin:10px;padding:30px 20px;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);cursor:pointer;transition:transform .15s,box-shadow .15s;border:2px solid transparent;}
+.gender-card:active{transform:scale(0.95);}
+.gender-card.selected{border-color:#1E9FFF;box-shadow:0 4px 20px rgba(30,159,255,.3);}
+.gender-card .emoji{font-size:48px;display:block;margin-bottom:10px;}
+.gender-card .label{font-size:16px;font-weight:bold;color:#333;}
+/* 模板列表页 */
+#page-templates{background:#f5f5f5;padding:20px;overflow-y:auto;align-items:flex-start;justify-content:flex-start;}
+.tpl-header{width:100%;text-align:center;margin-bottom:15px;}
+.tpl-header h3{font-size:18px;color:#333;margin-bottom:5px;}
+.tpl-header .subtitle{font-size:13px;color:#999;}
+.tpl-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:100%;max-width:400px;margin:0 auto;}
+.tpl-card{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer;transition:transform .15s;}
+.tpl-card:active{transform:scale(0.97);}
+.tpl-card .cover{width:100%;height:140px;object-fit:cover;background:#e0e0e0;}
+.tpl-card .info{padding:10px;}
+.tpl-card .info .name{font-size:14px;font-weight:500;color:#333;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tpl-card .info .tags{font-size:11px;color:#1E9FFF;}
+.tpl-empty{grid-column:1/-1;text-align:center;padding:40px 20px;color:#999;font-size:14px;}
+/* 模板详情页 */
+#page-tpl-detail{background:#f5f5f5;padding:20px;overflow-y:auto;align-items:flex-start;justify-content:flex-start;}
+.detail-back{font-size:14px;color:#1E9FFF;cursor:pointer;margin-bottom:15px;display:inline-block;}
+.detail-cover{width:100%;max-width:360px;border-radius:12px;overflow:hidden;margin-bottom:15px;}
+.detail-cover img{width:100%;display:block;}
+.detail-info{width:100%;max-width:360px;background:#fff;border-radius:12px;padding:20px;margin-bottom:15px;}
+.detail-info h3{font-size:18px;margin-bottom:8px;}
+.detail-info .desc{font-size:14px;color:#666;line-height:1.6;margin-bottom:10px;}
+.detail-info .model-tag{display:inline-block;padding:3px 10px;background:#f0f7ff;color:#1E9FFF;border-radius:10px;font-size:12px;}
+.detail-action{width:100%;max-width:360px;text-align:center;}
+.detail-action .btn{width:100%;max-width:300px;padding:14px 0;font-size:16px;}
 /* 等待页 */
 #page-waiting{background:#f5f5f5;padding:30px;}
 .progress-ring{width:120px;height:120px;margin:0 auto 20px;}
@@ -126,13 +157,55 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
   <div class="text" style="margin-top:15px;">正在搜索您的旅拍照片...</div>
 </div>
 
-<!-- 页面4：未命中 - 选择等待/通知 -->
+<!-- 页面4：未命中 - 引导用户选模板 -->
 <div class="page" id="page-nomatch">
   <div class="result-card">
-    <h3>📸 照片正在生成中</h3>
-    <p>暂未找到您的旅拍成片，系统正在为您生成，预计需要 <span id="estimatedTime">--</span> 秒</p>
-    <button class="btn btn-primary" onclick="startWaiting()">继续等待</button>
-    <button class="btn btn-secondary" onclick="registerNotify()">找到后通知我</button>
+    <h3>📸 未找到您的旅拍照片</h3>
+    <p id="nomatchMsg">未找到您在门店的旅拍照片，现在去旅拍吧！</p>
+    <button class="btn btn-primary" onclick="goChooseTemplate()">现在去旅拍</button>
+  </div>
+</div>
+
+<!-- 页面4.1：性别选择 -->
+<div class="page" id="page-gender">
+  <div class="result-card" style="padding:30px 20px;">
+    <h3>请选择您的性别</h3>
+    <p style="margin-bottom:25px;">我们将为您推荐更匹配的旅拍风格</p>
+    <div style="display:flex;justify-content:center;">
+      <div class="gender-card" onclick="selectGender(1)">
+        <span class="emoji">👨</span>
+        <span class="label">男生</span>
+      </div>
+      <div class="gender-card" onclick="selectGender(2)">
+        <span class="emoji">👩</span>
+        <span class="label">女生</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 页面4.2：推荐模板列表 -->
+<div class="page" id="page-templates">
+  <div class="tpl-header">
+    <h3>为您推荐</h3>
+    <div class="subtitle" id="tplSubtitle">选择一个喜欢的风格开始旅拍</div>
+  </div>
+  <div class="tpl-grid" id="tplGrid">
+    <div class="tpl-empty">正在加载...</div>
+  </div>
+</div>
+
+<!-- 页面4.3：模板详情 -->
+<div class="page" id="page-tpl-detail">
+  <span class="detail-back" onclick="backToTemplates()">← 返回列表</span>
+  <div class="detail-cover"><img id="detailCover" src="" alt="模板封面"></div>
+  <div class="detail-info">
+    <h3 id="detailName"></h3>
+    <p class="desc" id="detailDesc"></p>
+    <span class="model-tag" id="detailModel"></span>
+  </div>
+  <div class="detail-action">
+    <button class="btn btn-primary detail-action" onclick="submitGenerate()">开始合成旅拍照片</button>
   </div>
 </div>
 
@@ -184,7 +257,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     detecting: false,
     lastDescriptor: null,
     faceReady: false,
-    smileAutoEnabled: false
+    smileAutoEnabled: false,
+    // 新增：未匹配流程状态
+    userGender: 3,
+    capturedImageUrl: '',
+    storeName: '',
+    selectedTemplateId: 0,
+    selectedTemplate: null
   };
 
   var API_BASE = '/index.php?s=/api/ai_travel_photo/selfie/';
@@ -225,6 +304,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     STATE.aid = parseInt(getUrlParam('aid')) || 0;
     STATE.bid = parseInt(getUrlParam('bid')) || 0;
     STATE.mdid = parseInt(getUrlParam('mdid')) || 0;
+    STATE.mode = getUrlParam('mode') || '';
 
     if(!STATE.aid || !STATE.bid || !STATE.mdid) {
       showError('参数错误，请重新扫码');
@@ -254,6 +334,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
         return;
       }
 
+      // 如果是 template 模式，跳过摄像头直接进入模板选择
+      if(STATE.mode === 'template') {
+        goChooseTemplate();
+        return;
+      }
       // 立即启动摄像头，无需等待模型加载
       startCamera();
       // 30秒后静默加载笑脸检测模型
@@ -622,10 +707,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
 
       if(res.data.matched) {
         window.location.href = res.data.pick_url;
+      } else if(res.data.action === 'choose_template') {
+        // 新流程：未匹配，引导用户选模板
+        STATE.userGender = res.data.user_gender || 3;
+        STATE.capturedImageUrl = res.data.captured_image_url || '';
+        STATE.storeName = res.data.store_name || '门店';
+        document.getElementById('nomatchMsg').textContent = '未找到您在' + STATE.storeName + '的旅拍照片，现在去旅拍吧！';
+        showPage('page-nomatch');
       } else {
         STATE.portraitId = res.data.portrait_id;
-        document.getElementById('estimatedTime').textContent = res.data.estimated_seconds || 60;
-        showPage('page-nomatch');
+        showPage('page-waiting');
+        document.getElementById('progressDetail').textContent = '正在合成中，预计需要 ' + (res.data.estimated_seconds || 60) + ' 秒';
+        pollProgress();
       }
     }).catch(function(e){
       STATE.capturedImage = null;
@@ -646,9 +739,135 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     startCamera();
   };
 
+  // ===== 未匹配流程：选模板合成 =====
+  window.goChooseTemplate = function() {
+    if(STATE.userGender === 3 || STATE.userGender === 0) {
+      showPage('page-gender');
+    } else {
+      loadTemplates();
+    }
+  };
+
+  window.selectGender = function(gender) {
+    STATE.userGender = gender;
+    // 设置选中样式
+    document.querySelectorAll('.gender-card').forEach(function(c){ c.classList.remove('selected'); });
+    event.currentTarget.classList.add('selected');
+    // 保存性别
+    apiPost('save_gender', {gender: gender}).then(function(res){
+      if(res.code === 200 || res.code === 302) {
+        setTimeout(function(){ loadTemplates(); }, 300);
+      } else {
+        // 保存失败仍然继续
+        setTimeout(function(){ loadTemplates(); }, 300);
+      }
+    }).catch(function(){
+      setTimeout(function(){ loadTemplates(); }, 300);
+    });
+  };
+
+  function loadTemplates() {
+    showPage('page-templates');
+    document.getElementById('tplGrid').innerHTML = '<div class="tpl-empty">正在加载推荐模板...</div>';
+
+    apiGet('recommend_templates', {bid: STATE.bid, mdid: STATE.mdid, gender: STATE.userGender}).then(function(res){
+      if(res.code !== 200) {
+        document.getElementById('tplGrid').innerHTML = '<div class="tpl-empty">加载失败: ' + (res.msg || '未知错误') + '</div>';
+        return;
+      }
+      var templates = res.data.templates || [];
+      var total = res.data.total || 0;
+      var genderLabel = res.data.gender_label || '';
+
+      if(genderLabel) {
+        document.getElementById('tplSubtitle').textContent = '已为您筛选' + genderLabel + '推荐风格';
+      }
+
+      if(total === 0) {
+        document.getElementById('tplGrid').innerHTML = '<div class="tpl-empty">暂无推荐模板，请联系店员</div>';
+        return;
+      }
+
+      var html = '';
+      templates.forEach(function(tpl){
+        var coverStyle = tpl.cover_image ? 'background-image:url(' + tpl.cover_image + ');background-size:cover;background-position:center;' : '';
+        html += '<div class="tpl-card" onclick="viewTemplate(' + tpl.id + ')" data-tpl-id="' + tpl.id + '">';
+        html += '<div class="cover" style="' + coverStyle + '"></div>';
+        html += '<div class="info"><div class="name">' + (tpl.name || '未命名模板') + '</div>';
+        if(tpl.tags) html += '<div class="tags">' + tpl.tags + '</div>';
+        html += '</div></div>';
+      });
+      document.getElementById('tplGrid').innerHTML = html;
+
+      // 保存模板数据供详情页使用
+      STATE._templates = templates;
+    }).catch(function(e){
+      document.getElementById('tplGrid').innerHTML = '<div class="tpl-empty">网络错误，请重试</div>';
+    });
+  }
+
+  window.viewTemplate = function(tplId) {
+    var tpl = null;
+    if(STATE._templates) {
+      for(var i=0; i<STATE._templates.length; i++) {
+        if(STATE._templates[i].id === tplId) { tpl = STATE._templates[i]; break; }
+      }
+    }
+    if(!tpl) return;
+
+    STATE.selectedTemplateId = tplId;
+    STATE.selectedTemplate = tpl;
+
+    document.getElementById('detailCover').src = tpl.cover_image || '';
+    document.getElementById('detailName').textContent = tpl.name || '未命名模板';
+    document.getElementById('detailDesc').textContent = tpl.description || '使用AI技术为您生成精美旅拍照片';
+    document.getElementById('detailModel').textContent = tpl.model_name || 'AI模型';
+    showPage('page-tpl-detail');
+  };
+
+  window.backToTemplates = function() {
+    showPage('page-templates');
+  };
+
+  window.submitGenerate = function() {
+    if(!STATE.selectedTemplateId || !STATE.capturedImageUrl) {
+      alert('参数异常，请重新拍照');
+      return;
+    }
+
+    showPage('page-waiting');
+    document.getElementById('progressPercent').textContent = '0%';
+    document.getElementById('progressDetail').textContent = '正在提交合成任务...';
+
+    apiPost('generate_with_template', {
+      template_id: STATE.selectedTemplateId,
+      bid: STATE.bid,
+      mdid: STATE.mdid,
+      image_url: STATE.capturedImageUrl
+    }).then(function(res){
+      if(res.code !== 200) {
+        alert(res.msg || '合成提交失败');
+        showPage('page-templates');
+        return;
+      }
+      STATE.portraitId = res.data.portrait_id;
+      if(res.data.dedup) {
+        document.getElementById('progressDetail').textContent = '您今天已提交过合成，正在查询进度...';
+      } else {
+        document.getElementById('progressDetail').textContent = '合成任务已提交，预计需要 ' + (res.data.estimated_seconds || 30) + ' 秒';
+      }
+      pollProgress();
+    }).catch(function(e){
+      alert('网络错误: ' + e.message);
+      showPage('page-templates');
+    });
+  };
+
   // ===== 等待模式 =====
   window.startWaiting = function() {
     showPage('page-waiting');
+    document.getElementById('progressPercent').textContent = '0%';
+    document.getElementById('progressDetail').textContent = '正在处理中...';
     pollProgress();
   };
 

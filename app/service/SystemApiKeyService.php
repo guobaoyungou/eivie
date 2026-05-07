@@ -37,10 +37,10 @@ class SystemApiKeyService
             ->select()->toArray();
         
         foreach ($data as &$item) {
-            // 解密并脱敏API Key展示
+            // 解密并脱敏API Key（列表只返回掩码版本，不返回明文）
             $decryptedKey = $this->decryptApiKey($item['api_key']);
             $item['api_key_masked'] = $this->maskApiKey($decryptedKey);
-            $item['api_key_plain'] = $decryptedKey; // 用于编辑判断，不直接展示
+            // 注意：不再返回 api_key_plain，防止密钥泄露
             
             // 时间格式化
             $item['create_time_text'] = $item['create_time'] ? date('Y-m-d H:i', $item['create_time']) : '';
@@ -193,12 +193,27 @@ class SystemApiKeyService
             $configName = $provider['provider_name'] . '-Key' . ($keyCount + 1);
         }
         
+        // 自定义接口地址（可选，用于OpenAI等供应商的中转/代理服务）
+        $customEndpoint = trim($data['custom_endpoint'] ?? '');
+        // 简单URL格式校验
+        if (!empty($customEndpoint) && !filter_var($customEndpoint, FILTER_VALIDATE_URL)) {
+            return ['status' => 0, 'msg' => '自定义接口地址格式不正确，请输入完整的URL（以http://或https://开头）'];
+        }
+        
+        // 认证方式（仅在使用自定义接口地址时有意义）
+        $authMode = trim($data['auth_mode'] ?? 'bearer');
+        if (!in_array($authMode, ['bearer', 'key_only'])) {
+            $authMode = 'bearer';
+        }
+        
         // 准备保存数据
         $saveData = [
             'provider_id' => $providerId,
             'provider_code' => $provider['provider_code'],
             'api_key' => $encryptedKey,
             'api_secret' => !empty($apiSecret) ? $this->encryptApiKey($apiSecret) : '',
+            'custom_endpoint' => $customEndpoint,
+            'auth_mode' => $authMode,
             'config_name' => $configName,
             'max_concurrency' => max(1, min(100, intval($data['max_concurrency'] ?? 5))),
             'weight' => max(1, min(100, intval($data['weight'] ?? 100))),

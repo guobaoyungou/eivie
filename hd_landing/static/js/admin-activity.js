@@ -115,17 +115,150 @@ function clearSignList(aid) {
 }
 
 // ============================================================
+// 抽奖模式定义
+// ============================================================
+var LOTTERY_MODES = [
+    {
+        key: 'normal',
+        name: '经典滚动',
+        icon: '\uD83C\uDFB0',
+        desc: '头像滚动抽奖，简洁高效，适合快速场景',
+        tags: ['快速', '通用', '轻量'],
+        themeType: null,
+        previewBg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        previewIcon: '\uD83C\uDFB0',
+        previewDesc: '参与者头像在大屏上快速滚动，随机定格产生中奖者'
+    },
+    {
+        key: '3d',
+        name: '3D翻牌',
+        icon: '\uD83C\uDFB4',
+        desc: '3D翻转牌面动画，视觉效果震撼',
+        tags: ['炫酷', '3D动画', '年会'],
+        themeType: 'ThreeDimensional',
+        previewBg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+        previewIcon: '\uD83C\uDFB4',
+        previewDesc: '牌面以3D翻转动效展示中奖者，视觉冲击力强'
+    },
+    {
+        key: 'egg',
+        name: '砸金蛋',
+        icon: '\uD83E\uDD5A',
+        desc: '互动砸金蛋，趣味性强',
+        tags: ['趣味', '互动', '营销'],
+        themeType: 'Zjd',
+        previewBg: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
+        previewIcon: '\uD83E\uDD5A',
+        previewDesc: '金蛋碎裂特效揭晓中奖者，互动参与感强'
+    },
+    {
+        key: 'box',
+        name: '超级抽奖箱',
+        icon: '\uD83D\uDCE6',
+        desc: '经典开箱体验，仪式感强',
+        tags: ['隆重', '典礼', '高端'],
+        themeType: 'Cjx',
+        previewBg: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
+        previewIcon: '\uD83D\uDCE6',
+        previewDesc: '神秘抽奖箱开启，营造隆重的颁奖仪式感'
+    }
+];
+
+var currentSelectedMode = null;
+
+function renderModePreview(modeKey) {
+    var mode = null;
+    for (var i = 0; i < LOTTERY_MODES.length; i++) {
+        if (LOTTERY_MODES[i].key === modeKey) { mode = LOTTERY_MODES[i]; break; }
+    }
+    if (!mode) return '<div class="mode-preview-empty">\u8BF7\u9009\u62E9\u5DE6\u4FA7\u7684\u62BD\u5956\u6A21\u5F0F</div>';
+
+    var html = '';
+    html += '<div class="mode-preview-inner" style="background:' + mode.previewBg + '">';
+    html += '<div class="mode-preview-icon">' + mode.previewIcon + '</div>';
+    html += '<div class="mode-preview-name">' + mode.name + '</div>';
+    html += '<div class="mode-preview-desc">' + mode.previewDesc + '</div>';
+    html += '<div class="mode-preview-tags">';
+    for (var t = 0; t < mode.tags.length; t++) {
+        html += '<span class="mode-tag">' + mode.tags[t] + '</span>';
+    }
+    html += '</div>';
+    // 模拟大屏效果示意
+    html += '<div class="mode-preview-mockup">';
+    html += '<div class="mockup-screen">';
+    html += '<div class="mockup-title">\u5927\u5C4F\u62BD\u5956</div>';
+    if (mode.key === 'normal') {
+        html += '<div class="mockup-avatars"><div class="mockup-avatar active">\u2B50</div><div class="mockup-avatar">\uD83D\uDC68\u200D\uD83E\uDBB0</div><div class="mockup-avatar">\uD83D\uDC69\u200D\uD83D\uDCBB</div></div>';
+    } else if (mode.key === '3d') {
+        html += '<div class="mockup-cards"><div class="mockup-card flip">\u2728</div><div class="mockup-card">?</div><div class="mockup-card">?</div></div>';
+    } else if (mode.key === 'egg') {
+        html += '<div class="mockup-eggs"><div class="mockup-egg cracked">\uD83E\uDD5A</div><div class="mockup-egg">\uD83E\uDD5A</div></div>';
+    } else if (mode.key === 'box') {
+        html += '<div class="mockup-box"><div class="box-lid open"></div><div class="box-body">\u2728</div></div>';
+    }
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+
+    return html;
+}
+
+function selectLotteryMode(modeKey) {
+    currentSelectedMode = modeKey;
+    // 更新左侧卡片选中状态
+    document.querySelectorAll('.lottery-mode-card').forEach(function(card) {
+        if (card.getAttribute('data-mode-key') === modeKey) {
+            card.classList.add('selected');
+        } else {
+            card.classList.remove('selected');
+        }
+    });
+    // 更新右侧预览
+    var previewEl = document.getElementById('lotteryModePreview');
+    if (previewEl) {
+        previewEl.style.opacity = '0';
+        setTimeout(function() {
+            previewEl.innerHTML = renderModePreview(modeKey);
+            previewEl.style.opacity = '1';
+        }, 150);
+    }
+    // 更新当前模式提示
+    var currentLabel = document.getElementById('currentModeLabel');
+    if (currentLabel) {
+        var selectedMode = null;
+        for (var i = 0; i < LOTTERY_MODES.length; i++) {
+            if (LOTTERY_MODES[i].key === modeKey) { selectedMode = LOTTERY_MODES[i]; break; }
+        }
+        currentLabel.innerHTML = '\u2705 \u5F53\u524D\uFF1A' + (selectedMode ? selectedMode.icon + ' ' + selectedMode.name : '\u672A\u9009\u62E9');
+    }
+}
+
+function applyLotteryMode(aid) {
+    if (!currentSelectedMode) { showToast('\u8BF7\u5148\u9009\u62E9\u4E00\u4E2A\u62BD\u5956\u6A21\u5F0F', 'error'); return; }
+    HdApi.updateScreenSettings(aid, { screen_mode: currentSelectedMode }).then(function(res) {
+        if (res.code === 0) {
+            showToast('\u62BD\u5956\u6A21\u5F0F\u5DF2\u5E94\u7528\uFF1A' + currentSelectedMode, 'success');
+        } else {
+            showToast(res.msg || '\u5E94\u7528\u5931\u8D25', 'error');
+        }
+    });
+}
+
+// ============================================================
 // 抽奖管理
 // ============================================================
 function loadLotteryTab(aid, container) {
     Promise.all([
         HdApi.getPrizes(aid),
         HdApi.getRounds(aid),
-        HdApi.getLotteryThemes(aid)
+        HdApi.getLotteryThemes(aid),
+        HdApi.getScreenSettings(aid)
     ]).then(function(results) {
         var prizes = (results[0].code === 0 && results[0].data) ? (results[0].data.list || []) : [];
         var rounds = (results[1].code === 0 && results[1].data) ? (results[1].data.list || []) : [];
         var themes = (results[2].code === 0 && results[2].data) ? (results[2].data.list || []) : [];
+        var screenCfg = (results[3].code === 0 && results[3].data) ? results[3] : {};
+        var savedMode = (screenCfg.data && screenCfg.data.screen_mode) ? screenCfg.data.screen_mode : null;
 
         var html = '';
 
@@ -175,26 +308,42 @@ function loadLotteryTab(aid, container) {
         }
         html += '</tbody></table></div></div>';
 
-        // 抽奖主题
-        html += '<div class="card" style="margin-top:20px"><div class="card-header"><h3>🎨 抽奖主题</h3>';
-        html += '<button class="btn btn-primary btn-sm" onclick="showLotteryThemeModal(' + aid + ')">+ 添加主题</button></div>';
+        // 抽奖模式选择器（左右分栏：左侧选模式，右侧预览效果）
+        html += '<div class="card" style="margin-top:20px"><div class="card-header"><h3>\u{1F3B2} \u62BD\u5956\u6A21\u5F0F</h3>';
+        html += '<span id="currentModeLabel" style="font-size:13px;color:#64748B">\u2705 \u5F53\u524D\uFF1A\u672A\u9009\u62E9</span></div>';
         html += '<div class="card-body">';
-        if (themes.length === 0) {
-            html += '<div class="empty-state"><p>暂无主题</p></div>';
-        } else {
-            html += '<div class="item-grid">';
-            for (var i = 0; i < themes.length; i++) {
-                var t = themes[i];
-                html += '<div class="item-card"><div class="item-title">' + (t.name||t.theme_name||'主题'+(i+1)) + '</div>';
-                if (t.bg_image) html += '<div class="item-meta"><img src="' + t.bg_image + '" style="height:50px;border-radius:4px"></div>';
-                html += '<div class="item-actions">';
-                html += '<button class="btn btn-default btn-sm" onclick="editLotteryTheme(' + aid + ',' + t.id + ')">编辑</button>';
-                html += '<button class="btn btn-danger btn-sm" onclick="deleteLotteryTheme(' + aid + ',' + t.id + ')">删除</button>';
-                html += '</div></div>';
+        html += '<div class="lottery-mode-selector">';
+
+        // 左侧：模式列表
+        html += '<div class="mode-list-panel">';
+        for (var mi = 0; mi < LOTTERY_MODES.length; mi++) {
+            var m = LOTTERY_MODES[mi];
+            html += '<div class="lottery-mode-card" data-mode-key="' + m.key + '" onclick="selectLotteryMode(\'' + m.key + '\')">';
+            html += '<div class="mode-card-icon">' + m.icon + '</div>';
+            html += '<div class="mode-card-info">';
+            html += '<div class="mode-card-name">' + m.name + '</div>';
+            html += '<div class="mode-card-desc">' + m.desc + '</div>';
+            html += '<div class="mode-card-tags">';
+            for (var ti = 0; ti < m.tags.length; ti++) {
+                html += '<span class="mini-tag">' + m.tags[ti] + '</span>';
             }
-            html += '</div>';
+            html += '</div></div></div>';
         }
+        html += '</div>';
+
+        // 右侧：预览区域
+        html += '<div class="mode-preview-panel">';
+        html += '<div id="lotteryModePreview" class="mode-preview-container">' + renderModePreview(LOTTERY_MODES[0].key) + '</div>';
+        html += '<div class="mode-action-bar">';
+        html += '<button class="btn btn-primary" onclick="applyLotteryMode(' + aid + ')" style="min-width:140px">\u2728 \u5E94\u7528\u6B64\u6A21\u5F0F</button>';
         html += '</div></div>';
+
+        html += '</div>'; // lottery-mode-selector end
+        html += '</div></div>'; // card-body card end
+
+        // 初始化选中已保存的模式，无则默认第一个
+        var initMode = savedMode || LOTTERY_MODES[0].key;
+        setTimeout(function() { selectLotteryMode(initMode); }, 50);
 
         container.innerHTML = html;
     });
