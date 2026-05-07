@@ -235,6 +235,7 @@
                 <select name="source_type" lay-filter="sourceTypeFilter">
                   <option value="">全部来源</option>
                   <option value="1">设备拍摄</option>
+                  <option value="2">导游拍摄</option>
                   <option value="3">用户自拍</option>
                 </select>
               </div>
@@ -419,6 +420,14 @@
           return md || '-';
         }},
         {field: 'result_count', title: '生成结果数', width: 120},
+        {field: 'auto_tags', title: '自动标签', width: 170, align: 'center', templet: function(d){
+          var tags = [];
+          if(d.gender_text && d.gender_text !== '-') tags.push('<span class="layui-badge layui-bg-blue">'+d.gender_text+'</span>');
+          if(d.age_text && d.age_text !== '-') tags.push('<span class="layui-badge layui-bg-green">'+d.age_text+'</span>');
+          tags.push(d.is_multi_text === '多人' ? '<span class="layui-badge layui-bg-orange">多人</span>' : '<span class="layui-badge layui-bg-gray">单人</span>');
+          if(d.face_count_text > 0) tags.push('<span style="color:#999;font-size:11px">'+d.face_count_text+'人脸</span>');
+          return tags.join(' ');
+        }},
         {field: 'synthesis_status', title: '合成状态', width: 110, templet: function(d){
           var s = parseInt(d.synthesis_status) || 0;
           if(s === 0) return '<span style="color:#999">未处理</span>';

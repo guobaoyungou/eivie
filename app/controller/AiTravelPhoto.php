@@ -1348,6 +1348,7 @@ class AiTravelPhoto extends Common
                 . 'original_url,cutout_url,thumbnail_url,file_name,file_size,width,height,md5,'
                 . 'shoot_time,`desc`,tags,face_embedding_id,status,create_time,update_time,'
                 . 'synthesis_status,synthesis_count,synthesis_time,synthesis_error,'
+                . 'gender_tag,age_tag,is_multi_face,face_count,'
                 . '(CASE WHEN face_embedding IS NOT NULL AND face_embedding != \'\' AND face_embedding != \'[]\' AND LENGTH(face_embedding) > 10 THEN 1 ELSE 0 END) as has_mysql_embedding';
 
             $query = Db::name('ai_travel_photo_portrait')
@@ -1408,6 +1409,15 @@ class AiTravelPhoto extends Common
                 $item['source_type_text'] = $sourceMap[$item['source_type'] ?? 1] ?? '未知';
                 // 上传方式文字映射
                 $item['type_text'] = ($item['type'] == 1) ? '商家上传' : '用户上传';
+                // 自动标签
+                $genderMap = ['' => '-', 'Male' => '男', 'Female' => '女'];
+                $ageMap = ['' => '-', '0-2' => '婴幼儿', '3-9' => '儿童', '10-19' => '青少年',
+                           '20-29' => '青年', '30-39' => '中青年', '40-49' => '中年',
+                           '50-59' => '中老年', '60-100' => '老年'];
+                $item['gender_text'] = $genderMap[$item['gender_tag'] ?? ''] ?? '-';
+                $item['age_text'] = $ageMap[$item['age_tag'] ?? ''] ?? '-';
+                $item['is_multi_text'] = ($item['is_multi_face'] ?? 0) == 1 ? '多人' : '单人';
+                $item['face_count_text'] = $item['face_count'] ?? 0;
                 // 用户关联显示
                 $item['user_openid_short'] = '';
                 if (!empty($item['user_openid'])) {
