@@ -56,10 +56,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .select-all-btn svg{width:16px;height:16px;fill:currentColor}
 
 
-/* 我要自拍按钮 */
-.selfie-entry{margin:20px 12px 120px;text-align:center}
-.selfie-entry-btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#07c160,#06ad56);color:#fff;border:none;padding:14px 36px;border-radius:28px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(7,193,96,.3);transition:all .2s;-webkit-tap-highlight-color:transparent}
-.selfie-entry-btn:active{transform:scale(.96);opacity:.85}
+/* 不是我的照片按钮 */
+.not-my-entry{margin:20px 12px 120px;text-align:center}
+.not-my-entry-btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#ff9500,#f08300);color:#fff;border:none;padding:14px 36px;border-radius:28px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(255,149,0,.3);transition:all .2s;-webkit-tap-highlight-color:transparent}
+.not-my-entry-btn:active{transform:scale(.96);opacity:.85}
 /* 底部浮动栏 */
 .bottom-bar{position:fixed;bottom:0;left:0;width:100%;background:#fff;box-shadow:0 -2px 10px rgba(0,0,0,.08);z-index:100;display:none}
 .bar-guide{padding:8px 16px;background:#fff9ed;font-size:12px;color:#ff9500;line-height:1.4}
@@ -193,9 +193,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
     <div class="grid" id="photoGrid"></div>
     <div class="empty" id="emptyTip" style="display:none"><p>暂无成片，请稍候...</p></div>
 
-    <!-- 我要自拍 -->
-    <div class="selfie-entry">
-      <button class="selfie-entry-btn" onclick="goSelfie()">📷 我要自拍</button>
+    <!-- 不是我的照片 -->
+    <div class="not-my-entry">
+      <button class="not-my-entry-btn" onclick="notMyPhotos()">🙋 不是我的照片? 点击解除</button>
     </div>
 
     <!-- 更多推荐成片区域 -->
@@ -394,8 +394,10 @@ function qrInit() {
     }
     if (res.code === 200) {
       APP.portraitId = res.data.portrait_id;
+      APP.portraitIds = res.data.portrait_ids || [APP.portraitId];
       APP.aid = res.data.aid;
       APP.bid = res.data.bid;
+      APP.mdid = res.data.mdid || 0;
       APP.qrcodeId = res.data.qrcode_id;
       APP.openid = res.data.openid || '';
 
@@ -430,13 +432,23 @@ function startOAuth() {
 }
 
 function loadResults() {
-  fetchApi('results', {portrait_id: APP.portraitId, bid: APP.bid, aid: APP.aid}, 'GET', function(res) {
+  var params = {portrait_id: APP.portraitId, bid: APP.bid, aid: APP.aid};
+  // 如果有同门店关联的其他人像，传递聚合 portrait_ids
+  if (APP.portraitIds && APP.portraitIds.length > 1) {
+    params.portrait_ids = JSON.stringify(APP.portraitIds);
+  }
+  fetchApi('results', params, 'GET', function(res) {
     document.getElementById('loadingMask').style.display = 'none';
     if (res.code !== 200) { showError(res.msg); return; }
 
     APP.results = res.data.results || [];
     APP.similarResults = res.data.similar_results || [];
     APP.allResults = APP.results.concat(APP.similarResults);
+
+    // 更新聚合 portrait_ids
+    if (res.data.portrait_ids) {
+      APP.portraitIds = res.data.portrait_ids;
+    }
 
     var totalAll = APP.results.length + APP.similarResults.length;
     document.getElementById('totalCount').textContent = totalAll;
@@ -1157,9 +1169,39 @@ function loadMyOrders() {
   });
 }
 
-// 我要自拍 - 跳转到自拍上传页面
-function goSelfie() {
-  window.location.href = "/public/selfie/index.html?aid=" + APP.aid + "&bid=" + APP.bid + "&mdid=" + APP.mdid + "&mode=template";
+// ========== "不是我的照片" - 解除关联 ==========
+function notMyPhotos() {
+  if (!confirm('确认这不是您的照片吗？\n\n点击确认后将解除关联，您需要重新扫码才能进入选片中心。')) return;
+
+  fetchApi('not_my_photos', {
+    portrait_id: APP.portraitId,
+    qr: APP.qr
+  }, 'POST', function(res) {
+    if (res.code === 200) {
+      showRescanPage();
+    } else {
+      alert(res.msg || '操作失败，请重试');
+    }
+  });
+}
+
+function showRescanPage() {
+  // 隐藏主内容和底部栏
+  document.getElementById('mainContent').style.display = 'none';
+  document.getElementById('bottomBar').style.display = 'none';
+  document.getElementById('similarSection').style.display = 'none';
+
+  var tip = document.getElementById('rescanTip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'rescanTip';
+    tip.className = 'expired';
+    tip.style.display = 'block';
+    tip.innerHTML = '<h3 style="color:#07c160">✔ 已解除关联</h3><p>请重新扫描您的专属二维码进入选片中心</p><p style="font-size:12px;color:#bbb;margin-top:8px">您可以关闭此页面后重新扫码</p>';
+    document.body.appendChild(tip);
+  } else {
+    tip.style.display = 'block';
+  }
 }
 
 function goOrderDownload(orderNo) {

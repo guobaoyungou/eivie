@@ -16,6 +16,11 @@ use think\facade\Log;
  */
 class ImageAnalysisService
 {
+    /** 性别置信度阈值：二分类基准0.5 + 0.15安全边际 */
+    const MIN_GENDER_CONFIDENCE = 0.65;
+    /** 年龄置信度阈值：九分类基准0.11 + 0.44安全边际 */
+    const MIN_AGE_CONFIDENCE = 0.55;
+
     private $serviceHost;
     private $servicePort;
     private $timeout;
@@ -104,11 +109,22 @@ class ImageAnalysisService
     /**
      * 从分析结果中提取主体人物属性（按人脸面积最大选取）
      *
+     * 加入置信度阈值过滤：低于阈值将对应字段设为 Unknown，
+     * 同时保留原始识别值（raw_gender/raw_age_group）用于诊断日志。
+     *
      * @param array $analyzeResult /api/analyze 返回的完整结果
-     * @return array ['gender' => 'Male'|'Female', 'age_group' => '20-29', 'is_multi_face' => bool, 'face_count' => int]
+     * @param float|null $minGenderConfidence 性别置信度阈值（null=使用类常量默认值）
+     * @param float|null $minAgeConfidence 年龄置信度阈值（null=使用类常量默认值）
+     * @return array
      */
-    public static function extractMainSubject(array $analyzeResult): array
-    {
+    public static function extractMainSubject(
+        array $analyzeResult,
+        ?float $minGenderConfidence = null,
+        ?float $minAgeConfidence = null
+    ): array {
+        $minGenderConfidence = $minGenderConfidence ?? self::MIN_GENDER_CONFIDENCE;
+        $minAgeConfidence = $minAgeConfidence ?? self::MIN_AGE_CONFIDENCE;
+
         $faces = $analyzeResult['faces'] ?? [];
         $faceCount = count($faces);
 
@@ -121,6 +137,9 @@ class ImageAnalysisService
             'gender_confidence' => 0.0,
             'age_confidence' => 0.0,
             'race' => 'Unknown',
+            'raw_gender' => 'Unknown',
+            'raw_age_group' => 'Unknown',
+            'is_low_confidence' => true,
         ];
 
         if ($faceCount === 0) {
@@ -131,14 +150,29 @@ class ImageAnalysisService
         usort($faces, fn($a, $b) => ($b['bbox_area'] ?? 0) <=> ($a['bbox_area'] ?? 0));
         $main = $faces[0];
 
+        // 原始值（API 直接返回）
+        $rawGender = ucfirst(strtolower($main['gender'] ?? 'Unknown'));
+        $rawAgeGroup = $main['age_group'] ?? 'Unknown';
+        $genderConf = round($main['gender_confidence'] ?? 0, 4);
+        $ageConf = round($main['age_confidence'] ?? 0, 4);
+
+        // 置信度阈值过滤
+        $finalGender = ($genderConf >= $minGenderConfidence) ? $rawGender : 'Unknown';
+        $finalAgeGroup = ($ageConf >= $minAgeConfidence) ? $rawAgeGroup : 'Unknown';
+        $isLowConf = ($finalGender === 'Unknown' || $finalAgeGroup === 'Unknown') && $faceCount > 0;
+
         return [
-            'gender' => ucfirst(strtolower($main['gender'] ?? 'Unknown')),
-            'age_group' => $main['age_group'] ?? 'Unknown',
+            'gender' => $finalGender,
+            'age_group' => $finalAgeGroup,
             'is_multi_face' => $faceCount > 1,
             'face_count' => $faceCount,
-            'gender_confidence' => round($main['gender_confidence'] ?? 0, 3),
-            'age_confidence' => round($main['age_confidence'] ?? 0, 3),
+            'gender_confidence' => $genderConf,
+            'age_confidence' => $ageConf,
             'race' => ucfirst(strtolower($main['race'] ?? 'Unknown')),
+            'race_confidence' => round($main['race_confidence'] ?? 0, 4),
+            'raw_gender' => $rawGender,
+            'raw_age_group' => $rawAgeGroup,
+            'is_low_confidence' => $isLowConf,
         ];
     }
 }

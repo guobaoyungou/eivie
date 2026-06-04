@@ -10,7 +10,7 @@
     <!-- 布局系统样式 -->
     <link rel="stylesheet" href="css/layout.css">
     <!-- 模块样式 -->
-    <link rel="stylesheet" href="css/modules.css">
+    <link rel="stylesheet" href="css/modules.css?v=20260601f">
 </head>
 <body>
 <div id="app">
@@ -50,7 +50,7 @@
     <script src="js/api.js"></script>
     <script src="js/modules/swiper-module.js"></script>
     <script src="js/modules/avatar-module.js"></script>
-    <script src="js/modules/qrcode-module.js"></script>
+    <script src="js/modules/qrcode-module.js?v=20260602c"></script>
     <script src="js/modules/face-detect-module.js"></script>
     <script src="js/layout-engine.js"></script>
     <script src="js/layout-editor.js"></script>
@@ -221,6 +221,7 @@
                             ? cfg.face_detect_enabled
                             : true;
                         this.layoutConfig = cfg.layout;
+                        this.config.qrcodeMode = cfg.qrcode_mode || 'mp';
 
                         // 按时间倒序
                         this.dataList.sort((a, b) => (b.create_time || 0) - (a.create_time || 0));
@@ -280,6 +281,8 @@
                 // QRCode 模块
                 const qrcodeEl = LayoutEngine.getModuleByType('qrcode');
                 if (qrcodeEl) {
+                    QRCodeModule.setMode(this.config.qrcodeMode);
+                    QRCodeModule.setDataList(this.dataList);
                     QRCodeModule.init(qrcodeEl);
                     if (this.dataList.length > 0) {
                         QRCodeModule.update(this.dataList[0], false);

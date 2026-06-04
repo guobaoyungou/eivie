@@ -652,10 +652,16 @@ class ApiWechat extends BaseController
 							}
 
 							// 获取该人像对应的选片页二维码
+							// 兼容历史记录：同时匹配 qrcode_type=1 和 type=0/NULL 的记录
 							$pickQrcodeRecord = Db::name('ai_travel_photo_qrcode')
 								->where('portrait_id', $scenePortraitId)
-								->where('qrcode_type', 1)
 								->where('status', 1)
+								->where(function($query) {
+									$query->where('qrcode_type', 1)
+										  ->whereOr('qrcode_type', 0)
+										  ->whereOr('qrcode_type', null);
+								})
+								->order('qrcode_type', 'desc')
 								->find();
 							$pickQrcode = $pickQrcodeRecord ? $pickQrcodeRecord['qrcode'] : '';
 

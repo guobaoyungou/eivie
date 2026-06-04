@@ -81,6 +81,7 @@ class AiTravelPhotoPortraitService
             'mdid' => $params['mdid'] ?? 0,
             'device_id' => $params['device_id'] ?? 0,
             'type' => $params['type'] ?? AiTravelPhotoPortrait::TYPE_BUSINESS,
+            'uploader_account' => $params['uploader_account'] ?? '',
             'original_url' => $originalUrl,
             'thumbnail_url' => $thumbnailUrl,
             'file_name' => $fileInfo['name'],
@@ -102,10 +103,19 @@ class AiTravelPhotoPortraitService
         }
         
         // 推送抠图任务到队列
-        $this->pushCutoutJob($portrait->id);
+        $this->pushCutoutJob((int)$portrait->id);
+        
+        // ===== 后台提取人脸特征（InsightFace 512维，与特征库维度一致） =====
+        $this->extractFaceEmbedding((int)$portrait->id, $portrait->original_url);
+        
+        // ===== 自动标签分析（性别、年龄、多人脸、人脸数） =====
+        $this->runAutoTagAnalysis((int)$portrait->id, $portrait->original_url, (int)$params['aid'], (int)$params['bid']);
+        
+        // ===== 自动触发合成任务（对齐 triggerAsyncTasks 逻辑） =====
+        $this->triggerSynthesis((int)$portrait->id, (int)$params['aid'], (int)$params['bid']);
         
         // 生成二维码
-        $this->generateQrcode($portrait->id);
+        $this->generateQrcode((int)$portrait->id);
         
         return [
             'portrait_id' => $portrait->id,
@@ -238,7 +248,7 @@ class AiTravelPhotoPortraitService
     {
         $queueConfig = config('ai_travel_photo.queue.cutout');
         
-        Queue::push('app\job\AiCutoutJob', [
+        Queue::push('app\job\CutoutJob', [
             'portrait_id' => $portraitId,
         ], $queueConfig['name']);
     }
@@ -253,7 +263,282 @@ class AiTravelPhotoPortraitService
         $qrcodeService = new AiTravelPhotoQrcodeService();
         $qrcodeService->generateQrcode($portraitId);
     }
-    
+
+    /**
+     * 提取人脸特征（InsightFace 512维）
+     * 异步写入 MySQL face_embedding 字段 + Milvus 向量库
+     *
+     * @param int $portraitId 人像ID
+     * @param string $originalUrl 原图URL
+     * @return void
+     */
+    private function extractFaceEmbedding(int $portraitId, string $originalUrl): void
+    {
+        try {
+            $faceEmbeddingService = new FaceEmbeddingService();
+            $faceResult = $faceEmbeddingService->extractFromUrl($originalUrl);
+            if ($faceResult && !empty($faceResult['embedding'])) {
+                $embedding = $faceResult['embedding'];
+                // 存储到 MySQL
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'face_embedding' => json_encode($embedding),
+                ]);
+                // 存储到 Milvus
+                try {
+                    $milvusService = new MilvusService();
+                    if ($milvusService->isHealthy()) {
+                        $vectorIds = $milvusService->insert([$embedding], ['portrait_id' => $portraitId]);
+                        if (!empty($vectorIds)) {
+                            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)
+                                ->update(['face_embedding_id' => $vectorIds[0] ?? 0]);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('批量上传Milvus存储失败，MySQL已备份', [
+                        'portrait_id' => $portraitId, 'error' => $e->getMessage()
+                    ]);
+                }
+                Log::info('批量上传人脸特征提取成功', [
+                    'portrait_id' => $portraitId, 'dim' => $faceResult['dim'] ?? 0,
+                    'det_score' => $faceResult['det_score'] ?? 0,
+                ]);
+            } else {
+                Log::info('批量上传图片未检测到人脸，跳过特征入库', ['portrait_id' => $portraitId]);
+            }
+        } catch (\Exception $e) {
+            Log::warning('批量上传人脸特征提取异常，不影响上传流程', [
+                'portrait_id' => $portraitId, 'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * 自动标签分析（性别、年龄段、多人脸、人脸数）
+     *
+     * @param int $portraitId 人像ID
+     * @param string $originalUrl 原图URL
+     * @param int $aid 平台ID（读阈值用）
+     * @param int $bid 商户ID（读阈值用）
+     * @return void
+     */
+    private function runAutoTagAnalysis(int $portraitId, string $originalUrl, int $aid, int $bid): void
+    {
+        try {
+            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                'auto_tag_status' => 1, 'update_time' => time()
+            ]);
+
+            // 从商户设置读取置信度阈值
+            $setting = Db::name('ai_travel_photo_synthesis_setting')
+                ->where('aid', $aid)->where('bid', $bid)->where('portrait_id', 0)
+                ->find();
+            $genderThreshold = $setting ? (float)($setting['gender_confidence_threshold'] ?? 0.65) : 0.65;
+            $ageThreshold = $setting ? (float)($setting['age_confidence_threshold'] ?? 0.55) : 0.55;
+
+            $analysisService = new ImageAnalysisService();
+            $result = $analysisService->analyzeFromUrl($originalUrl);
+            if ($result) {
+                $attr = ImageAnalysisService::extractMainSubject($result, $genderThreshold, $ageThreshold);
+                $gender = $attr['gender'] ?? 'Unknown';
+                $ageGroup = $attr['age_group'] ?? 'Unknown';
+                $faceCount = $attr['face_count'] ?? 0;
+                $genderConf = $attr['gender_confidence'] ?? 0;
+                $ageConf = $attr['age_confidence'] ?? 0;
+                $isLowConf = $attr['is_low_confidence'] ?? false;
+                // 批量上传统一按单人模式处理（仅取前景主体人脸标签）
+                $isMultiFace = 0;
+
+                // 低置信度标记为需人工审核，跳过合成
+                $tagStatus = $isLowConf ? 4 : 2;
+
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'gender_tag' => $gender,
+                    'age_tag' => $ageGroup,
+                    'gender_confidence' => $genderConf,
+                    'age_confidence' => $ageConf,
+                    'is_multi_face' => $isMultiFace,
+                    'face_count' => $faceCount,
+                    'auto_tag_status' => $tagStatus,
+                    'update_time' => time()
+                ]);
+
+                Log::info('批量上传自动标签分析完成', [
+                    'portrait_id' => $portraitId,
+                    'gender' => $gender, 'age_group' => $ageGroup,
+                    'gender_conf' => $genderConf, 'age_conf' => $ageConf,
+                    'is_multi' => $isMultiFace, 'face_count' => $faceCount,
+                    'is_low_confidence' => $isLowConf,
+                    'thresholds' => ['gender' => $genderThreshold, 'age' => $ageThreshold],
+                ]);
+            } else {
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'auto_tag_status' => 3, 'update_time' => time()
+                ]);
+                Log::warning('批量上传自动标签分析失败', ['portrait_id' => $portraitId]);
+            }
+        } catch (\Exception $e) {
+            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                'auto_tag_status' => 3, 'update_time' => time()
+            ]);
+            Log::error('批量上传自动标签分析异常', [
+                'portrait_id' => $portraitId, 'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * 自动触发合成任务（对齐 AiTravelPhoto::triggerAsyncTasks 逻辑）
+     * 
+     * 流程：读取自动标签 → 获取合成设置 → 匹配模板 → 过滤关联模板 →
+     *       按生成数量选择模板 → 创建 generation 记录 → 投递 ImageGenerationJob 到队列
+     *
+     * @param int $portraitId 人像ID
+     * @param int $aid 平台ID
+     * @param int $bid 商家ID
+     * @return void
+     */
+    private function triggerSynthesis(int $portraitId, int $aid, int $bid): void
+    {
+        try {
+            // 读取人像记录（获取刚分析的自动标签）
+            $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
+            if (!$portrait) {
+                Log::warning('triggerSynthesis: 人像不存在', ['portrait_id' => $portraitId]);
+                return;
+            }
+
+            $gender = $portrait['gender_tag'] ?? 'Unknown';
+            $ageGroup = $portrait['age_tag'] ?? 'Unknown';
+            $isMultiFace = (int)($portrait['is_multi_face'] ?? 0);
+
+            // 低置信度标签直接跳过合成，需人工审核
+            if (($portrait['auto_tag_status'] ?? 0) === 4) {
+                Log::info('triggerSynthesis: 低置信度标签，跳过自动合成', [
+                    'portrait_id' => $portraitId,
+                    'gender' => $gender, 'age_group' => $ageGroup,
+                    'gender_conf' => $portrait['gender_confidence'] ?? 0,
+                    'age_conf' => $portrait['age_confidence'] ?? 0,
+                ]);
+                return;
+            }
+
+            // Step 1: 获取合成设置
+            $setting = Db::name('ai_travel_photo_synthesis_setting')
+                ->where('portrait_id', 0)
+                ->where('aid', $aid)
+                ->where('bid', $bid)
+                ->find();
+
+            if (!$setting || empty($setting['template_ids'])) {
+                Log::info('triggerSynthesis: 未配置合成模板，跳过自动生成', [
+                    'portrait_id' => $portraitId, 'aid' => $aid, 'bid' => $bid
+                ]);
+                return;
+            }
+
+            $generateCount = (int)($setting['generate_count'] ?? 4);
+            $generateMode = (int)($setting['generate_mode'] ?? 1);
+
+            // Step 2: 自动标签匹配模板
+            $matchService = new TemplateMatchService();
+            $matchedTemplates = $matchService->matchSynthesisTemplates(
+                $gender, $ageGroup, $isMultiFace, $aid, $bid
+            );
+
+            if (empty($matchedTemplates)) {
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'synthesis_status' => 4,
+                    'synthesis_error' => '未匹配到适合的模板（性别:' . $gender . ' 年龄段:' . $ageGroup . ' ' . ($isMultiFace ? '多人' : '单人') . '）',
+                    'update_time' => time()
+                ]);
+                Log::warning('triggerSynthesis: 无匹配模板', [
+                    'portrait_id' => $portraitId,
+                    'gender' => $gender, 'age_group' => $ageGroup, 'is_multi' => $isMultiFace,
+                ]);
+                return;
+            }
+
+            // Step 3: 限制模板范围 —— 仅使用商户已关联的模板
+            $allowedTemplateIds = array_map('intval', explode(',', $setting['template_ids']));
+            $filteredTemplates = array_values(array_filter($matchedTemplates, function ($tpl) use ($allowedTemplateIds) {
+                return in_array((int)$tpl['id'], $allowedTemplateIds, true);
+            }));
+
+            if (empty($filteredTemplates)) {
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'synthesis_status' => 4,
+                    'synthesis_error' => '标签匹配的模板不在商户关联模板列表中',
+                    'update_time' => time()
+                ]);
+                Log::warning('triggerSynthesis: 匹配模板不在关联范围内', [
+                    'portrait_id' => $portraitId,
+                    'allowed_ids' => $allowedTemplateIds,
+                    'matched_ids' => array_column($matchedTemplates, 'id'),
+                ]);
+                return;
+            }
+
+            Log::info('triggerSynthesis: 关联模板过滤完成', [
+                'portrait_id' => $portraitId,
+                'before_filter' => count($matchedTemplates),
+                'after_filter' => count($filteredTemplates),
+                'final_ids' => array_column($filteredTemplates, 'id'),
+            ]);
+            $matchedTemplates = $filteredTemplates;
+
+            // Step 4: 按生成数量和模式选择模板
+            $templates = $matchService->selectTemplatesForGeneration(
+                $matchedTemplates, $generateCount, $generateMode
+            );
+
+            // Step 5: 更新状态为处理中，投递队列任务
+            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                'synthesis_status' => 2, 'synthesis_error' => '', 'update_time' => time()
+            ]);
+
+            foreach ($templates as $template) {
+                $generationId = Db::name('ai_travel_photo_generation')->insertGetId([
+                    'aid' => $aid,
+                    'portrait_id' => $portraitId,
+                    'scene_id' => 0,
+                    'template_id' => $template['id'],
+                    'uid' => 0,
+                    'bid' => $bid,
+                    'mdid' => 0,
+                    'type' => 1,
+                    'generation_type' => 1,
+                    'status' => 0,
+                    'create_time' => time(),
+                    'update_time' => time(),
+                    'queue_time' => time()
+                ]);
+
+                \think\facade\Queue::push(
+                    'app\\job\\ImageGenerationJob',
+                    ['generation_id' => $generationId],
+                    'ai_image_generation'
+                );
+
+                Log::info('triggerSynthesis: 图生图任务已推送', [
+                    'portrait_id' => $portraitId,
+                    'template_id' => $template['id'],
+                    'template_name' => $template['name'] ?? '',
+                    'generation_id' => $generationId
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('triggerSynthesis: 合成任务触发异常', [
+                'portrait_id' => $portraitId, 'error' => $e->getMessage()
+            ]);
+            // 标记合成失败，不阻断上传流程
+            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                'synthesis_status' => 4,
+                'synthesis_error' => '合成触发异常: ' . mb_substr($e->getMessage(), 0, 200),
+                'update_time' => time()
+            ]);
+        }
+    }
+
     /**
      * 获取人像列表
      * @param array $params 查询参数
@@ -335,7 +620,7 @@ class AiTravelPhotoPortraitService
         $portrait = Db::name('ai_travel_photo_portrait')
             ->where('id', $portraitId)
             ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL)
-            ->field('id, original_url, face_embedding, face_embedding_id')
+            ->field('id, original_url, face_embedding, face_embedding_id, bid, mdid')
             ->find();
 
         if (!$portrait) {
@@ -382,7 +667,11 @@ class AiTravelPhotoPortraitService
                     if ($oldMilvusId) {
                         $milvusService->delete($oldMilvusId);
                     }
-                    $vectorIds = $milvusService->insert([$embedding], ['portrait_id' => $portraitId]);
+                    $vectorIds = $milvusService->insert([$embedding], [
+                        'portrait_id' => $portraitId,
+                        'bid' => (int)($portrait['bid'] ?? 0),
+                        'mdid' => (int)($portrait['mdid'] ?? 0),
+                    ]);
                     if (!empty($vectorIds)) {
                         Db::name('ai_travel_photo_portrait')->where('id', $portraitId)
                             ->update(['face_embedding_id' => $vectorIds[0] ?? 0]);
@@ -503,7 +792,7 @@ class AiTravelPhotoPortraitService
                   ->whereOr('face_embedding_id', '=', 0);
             })
             ->whereRaw('face_embedding IS NOT NULL AND face_embedding != \'\' AND face_embedding != \'[]\'  AND LENGTH(face_embedding) > 10')
-            ->field('id, face_embedding, face_embedding_id')
+            ->field('id, face_embedding, face_embedding_id, bid, mdid')
             ->order('id', 'asc')
             ->limit($limit)
             ->select()
@@ -523,7 +812,11 @@ class AiTravelPhotoPortraitService
                     continue;
                 }
 
-                $vectorIds = $milvusService->insert([$embedding], ['portrait_id' => (int)$portrait['id']]);
+                $vectorIds = $milvusService->insert([$embedding], [
+                    'portrait_id' => (int)$portrait['id'],
+                    'bid' => (int)($portrait['bid'] ?? 0),
+                    'mdid' => (int)($portrait['mdid'] ?? 0),
+                ]);
                 if (!empty($vectorIds)) {
                     Db::name('ai_travel_photo_portrait')
                         ->where('id', $portrait['id'])

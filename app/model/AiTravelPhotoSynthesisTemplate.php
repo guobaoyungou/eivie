@@ -35,6 +35,7 @@ class AiTravelPhotoSynthesisTemplate extends Model
         'model_id' => 'integer',
         'status' => 'integer',
         'sort' => 'integer',
+        'allow_qr_activity' => 'integer',
         'create_time' => 'integer',
         'update_time' => 'integer',
     ];

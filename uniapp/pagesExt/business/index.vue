@@ -87,9 +87,14 @@
 							<view class="f2">销量 {{business.sales}}</view>
 							<view class="f2" v-if="business.turnover_show==1">营业额 {{business.turnover}}</view>
 						</view>
-						<view v-if="bset && bset.show_link" class="tel" :style="{background:'linear-gradient(90deg,'+t('color1')+' 0%, rgba('+t('color1rgb')+',0.8) 100%)'}">
-                <view @tap="phone" :data-phone="business.tel" class="tel_online"><image class="img" :src="pre_url+'/static/img/telwhite.png'"/>
+						<view class="tel-btns" v-if="(bset && bset.show_link) || (bset && bset.show_batch_portrait_upload)">
+                <view v-if="bset && bset.show_link" @tap="phone" :data-phone="business.tel" class="tel" :style="{background:'linear-gradient(90deg,'+t('color1')+' 0%, rgba('+t('color1rgb')+',0.8) 100%)'}">
+                    <image class="img" :src="pre_url+'/static/img/telwhite.png'"/>
                     {{bset && bset.show_linktext?bset.show_linktext:'联系商家'}}
+                </view>
+                <view v-if="bset && bset.show_batch_portrait_upload" @tap="gotoBatchUpload" class="tel batch-upload-btn" :style="{background:'linear-gradient(90deg,'+t('color1')+' 0%, rgba('+t('color1rgb')+',0.8) 100%)'}">
+                    <image class="img" :src="pre_url+'/static/img/upload_white.png'"/>
+                    批量上传人像
                 </view>
             </view>
 						<view v-if="business.address" class="address" @tap="openLocation" :data-latitude="business.latitude" :data-longitude="business.longitude" :data-company="business.name" :data-address="business.address">
@@ -688,6 +693,12 @@ export default {
 			 scale: 13
 		 })		
 		},
+		// 跳转批量上传人像（先存储门店数据到全局再跳转）
+		gotoBatchUpload:function() {
+			app.globalData.batch_portrait_mendianlist = this.mendianlist || [];
+			app.globalData.batch_portrait_bid = this.bid || this.opt.bid || 0;
+			app.goto('/pagesExt/business/batch_portrait_upload?bid=' + (this.bid || this.opt.bid || 0));
+		},
 		phone:function(e) {
 			var phone = e.currentTarget.dataset.phone;
 			uni.makePhoneCall({
@@ -825,8 +836,10 @@ export default {
 .nodiydata .topcontent .desc .f1{ margin:20rpx 0; font-size: 24rpx;color:#FC5648;display:flex;align-items:center}
 .nodiydata .topcontent .desc .f1 .img{ width:24rpx;height:24rpx;margin-right:10rpx;}
 .nodiydata .topcontent .desc .f2{ margin:10rpx 0;padding-left:60rpx;font-size: 24rpx;color:#999;}
-.nodiydata .topcontent .tel{font-size:28rpx;color:#fff; padding:16rpx 40rpx; border-radius: 60rpx; font-weight: normal }
+.nodiydata .topcontent .tel-btns{display:flex;align-items:center;gap:16rpx;flex-wrap:wrap}
+.nodiydata .topcontent .tel{font-size:28rpx;color:#fff; padding:16rpx 40rpx; border-radius: 60rpx; font-weight: normal; display:flex;align-items:center}
 .nodiydata .topcontent .tel .img{ width: 28rpx;height: 28rpx; vertical-align: middle;margin-right: 10rpx}
+.nodiydata .topcontent .batch-upload-btn{font-size:28rpx;color:#fff; padding:16rpx 40rpx; border-radius: 60rpx; font-weight: normal; display:flex;align-items:center}
 .nodiydata .topcontent .address{width:100%;display:flex;align-items:center;padding-top:20rpx}
 .nodiydata .topcontent .address .f1{width:28rpx;height:28rpx;margin-right:8rpx}
 .nodiydata .topcontent .address .f2{flex:1;color:#999999;font-size:26rpx}

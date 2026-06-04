@@ -490,11 +490,17 @@
     list.forEach(function(tpl){
       var coverSrc = tpl.cover_image || '/static/images/no-image.png';
       var modelLabel = (tpl.model_name || '未知') + (tpl.provider_name ? ' (' + tpl.provider_name + ')' : '');
+      var typeLabel = tpl.config_type_label || '';
+      var typeClass = tpl.is_merchant_config ? 'layui-bg-green' : 'layui-bg-blue';
       html += '<div class="scene-tpl-card" data-id="' + tpl.id + '" onclick="selectSceneTemplate(this, ' + tpl.id + ')">';
       html += '  <img class="cover" src="' + coverSrc + '" onerror="this.src=\'/static/images/no-image.png\'">';
       html += '  <div class="info">';
       html += '    <div class="name" title="' + tpl.template_name + '">' + tpl.template_name + '</div>';
-      html += '    <div class="model" title="' + modelLabel + '">' + modelLabel + '</div>';
+      html += '    <div class="model" title="' + modelLabel + (typeLabel ? ' [' + typeLabel + ']' : '') + '">' + modelLabel + '</div>';
+      // 显示模型配置类型标签（商户自配置/平台预充值）
+      if(typeLabel){
+        html += '  <div style="margin-top:2px;"><span class="layui-badge ' + typeClass + ' layui-badge-rim">' + typeLabel + '</span></div>';
+      }
       // 显示自动标签
       var cardTagStr = '';
       if(tpl.auto_tags && tpl.auto_tag_status == 2){
@@ -582,7 +588,9 @@
     $('input[name="name"]').val(tpl.template_name);
     $('input[name="model_id"]').val(tpl.model_id);
     $('input[name="model_name"]').val(tpl.model_name || '');
-    $('#modelDisplay').val((tpl.model_name || '未知') + (tpl.provider_name ? ' (' + tpl.provider_name + ')' : ''));
+    var modelDisplayVal = (tpl.model_name || '未知') + (tpl.provider_name ? ' (' + tpl.provider_name + ')' : '');
+    if(tpl.config_type_label) modelDisplayVal += ' [' + tpl.config_type_label + ']';
+    $('#modelDisplay').val(modelDisplayVal);
 
     // 描述
     $('textarea[name="description"]').val(tpl.description || '');

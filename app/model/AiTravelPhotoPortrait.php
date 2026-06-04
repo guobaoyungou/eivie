@@ -41,6 +41,7 @@ class AiTravelPhotoPortrait extends Model
         'height' => 'integer',
         'shoot_time' => 'integer',
         'status' => 'integer',
+        'cutout_status' => 'integer',
         'create_time' => 'integer',
         'update_time' => 'integer',
     ];
@@ -49,6 +50,12 @@ class AiTravelPhotoPortrait extends Model
     const STATUS_DISABLED = 0;  // 禁用
     const STATUS_NORMAL = 1;    // 正常
     const STATUS_DELETED = 2;   // 已删除
+    
+    // 抠图状态常量
+    const CUTOUT_STATUS_PENDING = 0;    // 待处理
+    const CUTOUT_STATUS_PROCESSING = 1; // 处理中
+    const CUTOUT_STATUS_SUCCESS = 2;    // 成功
+    const CUTOUT_STATUS_FAILED = 3;     // 失败
     
     // 上传类型常量
     const TYPE_BUSINESS = 1;    // 商家上传

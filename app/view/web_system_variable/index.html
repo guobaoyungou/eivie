@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>系统变量管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+</head>
+<body>
+  <div class="layui-fluid">
+    <div class="layui-card">
+      <div class="layui-card-header">
+        <i class="fa fa-code"></i> 系统变量管理
+        <span style="color:#999;font-size:12px;margin-left:10px;">这些变量可在提示词改写模板中使用</span>
+      </div>
+      <div class="layui-card-body">
+        <div style="margin-bottom:10px;">
+          <button class="layui-btn layui-btn-sm" onclick="editVariables()">
+            <i class="layui-icon layui-icon-edit"></i> 编辑变量
+          </button>
+        </div>
+        <table id="variableTable" lay-filter="variableTable"></table>
+      </div>
+    </div>
+  </div>
+  {include file="public/js"/}
+  <script>
+  layui.use(['table', 'layer', 'form'], function(){
+    var table = layui.table;
+    var layer = layui.layer;
+
+    table.render({
+      elem: '#variableTable',
+      url: '{:url("index")}',
+      page: false,
+      height: 'full-200',
+      limit: 50,
+      cols: [[
+        {field: 'var_key', title: '变量占位符', width: 250, templet: function(d){
+          return '<code style="background:#f0f0f0;padding:2px 8px;border-radius:3px;font-size:13px;">' + d.var_key + '</code>';
+        }},
+        {field: 'var_name', title: '变量名', width: 180},
+        {field: 'description', title: '说明', minWidth: 300}
+      ]]
+    });
+  });
+
+  function editVariables(){
+    layer.open({
+      type: 2,
+      title: '编辑系统变量',
+      shadeClose: false,
+      shade: 0.3,
+      area: ['700px', '500px'],
+      content: '{:url("edit")}',
+      end: function(){
+        location.reload();
+      }
+    });
+  }
+  </script>
+  {include file="public/copyright"/}
+</body>
+</html>

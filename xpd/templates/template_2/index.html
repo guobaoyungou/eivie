@@ -529,7 +529,7 @@
                     this.swiper.update();
                 },
                 
-                // 更新二维码（优先显示公众号二维码，降级为选片页二维码）
+                // 更新二维码（生成选片页H5二维码）
                 updateQrcode() {
                     const currentItem = this.dataList[this.currentGroupIndex];
                     if (!currentItem) {
@@ -540,30 +540,6 @@
                     const canvas = document.getElementById('qrcodeCanvas');
                     const container = document.getElementById('qrcodeContainer');
                     
-                    // 优先展示公众号二维码图片
-                    if (currentItem.mp_qrcode_url) {
-                        if (this.qrcodeInstance) {
-                            this.qrcodeInstance.clear();
-                        }
-                        canvas.width = 0;
-                        canvas.height = 0;
-                        
-                        let mpImg = container.querySelector('.mp-qrcode-img');
-                        if (!mpImg) {
-                            mpImg = document.createElement('img');
-                            mpImg.className = 'mp-qrcode-img';
-                            mpImg.style.cssText = 'width:200px;height:200px;object-fit:contain;';
-                            container.appendChild(mpImg);
-                        }
-                        mpImg.src = currentItem.mp_qrcode_url;
-                        container.classList.add('show');
-                        return;
-                    }
-                    
-                    // 移除公众号二维码图片（如果存在）
-                    const mpImg = container.querySelector('.mp-qrcode-img');
-                    if (mpImg) mpImg.remove();
-                    
                     if (!currentItem.qrcode) {
                         container.classList.remove('show');
                         return;
@@ -573,7 +549,7 @@
                     canvas.width = 0;
                     canvas.height = 0;
                     
-                    // 降级：用QRCode.js生成选片页二维码
+                    // 用QRCode.js生成选片页二维码
                     try {
                         if (this.qrcodeInstance) {
                             this.qrcodeInstance.clear();

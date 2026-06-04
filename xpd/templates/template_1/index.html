@@ -118,10 +118,16 @@
             flex-direction: column;
             align-items: center;
             z-index: 1000;
+            transition: all 0.3s ease;
         }
 
         .qrcode-container.show {
             display: flex;
+        }
+
+        .qrcode-container.highlight {
+            box-shadow: 0 0 30px rgba(255, 107, 107, 0.6);
+            transform: scale(1.05);
         }
 
         .qrcode-container canvas {
@@ -227,38 +233,6 @@
             50% { opacity: 0.4; }
         }
 
-        /* 公众号二维码展示区 */
-        .mp-qrcode-container {
-            position: fixed;
-            bottom: 21vh;
-            right: 30px;
-            background: #fff;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            z-index: 1000;
-            transition: all 0.3s ease;
-        }
-        .mp-qrcode-container.show { display: flex; }
-        .mp-qrcode-container.highlight {
-            box-shadow: 0 0 30px rgba(255, 107, 107, 0.6);
-            transform: scale(1.05);
-        }
-        .mp-qrcode-container img {
-            width: 200px;
-            height: 200px;
-            border-radius: 8px;
-        }
-        .mp-qrcode-tip {
-            margin-top: 10px;
-            font-size: 14px;
-            color: #666;
-            text-align: center;
-        }
-
         /* 隐藏摄像头视频 */
         #cameraVideo {
             position: fixed;
@@ -291,16 +265,10 @@
                 <div class="avatar-list" id="avatarList"></div>
             </div>
 
-            <!-- 二维码容器（选片页二维码，保留兼容） -->
+            <!-- 二维码容器（选片页H5二维码） -->
             <div class="qrcode-container" id="qrcodeContainer">
                 <canvas id="qrcodeCanvas"></canvas>
-                <div class="qrcode-tip">扫码查看和购买</div>
-            </div>
-
-            <!-- 公众号二维码展示区 -->
-            <div class="mp-qrcode-container" id="mpQrcodeContainer">
-                <img id="mpQrcodeImg" src="" alt="扫码关注公众号">
-                <div class="mp-qrcode-tip">微信扫码关注<br>查看您的专属照片</div>
+                <div class="qrcode-tip">微信扫码<br>查看您的专属照片</div>
             </div>
         </div>
 
@@ -738,29 +706,8 @@
                     const currentItem = this.dataList[this.currentGroupIndex];
                     if (!currentItem) {
                         document.getElementById('qrcodeContainer').classList.remove('show');
-                        document.getElementById('mpQrcodeContainer').classList.remove('show');
                         return;
                     }
-                    
-                    // 优先展示公众号二维码图片
-                    if (currentItem.mp_qrcode_url) {
-                        const mpContainer = document.getElementById('mpQrcodeContainer');
-                        const mpImg = document.getElementById('mpQrcodeImg');
-                        mpImg.src = currentItem.mp_qrcode_url;
-                        mpContainer.classList.add('show');
-                        // 人脸匹配模式时突出显示
-                        if (this.currentMode === 'faceMatch') {
-                            mpContainer.classList.add('highlight');
-                        } else {
-                            mpContainer.classList.remove('highlight');
-                        }
-                        // 隐藏选片页二维码
-                        document.getElementById('qrcodeContainer').classList.remove('show');
-                        return;
-                    }
-                    
-                    // 降级：显示选片页二维码
-                    document.getElementById('mpQrcodeContainer').classList.remove('show');
                     
                     if (!currentItem.qrcode) {
                         document.getElementById('qrcodeContainer').classList.remove('show');
@@ -790,6 +737,12 @@
                         });
                         
                         container.classList.add('show');
+                        // 人脸匹配模式时突出显示
+                        if (this.currentMode === 'faceMatch') {
+                            container.classList.add('highlight');
+                        } else {
+                            container.classList.remove('highlight');
+                        }
                     } catch (error) {
                         console.error('生成二维码失败:', error);
                         container.classList.remove('show');
@@ -1239,10 +1192,10 @@
                     
                     this.updateFaceStatus('active', '人脸检测已开启');
                     
-                    // 移除公众号二维码高亮
-                    const mpContainer = document.getElementById('mpQrcodeContainer');
-                    if (mpContainer) {
-                        mpContainer.classList.remove('highlight');
+                    // 移除二维码高亮
+                    const qrcodeContainer = document.getElementById('qrcodeContainer');
+                    if (qrcodeContainer) {
+                        qrcodeContainer.classList.remove('highlight');
                     }
                 },
                 

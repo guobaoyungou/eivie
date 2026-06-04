@@ -235,6 +235,7 @@
 				{"path": "order/invoice","style": {"navigationBarTitleText": "发票","enablePullDownRefresh": true}},
 
 				{"path": "business/index","style": {"navigationBarTitleText": "商家详情","enablePullDownRefresh": true}},
+				{"path": "business/batch_portrait_upload","style": {"navigationBarTitleText": "批量上传人像","enablePullDownRefresh": false}},
 				{"path": "business/main","style": {"enablePullDownRefresh": true}},
 				{"path": "business/clist","style": {"navigationBarTitleText": "商家列表","enablePullDownRefresh": true}},
 				{"path": "business/blist","style": {"navigationBarTitleText": "附近商家","enablePullDownRefresh": true}},

@@ -44,7 +44,7 @@ class AiTravelPhotoSynthesisService
      * @param array $templates 模板列表
      * @return array
      */
-    public function generate(array $portrait, array $templates, string $operatorName = '', int $deductId = 0, float $unitCost = 0): array
+    public function generate(array $portrait, array $templates, string $operatorName = '', int $deductId = 0, float $unitCost = 0, bool $forcePromptRewrite = false): array
     {
         try {
             $portraitId = $portrait['id'];
@@ -81,9 +81,60 @@ class AiTravelPhotoSynthesisService
                     $lastError = '创建generation记录失败: ' . $e->getMessage();
                 }
 
+                // AI提示词改写（对齐 processSingleGeneration 逻辑，覆盖同步生成路径）
+                try {
+                    $synthesisSetting = $this->getSetting(0);
+                    if (($synthesisSetting['prompt_rewrite_enabled'] ?? 1) == 1) {
+                        $useDefaultParams = false;
+                        $defaultParams = is_string($template['default_params'] ?? '')
+                            ? json_decode($template['default_params'] ?? '', true)
+                            : ($template['default_params'] ?? []);
+                        if (!is_array($defaultParams)) $defaultParams = [];
+                        $currentPrompt = $defaultParams['prompt'] ?? '';
+                        if (!empty($currentPrompt)) {
+                            $useDefaultParams = true;
+                        } else {
+                            $currentPrompt = $template['prompt'] ?? $template['description'] ?? '';
+                        }
+                        if (!empty($currentPrompt)) {
+                            $promptRewrite = new \app\service\PromptRewriteService();
+                            $newPrompt = $promptRewrite->rewrite(
+                                $currentPrompt,
+                                [
+                                    'gender' => $portrait['gender_tag'] ?? '',
+                                    'age' => $portrait['age_tag'] ?? '',
+                                    'is_multi' => $portrait['is_multi_template'] ?? 0,
+                                    'face_count' => $portrait['face_count'] ?? 1,
+                                ],
+                                $synthesisSetting['prompt_rewrite_provider'] ?? 'aliyun',
+                                $synthesisSetting['prompt_rewrite_model'] ?? 'qwen-plus',
+                                $synthesisSetting['prompt_rewrite_template'] ?? '',
+                                $template['model_name'] ?? ''
+                            );
+                            if ($newPrompt !== $currentPrompt) {
+                                if ($useDefaultParams) {
+                                    $defaultParams['prompt'] = $newPrompt;
+                                    $template['default_params'] = json_encode($defaultParams);
+                                }
+                                $template['prompt'] = $newPrompt;
+                                // 将改写结果存入人像表
+                                Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])
+                                    ->update(['rewritten_prompt' => $newPrompt, 'update_time' => time()]);
+                                Log::info('generate PromptRewrite 已改写提示词', [
+                                    'portrait_id' => $portrait['id'],
+                                    'original' => mb_substr($currentPrompt, 0, 60),
+                                    'rewritten' => mb_substr($newPrompt, 0, 60),
+                                ]);
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('generate PromptRewrite 失败，使用原提示词: ' . $e->getMessage());
+                }
+
                 try {
                     // 调用AI模型生成图片
-                    $generatedUrl = $this->callAiModel($portraitUrl, $template);
+                    $generatedUrl = $this->callAiModel($portraitUrl, $template, $portrait, $forcePromptRewrite);
 
                     if (empty($generatedUrl)) {
                         // 更新generation状态为失败
@@ -366,6 +417,14 @@ class AiTravelPhotoSynthesisService
 
         // 5. AI提示词改写（根据人像标签改写提示词）
         $synthesisSetting = $this->getSetting(0);
+        Log::info('processSingleGeneration 改写-设置检查', [
+            'setting_id' => $synthesisSetting['id'] ?? 'NULL',
+            'prompt_rewrite_enabled' => $synthesisSetting['prompt_rewrite_enabled'] ?? 'NULL_KEY',
+            'provider' => $synthesisSetting['prompt_rewrite_provider'] ?? 'NULL_KEY',
+            'template_prompt' => mb_substr($template['prompt'] ?? '', 0, 40),
+            'gender_tag' => $portrait['gender_tag'] ?? 'NULL',
+            'age_tag' => $portrait['age_tag'] ?? 'NULL',
+        ]);
         if (($synthesisSetting['prompt_rewrite_enabled'] ?? 1) == 1) {
             try {
                 // 确定当前使用的提示词
@@ -393,7 +452,9 @@ class AiTravelPhotoSynthesisService
                             'face_count' => $portrait['face_count'] ?? 1,
                         ],
                         $synthesisSetting['prompt_rewrite_provider'] ?? 'aliyun',
-                        $synthesisSetting['prompt_rewrite_model'] ?? 'qwen-plus'
+                        $synthesisSetting['prompt_rewrite_model'] ?? 'qwen-plus',
+                        $synthesisSetting['prompt_rewrite_template'] ?? '',
+                        $template['model_name'] ?? ''
                     );
                     if ($newPrompt !== $currentPrompt) {
                         if ($useDefaultParams) {
@@ -405,11 +466,19 @@ class AiTravelPhotoSynthesisService
                             'original' => mb_substr($currentPrompt, 0, 60),
                             'rewritten' => mb_substr($newPrompt, 0, 60),
                         ]);
+                        // 将改写结果存入人像表
+                        Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])
+                            ->update(['rewritten_prompt' => $newPrompt, 'update_time' => time()]);
                     }
                 }
             } catch (\Throwable $e) {
                 Log::warning('PromptRewrite 失败，使用原提示词: ' . $e->getMessage());
             }
+        } else {
+            Log::warning('processSingleGeneration 改写-跳过: 开关关闭或设置不存在', [
+                'setting_null' => is_null($synthesisSetting) ? 'yes' : 'no',
+                'enabled_val' => $synthesisSetting['prompt_rewrite_enabled'] ?? 'NULL_KEY',
+            ]);
         }
 
         // 6. 调用 AI 模型生成图片（与管理员 generate() 相同路径）
@@ -565,7 +634,7 @@ class AiTravelPhotoSynthesisService
      * @param array $template 模板信息（包含model_id, prompt, default_params等）
      * @return string|null
      */
-    protected function callAiModel(string $portraitUrl, array $template): ?string
+    protected function callAiModel(string $portraitUrl, array $template, array $portrait = [], bool $forcePromptRewrite = false): ?string
     {
         // 调试日志
         Log::info('callAiModel 模板数据: ' . json_encode($template, JSON_UNESCAPED_UNICODE));
@@ -630,6 +699,48 @@ class AiTravelPhotoSynthesisService
         }
         if (empty($prompt)) {
             $prompt = '生成一张高质量旅拍照片';
+        }
+
+        // 4.5. 强制提示词改写（当性别标签无匹配模板时，通过AI改写适配）
+        if ($forcePromptRewrite && !empty($portrait)) {
+            try {
+                $synthesisSetting = $this->getSetting(0);
+                $rewriteTemplate = $synthesisSetting['prompt_rewrite_template'] ?? '';
+                if (empty($rewriteTemplate)) {
+                    $rewriteTemplate = '请将以下图生提示词改成适合{自动标签性别}，{自动标签年龄}风格的适合{模板绑定模型}提示词';
+                }
+                $promptRewrite = new \app\service\PromptRewriteService();
+                $newPrompt = $promptRewrite->rewrite(
+                    $prompt,
+                    [
+                        'gender' => $portrait['gender_tag'] ?? '',
+                        'age' => $portrait['age_tag'] ?? '',
+                        'is_multi' => $portrait['is_multi_template'] ?? 0,
+                        'face_count' => $portrait['face_count'] ?? 1,
+                    ],
+                    $synthesisSetting['prompt_rewrite_provider'] ?? 'aliyun',
+                    $synthesisSetting['prompt_rewrite_model'] ?? 'qwen-plus',
+                    $rewriteTemplate,
+                    $template['model_name'] ?? ''
+                );
+                if ($newPrompt !== $prompt) {
+                    $originalPrompt = $prompt;
+                    $prompt = $newPrompt;
+                    // 同步更新 default_params 中的 prompt
+                    $defaultParams['prompt'] = $newPrompt;
+                    Log::info('callAiModel 强制改写提示词', [
+                        'original' => mb_substr($originalPrompt, 0, 60),
+                        'rewritten' => mb_substr($newPrompt, 0, 60),
+                    ]);
+                    // 将改写结果存入人像表
+                    if (!empty($portrait['id'])) {
+                        Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])
+                            ->update(['rewritten_prompt' => $newPrompt, 'update_time' => time()]);
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning('callAiModel 强制改写失败，使用原提示词: ' . $e->getMessage());
+            }
         }
 
         Log::info('callAiModel 参数: modelId=' . $modelId . ', prompt=' . substr($prompt, 0, 50) . '..., referenceImage=' . $referenceImage . ', hasDefaultParams=' . (!empty($defaultParams) ? 'yes' : 'no'));
@@ -1782,6 +1893,7 @@ class AiTravelPhotoSynthesisService
                 'bid' => $bid,
                 'portrait_id' => $portraitId,
                 'qrcode' => $qrcodeValue,
+                'qrcode_type' => 1,
                 'status' => 1, // 有效状态
                 'create_time' => time(),
                 'update_time' => time()
@@ -1837,5 +1949,18 @@ class AiTravelPhotoSynthesisService
             ->find();
 
         return $setting ?: null;
+    }
+
+    /**
+     * 公开的图片生成方法：根据用户上传的人像照片和合成模板进行AI生成
+     * 供 AiTravelPhotoSynthesisQrService 调用，复用现有的 callAiModel 逻辑
+     *
+     * @param string $portraitUrl 人像图片URL（用户上传的照片）
+     * @param array  $template    合成模板数据（含 model_id, prompt, images, aid, bid 等字段）
+     * @return string|null 生成结果URL，失败返回 null
+     */
+    public function generateWithPhotoAndTemplate(string $portraitUrl, array $template): ?string
+    {
+        return $this->callAiModel($portraitUrl, $template);
     }
 }

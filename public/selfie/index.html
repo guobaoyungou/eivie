@@ -9,6 +9,7 @@
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;}
 .page{width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;position:absolute;top:0;left:0;}
 .page.active{display:flex;}
+.page.scrollable{overflow-y:auto;align-items:flex-start;justify-content:flex-start;-webkit-overflow-scrolling:touch;}
 /* 加载页 */
 #page-loading{background:#000;color:#fff;}
 #page-loading .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;}
@@ -20,24 +21,25 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
 #page-camera{background:#000;}
 #video-container{width:100%;height:100%;position:relative;overflow:hidden;}
 #video-container video{width:100%;height:100%;object-fit:cover;}
-/* 动态人脸框：圆角矩形 + 呼吸动画 + 平滑跟随 */
 .face-guide{position:absolute;pointer-events:none;border:1.5px solid rgba(255,255,255,0.8);border-radius:12px;transition:left .15s ease-out,top .15s ease-out,width .15s ease-out,height .15s ease-out,border-color .3s ease;animation:faceBreath 2.5s ease-in-out infinite;opacity:0;z-index:5;}
 .face-guide.detected{border-color:rgba(255,255,255,0.8);opacity:1;}
 .face-guide.ready{border-color:rgba(34,217,119,0.75);opacity:1;}
 @keyframes faceBreath{0%,100%{transform:scale(1);}50%{transform:scale(1.02);}}
-/* 摄像头切换按钮 */
 .camera-switch{position:absolute;top:60px;right:20px;width:44px;height:44px;background:rgba(0,0,0,0.25);border-radius:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;transition:transform .15s ease,opacity .3s ease;-webkit-tap-highlight-color:transparent;}
 .camera-switch:active{transform:scale(0.9);}
 .camera-switch svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
-/* 底部渐变遮罩 + 拍摄控制区 */
 .bottom-controls{position:absolute;bottom:0;left:0;right:0;height:160px;background:linear-gradient(to top,rgba(0,0,0,0.6),rgba(0,0,0,0));display:flex;align-items:flex-end;justify-content:center;padding-bottom:50px;z-index:10;pointer-events:none;}
 .capture-btn{width:72px;height:72px;border-radius:36px;border:2.5px solid #FFFFFF;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;pointer-events:auto;transition:transform .15s ease;-webkit-tap-highlight-color:transparent;}
 .capture-btn:active{transform:scale(0.9);}
 .capture-btn .inner{width:56px;height:56px;border-radius:28px;background:rgba(255,255,255,0.9);}
 .capture-btn.disabled{opacity:0.35;pointer-events:none;}
-/* 闪白 */
 .flash-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:#fff;opacity:0;pointer-events:none;transition:opacity .1s ease-out;z-index:20;}
 .flash-overlay.flash{opacity:0.85;}
+/* 上传按钮 */
+.upload-btn-area{position:absolute;top:20px;left:50%;transform:translateX(-50%);z-index:10;}
+.upload-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:rgba(0,0,0,0.40);color:#fff;border:1px solid rgba(255,255,255,0.35);border-radius:20px;font-size:13px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s;}
+.upload-btn:active{background:rgba(0,0,0,0.60);}
+.upload-btn svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 /* 预览确认页 */
 #page-preview{background:#000;}
 #page-preview .preview-container{width:100%;height:100%;position:relative;}
@@ -53,15 +55,20 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
 #page-matching{background:rgba(0,0,0,.9);color:#fff;}
 #page-matching .icon{font-size:48px;margin-bottom:15px;}
 #page-matching .text{font-size:16px;}
-/* 结果页 - 未命中 */
-#page-nomatch{background:#f5f5f5;color:#333;padding:30px;}
-.result-card{background:#fff;border-radius:12px;padding:25px;width:100%;max-width:360px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.1);}
+/* 公共卡片样式 */
+.result-card{background:#fff;border-radius:12px;padding:25px;width:100%;max-width:360px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.1);margin:20px auto;}
 .result-card h3{font-size:18px;margin-bottom:12px;}
 .result-card p{font-size:14px;color:#666;margin-bottom:20px;line-height:1.6;}
-.btn{display:inline-block;padding:12px 30px;border-radius:25px;font-size:15px;border:none;cursor:pointer;margin:5px;}
+.btn{display:inline-block;padding:12px 30px;border-radius:25px;font-size:15px;border:none;cursor:pointer;margin:5px;transition:opacity .2s;}
+.btn:active{opacity:0.8;}
 .btn-primary{background:linear-gradient(135deg,#1E9FFF,#0078D7);color:#fff;}
 .btn-secondary{background:#f0f0f0;color:#666;}
 .btn-success{background:linear-gradient(135deg,#4CAF50,#2E7D32);color:#fff;}
+.btn-warning{background:linear-gradient(135deg,#FF9800,#F57C00);color:#fff;}
+.btn-block{width:100%;max-width:300px;}
+/* 未命中页 */
+#page-nomatch{background:#f5f5f5;padding:30px;}
+#page-nomatch .no-match-icon{font-size:56px;margin-bottom:12px;}
 /* 性别选择页 */
 #page-gender{background:#f5f5f5;padding:30px;}
 .gender-card{display:inline-block;width:140px;margin:10px;padding:30px 20px;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);cursor:pointer;transition:transform .15s,box-shadow .15s;border:2px solid transparent;}
@@ -70,7 +77,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
 .gender-card .emoji{font-size:48px;display:block;margin-bottom:10px;}
 .gender-card .label{font-size:16px;font-weight:bold;color:#333;}
 /* 模板列表页 */
-#page-templates{background:#f5f5f5;padding:20px;overflow-y:auto;align-items:flex-start;justify-content:flex-start;}
+#page-templates{background:#f5f5f5;padding:20px;}
 .tpl-header{width:100%;text-align:center;margin-bottom:15px;}
 .tpl-header h3{font-size:18px;color:#333;margin-bottom:5px;}
 .tpl-header .subtitle{font-size:13px;color:#999;}
@@ -83,7 +90,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
 .tpl-card .info .tags{font-size:11px;color:#1E9FFF;}
 .tpl-empty{grid-column:1/-1;text-align:center;padding:40px 20px;color:#999;font-size:14px;}
 /* 模板详情页 */
-#page-tpl-detail{background:#f5f5f5;padding:20px;overflow-y:auto;align-items:flex-start;justify-content:flex-start;}
+#page-tpl-detail{background:#f5f5f5;padding:20px;}
 .detail-back{font-size:14px;color:#1E9FFF;cursor:pointer;margin-bottom:15px;display:inline-block;}
 .detail-cover{width:100%;max-width:360px;border-radius:12px;overflow:hidden;margin-bottom:15px;}
 .detail-cover img{width:100%;display:block;}
@@ -91,7 +98,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
 .detail-info h3{font-size:18px;margin-bottom:8px;}
 .detail-info .desc{font-size:14px;color:#666;line-height:1.6;margin-bottom:10px;}
 .detail-info .model-tag{display:inline-block;padding:3px 10px;background:#f0f7ff;color:#1E9FFF;border-radius:10px;font-size:12px;}
-.detail-action{width:100%;max-width:360px;text-align:center;}
+/* 照片预览区 */
+.photo-preview-section{width:100%;max-width:360px;background:#fff;border-radius:12px;padding:15px;margin-bottom:15px;text-align:center;}
+.photo-preview-section .section-title{font-size:13px;color:#999;margin-bottom:10px;}
+.photo-preview-section .photo-thumb{width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid #eee;margin-bottom:10px;}
+.photo-preview-section .photo-actions{display:flex;justify-content:center;gap:12px;}
+.photo-preview-section .photo-action-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border-radius:16px;border:1px solid #ddd;background:#fff;color:#666;font-size:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.photo-preview-section .photo-action-btn:active{background:#f5f5f5;}
+.detail-action{width:100%;max-width:360px;text-align:center;margin-top:8px;}
 .detail-action .btn{width:100%;max-width:300px;padding:14px 0;font-size:16px;}
 /* 等待页 */
 #page-waiting{background:#f5f5f5;padding:30px;}
@@ -102,6 +116,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
 /* 通知注册完成 */
 #page-notify-done{background:#f5f5f5;padding:30px;}
 .success-icon{font-size:64px;color:#4CAF50;margin-bottom:15px;}
+/* 成片预览与支付页 */
+#page-result{background:#f5f5f5;padding:20px;}
+.result-photo{width:100%;max-width:360px;border-radius:12px;overflow:hidden;margin-bottom:15px;box-shadow:0 4px 16px rgba(0,0,0,.1);}
+.result-photo img{width:100%;display:block;}
+.result-watermark-badge{display:inline-flex;align-items:center;gap:4px;padding:5px 14px;background:rgba(255,152,0,0.1);color:#F57C00;border-radius:14px;font-size:12px;margin-bottom:15px;}
+.result-watermark-badge svg{width:14px;height:14px;fill:none;stroke:#F57C00;stroke-width:2;stroke-linecap:round;}
+.result-actions{width:100%;max-width:360px;text-align:center;}
+.result-actions .btn{margin:8px 5px;}
+/* 支付完成下载页 */
+#page-payment-done{background:#f5f5f5;padding:30px;}
+.download-photo{width:100%;max-width:320px;border-radius:12px;overflow:hidden;margin-bottom:20px;box-shadow:0 4px 16px rgba(0,0,0,.1);}
+.download-photo img{width:100%;display:block;}
 </style>
 </head>
 <body>
@@ -119,17 +145,22 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     <video id="video" autoplay playsinline muted></video>
     <div class="face-guide" id="faceGuide"></div>
     <div class="flash-overlay" id="flashOverlay"></div>
-    <!-- 右上角摄像头切换 -->
     <div class="camera-switch" id="switchCamera" onclick="toggleCamera()">
       <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2" ry="2"/><circle cx="12" cy="13" r="3.5"/><polyline points="7 3 9 6 15 6 17 3"/><path d="M19 10h2M3 10H1"/></svg>
     </div>
-    <!-- 底部拍摄控制区 -->
+    <!-- 上传照片按钮 -->
+    <div class="upload-btn-area">
+      <label class="upload-btn" for="fileUpload">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        上传照片
+      </label>
+      <input type="file" id="fileUpload" accept="image/*" style="display:none" onchange="handleFileUpload(event)">
+    </div>
     <div class="bottom-controls">
       <div class="capture-btn" id="captureBtn" onclick="manualCapture()">
         <div class="inner"></div>
       </div>
     </div>
-    <!-- 笑脸自动抓拍指示器 -->
     <div id="smileIndicator" style="position:absolute;top:60px;left:20px;padding:5px 12px;background:rgba(34,217,119,0.75);border-radius:14px;font-size:12px;color:#fff;z-index:10;display:none;">😊 笑脸自动抓拍已就绪</div>
   </div>
 </div>
@@ -157,12 +188,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
   <div class="text" style="margin-top:15px;">正在搜索您的旅拍照片...</div>
 </div>
 
-<!-- 页面4：未命中 - 引导用户选模板 -->
-<div class="page" id="page-nomatch">
+<!-- 页面4：未查找到 - 明确提示信息 -->
+<div class="page scrollable" id="page-nomatch">
   <div class="result-card">
-    <h3>📸 未找到您的旅拍照片</h3>
-    <p id="nomatchMsg">未找到您在门店的旅拍照片，现在去旅拍吧！</p>
-    <button class="btn btn-primary" onclick="goChooseTemplate()">现在去旅拍</button>
+    <div class="no-match-icon">🔍</div>
+    <h3>未查找到您的旅拍照片</h3>
+    <p id="nomatchMsg">在特征库中未匹配到您在门店的旅拍照片</p>
+    <p style="font-size:12px;color:#999;margin-top:-10px;">您可以查看并选择门店的AI合成模板，即时生成精美旅拍照片</p>
+    <button class="btn btn-primary" onclick="goChooseTemplate()">查看可用模板</button>
   </div>
 </div>
 
@@ -185,7 +218,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
 </div>
 
 <!-- 页面4.2：推荐模板列表 -->
-<div class="page" id="page-templates">
+<div class="page scrollable" id="page-templates">
   <div class="tpl-header">
     <h3>为您推荐</h3>
     <div class="subtitle" id="tplSubtitle">选择一个喜欢的风格开始旅拍</div>
@@ -195,9 +228,21 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
   </div>
 </div>
 
-<!-- 页面4.3：模板详情 -->
-<div class="page" id="page-tpl-detail">
+<!-- 页面4.3：模板详情 + 照片预览 + 重新上传 -->
+<div class="page scrollable" id="page-tpl-detail">
   <span class="detail-back" onclick="backToTemplates()">← 返回列表</span>
+  <!-- 照片预览区域 -->
+  <div class="photo-preview-section" id="photoPreviewSection">
+    <div class="section-title">您的照片</div>
+    <img class="photo-thumb" id="tplPhotoPreview" src="" alt="您的照片">
+    <div class="photo-actions">
+      <button class="photo-action-btn" onclick="retakeForTemplate()">📷 重新拍照</button>
+      <label class="photo-action-btn" for="fileUploadTpl" style="cursor:pointer;">
+        🖼 重新上传
+      </label>
+      <input type="file" id="fileUploadTpl" accept="image/*" style="display:none" onchange="handleTemplatePhotoUpload(event)">
+    </div>
+  </div>
   <div class="detail-cover"><img id="detailCover" src="" alt="模板封面"></div>
   <div class="detail-info">
     <h3 id="detailName"></h3>
@@ -205,7 +250,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     <span class="model-tag" id="detailModel"></span>
   </div>
   <div class="detail-action">
-    <button class="btn btn-primary detail-action" onclick="submitGenerate()">开始合成旅拍照片</button>
+    <button class="btn btn-primary" onclick="submitGenerate()">开始合成旅拍照片</button>
   </div>
 </div>
 
@@ -237,6 +282,40 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
   </div>
 </div>
 
+<!-- 页面7：成片预览 + 支付入口 -->
+<div class="page scrollable" id="page-result">
+  <div class="result-card">
+    <h3>🎉 合成完成</h3>
+    <p style="margin-bottom:15px;">您的AI旅拍照片已生成</p>
+    <div class="result-photo">
+      <img id="resultPhoto" src="" alt="合成结果">
+    </div>
+    <div class="result-watermark-badge">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><circle cx="15.5" cy="8.5" r="1.5"/><path d="M8 14c1.5 3 6.5 3 8 0"/></svg>
+      预览版含水印
+    </div>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;">支付后即可下载无水印高清照片</p>
+    <div class="result-actions">
+      <button class="btn btn-warning btn-block" onclick="startPayment()">立即支付 · 获取无水印照片</button>
+      <button class="btn btn-secondary btn-block" onclick="downloadWatermarked()" style="font-size:13px;margin-top:8px;">下载带水印预览版</button>
+    </div>
+  </div>
+</div>
+
+<!-- 页面8：支付完成 + 下载无水印照片 -->
+<div class="page scrollable" id="page-payment-done">
+  <div class="result-card">
+    <div class="success-icon">🎉</div>
+    <h3>支付成功！</h3>
+    <p>您的无水印高清照片已就绪</p>
+    <div class="download-photo">
+      <img id="downloadPhoto" src="" alt="无水印照片">
+    </div>
+    <button class="btn btn-success btn-block" onclick="savePhoto()">保存到相册</button>
+    <p style="font-size:12px;color:#999;margin-top:15px;">长按图片也可保存到相册</p>
+  </div>
+</div>
+
 <!-- face-api.js 延迟加载：不在页面初始化时加载，30秒后静默加载 -->
 <script>
 (function(){
@@ -258,12 +337,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     lastDescriptor: null,
     faceReady: false,
     smileAutoEnabled: false,
-    // 新增：未匹配流程状态
+    // 未匹配流程状态
     userGender: 3,
+    photoGender: 3,     // 基于上传照片分析：1=男 2=女 3=未知（每次上传不同）
     capturedImageUrl: '',
     storeName: '',
     selectedTemplateId: 0,
-    selectedTemplate: null
+    selectedTemplate: null,
+    // 新增：支付与结果状态
+    resultWatermarkUrl: '',
+    resultNoWatermarkUrl: '',
+    orderId: '',
+    isFromUpload: false
   };
 
   var API_BASE = '/index.php?s=/api/ai_travel_photo/selfie/';
@@ -297,6 +382,101 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
       credentials: 'include',
       body: typeof data === 'string' ? data : Object.keys(data).map(function(k){return k+'='+encodeURIComponent(data[k]);}).join('&')
     }).then(function(r){return r.json();});
+  }
+
+  // ===== 图片上传处理 =====
+  window.handleFileUpload = function(event) {
+    var file = event.target.files[0];
+    if(!file) return;
+    if(!file.type.match(/image\/(jpeg|png|webp)/)) {
+      alert('请选择JPG/PNG/WebP格式的照片');
+      return;
+    }
+    if(file.size > 20 * 1024 * 1024) {
+      alert('照片大小不能超过20MB');
+      return;
+    }
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      STATE.capturedImage = e.target.result;
+      STATE.capturedDescriptor = null;
+      STATE.isFromUpload = true;
+
+      if(STATE.stream) STATE.stream.getTracks().forEach(function(t){t.stop();});
+
+      var previewImg = document.getElementById('previewImg');
+      previewImg.src = e.target.result;
+      previewImg.style.transform = 'none';
+      showPage('page-preview');
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
+
+  // ===== 模板详情页重新上传 =====
+  window.handleTemplatePhotoUpload = function(event) {
+    var file = event.target.files[0];
+    if(!file) return;
+    if(!file.type.match(/image\/(jpeg|png|webp)/)) {
+      alert('请选择JPG/PNG/WebP格式的照片');
+      return;
+    }
+    if(file.size > 20 * 1024 * 1024) {
+      alert('照片大小不能超过20MB');
+      return;
+    }
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      STATE.capturedImage = e.target.result;
+      STATE.capturedDescriptor = null;
+      STATE.isFromUpload = true;
+      uploadPhotoAndGetUrl(e.target.result);
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
+
+  function uploadPhotoAndGetUrl(base64) {
+    showPage('page-matching');
+    document.querySelector('#page-matching .text').textContent = '正在上传照片...';
+
+    apiPost('capture', {
+      image: base64,
+      bid: STATE.bid,
+      mdid: STATE.mdid
+    }).then(function(res){
+      if(res.code === 302) {
+        window.location.href = API_BASE + 'start_oauth&aid=' + STATE.aid + '&bid=' + STATE.bid + '&mdid=' + STATE.mdid;
+        return;
+      }
+      if(res.code !== 200) {
+        alert(res.msg || '上传失败');
+        showPage('page-tpl-detail');
+        return;
+      }
+
+      if(res.data.matched && res.data.pick_url) {
+        window.location.href = res.data.pick_url;
+        return;
+      }
+
+      // 更新 capturedImageUrl（使用照片分析性别，每次基于上传照片重新分析）
+      STATE.capturedImageUrl = res.data.captured_image_url || '';
+      STATE.photoGender = res.data.photo_gender || 3;
+      STATE.userGender = res.data.photo_gender || 3;
+      STATE.storeName = res.data.store_name || '门店';
+
+      // 更新预览图
+      document.getElementById('tplPhotoPreview').src = STATE.capturedImageUrl || base64;
+
+      // 回到模板详情页
+      showPage('page-tpl-detail');
+    }).catch(function(e){
+      alert('网络错误: ' + e.message);
+      showPage('page-tpl-detail');
+    });
   }
 
   // ===== 初始化：立即启动摄像头，不等模型 =====
@@ -380,10 +560,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
         video.style.transform = (STATE.facingMode === 'user') ? 'scaleX(-1)' : 'none';
         showPage('page-camera');
         STATE.captured = false;
-        // 手动拍摄按钮立即可用，无需等待模型
         var btn = document.getElementById('captureBtn');
         btn.classList.remove('disabled');
-        // 如果模型已加载，启动人脸检测循环
         if(STATE.modelsLoaded) {
           startDetection();
         }
@@ -425,7 +603,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
       loadFaceModels();
     }
 
-    // 本地优先，CDN回退
     loadScript(localSrc, onLibLoaded, function(){
       console.log('[Selfie] 本地face-api.js加载失败，尝试CDN');
       loadScript(cdnSrc, onLibLoaded, function(){
@@ -459,29 +636,26 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
       faceapi.nets.tinyFaceDetector.loadFromUri(url),
       faceapi.nets.faceLandmark68Net.loadFromUri(url),
       faceapi.nets.faceRecognitionNet.loadFromUri(url),
-      faceapi.nets.faceExpressionNet.loadFromUri(url)  // 笑脸检测需要
+      faceapi.nets.faceExpressionNet.loadFromUri(url)
     ]);
   }
 
-  // 模型加载完成后的回调
   function onModelsReady() {
     STATE.modelsLoaded = true;
     STATE.modelsLoading = false;
     STATE.smileAutoEnabled = true;
     console.log('[Selfie] 模型就绪，笑脸自动抓拍已启用');
-    // 显示笑脸指示器
     var indicator = document.getElementById('smileIndicator');
     if(indicator) {
       indicator.style.display = 'block';
       setTimeout(function(){ indicator.style.display = 'none'; }, 5000);
     }
-    // 如果当前在摄像头页面且未拍摄，启动检测
     if(!STATE.captured && document.getElementById('page-camera').classList.contains('active')) {
       startDetection();
     }
   }
 
-  // ===== 人脸检测 + 笑脸自动抓拍（模型加载后才运行） =====
+  // ===== 人脸检测 + 笑脸自动抓拍 =====
   var guideTarget = { x: 0, y: 0, w: 0, h: 0 };
   var guideCurrent = { x: 0, y: 0, w: 0, h: 0 };
   var guideVisible = false;
@@ -511,7 +685,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
         if(!STATE.detecting || STATE.captured) return;
 
         var guide = document.getElementById('faceGuide');
-        var btn = document.getElementById('captureBtn');
 
         if(result) {
           var box = result.detection.box;
@@ -567,7 +740,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
             STATE.lastDescriptor = result.descriptor;
             STATE.faceReady = true;
 
-            // 笑脸自动抓拍：检测 happy 表情大于 0.7
             if(STATE.smileAutoEnabled && !smileCooldown && result.expressions) {
               var happy = result.expressions.happy || 0;
               if(happy > 0.7) {
@@ -602,15 +774,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
       });
   }
 
-  // ===== 手动拍摄：立即可用，无需模型 =====
+  // ===== 手动拍摄 =====
   window.manualCapture = function() {
     if(STATE.captured) return;
-    // 如果模型已加载且有人脸特征，携带embedding
     var descriptor = STATE.modelsLoaded && STATE.lastDescriptor ? STATE.lastDescriptor : null;
     captureAndPreview(descriptor);
   };
 
-  // ===== 拍照 → 预览确认 =====
   function captureAndPreview(descriptor) {
     STATE.captured = true;
     STATE.detecting = false;
@@ -619,30 +789,25 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     var btn = document.getElementById('captureBtn');
     btn.classList.add('disabled');
 
-    // 快门动效：闪白 + 震动
     var flash = document.getElementById('flashOverlay');
     flash.classList.add('flash');
     setTimeout(function(){ flash.classList.remove('flash'); }, 180);
     if(navigator.vibrate) { try { navigator.vibrate(30); } catch(e){} }
 
-    // 截取画面 - 适配原生相机分辨率，输出不低于1664x2496
     var video = document.getElementById('video');
     var vw = video.videoWidth;
     var vh = video.videoHeight;
 
-    // 最低分辨率要求：短边≥1664，长边≥2496
     var MIN_SHORT = 1664;
     var MIN_LONG = 2496;
     var isPortrait = vh >= vw;
     var minW = isPortrait ? MIN_SHORT : MIN_LONG;
     var minH = isPortrait ? MIN_LONG : MIN_SHORT;
 
-    // 若摄像头原始分辨率低于最低要求，按比例放大至满足
     var scale = Math.max(1, minW / vw, minH / vh);
     var outW = Math.ceil(vw * scale);
     var outH = Math.ceil(vh * scale);
 
-    // 安全上限：防止超大canvas导致低端设备内存溢出
     var MAX_CANVAS = 4096;
     if(outW > MAX_CANVAS || outH > MAX_CANVAS) {
       var capScale = MAX_CANVAS / Math.max(outW, outH);
@@ -662,7 +827,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     var imageBase64 = canvas.toDataURL('image/jpeg', 0.92);
 
     STATE.capturedImage = imageBase64;
-    STATE.capturedDescriptor = descriptor; // 可能为null（模型未加载时）
+    STATE.capturedDescriptor = descriptor;
+    STATE.isFromUpload = false;
 
     if(STATE.stream) STATE.stream.getTracks().forEach(function(t){t.stop();});
 
@@ -677,6 +843,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     if(!STATE.capturedImage) return;
 
     showPage('page-matching');
+    document.querySelector('#page-matching .text').textContent = '正在搜索您的旅拍照片...';
 
     var postData = {
       image: STATE.capturedImage,
@@ -684,7 +851,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
       mdid: STATE.mdid
     };
 
-    // 有人脸特征时携带embedding，无则不传（后端兼容处理）
     if(STATE.capturedDescriptor) {
       postData.face_embedding = JSON.stringify(Array.from(STATE.capturedDescriptor));
     }
@@ -706,16 +872,28 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
       }
 
       if(res.data.matched) {
+        // 匹配成功且有成片 → 跳转选片页
         window.location.href = res.data.pick_url;
-      } else if(res.data.action === 'choose_template') {
-        // 新流程：未匹配，引导用户选模板
-        STATE.userGender = res.data.user_gender || 3;
+      } else if(res.data.action === 'no_photo_found') {
+        // 未匹配或无成片 → 显示提示页
+        // 使用照片分析性别（每次基于上传照片，可能每次不同）
+        STATE.photoGender = res.data.photo_gender || 3;
+        STATE.userGender = res.data.photo_gender || 3; // 兼容旧逻辑
         STATE.capturedImageUrl = res.data.captured_image_url || '';
         STATE.storeName = res.data.store_name || '门店';
-        document.getElementById('nomatchMsg').textContent = '未找到您在' + STATE.storeName + '的旅拍照片，现在去旅拍吧！';
+
+        // 区分：人脸匹配到但无成片 vs 完全未匹配
+        var faceMatched = res.data.face_matched_but_no_results || false;
+        if(faceMatched) {
+          document.getElementById('nomatchMsg').textContent = '已识别到您的身份，但暂未生成旅拍照片。请选择模板为您生成新照片。';
+        } else {
+          document.getElementById('nomatchMsg').textContent = '在特征库中未匹配到您在' + STATE.storeName + '的旅拍照片';
+        }
         showPage('page-nomatch');
       } else {
+        // dedup 等待中
         STATE.portraitId = res.data.portrait_id;
+        STATE.photoGender = res.data.photo_gender || 3;
         showPage('page-waiting');
         document.getElementById('progressDetail').textContent = '正在合成中，预计需要 ' + (res.data.estimated_seconds || 60) + ' 秒';
         pollProgress();
@@ -735,32 +913,38 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     STATE.capturedImage = null;
     STATE.capturedDescriptor = null;
     STATE.captured = false;
+    STATE.isFromUpload = false;
     document.getElementById('previewImg').src = '';
     startCamera();
   };
 
+  // ===== 模板详情页重新拍照 =====
+  window.retakeForTemplate = function() {
+    // 回到拍照流程，拍完后直接回到模板详情页
+    STATE._returnToTemplate = true;
+    STATE.captured = false;
+    startCamera();
+  };
+
   // ===== 未匹配流程：选模板合成 =====
+  // 优先使用照片分析性别（photoGender），每次基于上传照片分析，可能不同
   window.goChooseTemplate = function() {
-    if(STATE.userGender === 3 || STATE.userGender === 0) {
+    var effectiveGender = STATE.photoGender || STATE.userGender || 3;
+    if(effectiveGender === 3 || effectiveGender === 0) {
       showPage('page-gender');
     } else {
+      STATE.userGender = effectiveGender;
       loadTemplates();
     }
   };
 
   window.selectGender = function(gender) {
+    STATE.photoGender = gender;
     STATE.userGender = gender;
-    // 设置选中样式
     document.querySelectorAll('.gender-card').forEach(function(c){ c.classList.remove('selected'); });
     event.currentTarget.classList.add('selected');
-    // 保存性别
     apiPost('save_gender', {gender: gender}).then(function(res){
-      if(res.code === 200 || res.code === 302) {
-        setTimeout(function(){ loadTemplates(); }, 300);
-      } else {
-        // 保存失败仍然继续
-        setTimeout(function(){ loadTemplates(); }, 300);
-      }
+      setTimeout(function(){ loadTemplates(); }, 300);
     }).catch(function(){
       setTimeout(function(){ loadTemplates(); }, 300);
     });
@@ -798,8 +982,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
         html += '</div></div>';
       });
       document.getElementById('tplGrid').innerHTML = html;
-
-      // 保存模板数据供详情页使用
       STATE._templates = templates;
     }).catch(function(e){
       document.getElementById('tplGrid').innerHTML = '<div class="tpl-empty">网络错误，请重试</div>';
@@ -822,6 +1004,19 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
     document.getElementById('detailName').textContent = tpl.name || '未命名模板';
     document.getElementById('detailDesc').textContent = tpl.description || '使用AI技术为您生成精美旅拍照片';
     document.getElementById('detailModel').textContent = tpl.model_name || 'AI模型';
+
+    // 设置照片预览
+    var previewImg = document.getElementById('tplPhotoPreview');
+    if(STATE.capturedImageUrl) {
+      previewImg.src = STATE.capturedImageUrl;
+      document.getElementById('photoPreviewSection').style.display = 'block';
+    } else if(STATE.capturedImage) {
+      previewImg.src = STATE.capturedImage;
+      document.getElementById('photoPreviewSection').style.display = 'block';
+    } else {
+      document.getElementById('photoPreviewSection').style.display = 'none';
+    }
+
     showPage('page-tpl-detail');
   };
 
@@ -830,11 +1025,52 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
   };
 
   window.submitGenerate = function() {
-    if(!STATE.selectedTemplateId || !STATE.capturedImageUrl) {
-      alert('参数异常，请重新拍照');
+    // 检查是否有照片URL，如果没有先上传
+    if(!STATE.capturedImageUrl && !STATE.capturedImage) {
+      alert('请先拍照或上传照片');
       return;
     }
 
+    if(!STATE.selectedTemplateId) {
+      alert('请选择模板');
+      return;
+    }
+
+    // 如果有base64但没有URL，先上传
+    if(!STATE.capturedImageUrl && STATE.capturedImage) {
+      uploadAndThenGenerate();
+      return;
+    }
+
+    doSubmitGenerate();
+  };
+
+  function uploadAndThenGenerate() {
+    showPage('page-matching');
+    document.querySelector('#page-matching .text').textContent = '正在上传照片...';
+
+    apiPost('capture', {
+      image: STATE.capturedImage,
+      bid: STATE.bid,
+      mdid: STATE.mdid
+    }).then(function(res){
+      if(res.code !== 200) {
+        alert(res.msg || '上传失败');
+        showPage('page-tpl-detail');
+        return;
+      }
+      STATE.capturedImageUrl = res.data.captured_image_url || '';
+      STATE.photoGender = res.data.photo_gender || 3;
+      STATE.userGender = res.data.photo_gender || 3;
+      document.getElementById('tplPhotoPreview').src = STATE.capturedImageUrl;
+      doSubmitGenerate();
+    }).catch(function(e){
+      alert('网络错误: ' + e.message);
+      showPage('page-tpl-detail');
+    });
+  }
+
+  function doSubmitGenerate() {
     showPage('page-waiting');
     document.getElementById('progressPercent').textContent = '0%';
     document.getElementById('progressDetail').textContent = '正在提交合成任务...';
@@ -856,19 +1092,19 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
       } else {
         document.getElementById('progressDetail').textContent = '合成任务已提交，预计需要 ' + (res.data.estimated_seconds || 30) + ' 秒';
       }
-      pollProgress();
+      pollProgressForResult();
     }).catch(function(e){
       alert('网络错误: ' + e.message);
       showPage('page-templates');
     });
-  };
+  }
 
   // ===== 等待模式 =====
   window.startWaiting = function() {
     showPage('page-waiting');
     document.getElementById('progressPercent').textContent = '0%';
     document.getElementById('progressDetail').textContent = '正在处理中...';
-    pollProgress();
+    pollProgressForResult();
   };
 
   function pollProgress() {
@@ -904,6 +1140,153 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:-ap
       });
     }, 3000);
   }
+
+  // ===== 合成进度 → 跳转成片预览页 =====
+  function pollProgressForResult() {
+    if(STATE.pollTimer) clearInterval(STATE.pollTimer);
+    STATE.pollTimer = setInterval(function(){
+      apiGet('progress', {portrait_id: STATE.portraitId}).then(function(res){
+        if(res.code !== 200) return;
+        var d = res.data;
+        var pct = d.progress || 0;
+        var circle = document.getElementById('progressCircle');
+        var circumference = 339.29;
+        circle.style.strokeDashoffset = circumference - (pct / 100 * circumference);
+        document.getElementById('progressPercent').textContent = pct + '%';
+
+        if(d.status === 3) {
+          clearInterval(STATE.pollTimer);
+          document.getElementById('progressDetail').textContent = '合成完成！';
+
+          // 获取成片预览数据（带水印）
+          if(d.watermark_url) {
+            STATE.resultWatermarkUrl = d.watermark_url;
+            STATE.resultNoWatermarkUrl = d.pick_url || '';
+            document.getElementById('resultPhoto').src = d.watermark_url;
+            showPage('page-result');
+          } else if(d.pick_url) {
+            // 降级：没有独立水印URL，跳转选片页
+            setTimeout(function(){ window.location.href = d.pick_url; }, 1000);
+          } else {
+            document.getElementById('progressDetail').textContent = '合成完成，处理中...';
+            setTimeout(function(){
+              showPage('page-result');
+              document.getElementById('resultPhoto').src = '';
+            }, 1500);
+          }
+        } else if(d.status === 4) {
+          clearInterval(STATE.pollTimer);
+          document.getElementById('progressDetail').textContent = '合成失败，请稍后重试';
+        } else {
+          var detail = '正在处理中...';
+          if(d.total && d.total > 0) {
+            var done = (d.completed || 0) + (d.failed || 0);
+            detail = '已完成 ' + done + '/' + d.total;
+            if(d.remaining_seconds > 0) detail += '，预计还需 ' + d.remaining_seconds + ' 秒';
+          } else if(d.remaining_seconds > 0) {
+            detail = '预计还需 ' + d.remaining_seconds + ' 秒';
+          }
+          document.getElementById('progressDetail').textContent = detail;
+        }
+      });
+    }, 3000);
+  }
+
+  // ===== 支付流程 =====
+  window.startPayment = function() {
+    if(!STATE.portraitId) {
+      alert('参数异常，请重新合成');
+      return;
+    }
+
+    apiPost('create_order', {
+      portrait_id: STATE.portraitId,
+      bid: STATE.bid,
+      mdid: STATE.mdid
+    }).then(function(res){
+      if(res.code !== 200) {
+        alert(res.msg || '创建订单失败，请稍后重试');
+        return;
+      }
+
+      STATE.orderId = res.data.order_id || '';
+
+      // 调起微信JSAPI支付
+      if(typeof WeixinJSBridge !== 'undefined') {
+        WeixinJSBridge.invoke('getBrandWCPayRequest', res.data.jsapi_params || {}, function(payRes){
+          if(payRes.err_msg === 'get_brand_wcpay_request:ok') {
+            onPaymentSuccess();
+          } else {
+            alert('支付取消或失败，您可以稍后再试');
+          }
+        });
+      } else if(res.data.pay_url) {
+        // 降级：H5支付或扫码支付
+        window.location.href = res.data.pay_url;
+        // 轮询支付状态
+        pollPaymentStatus();
+      } else {
+        alert('支付环境不支持，请联系客服');
+      }
+    }).catch(function(e){
+      alert('网络错误: ' + e.message);
+    });
+  };
+
+  function pollPaymentStatus() {
+    if(STATE.pollTimer) clearInterval(STATE.pollTimer);
+    STATE.pollTimer = setInterval(function(){
+      apiGet('payment_status', {order_id: STATE.orderId, portrait_id: STATE.portraitId}).then(function(res){
+        if(res.code === 200 && res.data.paid) {
+          clearInterval(STATE.pollTimer);
+          onPaymentSuccess();
+        }
+      });
+    }, 3000);
+  }
+
+  function onPaymentSuccess() {
+    // 获取无水印照片
+    if(STATE.resultNoWatermarkUrl) {
+      document.getElementById('downloadPhoto').src = STATE.resultNoWatermarkUrl;
+      showPage('page-payment-done');
+    } else {
+      // 请求无水印URL
+      apiGet('payment_status', {order_id: STATE.orderId, portrait_id: STATE.portraitId}).then(function(res){
+        if(res.code === 200 && res.data.no_watermark_url) {
+          document.getElementById('downloadPhoto').src = res.data.no_watermark_url;
+        }
+        showPage('page-payment-done');
+      }).catch(function(){
+        showPage('page-payment-done');
+      });
+    }
+  }
+
+  window.downloadWatermarked = function() {
+    if(STATE.resultWatermarkUrl) {
+      var a = document.createElement('a');
+      a.href = STATE.resultWatermarkUrl;
+      a.download = '旅拍照片_带水印.jpg';
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
+  window.savePhoto = function() {
+    var img = document.getElementById('downloadPhoto');
+    if(img.src) {
+      var a = document.createElement('a');
+      a.href = img.src;
+      a.download = '旅拍高清照片.jpg';
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
 
   // ===== 通知模式 =====
   window.registerNotify = function() {

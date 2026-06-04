@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>下载无水印照片</title>
+<style>
+@import url('https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css');
+:root {
+    --primary: #4A90D9;
+    --green: #07C160;
+    --bg-start: #F0F4F8;
+    --bg-end: #E8F4FD;
+    --card-bg: rgba(255,255,255,0.92);
+    --text: #333333;
+    --text-secondary: #666666;
+    --shadow: 0 8px 32px rgba(74,144,217,0.12);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,var(--bg-start) 0%,var(--bg-end) 100%);min-height:100vh;color:var(--text);-webkit-font-smoothing:antialiased}
+.container{max-width:420px;margin:0 auto;padding:24px 16px}
+
+/* Header */
+.header{text-align:center;padding:32px 0 20px}
+.success-icon{width:64px;height:64px;margin:0 auto 16px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;animation:scaleIn .5s ease}
+@keyframes scaleIn{from{transform:scale(0)}to{transform:scale(1)}}
+.success-icon svg{width:32px;height:32px;stroke:#fff;stroke-width:2;fill:none}
+.header .title{font-size:22px;font-weight:700;margin-bottom:6px}
+.header .subtitle{font-size:14px;color:var(--text-secondary)}
+
+/* Image Card */
+.image-card{background:var(--card-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:16px;padding:16px;box-shadow:var(--shadow);margin-bottom:20px;text-align:center}
+.image-card img{max-width:100%;max-height:400px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+
+/* Download Tips */
+.tips{background:rgba(255,255,255,.8);border-radius:12px;padding:16px;margin-bottom:20px}
+.tips .tip-title{font-size:15px;font-weight:600;margin-bottom:8px;color:var(--text)}
+.tips .tip-list{list-style:none;font-size:13px;color:var(--text-secondary)}
+.tips .tip-list li{margin-bottom:6px;padding-left:20px;position:relative}
+.tips .tip-list li::before{content:'';width:6px;height:6px;background:var(--primary);border-radius:50%;position:absolute;left:4px;top:6px}
+
+/* Download Button */
+.download-btn{display:block;width:100%;padding:14px;background:linear-gradient(135deg,var(--primary),#5BA0E8);color:#fff;font-size:17px;font-weight:600;border:none;border-radius:24px;cursor:pointer;text-align:center;text-decoration:none;transition:all .3s ease;margin-bottom:12px}
+.download-btn:active{transform:scale(.98);opacity:.9}
+
+/* Back Button */
+.back-btn{display:block;width:100%;padding:12px;background:transparent;color:var(--text-secondary);font-size:15px;border:1px solid #ddd;border-radius:24px;text-align:center;text-decoration:none;cursor:pointer}
+
+/* Loading */
+.loading{text-align:center;padding:40px 0}
+.spinner{width:36px;height:36px;border:3px solid #e8f4fd;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:14px;color:var(--text-secondary)}
+
+/* Error */
+.error-msg{text-align:center;color:#E64340;font-size:14px;padding:20px}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Success Header -->
+<div class="header" id="successHeader" style="display:none">
+    <div class="success-icon">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="title">支付成功</div>
+    <div class="subtitle">您的无水印照片已就绪</div>
+</div>
+
+<!-- Loading -->
+<div class="loading" id="loadingArea">
+    <div class="spinner"></div>
+    <div class="loading-text">正在加载照片...</div>
+</div>
+
+<!-- Image Card -->
+<div class="image-card" id="imageCard" style="display:none">
+    <img id="downloadImage" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f0f4f8%22 width=%22200%22 height=%22200%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2214%22>图片加载中</text></svg>'" />
+</div>
+
+<!-- Tips -->
+<div class="tips" id="tipsArea" style="display:none">
+    <div class="tip-title">下载提示</div>
+    <ul class="tip-list">
+        <li>长按图片可保存到手机相册</li>
+        <li>如需再次访问，请保存订单号</li>
+        <li>此照片无水印，可直接使用</li>
+    </ul>
+</div>
+
+<!-- Download Button -->
+<a class="download-btn" id="downloadBtn" style="display:none" onclick="downloadImage()">保存到相册</a>
+
+<!-- Back Button -->
+<a class="back-btn" id="backBtn" style="display:none" href="javascript:history.back()">返回</a>
+
+<!-- Error -->
+<div class="error-msg" id="errorMsg" style="display:none"></div>
+
+</div>
+
+<script>
+var API_BASE = '/index.php?s=/api/ai_travel_photo/synthesis';
+var ORDER_NO = getUrlParam('order_no');
+
+(function init() {
+    if (!ORDER_NO) {
+        showError('缺少订单参数');
+        return;
+    }
+
+    fetch(API_BASE + '/download&order_no=' + ORDER_NO, {credentials:'include'})
+        .then(function(r){return r.json()})
+        .then(function(res){
+            if (res.code !== 200) {
+                showError(res.msg || '加载失败');
+                return;
+            }
+            var data = res.data;
+            // Show image
+            var items = data.items || [];
+            if (items.length > 0) {
+                var url = items[0].download_url;
+                if (url) {
+                    document.getElementById('loadingArea').style.display = 'none';
+                    document.getElementById('successHeader').style.display = 'block';
+                    document.getElementById('imageCard').style.display = 'block';
+                    document.getElementById('tipsArea').style.display = 'block';
+                    document.getElementById('downloadBtn').style.display = 'block';
+                    document.getElementById('backBtn').style.display = 'block';
+
+                    document.getElementById('downloadImage').src = url;
+                    // Set download link
+                    document.getElementById('downloadBtn').href = url;
+                    document.getElementById('downloadBtn').setAttribute('download', '');
+                } else {
+                    showError('照片地址异常');
+                }
+            } else {
+                showError('未找到照片记录');
+            }
+        })
+        .catch(function(e){
+            showError('网络错误：' + e.message);
+        });
+})();
+
+function downloadImage() {
+    var url = document.getElementById('downloadImage').src;
+    if (!url) return;
+
+    // Try to trigger download
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'synthesis_photo.jpg';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+function showError(msg) {
+    document.getElementById('loadingArea').style.display = 'none';
+    document.getElementById('errorMsg').style.display = 'block';
+    document.getElementById('errorMsg').textContent = msg;
+    document.getElementById('backBtn').style.display = 'block';
+}
+
+function getUrlParam(name) {
+    var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+    var r = window.location.search.substr(1).match(reg);
+    return r ? decodeURIComponent(r[2]) : '';
+}
+</script>
+</body>
+</html>

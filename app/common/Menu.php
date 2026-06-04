@@ -965,6 +965,11 @@ class Menu
         $child[] = ['name'=>'系统设置','path'=>'WebSystem/set'];
         $menudata['sysset'] = ['name'=>'系统设置','path'=>'WebSystem/set','child'=>$child];
         
+        // 系统变量菜单 - 位于系统设置和模型广场之间
+        $system_variable_child = [];
+        $system_variable_child[] = ['name'=>'变量管理','path'=>'WebSystemVariable/index'];
+        $menudata['system_variable'] = ['name'=>'系统变量','fullname'=>'系统变量','path'=>'WebSystemVariable/index','child'=>$system_variable_child];
+        
         // 模型广场菜单 - 位于系统设置和附件设置之间
         $model_square_child = [];
         $model_square_child[] = ['name'=>'供应商管理','path'=>'WebModelSquare/provider_list'];
@@ -1009,6 +1014,7 @@ class Menu
 		$data[] = 'DesignerPage/choosezuobiao';
 		$data[] = 'MerchantApiKey/*'; // 商户API Key配置 - 商户始终可访问
 		$data[] = 'Binding/pc'; // PC端支付配置 - 平台管理员始终可访问
+		$data[] = 'AiTravelPhoto/synthesis_get_templates'; // 合成模板AJAX接口 - 不依赖auth_data权限
         return $data;
 	}
 

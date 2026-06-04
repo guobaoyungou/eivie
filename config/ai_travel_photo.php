@@ -65,6 +65,7 @@ return [
     // 队列配置
     'queue' => [
         'cutout' => [
+            'name' => 'ai_cutout',
             'enabled' => true,
             'max_workers' => 5,
         ],

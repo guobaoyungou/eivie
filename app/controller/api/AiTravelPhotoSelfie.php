@@ -308,7 +308,7 @@ class AiTravelPhotoSelfie extends BaseController
         \think\facade\Cache::set($rateLimitKey, $currentCount + 1, 60);
 
         $image = $this->request->post('image', '');
-        $faceEmbeddingJson = $this->request->post('face_embedding', ''); // 可选：模型未加载时前端不传
+        // face_embedding 不再使用：前端128维与特征库512维不兼容，统一由后端InsightFace提取
         $bid = $this->request->post('bid/d', 0);
         $mdid = $this->request->post('mdid/d', 0);
         $aid = Session::get('selfie_aid', 0);
@@ -333,35 +333,129 @@ class AiTravelPhotoSelfie extends BaseController
         }
 
         try {
-            // face_embedding 可选：手动拍摄时模型可能尚未加载
-            $faceEmbedding = [];
-            $hasEmbedding = false;
-            if (!empty($faceEmbeddingJson)) {
-                $faceEmbedding = json_decode($faceEmbeddingJson, true);
-                if (is_array($faceEmbedding) && count($faceEmbedding) >= 64) {
-                    $hasEmbedding = true;
+            // ===== 第一步：准备图片数据 =====
+            $imageData = $image;
+            if (strpos($imageData, 'base64,') !== false) {
+                $imageData = substr($imageData, strpos($imageData, 'base64,') + 7);
+            }
+
+            // ===== 第二步：上传图片获取URL（用于后续展示） =====
+            $capturedImageUrl = $this->selfieService->uploadSelfieImage($imageData, $aid);
+
+            // 获取门店名称
+            $mendian = Db::name('mendian')->where('id', $mdid)->find();
+            $storeName = $mendian ? ($mendian['name'] ?: '门店') : '门店';
+
+            // ===== 第三步：后端 InsightFace 提取 512 维特征 + 人物属性分析（基于上传照片，非用户存档） =====
+            // 使用 Base64 直传，避免 URL 依赖（OSS 上传失败时 InsightFace 无法访问本地路径）
+            $hasBackendEmbedding = false;
+            $backendEmbedding = [];
+            $photoGender = 3;  // 基于照片分析的结果: 1=男 2=女 3=未知
+            $photoAgeGroup = 'Unknown';
+
+            // 并行分析：特征提取 + 人物属性分析（基于同一张照片）
+            $faceEmbeddingService = new \app\service\FaceEmbeddingService();
+            $imageAnalysisService = new \app\service\ImageAnalysisService();
+
+            // 特征提取（512维 InsightFace，与特征库维度一致）
+            try {
+                $faceResult = $faceEmbeddingService->extractFromBase64($image, 1);
+                if ($faceResult && !empty($faceResult['embedding']) && count($faceResult['embedding']) >= 64) {
+                    $backendEmbedding = $faceResult['embedding'];
+                    $hasBackendEmbedding = true;
+                    Log::info('自拍端capture: 后端InsightFace特征提取成功', [
+                        'dim' => $faceResult['dim'] ?? count($backendEmbedding),
+                        'det_score' => $faceResult['det_score'] ?? 0,
+                        'openid' => $openid,
+                    ]);
                 } else {
-                    $faceEmbedding = [];
+                    Log::info('自拍端capture: 后端未检测到人脸', ['openid' => $openid]);
+                }
+            } catch (\Exception $e) {
+                Log::warning('自拍端capture: 后端特征提取异常', [
+                    'openid' => $openid, 'error' => $e->getMessage()
+                ]);
+            }
+
+            // 人物属性分析（性别、年龄，基于上传照片而非用户存档）
+            try {
+                $analysisResult = $imageAnalysisService->analyzeFromBase64($image, false);
+                if ($analysisResult) {
+                    $attr = \app\service\ImageAnalysisService::extractMainSubject($analysisResult);
+                    $genderStr = $attr['gender'] ?? 'Unknown';
+                    if (strcasecmp($genderStr, 'Male') === 0) {
+                        $photoGender = 1;
+                    } elseif (strcasecmp($genderStr, 'Female') === 0) {
+                        $photoGender = 2;
+                    }
+                    $photoAgeGroup = $attr['age_group'] ?? 'Unknown';
+                    Log::info('自拍端capture: 照片人物属性分析完成', [
+                        'openid' => $openid,
+                        'photo_gender' => $photoGender,
+                        'photo_age_group' => $photoAgeGroup,
+                        'gender_confidence' => $attr['gender_confidence'] ?? 0,
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::warning('自拍端capture: 照片属性分析异常', [
+                    'openid' => $openid, 'error' => $e->getMessage()
+                ]);
+            }
+
+            // ===== 第四步：人脸匹配（仅使用后端512维 + openid兜底） =====
+            // 前端128维 face-api.js 只用作笑脸检测，不参与匹配（维度不兼容导致误判）
+            $matchResult = null;
+            $matchEmbeddingSource = 'none';
+
+            if ($hasBackendEmbedding) {
+                $matchResult = $this->selfieService->matchFaceInStore($backendEmbedding, $aid, $bid, $mdid);
+                if ($matchResult) {
+                    $matchEmbeddingSource = 'backend_512';
+                    Log::info('自拍端capture: 后端512维匹配成功', [
+                        'openid' => $openid,
+                        'best_distance' => $matchResult['best_distance'] ?? 0,
+                        'matched_count' => count($matchResult['portrait_ids'] ?? []),
+                    ]);
+                } else {
+                    Log::info('自拍端capture: 后端512维未匹配到任何人像', [
+                        'openid' => $openid, 'bid' => $bid, 'mdid' => $mdid,
+                        'embedding_dim' => count($backendEmbedding),
+                    ]);
                 }
             }
 
-            // ===== 第一步：与数据库人像数据比对 =====
-            // 有人脸特征时：通过人脸相似度在门店成片库中精确匹配
-            // 无人脸特征时：通过openid查找该用户在该门店已有的已合成人像
-            $matchResult = null;
-            if ($hasEmbedding) {
-                $matchResult = $this->selfieService->matchFaceInStore($faceEmbedding, $aid, $bid, $mdid);
-            } else {
+            // openid 兜底匹配（无后端特征或后端特征也未匹配到时）
+            if (!$matchResult) {
                 $matchResult = $this->selfieService->matchByOpenidInStore($bid, $mdid, $openid);
+                if ($matchResult) {
+                    $matchEmbeddingSource = 'openid_fallback';
+                    Log::info('自拍端capture: openid兜底匹配成功', [
+                        'openid' => $openid,
+                        'portrait_ids' => $matchResult['portrait_ids'] ?? [],
+                        'result_count' => $matchResult['result_count'] ?? 0,
+                    ]);
+                } else {
+                    Log::info('自拍端capture: openid兜底也未能匹配', [
+                        'openid' => $openid, 'bid' => $bid, 'mdid' => $mdid,
+                    ]);
+                }
             }
 
+            // ===== 第五步：匹配成功后的处理 =====
+            $hasResults = false;
+            $resultPickUrl = '';
+            $resultCount = 0;
+            $matchedPortraitIds = [];
+            $faceMatchedButNoResults = false; // 区分：人脸匹配到但无成片 vs 完全未匹配
+
             if ($matchResult) {
-                // ===== OpenID 关联：将当前用户 openid 回写至匹配的设备拍摄人像 =====
-                // 规则：仅更新 user_openid 为空的记录，已有值的保留不覆盖，冲突记录日志
-                if (!empty($matchResult['portrait_ids'])) {
+                $matchedPortraitIds = $matchResult['portrait_ids'] ?? [];
+
+                // OpenID 关联：将当前用户 openid 回写至匹配的设备拍摄人像
+                if (!empty($matchedPortraitIds)) {
                     try {
                         $this->selfieService->associateOpenidToPortraits(
-                            $matchResult['portrait_ids'], $openid, $bid, $mdid
+                            $matchedPortraitIds, $openid, $bid, $mdid
                         );
                     } catch (\Exception $e) {
                         Log::warning('OpenID关联异常，不影响匹配结果返回', [
@@ -370,28 +464,72 @@ class AiTravelPhotoSelfie extends BaseController
                     }
                 }
 
-                // 比对成功：返回付费选片链接
+                // 增量计数
                 \app\model\AiTravelPhotoSelfieQrcode::where('aid', $aid)
                     ->where('bid', $bid)
                     ->where('mdid', $mdid)
                     ->inc('match_count')
                     ->update([]);
 
-                return json([
-                    'code' => 200,
-                    'msg' => '找到匹配的旅拍照片',
-                    'data' => [
-                        'matched' => true,
-                        'pick_url' => $matchResult['pick_url'],
-                        'result_count' => $matchResult['result_count'],
-                    ],
+                // 检查匹配到的人像是否有已完成的成片
+                $resultsCheck = $this->selfieService->checkMatchedPortraitHasResults($matchedPortraitIds);
+                if ($resultsCheck) {
+                    $hasResults = true;
+                    $resultPickUrl = $resultsCheck['pick_url'];
+                    $resultCount = $resultsCheck['result_count'];
+                } else {
+                    $faceMatchedButNoResults = true;
+                }
+
+                // 匹配成功且有成片 → 直接返回选片链接
+                if ($hasResults) {
+                    return json([
+                        'code' => 200,
+                        'msg' => '找到匹配的旅拍照片',
+                        'data' => [
+                            'matched' => true,
+                            'pick_url' => $resultPickUrl,
+                            'result_count' => $resultCount,
+                            'match_source' => $matchEmbeddingSource,
+                            'photo_gender' => $photoGender,
+                        ],
+                    ]);
+                }
+
+                // 匹配成功但无成片 → 记录日志，引导用户选模板生成
+                // 查询匹配人像的合成状态用于诊断
+                $portraitStatuses = [];
+                if (!empty($matchedPortraitIds)) {
+                    try {
+                        $portraitStatuses = Db::name('ai_travel_photo_portrait')
+                            ->whereIn('id', $matchedPortraitIds)
+                            ->column('synthesis_status', 'id');
+                    } catch (\Exception $e) {}
+                }
+                Log::info('自拍端人脸匹配成功但无成片，引导用户选模板', [
+                    'openid' => $openid,
+                    'matched_portrait_ids' => $matchedPortraitIds,
+                    'match_source' => $matchEmbeddingSource,
+                    'bid' => $bid,
+                    'mdid' => $mdid,
+                    'portrait_synthesis_statuses' => $portraitStatuses,
+                ]);
+            } else {
+                // 完全未匹配 → 记录详细日志以排查
+                Log::warning('自拍端capture: 人脸未匹配到任何特征库人像', [
+                    'openid' => $openid,
+                    'bid' => $bid,
+                    'mdid' => $mdid,
+                    'has_backend_embedding' => $hasBackendEmbedding,
+                    'embedding_dim' => $hasBackendEmbedding ? count($backendEmbedding) : 0,
                 ]);
             }
 
-            // ===== 第二步：当天防重检测（同一用户同一门店当天仅首次合成） =====
+            // ===== 第六步：当天防重检测 =====
+            // 使用后端512维特征做防重（准确度最高）
             $dedupResult = null;
-            if ($hasEmbedding) {
-                $dedupResult = $this->selfieService->checkSelfieDedup($faceEmbedding, $bid, $mdid, $openid);
+            if ($hasBackendEmbedding && count($backendEmbedding) >= 64) {
+                $dedupResult = $this->selfieService->checkSelfieDedup($backendEmbedding, $bid, $mdid, $openid);
             } else {
                 $dedupResult = $this->selfieService->checkSelfieDedupByOpenid($bid, $mdid, $openid);
             }
@@ -410,6 +548,7 @@ class AiTravelPhotoSelfie extends BaseController
                             'pick_url' => $dedupPickUrl,
                             'result_count' => 0,
                             'dedup' => true,
+                            'photo_gender' => $photoGender,
                         ],
                     ]);
                 } elseif (in_array($dedupStatus, [0, 2])) {
@@ -422,38 +561,27 @@ class AiTravelPhotoSelfie extends BaseController
                             'estimated_seconds' => 60,
                             'template_count' => 0,
                             'dedup' => true,
+                            'photo_gender' => $photoGender,
                         ],
                     ]);
                 }
                 // dedupStatus == 4（全部失败）：不拦截，允许重新提交
             }
 
-            // ===== 第三步：未命中 → 返回 choose_template 引导用户选模板合成 =====
-            // 去掉base64头部并上传保存图片（仅存图，不建人像记录）
-            $imageData = $image;
-            if (strpos($imageData, 'base64,') !== false) {
-                $imageData = substr($imageData, strpos($imageData, 'base64,') + 7);
-            }
-
-            $capturedImageUrl = $this->selfieService->uploadSelfieImage($imageData, $aid);
-
-            // 获取门店名称
-            $mendian = Db::name('mendian')->where('id', $mdid)->find();
-            $storeName = $mendian ? ($mendian['name'] ?: '门店') : '门店';
-
-            // 获取用户性别
-            $member = Db::name('member')->where('mpopenid', $openid)->where('aid', $aid)->find();
-            $userGender = $member ? (int)($member['sex'] ?? 3) : 3;
-
+            // ===== 第七步：未匹配或无成片 → 返回 no_photo_found（携带照片分析性别） =====
+            // photo_gender 基于上传照片分析，每次上传都可能不同，与用户存档性别独立
             return json([
                 'code' => 200,
-                'msg' => '未找到您在' . $storeName . '的旅拍照片',
+                'msg' => '未查找到您在' . $storeName . '的旅拍照片',
                 'data' => [
                     'matched' => false,
-                    'action' => 'choose_template',
+                    'action' => 'no_photo_found',
                     'store_name' => $storeName,
-                    'user_gender' => $userGender,
+                    'photo_gender' => $photoGender,
+                    'photo_age_group' => $photoAgeGroup,
                     'captured_image_url' => $capturedImageUrl,
+                    'match_source' => $matchEmbeddingSource,
+                    'face_matched_but_no_results' => $faceMatchedButNoResults,
                 ],
             ]);
         } catch (\Throwable $e) {
@@ -663,6 +791,77 @@ class AiTravelPhotoSelfie extends BaseController
             ]);
         } catch (\Exception $e) {
             Log::error('自拍端选模板合成异常', ['error' => $e->getMessage(), 'openid' => $openid]);
+            return json(['code' => 500, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 创建支付订单（自拍端合成完成后支付）
+     * POST /api/ai_travel_photo/selfie/create_order
+     * 
+     * 参数: portrait_id, bid, mdid
+     * 返回: jsapi_params (WeixinJSBridge 参数) 或 pay_url (H5降级)
+     */
+    public function create_order(): Response
+    {
+        $openid = $this->getOpenid();
+        if (empty($openid)) {
+            return json(['code' => 302, 'msg' => '请先完成微信授权']);
+        }
+
+        $portraitId = $this->request->post('portrait_id/d', 0);
+        $bid = $this->request->post('bid/d', 0) ?: (int)Session::get('selfie_bid', 0);
+        $mdid = $this->request->post('mdid/d', 0) ?: (int)Session::get('selfie_mdid', 0);
+        $aid = Session::get('selfie_aid', 0);
+
+        if (!$portraitId) {
+            return json(['code' => 400, 'msg' => '缺少人像ID']);
+        }
+
+        try {
+            $result = $this->selfieService->createSelfiePaymentOrder($portraitId, $openid, $aid, $bid, $mdid);
+
+            return json([
+                'code' => 200,
+                'msg' => '订单创建成功',
+                'data' => $result,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('自拍端创建支付订单异常', ['error' => $e->getMessage(), 'portrait_id' => $portraitId]);
+            return json(['code' => 500, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 查询支付状态（轮询用）
+     * GET /api/ai_travel_photo/selfie/payment_status
+     *
+     * 参数: portrait_id 或 order_id
+     * 返回: paid (bool), no_watermark_url (支付成功后无水印照片URL)
+     */
+    public function payment_status(): Response
+    {
+        $openid = $this->getOpenid();
+        if (empty($openid)) {
+            return json(['code' => 302, 'msg' => '请先完成微信授权']);
+        }
+
+        $portraitId = $this->request->get('portrait_id/d', 0);
+        $orderId = $this->request->get('order_id', '');
+
+        if (!$portraitId && !$orderId) {
+            return json(['code' => 400, 'msg' => '缺少参数']);
+        }
+
+        try {
+            $result = $this->selfieService->getSelfiePaymentStatus($portraitId, $orderId);
+
+            return json([
+                'code' => 200,
+                'msg' => '成功',
+                'data' => $result,
+            ]);
+        } catch (\Exception $e) {
             return json(['code' => 500, 'msg' => $e->getMessage()]);
         }
     }

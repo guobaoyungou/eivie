@@ -157,6 +157,7 @@ class ApiBusiness extends ApiCommon{
 			}
 		}
 		// AI旅拍商品Tab可见性判定
+		$aiEnabled = 0;
 		if(getcustom('ai_travel_photo')){
 			$aiEnabled = Db::name('business')->where('id', $bid)->value('ai_travel_photo_enabled');
 			if($aiEnabled == 1 && !empty($bset['show_travel_photo'])){
@@ -171,6 +172,19 @@ class ApiBusiness extends ApiCommon{
 			}
 		} else {
 			$bset['show_travel_photo'] = 0;
+		}
+		// 批量上传人像按钮显隐条件：AI旅拍启用 + 有启用套餐 + 用户为导拍(levelid=92)
+		$bset['show_batch_portrait_upload'] = false;
+		if(getcustom('ai_travel_photo') && $aiEnabled == 1 && $bset['show_travel_photo'] == 1){
+			$hasPackage = Db::name('ai_travel_photo_package')
+				->where('aid', aid)
+				->where('bid', $bid)
+				->where('status', 1)
+				->count();
+			$isGuidePhoto = ($this->member && isset($this->member['levelid']) && $this->member['levelid'] == 92);
+			if($hasPackage > 0 && $isGuidePhoto){
+				$bset['show_batch_portrait_upload'] = true;
+			}
 		}
 		Db::name('business')->where('id',$bid)->inc('viewnum',$addviewnum)->update();
         $business['turnover'] = 0;
@@ -2442,6 +2456,348 @@ class ApiBusiness extends ApiCommon{
             $rdata['status'] = 1;
             $rdata['datalist'] = $datalist;
             return $this->json($rdata);
+        }
+    }
+
+    /**
+     * H5 批量上传人像（导拍专用）
+     * POST /ApiBusiness/batch_portrait_upload
+     * 
+     * @return \think\Response
+     */
+    public function batch_portrait_upload()
+    {
+        // 调试日志：记录请求信息
+        \think\facade\Log::info('batch_portrait_upload 开始', [
+            'member_exists' => $this->member ? true : false,
+            'member_levelid' => $this->member['levelid'] ?? 'not_set',
+            'session_id' => $this->sessionid ?? 'not_set',
+            'request_method' => $this->request->method(),
+            'content_type' => $_SERVER['CONTENT_TYPE'] ?? 'not_set',
+            'files_count' => count($_FILES ?? []),
+            'files_keys' => array_keys($_FILES ?? []),
+            'post_keys' => array_keys($_POST ?? []),
+        ]);
+
+        // 1. 登录校验
+        $this->checklogin();
+        if (!$this->member) {
+            return $this->json(['code' => 401, 'msg' => '请先登录']);
+        }
+
+        // 2. 角色校验：仅导拍用户（levelid=92）
+        if (!isset($this->member['levelid']) || $this->member['levelid'] != 92) {
+            return $this->json(['code' => 403, 'msg' => '当前账号无批量上传权限', 'debug_levelid' => $this->member['levelid'] ?? 'not_set']);
+        }
+
+        // 3. 参数校验
+        $bid = input('post.bid/d', 0);
+        $mdid = input('post.mdid/d', 0);
+        if ($bid <= 0) {
+            return $this->json(['code' => 400, 'msg' => '请指定商家']);
+        }
+
+        // 4. 校验商家AI旅拍是否启用
+        $aiEnabled = Db::name('business')->where('id', $bid)->value('ai_travel_photo_enabled');
+        if ($aiEnabled != 1) {
+            return $this->json(['code' => 400, 'msg' => '该商家未启用AI旅拍功能']);
+        }
+
+        // 5. 接收上传文件
+        $files = $this->request->file('images');
+        if (!$files) {
+            \think\facade\Log::error('batch_portrait_upload: 未收到文件', [
+                'files' => $_FILES,
+                'all_files' => $this->request->file(),
+            ]);
+            return $this->json(['code' => 400, 'msg' => '请选择要上传的图片', 'debug_files' => array_keys($_FILES)]);
+        }
+        // 如果不是数组（单个文件），包装成数组
+        if (!is_array($files)) {
+            $files = [$files];
+        }
+
+        // 限制单次最多上传20张
+        if (count($files) > 20) {
+            return $this->json(['code' => 400, 'msg' => '单次最多上传20张图片']);
+        }
+
+        // 6. 逐个上传
+        $portraitService = new \app\service\AiTravelPhotoPortraitService();
+        $successList = [];
+        $failList = [];
+        $portraitIds = [];
+
+        foreach ($files as $file) {
+            try {
+                // 验证文件类型（通过扩展名，避免 finfo_open 不可用）
+                $allowedExt = ['jpg', 'jpeg', 'png'];
+                $filename = $file->getOriginalName();
+                $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                if (!in_array($ext, $allowedExt)) {
+                    $failList[] = [
+                        'name' => $filename,
+                        'error' => '仅支持JPG、PNG格式，当前扩展名：' . $ext
+                    ];
+                    continue;
+                }
+                // 根据扩展名推断 MIME
+                $mimeMap = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png'];
+                $mimeType = $mimeMap[$ext] ?? 'image/jpeg';
+
+                // 验证文件大小（最大10MB）
+                if ($file->getSize() > 10 * 1024 * 1024) {
+                    $failList[] = [
+                        'name' => $filename,
+                        'error' => '图片大小不能超过10MB'
+                    ];
+                    continue;
+                }
+
+                // 组装文件信息
+                $fileInfo = [
+                    'name'     => $filename,
+                    'tmp_name' => $file->getRealPath(),
+                    'type'     => $mimeType,
+                    'size'     => $file->getSize(),
+                ];
+
+                // 组装参数
+                $operatorName = $this->member['un'] ?? ($this->member['nickname'] ?? '');
+                $params = [
+                    'aid'              => aid,
+                    'uid'              => $this->member['id'] ?? 0,
+                    'bid'              => $bid,
+                    'mdid'             => $mdid,
+                    'device_id'        => 0,
+                    'type'             => \app\model\AiTravelPhotoPortrait::TYPE_BUSINESS,
+                    'uploader_account' => $operatorName,
+                ];
+
+                \think\facade\Log::info('batch_portrait_upload: 调用 uploadPortrait', $params);
+                $result = $portraitService->uploadPortrait($fileInfo, $params);
+
+                $successList[] = [
+                    'name'         => $file->getOriginalName(),
+                    'portrait_id'  => $result['portrait_id'] ?? 0,
+                    'original_url' => $result['original_url'] ?? '',
+                    'status'       => $result['status'] ?? 'success',
+                    'message'      => $result['message'] ?? '上传成功',
+                ];
+                $portraitIds[] = $result['portrait_id'] ?? 0;
+
+            } catch (\Throwable $e) {
+                \think\facade\Log::error('batch_portrait_upload: 单张上传失败', [
+                    'name' => $file->getOriginalName(),
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                $failList[] = [
+                    'name'  => $file->getOriginalName(),
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return $this->json([
+            'code'    => 200,
+            'msg'     => '批量上传完成',
+            'data'    => [
+                'success_count' => count($successList),
+                'fail_count'    => count($failList),
+                'success_list'  => $successList,
+                'fail_list'     => $failList,
+                'portrait_ids'  => $portraitIds,
+            ]
+        ]);
+    }
+
+    /**
+     * H5 批量合成触发（导拍专用）
+     * POST /ApiBusiness/batch_portrait_synthesis
+     * 
+     * @return \think\Response
+     */
+    public function batch_portrait_synthesis()
+    {
+        // 1. 登录校验
+        $this->checklogin();
+        if (!$this->member) {
+            return $this->json(['code' => 401, 'msg' => '请先登录']);
+        }
+
+        // 2. 角色校验
+        if (!isset($this->member['levelid']) || $this->member['levelid'] != 92) {
+            return $this->json(['code' => 403, 'msg' => '当前账号无批量合成权限']);
+        }
+
+        // 3. 参数校验
+        $bid = input('post.bid/d', 0);
+        if ($bid <= 0) {
+            return $this->json(['code' => 400, 'msg' => '请指定商家']);
+        }
+
+        try {
+            // 获取全局合成设置
+            $setting = Db::name('ai_travel_photo_synthesis_setting')
+                ->where('aid', aid)
+                ->where('bid', $bid)
+                ->where('portrait_id', 0)
+                ->find();
+
+            if (!$setting) {
+                return $this->json(['code' => 1, 'msg' => '该商家尚未配置合成设置，请联系商家管理员']);
+            }
+
+            $templateIds = explode(',', $setting['template_ids']);
+
+            // 获取所有未处理的人像（status=0/1）
+            $portraits = Db::name('ai_travel_photo_portrait')
+                ->where('aid', aid)
+                ->where('bid', $bid)
+                ->where('status', 1)
+                ->whereIn('synthesis_status', [0, 1])
+                ->select();
+
+            // 统计已进入队列处理中的人像（status=2）
+            $processingCount = Db::name('ai_travel_photo_portrait')
+                ->where('aid', aid)
+                ->where('bid', $bid)
+                ->where('status', 1)
+                ->where('synthesis_status', 2)
+                ->count();
+
+            $total = count($portraits);
+            if ($total === 0) {
+                if ($processingCount > 0) {
+                    return $this->json([
+                        'code' => 200,
+                        'msg' => '所有上传人像已自动进入合成队列（' . $processingCount . ' 张正在处理中），请稍后查看合成结果',
+                        'data' => [
+                            'success_count' => 0,
+                            'fail_count' => 0,
+                            'total' => 0,
+                            'processing_count' => $processingCount,
+                        ]
+                    ]);
+                }
+                return $this->json(['code' => 1, 'msg' => '没有需要处理的人像']);
+            }
+
+            // 检查模板
+            if (empty($templateIds) || $templateIds[0] === '') {
+                return $this->json(['code' => 1, 'msg' => '该商家尚未关联合成模板']);
+            }
+
+            $templates = Db::name('ai_travel_photo_synthesis_template')
+                ->whereIn('id', $templateIds)
+                ->where('status', 1)
+                ->field('id, aid, bid, name as template_name, model_id, model_name, cover_image, images, prompt, default_params, description, scene_template_id, sort, gender_tag')
+                ->select();
+
+            if (count($templates) === 0) {
+                return $this->json(['code' => 1, 'msg' => '没有可用的合成模板']);
+            }
+
+            // 补充 business_price
+            foreach ($templates as &$_tpl) {
+                $_tpl['output_quantity'] = 1;
+                $_tpl['business_price'] = 0.50;
+                if (!empty($_tpl['scene_template_id'])) {
+                    $scenePrice = Db::name('generation_scene_template')
+                        ->where('id', $_tpl['scene_template_id'])->value('business_price');
+                    if ($scenePrice !== null && $scenePrice !== false) {
+                        $_tpl['business_price'] = floatval($scenePrice);
+                    }
+                }
+            }
+            unset($_tpl);
+
+            // 调用合成服务批量生成
+            try {
+                $synthesisService = new \app\service\AiTravelPhotoSynthesisService();
+            } catch (\Exception $e) {
+                return $this->json(['code' => 1, 'msg' => '合成服务初始化失败: ' . $e->getMessage()]);
+            }
+
+            // 将人像状态更新为"处理中"
+            $portraitIds = array_column($portraits->toArray(), 'id');
+            if (!empty($portraitIds)) {
+                Db::name('ai_travel_photo_portrait')
+                    ->whereIn('id', $portraitIds)
+                    ->update([
+                        'synthesis_status' => 2,
+                        'update_time' => time()
+                    ]);
+            }
+
+            $successCount = 0;
+            $failCount = 0;
+            $operatorName = $this->member['nickname'] ?? $this->member['un'] ?? '导拍';
+
+            foreach ($portraits as $portrait) {
+                $portraitId = $portrait['id'];
+                try {
+                    $genResult = $synthesisService->generate(
+                        $portrait,
+                        $templates,
+                        $operatorName
+                    );
+                    // 根据实际返回值判断成功：code=0 且有生成结果
+                    $resultCount = $genResult['data']['count'] ?? 0;
+                    if ($genResult['code'] === 0 && $resultCount > 0) {
+                        // 更新合成状态为已完成
+                        Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                            'synthesis_status' => 3,
+                            'synthesis_count' => $resultCount,
+                            'synthesis_time' => time(),
+                            'synthesis_error' => '',
+                            'update_time' => time()
+                        ]);
+                        $successCount++;
+                    } else {
+                        // 更新合成状态为失败
+                        Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                            'synthesis_status' => 4,
+                            'synthesis_error' => $genResult['msg'] ?? '合成结果为空',
+                            'update_time' => time()
+                        ]);
+                        $failCount++;
+                        \think\facade\Log::error('批量合成单个人像失败', [
+                            'portrait_id' => $portraitId,
+                            'error' => $genResult['msg'] ?? '未知错误'
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    $failCount++;
+                    // 更新合成状态为失败
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'synthesis_status' => 4,
+                        'synthesis_error' => '合成异常: ' . mb_substr($e->getMessage(), 0, 200),
+                        'update_time' => time()
+                    ]);
+                    \think\facade\Log::error('批量合成单个人像失败', [
+                        'portrait_id' => $portraitId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            return $this->json([
+                'code' => 200,
+                'msg' => '批量合成完成',
+                'data' => [
+                    'success_count' => $successCount,
+                    'fail_count' => $failCount,
+                    'total' => $total,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->json([
+                'code' => 500,
+                'msg' => '批量合成失败：' . $e->getMessage()
+            ]);
         }
     }
 }

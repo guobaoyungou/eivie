@@ -552,7 +552,11 @@ class SmileCapture extends Base
                     try {
                         $milvusService = new \app\service\MilvusService();
                         if ($milvusService->isHealthy()) {
-                            $vectorIds = $milvusService->insert([$embedding], ['portrait_id' => $portraitId]);
+                            $vectorIds = $milvusService->insert([$embedding], [
+                                'portrait_id' => $portraitId,
+                                'bid' => (int)$targetBid,
+                                'mdid' => (int)$mdid,
+                            ]);
                             if (!empty($vectorIds)) {
                                 Db::name('ai_travel_photo_portrait')->where('id', $portraitId)
                                     ->update(['face_embedding_id' => $vectorIds[0] ?? 0]);

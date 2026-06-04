@@ -9,6 +9,7 @@ use app\common\OssHelper;
 use app\common\Wechat;
 use think\exception\ValidateException;
 use think\facade\Cache;
+use think\facade\Db;
 use think\facade\Log;
 
 /**
@@ -49,16 +50,32 @@ class AiTravelPhotoQrcodeService
             throw new ValidateException('人像不存在');
         }
         
-        // 检查是否已有二维码
+        // 检查是否已有选片页二维码（仅匹配 type=1，避免误匹配公众号二维码记录）
         $existQrcode = AiTravelPhotoQrcode::where('portrait_id', $portraitId)
+            ->where('qrcode_type', AiTravelPhotoQrcode::QRCODE_TYPE_PICK)
             ->where('status', AiTravelPhotoQrcode::STATUS_VALID)
             ->find();
         
         if ($existQrcode) {
+            // 已有记录但缺少 qrcode_url 图片时，补生成图片
+            // 兼容历史数据：saveToQrcode() 创建的记录可能没有图片
+            $qrcodeUrl = $existQrcode->qrcode_url;
+            if (empty($qrcodeUrl)) {
+                try {
+                    $qrcodeUrl = $this->generateQrcodeImage($existQrcode->qrcode);
+                    if ($qrcodeUrl) {
+                        Db::name('ai_travel_photo_qrcode')
+                            ->where('id', $existQrcode->id)
+                            ->update(['qrcode_url' => $qrcodeUrl, 'update_time' => time()]);
+                    }
+                } catch (\Exception $e) {
+                    Log::write('[generateQrcode补生成图片失败] id=' . $existQrcode->id . ' error=' . $e->getMessage(), 'error');
+                }
+            }
             return [
                 'qrcode_id' => $existQrcode->id,
                 'qrcode' => $existQrcode->qrcode,
-                'qrcode_url' => $existQrcode->qrcode_url,
+                'qrcode_url' => $qrcodeUrl,
                 'status' => 'exists'
             ];
         }
@@ -66,9 +83,11 @@ class AiTravelPhotoQrcodeService
         // 生成唯一二维码标识
         $qrcodeStr = $this->generateUniqueQrcode();
         
-        // 获取商家配置
-        $business = \app\model\Business::find($portrait->bid);
-        $expireDays = $business->ai_qrcode_expire_days ?? config('ai_travel_photo.qrcode.expire_days', 30);
+        // 获取商家配置（使用 Db 查询，避免 \app\model\Business 类不存在的问题）
+        $business = Db::name('business')->where('id', $portrait->bid)->find();
+        $expireDays = ($business && !empty($business['ai_qrcode_expire_days'])) 
+            ? intval($business['ai_qrcode_expire_days']) 
+            : config('ai_travel_photo.qrcode.expire_days', 30);
         $expireTime = $expireDays > 0 ? time() + ($expireDays * 86400) : 0;
         
         // 创建二维码记录
@@ -77,6 +96,7 @@ class AiTravelPhotoQrcodeService
             'portrait_id' => $portraitId,
             'bid' => $portrait->bid,
             'qrcode' => $qrcodeStr,
+            'qrcode_type' => AiTravelPhotoQrcode::QRCODE_TYPE_PICK,
             'status' => AiTravelPhotoQrcode::STATUS_VALID,
             'expire_time' => $expireTime,
         ]);
@@ -202,7 +222,7 @@ class AiTravelPhotoQrcodeService
         }
         
         // 获取商家配置
-        $business = \app\model\Business::find($portrait->bid);
+        $business = Db::name('business')->where('id', $portrait->bid)->find();
         
         // 获取套餐列表
         $packages = \app\model\AiTravelPhotoPackage::where('bid', $portrait->bid)
@@ -230,8 +250,8 @@ class AiTravelPhotoQrcodeService
             'results' => [],
             'packages' => [],
             'price_config' => [
-                'photo_price' => $business->ai_photo_price ?? 9.90,
-                'video_price' => $business->ai_video_price ?? 29.90,
+                'photo_price' => ($business && isset($business['ai_photo_price'])) ? floatval($business['ai_photo_price']) : 9.90,
+                'video_price' => ($business && isset($business['ai_video_price'])) ? floatval($business['ai_video_price']) : 29.90,
             ],
         ];
         
@@ -502,6 +522,29 @@ class AiTravelPhotoQrcodeService
                 ->where('status', AiTravelPhotoQrcode::STATUS_VALID)
                 ->find();
             $qrcodeStr = $qrcodeRecord ? $qrcodeRecord->qrcode : '';
+            // 用 Db::name 直接读取 qrcode_url，避免 ORM Schema 缓存导致字段缺失
+            $qrcodeUrl = $qrcodeRecord ? (Db::name('ai_travel_photo_qrcode')
+                ->where('id', $qrcodeRecord->id)->value('qrcode_url') ?: '') : '';
+            
+            // 无选片码时自动生成，确保扫码能进入选片中心
+            if (empty($qrcodeStr)) {
+                try {
+                    $qrcodeResult = $this->generateQrcode($portrait->id);
+                    $qrcodeStr = $qrcodeResult['qrcode'] ?? '';
+                    $qrcodeUrl = $qrcodeResult['qrcode_url'] ?? '';
+                } catch (\Exception $e) {
+                    Log::write('[getSelectionList自动生成选片码失败] portraitId=' . $portrait->id . ' error=' . $e->getMessage(), 'error');
+                }
+            }
+            // 选片码存在但图片缺失（如 saveToQrcode 创建的历史记录），补生成图片
+            if (!empty($qrcodeStr) && empty($qrcodeUrl)) {
+                try {
+                    $qrcodeResult = $this->generateQrcode($portrait->id);
+                    $qrcodeUrl = $qrcodeResult['qrcode_url'] ?? '';
+                } catch (\Exception $e) {
+                    Log::write('[getSelectionList补生成选片码图片失败] portraitId=' . $portrait->id . ' error=' . $e->getMessage(), 'error');
+                }
+            }
             
             // 获取或生成公众号二维码
             $mpQrcodeUrl = $this->generateMpQrcode($portrait->id, $aid, $bid);
@@ -525,6 +568,7 @@ class AiTravelPhotoQrcodeService
                 'results' => $resultList,
                 'mp_qrcode_url' => $mpQrcodeUrl,
                 'qrcode' => $qrcodeStr,
+                'qrcode_url' => $qrcodeUrl,
             ];
         }
         
@@ -543,13 +587,19 @@ class AiTravelPhotoQrcodeService
     private function getXpdConfig(int $bid, int $mdid = 0): array
     {
         $mendian = null;
-        // 优先按 mdid 查询门店配置
+        // 优先按 mdid 查询门店配置（每个门店独立配置）
         if ($mdid > 0) {
             $mendian = \think\facade\Db::name('mendian')->where('id', $mdid)->find();
-        }
-        // 降级按 bid 查询第一个门店
-        if (!$mendian && $bid > 0) {
-            $mendian = \think\facade\Db::name('mendian')->where('bid', $bid)->order('id asc')->find();
+            // mdid 明确指定但门店不存在时，记录日志并使用默认值，不降级到 bid 查询
+            // 避免同 bid 下多个门店串配置
+            if (!$mendian) {
+                Log::write('[getXpdConfig门店不存在] mdid=' . $mdid . ' bid=' . $bid . ' 使用默认配置', 'notice');
+            }
+        } else {
+            // mdid=0 时降级按 bid 查询（向后兼容无 mdid 的旧链接）
+            if ($bid > 0) {
+                $mendian = \think\facade\Db::name('mendian')->where('bid', $bid)->order('id asc')->find();
+            }
         }
         
         // 解析布局配置JSON
@@ -568,6 +618,7 @@ class AiTravelPhotoQrcodeService
             'bg_color' => $mendian['xpd_bg_color'] ?? '#000000',
             'face_detect_enabled' => (bool)($mendian['xpd_face_detect'] ?? true),
             'template' => $mendian['xpd_template'] ?? 'template_1',
+            'qrcode_mode' => $mendian['xpd_qrcode_mode'] ?? 'mp',
         ];
     }
     

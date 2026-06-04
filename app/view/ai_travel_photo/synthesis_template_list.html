@@ -63,6 +63,7 @@
         <!-- 操作列模板 -->
         <script type="text/html" id="barTpl">
           <button class="layui-btn layui-btn-xs" onclick="openTemplate({{d.id}})">编辑</button>
+          <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="showQrcode({{d.id}}, '{{d.name}}')">二维码</button>
           <button class="layui-btn layui-btn-danger layui-btn-xs" onclick="deleteTemplate({{d.id}})">删除</button>
         </script>
 
@@ -163,7 +164,7 @@
         {field: 'create_time', title: '创建时间', width: 170, templet: function(d){
           return d.create_time ? layui.util.toDateString(d.create_time * 1000, 'yyyy-MM-dd HH:mm') : '-';
         }},
-        {fixed: 'right', title: '操作', width: 150, toolbar: '#barTpl'}
+        {fixed: 'right', title: '操作', width: 230, toolbar: '#barTpl'}
       ]]
     });
 
@@ -246,6 +247,42 @@
           layer.msg(res.msg);
         }
       });
+    });
+  }
+
+  // 查看/生成活动二维码
+  function showQrcode(id, name){
+    var loadIndex = layer.load(1, {shade: [0.3, '#000']});
+    $.post('{:url("synthesis_template_qrcode")}', {id: id}, function(res){
+      layer.close(loadIndex);
+      if(res.code === 0){
+        var d = res.data;
+        var tipText = d.is_new ? '活动已创建' : '已复用现有活动';
+        var html = '<div style="text-align:center;padding:20px;">'
+          + '<p style="margin-bottom:12px;color:#666;font-size:13px;">' + tipText + '</p>'
+          + '<p style="margin-bottom:10px;font-size:15px;font-weight:bold;color:#333;">' + (d.name || name) + '</p>'
+          + '<p style="margin-bottom:8px;color:#FF5722;font-size:15px;">¥' + parseFloat(d.price).toFixed(2) + '</p>'
+          + '<img src="' + d.qrcode_url + '" style="width:200px;height:200px;border:1px solid #eee;border-radius:4px;" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f0f0f0%22 width=%22200%22 height=%22200%22/><text fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 font-size=%2214%22>二维码加载失败</text></svg>\'">'
+          + '<p style="margin-top:10px;word-break:break-all;">'
+          + '<span style="color:#999;font-size:12px;">活动链接：</span><br>'
+          + '<a href="' + d.activity_url + '" target="_blank" style="font-size:12px;color:#1E9FFF;">' + d.activity_url + '</a>'
+          + '</p>'
+          + '<p style="margin-top:8px;color:#999;font-size:11px;">用户扫码即可进入活动入口</p>'
+          + '</div>';
+        layer.open({
+          type: 1,
+          title: '活动二维码 - ' + (d.name || name),
+          content: html,
+          area: ['420px', '420px'],
+          btn: ['关闭'],
+          yes: function(idx){ layer.close(idx); }
+        });
+      } else {
+        layer.msg(res.msg, {icon: 2});
+      }
+    }, 'json').fail(function(){
+      layer.close(loadIndex);
+      layer.msg('网络请求失败，请重试', {icon: 2});
     });
   }
   </script>

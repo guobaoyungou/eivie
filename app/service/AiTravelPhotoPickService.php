@@ -125,9 +125,13 @@ class AiTravelPhotoPickService
      */
     public function getStoreResultListByOpenid(int $bid, int $mdid, string $openid): array
     {
-        // 查找该openid在该门店所有已合成完成的人像
+        // 查找该openid在该门店所有已合成完成的人像（多用户关联：通过关联表查询）
         $portraits = Db::name('ai_travel_photo_portrait')
-            ->where('user_openid', $openid)
+            ->whereIn('id', function ($query) use ($openid) {
+                $query->name('ai_travel_photo_portrait_user')
+                    ->where('user_openid', $openid)
+                    ->field('portrait_id');
+            })
             ->where('bid', $bid)
             ->where('mdid', $mdid)
             ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL)
@@ -229,8 +233,13 @@ class AiTravelPhotoPickService
      */
     public function hasCompletedResultsInStore(int $bid, int $mdid, string $openid): bool
     {
+        // 多用户关联：通过关联表查询
         $portrait = Db::name('ai_travel_photo_portrait')
-            ->where('user_openid', $openid)
+            ->whereIn('id', function ($query) use ($openid) {
+                $query->name('ai_travel_photo_portrait_user')
+                    ->where('user_openid', $openid)
+                    ->field('portrait_id');
+            })
             ->where('bid', $bid)
             ->where('mdid', $mdid)
             ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL)
@@ -1868,6 +1877,56 @@ class AiTravelPhotoPickService
         ]);
 
         return $sign === $expectedSign;
+    }
+
+    // ========== 人像-用户关联 ==========
+
+    /**
+     * 将人像关联到微信用户
+     * 用户扫码进入选片中心后自动调用，将照片组关联到该用户名下
+     *
+     * @param int $portraitId 人像ID
+     * @param string $openid 微信OpenID
+     * @return void
+     */
+    public function associateUserToPortrait(int $portraitId, string $openid): void
+    {
+        if ($portraitId <= 0 || empty($openid)) {
+            return;
+        }
+
+        // 多用户关联：INSERT IGNORE 实现幂等写入
+        $tableName = \think\facade\Db::name('ai_travel_photo_portrait_user')->getTable();
+        $now = time();
+        Db::execute(
+            "INSERT IGNORE INTO {$tableName} (portrait_id, user_openid, create_time) VALUES (?, ?, ?)",
+            [$portraitId, $openid, $now]
+        );
+
+        Log::info('选片：人像关联用户', ['portrait_id' => $portraitId, 'openid' => substr($openid, 0, 8) . '***', 'table' => $tableName]);
+    }
+
+    /**
+     * 解除人像与用户的关联
+     * 用户点击"不是我的照片"时调用，解除照片组与当前用户的绑定
+     *
+     * @param int $portraitId 人像ID
+     * @param string $openid 微信OpenID
+     * @return void
+     */
+    public function disassociateUserFromPortrait(int $portraitId, string $openid): void
+    {
+        if ($portraitId <= 0 || empty($openid)) {
+            return;
+        }
+
+        // 多用户关联：只删除当前用户的关联记录，不影响其他用户
+        Db::name('ai_travel_photo_portrait_user')
+            ->where('portrait_id', $portraitId)
+            ->where('user_openid', $openid)
+            ->delete();
+
+        Log::info('选片：人像解除关联', ['portrait_id' => $portraitId, 'openid' => substr($openid, 0, 8) . '***']);
     }
 
     /**

@@ -51,6 +51,15 @@ class WebSystem extends WebCommon
 			'name'=>'系统设置',
 			'path'=>'WebSystem/set'
 		);
+		// 系统变量菜单
+		$system_variable_child = [];
+		$system_variable_child[] = ['name'=>'变量管理','path'=>'WebSystemVariable/index'];
+		$menudata['system_variable'] = array(
+			'name'=>'系统变量',
+			'fullname'=>'系统变量',
+			'path'=>'WebSystemVariable/index',
+			'child'=>$system_variable_child
+		);
 		// 模型广场菜单
 		$model_square_child = [];
 		$model_square_child[] = ['name'=>'供应商管理','path'=>'WebModelSquare/provider_list'];

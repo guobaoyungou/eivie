@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>AI合成活动</title>
+<style>
+/* Tailwind CSS CDN */
+@import url('https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css');
+/* Custom Variables */
+:root {
+    --primary: #4A90D9;
+    --primary-light: #5BA0E8;
+    --green: #07C160;
+    --bg-start: #F0F4F8;
+    --bg-end: #E8F4FD;
+    --card-bg: rgba(255,255,255,0.92);
+    --text: #333333;
+    --text-secondary: #666666;
+    --text-muted: #999999;
+    --red: #E64340;
+    --orange: #FF9500;
+    --shadow: 0 8px 32px rgba(74,144,217,0.12);
+    --radius: 16px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,var(--bg-start) 0%,var(--bg-end) 100%);min-height:100vh;color:var(--text);-webkit-font-smoothing:antialiased}
+.container{max-width:420px;margin:0 auto;padding:0 16px}
+
+/* Header */
+.header{padding:24px 16px 16px;text-align:center}
+.header .activity-name{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px}
+.header .business-name{font-size:13px;color:var(--text-secondary)}
+
+/* Glass Card */
+.glass-card{background:var(--card-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);margin-bottom:16px}
+
+/* Section Title */
+.section-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.section-title::before{content:'';width:4px;height:18px;background:var(--primary);border-radius:2px}
+
+/* Upload Area */
+.upload-area{position:relative;text-align:center;padding:32px 20px;border:2px dashed #d0dce8;border-radius:12px;cursor:pointer;transition:all .3s ease;background:#fafcfe}
+.upload-area:active{transform:scale(.98);border-color:var(--primary-light)}
+.upload-area .upload-icon{width:64px;height:64px;margin:0 auto 12px;background:linear-gradient(135deg,var(--primary-light),var(--primary));border-radius:50%;display:flex;align-items:center;justify-content:center;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(74,144,217,.3)}50%{box-shadow:0 0 0 16px rgba(74,144,217,0)}}
+.upload-area .upload-icon svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2}
+.upload-area .upload-text{font-size:15px;color:var(--primary);font-weight:500}
+.upload-area .upload-hint{font-size:12px;color:var(--text-muted);margin-top:6px}
+.upload-area.has-photo{border-color:var(--green);background:#f0faf5}
+.upload-area.has-photo .upload-icon{background:var(--green);animation:none}
+.photo-preview{display:none;max-width:100%;max-height:240px;border-radius:8px;margin:0 auto}
+.photo-preview.show{display:block}
+
+/* Hidden file input */
+#photoInput{display:none}
+
+/* Progress Steps */
+.progress-steps{display:flex;justify-content:space-between;position:relative;padding:0 8px;margin-bottom:20px}
+.progress-steps::before{content:'';position:absolute;top:16px;left:32px;right:32px;height:2px;background:#e8ecf1;z-index:0}
+.progress-step{display:flex;flex-direction:column;align-items:center;z-index:1;position:relative}
+.progress-step .dot{width:32px;height:32px;border-radius:50%;background:#e8ecf1;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text-muted);transition:all .3s ease;position:relative}
+.progress-step.active .dot{background:var(--primary);color:#fff;animation:dotPulse .6s ease}
+@keyframes dotPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+.progress-step.done .dot{background:var(--green);color:#fff}
+.progress-step.fail .dot{background:var(--red);color:#fff}
+.progress-step .label{font-size:11px;color:var(--text-muted);margin-top:6px;white-space:nowrap}
+.progress-step.active .label{color:var(--primary);font-weight:600}
+.progress-step.done .label{color:var(--green)}
+
+/* Spinner */
+.spinner{width:32px;height:32px;border:3px solid #e8f4fd;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Result Preview */
+.result-preview{position:relative;text-align:center}
+.result-preview img{max-width:100%;max-height:320px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.watermark-badge{display:inline-block;padding:4px 12px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;border-radius:12px;position:absolute;top:8px;right:8px}
+
+/* Price & Pay */
+.price-tag{text-align:center;margin:16px 0}
+.price-tag .amount{font-size:28px;font-weight:700;color:var(--red)}
+.price-tag .unit{font-size:14px;color:var(--text-secondary)}
+.pay-btn{display:block;width:100%;padding:14px;background:linear-gradient(135deg,var(--green),#06ad56);color:#fff;font-size:17px;font-weight:600;border:none;border-radius:24px;cursor:pointer;transition:all .3s ease;text-align:center;text-decoration:none}
+.pay-btn:active{transform:scale(.98);opacity:.9}
+.pay-btn:disabled{background:#ccc;cursor:not-allowed;transform:none}
+
+/* Error / Retry */
+.error-msg{text-align:center;color:var(--red);font-size:14px;padding:12px}
+.retry-btn{display:inline-block;padding:8px 20px;background:var(--primary);color:#fff;border:none;border-radius:20px;font-size:14px;cursor:pointer;margin-top:8px}
+
+/* Status text */
+.status-text{text-align:center;font-size:14px;color:var(--text-secondary);margin:8px 0}
+.tags-info{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:12px 0}
+.tag-item{padding:4px 12px;background:var(--bg-end);color:var(--primary);font-size:12px;border-radius:12px}
+
+/* Re-upload */
+.reupload{text-align:center;margin-top:12px}
+.reupload a{color:var(--primary);font-size:13px;text-decoration:none}
+
+/* Loading overlay */
+.loading-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;z-index:100}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Header -->
+<div class="header">
+    <div class="activity-name" id="activityName">AI合成活动</div>
+    <div class="business-name" id="businessName"></div>
+</div>
+
+<!-- Step 1: Photo Upload Card -->
+<div class="glass-card" id="uploadCard" style="display:none">
+    <div class="section-title">拍摄您的照片</div>
+    <div class="upload-area" id="uploadArea" onclick="document.getElementById('photoInput').click()">
+        <div class="upload-icon">
+            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+        <div class="upload-text">点击拍照或选择照片</div>
+        <div class="upload-hint">支持 JPG/PNG/WebP 格式</div>
+        <img class="photo-preview" id="photoPreview" onerror="this.style.display='none'" />
+    </div>
+    <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhotoSelect(event)" />
+</div>
+
+<!-- Step 2: Progress Card -->
+<div class="glass-card" id="progressCard" style="display:none">
+    <div class="section-title">AI生成中</div>
+    <div class="progress-steps">
+        <div class="progress-step" id="stepTag">
+            <div class="dot">1</div>
+            <div class="label">人物识别</div>
+        </div>
+        <div class="progress-step" id="stepRewrite">
+            <div class="dot">2</div>
+            <div class="label">提示词改写</div>
+        </div>
+        <div class="progress-step" id="stepGenerate">
+            <div class="dot">3</div>
+            <div class="label">AI生成</div>
+        </div>
+        <div class="progress-step" id="stepWatermark">
+            <div class="dot">4</div>
+            <div class="label">水印处理</div>
+        </div>
+    </div>
+    <div class="status-text" id="statusText">正在识别人物特征...</div>
+    <div class="spinner" id="progressSpinner"></div>
+    <div class="tags-info" id="tagsInfo" style="display:none"></div>
+</div>
+
+<!-- Step 3: Result & Pay Card -->
+<div class="glass-card" id="resultCard" style="display:none">
+    <div class="section-title">生成结果</div>
+    <div class="result-preview" id="resultPreview">
+        <img id="resultImage" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f0f4f8%22 width=%22200%22 height=%22200%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2214%22>图片加载中...</text></svg>'" />
+        <div class="watermark-badge">预览图含水印</div>
+    </div>
+    <div class="tags-info" id="resultTags" style="display:none"></div>
+    <div class="price-tag">
+        <span class="unit">¥</span><span class="amount" id="priceAmount">9.90</span>
+        <div class="unit">付费下载无水印原图</div>
+    </div>
+    <button class="pay-btn" id="payBtn" onclick="startPay()">立即付费下载</button>
+    <div class="reupload">
+        <a href="javascript:location.reload()">重新拍摄照片</a>
+    </div>
+</div>
+
+<!-- Error Card -->
+<div class="glass-card" id="errorCard" style="display:none">
+    <div class="error-msg" id="errorMsg">生成失败</div>
+    <div style="text-align:center">
+        <button class="retry-btn" onclick="location.reload()">重新开始</button>
+    </div>
+</div>
+
+</div><!-- container -->
+
+<script>
+// ===== Configuration =====
+var API_BASE = '/index.php?s=/api/ai_travel_photo/synthesis';
+var TOKEN = getUrlParam('token');
+var currentUserPhotoId = 0;
+var currentOrderNo = '';
+var pollingTimer = null;
+var isWechat = /MicroMessenger/i.test(navigator.userAgent);
+
+// ===== Init =====
+(function init() {
+    // 处理 oauth_callback 传入的 error 参数
+    if (getUrlParam('error') === 'notfound') {
+        showError('活动不存在或已过期，请联系管理员重新生成二维码');
+        return;
+    }
+    if (!isWechat) {
+        document.body.innerHTML = '<div style="text-align:center;padding:40px;font-size:16px;">请使用微信扫码打开<br><br>当前URL: ' + window.location.href + '<br>search: ' + window.location.search + '<br>TOKEN: ' + TOKEN + '</div>';
+        return;
+    }
+    if (!TOKEN) {
+        // 兜底：尝试从完整URL中提取token
+        var fullUrl = window.location.href;
+        var tokenMatch = fullUrl.match(/[?&]token=([^&#]*)/i);
+        if (tokenMatch) {
+            TOKEN = decodeURIComponent(tokenMatch[1]);
+        }
+    }
+    if (!TOKEN) {
+        document.body.innerHTML = '<div style="text-align:center;padding:40px;font-size:16px;color:#E64340;"><b>缺少活动参数</b><br><br><small style="color:#999;">当前URL: ' + window.location.href + '<br>search: ' + window.location.search + '<br>请重新扫描二维码</small></div>';
+        return;
+    }
+    // Check OAuth
+    fetch(API_BASE + '/index&token=' + TOKEN, {credentials:'include'})
+        .then(function(r){return r.json()})
+        .then(function(res){
+            if (res.code === 302 && res.data && res.data.need_auth) {
+                window.location.href = API_BASE + '/start_oauth&token=' + TOKEN;
+                return;
+            }
+            if (res.code !== 200) {
+                showError(res.msg || '加载活动失败');
+                return;
+            }
+            renderActivity(res.data);
+        })
+        .catch(function(e){
+            showError('网络错误：' + e.message);
+        });
+})();
+
+function renderActivity(data) {
+    document.getElementById('activityName').textContent = data.activity_name || 'AI合成活动';
+    document.getElementById('businessName').textContent = data.business_name || '';
+    document.getElementById('priceAmount').textContent = parseFloat(data.price || 9.90).toFixed(2);
+    // Store activity_id globally
+    window._activityId = data.activity_id;
+    // 显示上传卡片（初始隐藏，避免 API 未返回就上传）
+    document.getElementById('uploadCard').style.display = 'block';
+}
+
+// ===== Photo Upload =====
+function handlePhotoSelect(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+    
+    // Validate
+    var ext = file.name.split('.').pop().toLowerCase();
+    if (['jpg','jpeg','png','webp'].indexOf(ext) === -1) {
+        alert('仅支持 JPG/PNG/WebP 格式');
+        return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+        alert('照片大小不能超过20MB');
+        return;
+    }
+
+    // Show preview
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var preview = document.getElementById('photoPreview');
+        preview.src = e.target.result;
+        preview.classList.add('show');
+        var area = document.getElementById('uploadArea');
+        area.classList.add('has-photo');
+        area.querySelector('.upload-text').textContent = '点击更换照片';
+    };
+    reader.readAsDataURL(file);
+
+    // Upload
+    uploadPhoto(file);
+}
+
+function uploadPhoto(file) {
+    // 防御：确保 activity_id 已加载
+    if (!window._activityId) {
+        showError('活动信息加载中，请稍后重试');
+        return;
+    }
+    var formData = new FormData();
+    formData.append('photo', file);
+    formData.append('activity_id', window._activityId);
+
+    // Switch to progress view
+    document.getElementById('uploadCard').style.display = 'none';
+    document.getElementById('progressCard').style.display = 'block';
+    document.getElementById('statusText').textContent = '正在上传照片...';
+
+    fetch(API_BASE + '/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+    })
+    .then(function(r){return r.json()})
+    .then(function(res){
+        if (res.code !== 200) {
+            showError(res.msg || '上传失败');
+            return;
+        }
+        currentUserPhotoId = res.data.user_photo_id;
+        document.getElementById('statusText').textContent = '正在识别人物特征...';
+        startPolling();
+    })
+    .catch(function(e){
+        showError('上传失败：' + e.message);
+    });
+}
+
+// ===== Progress Polling =====
+function startPolling() {
+    updateProgressStep('stepTag', 'active');
+    document.getElementById('statusText').textContent = '正在识别人物特征...';
+
+    var pollCount = 0;
+    var maxPolls = 60;
+
+    pollingTimer = setInterval(function() {
+        pollCount++;
+        if (pollCount > maxPolls) {
+            clearInterval(pollingTimer);
+            showError('生成超时，请重试');
+            return;
+        }
+
+        fetch(API_BASE + '/status&user_photo_id=' + currentUserPhotoId, {credentials:'include'})
+            .then(function(r){return r.json()})
+            .then(function(res){
+                if (res.code !== 200) return;
+
+                var data = res.data;
+                var genStatus = data.gen_status;
+                var tagStatus = data.tag_status;
+
+                // Update tag status
+                if (tagStatus === 2) { // completed
+                    updateProgressStep('stepTag', 'done');
+                    updateProgressStep('stepRewrite', 'active');
+                    document.getElementById('statusText').textContent = '正在改写提示词...';
+
+                    // Show tags
+                    if (data.tag_gender || data.tag_age_group) {
+                        var tagsHtml = '';
+                        if (data.tag_gender) tagsHtml += '<span class="tag-item">' + genderText(data.tag_gender) + '</span>';
+                        if (data.tag_age_group) tagsHtml += '<span class="tag-item">' + data.tag_age_group + '</span>';
+                        if (data.tag_is_multi == 1) tagsHtml += '<span class="tag-item">多人合影</span>';
+                        var tagsEl = document.getElementById('tagsInfo');
+                        tagsEl.innerHTML = tagsHtml;
+                        tagsEl.style.display = 'flex';
+                    }
+                } else if (tagStatus === 3) { // failed
+                    updateProgressStep('stepTag', 'fail');
+                }
+
+                // If gen completed (后端 gen_status: 0=待生成 2=生成中 3=已完成 4=失败)
+                if (genStatus === 3) {
+                    clearInterval(pollingTimer);
+                    updateAllStepsDone();
+                    document.getElementById('statusText').textContent = '生成完成！';
+                    document.getElementById('progressSpinner').style.display = 'none';
+                    showResult(data);
+                    return;
+                }
+
+                // Update generation progress based on genStatus
+                if (genStatus === 2) {
+                    updateProgressStep('stepRewrite', 'done');
+                    updateProgressStep('stepGenerate', 'active');
+                    document.getElementById('statusText').textContent = 'AI正在生成照片...';
+                } else if (genStatus === 4) {
+                    clearInterval(pollingTimer);
+                    showError(data.gen_error || '生成失败，请重试');
+                    return;
+                }
+            })
+            .catch(function(){});
+    }, 2000);
+}
+
+function updateAllStepsDone() {
+    ['stepTag','stepRewrite','stepGenerate','stepWatermark'].forEach(function(id){
+        updateProgressStep(id, 'done');
+    });
+}
+
+function showResult(data) {
+    document.getElementById('progressCard').style.display = 'none';
+    document.getElementById('resultCard').style.display = 'block';
+
+    // Show watermark preview
+    if (data.watermark_url) {
+        document.getElementById('resultImage').src = data.watermark_url;
+    }
+
+    // Show tags
+    if (data.tags) {
+        try {
+            var tags = typeof data.tags === 'string' ? JSON.parse(data.tags) : data.tags;
+            var tagsHtml = '';
+            if (tags.gender && tags.gender !== 'Unknown') tagsHtml += '<span class="tag-item">' + genderText(tags.gender) + '</span>';
+            if (tags.age_group && tags.age_group !== 'Unknown') tagsHtml += '<span class="tag-item">' + tags.age_group + '</span>';
+            document.getElementById('resultTags').innerHTML = tagsHtml;
+            document.getElementById('resultTags').style.display = 'flex';
+        } catch(e){}
+    }
+}
+
+// ===== Payment =====
+function startPay() {
+    var payBtn = document.getElementById('payBtn');
+    payBtn.disabled = true;
+    payBtn.textContent = '正在创建订单...';
+
+    // Create order
+    var formData = new URLSearchParams();
+    formData.append('user_photo_id', currentUserPhotoId);
+
+    fetch(API_BASE + '/create_order', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: formData.toString(),
+        credentials: 'include'
+    })
+    .then(function(r){return r.json()})
+    .then(function(res){
+        if (res.code !== 200) {
+            alert(res.msg || '创建订单失败');
+            payBtn.disabled = false;
+            payBtn.textContent = '立即付费下载';
+            return;
+        }
+        currentOrderNo = res.data.order_no;
+        // Redirect to cashier
+        window.location.href = API_BASE + '/cashier&order_no=' + currentOrderNo + '&token=' + TOKEN;
+    })
+    .catch(function(e){
+        alert('网络错误：' + e.message);
+        payBtn.disabled = false;
+        payBtn.textContent = '立即付费下载';
+    });
+}
+
+// ===== Helpers =====
+function updateProgressStep(id, state) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'progress-step ' + state;
+
+    var dot = el.querySelector('.dot');
+    if (state === 'done') {
+        dot.innerHTML = '✓';
+    } else if (state === 'active') {
+        dot.innerHTML = dot.textContent; // Keep number
+    } else if (state === 'fail') {
+        dot.innerHTML = '✗';
+    }
+}
+
+function genderText(g) {
+    var map = {'Male':'男性','Female':'女性','男':'男性','女':'女性'};
+    return map[g] || g;
+}
+
+function showError(msg) {
+    // 如果是"缺少活动参数"错误，添加调试信息
+    if (msg.indexOf('缺少活动参数') !== -1) {
+        var debugInfo = '<div style=\"text-align:center;padding:20px;color:#999;font-size:14px;\">' +
+            '<br>调试信息：<br>' +
+            '<small>URL: ' + window.location.href + '<br>' +
+            'Search: ' + window.location.search + '<br>' +
+            'Token参数: ' + getUrlParam('token') + '</small></div>';
+        document.getElementById('errorCard').innerHTML = 
+            '<div class=\"w-full mx-auto max-w-md p-6 bg-white rounded-2xl shadow-lg text-center\">' +
+            '<h2 class=\"text-2xl font-bold text-red-600 mb-4\">' + msg + '</h2>' +
+            debugInfo +
+            '<button id=\"retryBtn\" class=\"mt-4 w-full py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors\">重新开始</button>' +
+            '</div>';
+        document.getElementById('errorCard').style.display = 'block';
+        document.getElementById('retryBtn').onclick = function() {
+            location.reload(true);
+        };
+    } else {
+        document.getElementById('uploadCard').style.display = 'none';
+        document.getElementById('progressCard').style.display = 'none';
+        document.getElementById('resultCard').style.display = 'none';
+        document.getElementById('errorCard').style.display = 'block';
+        document.getElementById('errorMsg').textContent = msg;
+    }
+}
+
+function getUrlParam(name) {
+    // 优先从 location.search 获取
+    var search = window.location.search;
+    // 如果 search 为空但 href 含 ?，从完整 href 解析
+    if (!search && window.location.href.indexOf('?') > -1) {
+        search = window.location.href.substring(window.location.href.indexOf('?'));
+    }
+    var reg = new RegExp('(^|[?&])' + name + '=([^&#]*)', 'i');
+    var r = search.match(reg);
+    if (r) {
+        try { return decodeURIComponent(r[2]); } catch(e) { return r[2]; }
+    }
+    return '';
+}
+</script>
+</body>
+</html>

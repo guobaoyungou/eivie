@@ -76,6 +76,9 @@ class AiTravelPhotoPick extends BaseController
             // 记录扫码
             $this->pickService->recordScan($portraitInfo['qrcode_id'], $openid);
 
+            // 自动将人像关联到当前微信用户
+            $this->pickService->associateUserToPortrait($portraitInfo['portrait_id'], $openid);
+
             // 通过openid反查member获取uid（公众号关注后自动注册的会员）
             $member = \think\facade\Db::name('member')
                 ->where('aid', $portraitInfo['aid'])
@@ -112,13 +115,38 @@ class AiTravelPhotoPick extends BaseController
                     ->value('name') ?: '';
             }
 
+            // 查找该用户在同一门店下的所有关联人像（多用户关联：通过关联表查询）
+            $portraitIds = [$portraitInfo['portrait_id']];
+            if ($mdid > 0 && !empty($openid)) {
+                $relatedPortraits = \think\facade\Db::name('ai_travel_photo_portrait')
+                    ->whereIn('id', function ($query) use ($openid) {
+                        $query->name('ai_travel_photo_portrait_user')
+                            ->where('user_openid', $openid)
+                            ->field('portrait_id');
+                    })
+                    ->where('bid', $portraitInfo['bid'])
+                    ->where('mdid', $mdid)
+                    ->where('id', '<>', $portraitInfo['portrait_id'])
+                    ->where('status', 1)
+                    ->where('synthesis_status', 3)
+                    ->column('id');
+
+                if (!empty($relatedPortraits)) {
+                    foreach ($relatedPortraits as $rid) {
+                        $portraitIds[] = (int)$rid;
+                    }
+                }
+            }
+
             return json([
                 'code' => 200,
                 'msg' => '成功',
                 'data' => [
                     'portrait_id' => $portraitInfo['portrait_id'],
+                    'portrait_ids' => $portraitIds,
                     'aid' => $portraitInfo['aid'],
                     'bid' => $portraitInfo['bid'],
+                    'mdid' => $mdid,
                     'qrcode_id' => $portraitInfo['qrcode_id'],
                     'openid' => $openid,
                     'uid' => $uid,
@@ -131,6 +159,45 @@ class AiTravelPhotoPick extends BaseController
         } catch (\Exception $e) {
             return json(['code' => 500, 'msg' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * "不是我的照片" - 解除人像与当前微信用户的关联
+     * POST /api/ai-travel-photo/pick/not_my_photos
+     * 
+     * 用户扫码后发现照片不是自己的，点击后可解除绑定并重新扫码
+     */
+    public function not_my_photos(): Response
+    {
+        $openid = $this->getOpenid();
+        if (empty($openid)) {
+            return json(['code' => 401, 'msg' => '未授权']);
+        }
+
+        $portraitId = (int)$this->request->post('portrait_id', 0);
+        $qr = $this->request->post('qr', '');
+
+        // 如果未传 portrait_id，通过 qr 参数反查
+        if ($portraitId <= 0 && !empty($qr)) {
+            try {
+                $portraitInfo = $this->pickService->getPortraitByQrcode($qr);
+                $portraitId = $portraitInfo['portrait_id'];
+            } catch (\Exception $e) {
+                return json(['code' => 500, 'msg' => $e->getMessage()]);
+            }
+        }
+
+        if ($portraitId <= 0) {
+            return json(['code' => 400, 'msg' => '参数错误']);
+        }
+
+        // 解除人像与用户的关联
+        $this->pickService->disassociateUserFromPortrait($portraitId, $openid);
+
+        // 清除选片session，下次扫码将重新授权
+        Session::delete('pick_openid');
+
+        return json(['code' => 200, 'msg' => '已解除关联，请重新扫描您的专属二维码']);
     }
 
     /**

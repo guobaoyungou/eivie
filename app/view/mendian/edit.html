@@ -106,6 +106,17 @@
 								单组展示：3000-10000毫秒（3-10秒），默认5000毫秒（5秒）
 							</div>
 						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">二维码展示方式：</label>
+							<div class="layui-input-block">
+								<input type="radio" name="info[xpd_qrcode_mode]" value="mp" title="带参数的公众号二维码" {if !$info.xpd_qrcode_mode || $info.xpd_qrcode_mode=='mp'}checked{/if}>
+								<input type="radio" name="info[xpd_qrcode_mode]" value="h5" title="H5选片码" {if $info.xpd_qrcode_mode=='h5'}checked{/if}>
+							</div>
+							<div class="layui-form-mid layui-word-aux">
+								「公众号二维码」：用户扫码后先关注公众号再进入选片中心<br>
+								「H5选片码」：用户扫码直接进入H5选片中心
+							</div>
+						</div>
 						{/if}
 						{if getcustom('douyin_groupbuy')}
                         <div class="layui-form-item">

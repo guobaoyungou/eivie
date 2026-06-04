@@ -1,14 +1,31 @@
 /**
  * XPD 选片端 - QRCode 二维码模块
- * 封装二维码生成、自适应缩放、公众号优先逻辑
+ * 按门店配置展示公众号二维码(mp)或H5选片码(h5)，随头像切换自动更新
  */
 const QRCodeModule = {
     name: 'qrcode',
     containerEl: null,
-    qrcodeInstance: null,
-    currentQrcode: '',
-    currentMpUrl: '',
+    qrcodeMode: 'mp',          // 二维码展示方式: 'mp'=公众号二维码, 'h5'=H5选片码
+    currentQrcodeUrl: '',
+    currentItemId: null,
     isFaceMatchMode: false,
+    dataList: null,            // 完整数据列表，用于在 URL 为空时查找备用项
+
+    /**
+     * 设置二维码展示模式
+     * @param {string} mode - 'mp' 或 'h5'
+     */
+    setMode(mode) {
+        this.qrcodeMode = mode === 'h5' ? 'h5' : 'mp';
+    },
+
+    /**
+     * 设置数据列表（用于 URL 为空时查找备用项）
+     * @param {Array} list - 完整数据列表
+     */
+    setDataList(list) {
+        this.dataList = list || [];
+    },
 
     /**
      * 初始化二维码模块
@@ -18,62 +35,61 @@ const QRCodeModule = {
         this.containerEl = el;
         el.classList.add('module-qrcode');
         el.innerHTML = `
-            <div class="qrcode-inner">
-                <div class="qrcode-canvas-wrap" style="display:none;"></div>
-                <img class="qrcode-image" style="display:none;" alt="扫码关注公众号">
-                <div class="qrcode-tip">扫码查看和购买</div>
+            <div class="qrcode-inner" style="display:flex;">
+                <img class="qrcode-image" src="" alt="选片二维码" style="display:block;">
+                <div class="qrcode-tip">微信扫码<br>查看您的专属照片</div>
             </div>
         `;
-
-        // 监听容器尺寸变化做重绘
-        if (window.ResizeObserver) {
-            const ro = new ResizeObserver(() => {
-                this._refresh();
-            });
-            ro.observe(el);
-        }
     },
 
     /**
-     * 更新二维码显示
-     * @param {Object} item - 当前人像数据项 { mp_qrcode_url, qrcode }
+     * 获取当前 item 的二维码图片 URL
+     * 当当前 item 的 URL 为空时，自动从 dataList 中查找备用项
+     * @param {Object} item - 当前人像数据项
+     * @returns {string} 二维码图片 URL
+     */
+    _getQrUrl(item) {
+        const urlKey = this.qrcodeMode === 'h5' ? 'qrcode_url' : 'mp_qrcode_url';
+
+        // 优先使用当前 item 的 URL
+        if (item && item[urlKey]) return item[urlKey];
+
+        // 当前 item URL 为空时，从 dataList 中查找第一个有效项
+        if (this.dataList && this.dataList.length > 0) {
+            const fallback = this.dataList.find(d => d[urlKey]);
+            if (fallback && fallback !== item) return fallback[urlKey];
+        }
+
+        return '';
+    },
+
+    /**
+     * 更新二维码显示 - 根据当前头像切换对应图片
+     * @param {Object} item - 当前人像数据项 { mp_qrcode_url, qrcode, qrcode_url }
      * @param {boolean} isFaceMatch - 是否人脸匹配模式
      */
     update(item, isFaceMatch) {
-        if (!item) {
-            this.hide();
-            return;
-        }
+        const inner = this.containerEl.querySelector('.qrcode-inner');
+        if (!inner) return;
 
+        // 显示二维码容器
+        inner.style.display = 'flex';
         this.isFaceMatchMode = !!isFaceMatch;
 
-        const inner = this.containerEl.querySelector('.qrcode-inner');
-        const canvasWrap = this.containerEl.querySelector('.qrcode-canvas-wrap');
-        const imgEl = this.containerEl.querySelector('.qrcode-image');
-        const tipEl = this.containerEl.querySelector('.qrcode-tip');
+        const qrUrl = this._getQrUrl(item);
 
-        // 优先展示公众号二维码
-        if (item.mp_qrcode_url) {
-            imgEl.src = item.mp_qrcode_url;
-            imgEl.style.display = 'block';
-            canvasWrap.style.display = 'none';
-            tipEl.textContent = '微信扫码关注\n查看您的专属照片';
-            inner.style.display = 'flex';
-        } else if (item.qrcode) {
-            // 降级：生成选片二维码
-            imgEl.style.display = 'none';
-            canvasWrap.style.display = 'flex';
-            tipEl.textContent = '扫码查看和购买';
-            inner.style.display = 'flex';
-
-            this.currentQrcode = item.qrcode;
-            this.currentMpUrl = '';
-            this._generateQrcode();
-        } else {
-            this.hide();
-            return;
+        if (qrUrl) {
+            const imgEl = this.containerEl.querySelector('.qrcode-image');
+            if (imgEl) {
+                imgEl.src = qrUrl;
+                imgEl.style.display = 'block';
+            }
+            this.currentQrcodeUrl = qrUrl;
+            this.currentItemId = item ? item.id : null;
         }
+        // 无图片URL时保持显示上一个二维码
 
+        // 高亮效果
         if (isFaceMatch) {
             inner.classList.add('highlight');
         } else {
@@ -90,55 +106,12 @@ const QRCodeModule = {
     },
 
     /**
-     * 生成选片二维码 Canvas
-     */
-    _generateQrcode() {
-        const canvasWrap = this.containerEl.querySelector('.qrcode-canvas-wrap');
-        if (!canvasWrap || !this.currentQrcode) return;
-
-        // 清空旧Canvas
-        canvasWrap.innerHTML = '';
-
-        const canvas = document.createElement('canvas');
-        canvasWrap.appendChild(canvas);
-
-        // 根据容器尺寸动态计算二维码大小
-        const size = Math.min(canvasWrap.clientWidth, canvasWrap.clientHeight) * 0.85;
-        const qrSize = Math.max(100, Math.min(300, size));
-
-        const url = XpdApi.buildPickPageUrl(this.currentQrcode);
-
-        try {
-            if (this.qrcodeInstance) {
-                this.qrcodeInstance.clear();
-            }
-            this.qrcodeInstance = new QRCode(canvas, {
-                text: url,
-                width: qrSize,
-                height: qrSize,
-                colorDark: '#000000',
-                colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.L
-            });
-        } catch (error) {
-            console.error('生成二维码失败:', error);
-        }
-    },
-
-    /**
-     * 容器尺寸变化时刷新二维码
-     */
-    _refresh() {
-        if (this.currentQrcode && !this.currentMpUrl) {
-            this._generateQrcode();
-        }
-    },
-
-    /**
      * 销毁
      */
     destroy() {
-        this.qrcodeInstance = null;
         this.containerEl = null;
+        this.currentQrcodeUrl = '';
+        this.currentItemId = null;
+        this.dataList = null;
     }
 };

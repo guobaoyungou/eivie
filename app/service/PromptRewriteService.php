@@ -24,13 +24,17 @@ class PromptRewriteService
      * @param array $portraitTags 人像标签 ['gender'=>'Male', 'age'=>'中年主力', 'is_multi'=>0, 'face_count'=>1]
      * @param string $provider LLM供应商 (aliyun|volcengine)
      * @param string $model LLM模型名
+     * @param string $rewriteTemplate 可配置的改写模板（支持{变量名}占位符）
+     * @param string $templateModel 模板绑定的模型名称
      * @return string 改写后的提示词（失败时返回原提示词）
      */
     public function rewrite(
         string $originalPrompt,
         array $portraitTags,
         string $provider = 'aliyun',
-        string $model = 'qwen-plus'
+        string $model = 'qwen-plus',
+        string $rewriteTemplate = '',
+        string $templateModel = ''
     ): string {
         if (empty(trim($originalPrompt))) {
             return $originalPrompt;
@@ -38,14 +42,20 @@ class PromptRewriteService
 
         // 构建人设描述
         $personaDesc = $this->buildPersonaDescription($portraitTags);
-        if (empty($personaDesc)) {
-            // 标签信息不足，跳过改写
-            Log::info('PromptRewrite: 标签信息不足，跳过改写');
-            return $originalPrompt;
-        }
+        
+        // 获取性别和年龄的原始标签值
+        $gender = $portraitTags['gender'] ?? '';
+        $age = $portraitTags['age'] ?? '';
+        
+        $genderMap = [
+            'Male' => '男性', 'Female' => '女性',
+            '男' => '男性', '女' => '女性',
+            '男性' => '男性', '女性' => '女性',
+        ];
+        $genderText = $genderMap[$gender] ?? $gender;
 
         // 构建改写指令
-        $systemPrompt = $this->buildSystemPrompt($personaDesc);
+        $systemPrompt = $this->buildSystemPrompt($personaDesc, $rewriteTemplate, $genderText, $age, $templateModel);
         $userMessage = $this->buildUserMessage($originalPrompt);
 
         try {
@@ -127,9 +137,40 @@ class PromptRewriteService
 
     /**
      * 构建系统提示词
+     * 
+     * @param string $personaDesc 人物特征描述
+     * @param string $rewriteTemplate 可配置的改写模板
+     * @param string $genderText 性别中文描述
+     * @param string $ageText 年龄描述
+     * @param string $templateModel 模板绑定模型名
      */
-    protected function buildSystemPrompt(string $personaDesc): string
-    {
+    protected function buildSystemPrompt(
+        string $personaDesc,
+        string $rewriteTemplate = '',
+        string $genderText = '',
+        string $ageText = '',
+        string $templateModel = ''
+    ): string {
+        // 如果有配置的改写模板，使用配置模板
+        if (!empty($rewriteTemplate)) {
+            $variables = [
+                '自动标签性别' => $genderText ?: '未知',
+                '自动标签年龄' => $ageText ?: '未知',
+                '模板绑定模型' => $templateModel ?: '未指定',
+            ];
+            $template = $this->resolveVariables($rewriteTemplate, $variables);
+            
+            return "你是一个专业的AI图像提示词优化专家。\n\n"
+                . "人物特征：{$personaDesc}\n\n"
+                . "请按以下指令改写提示词：{$template}\n\n"
+                . "改写规则：\n"
+                . "1. 保持原始提示词的核心场景、风格和构图不变\n"
+                . "2. 根据人物的性别、年龄和人数，调整关于人物外貌、姿态、服饰、表情等的描述\n"
+                . "3. 输出仅包含改写后的完整提示词，不要加引号或任何解释\n"
+                . "4. 提示词使用中文描述，简洁精炼，控制在200字以内";
+        }
+
+        // 默认行为：使用硬编码模板（向后兼容）
         return "你是一个专业的AI图像提示词优化专家。用户会给出一条图像生成的原始提示词，以及照片中的人物特征描述。"
             . "你需要根据人物特征改写提示词，使生成的图像更符合该人物的人设和气质。\n\n"
             . "人物特征：{$personaDesc}\n\n"
@@ -140,6 +181,21 @@ class PromptRewriteService
             . "4. 多人合影时注意人物之间的互动和协调\n"
             . "5. 输出仅包含改写后的完整提示词，不要加引号或任何解释\n"
             . "6. 提示词使用中文描述，简洁精炼，控制在200字以内";
+    }
+
+    /**
+     * 解析模板中的系统变量占位符
+     * 
+     * @param string $template 含{变量名}占位符的模板
+     * @param array $variables 变量名=>值 的映射
+     * @return string 替换后的模板
+     */
+    protected function resolveVariables(string $template, array $variables): string
+    {
+        foreach ($variables as $key => $value) {
+            $template = str_replace('{' . $key . '}', $value, $template);
+        }
+        return $template;
     }
 
     /**
