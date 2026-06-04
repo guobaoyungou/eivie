@@ -116,6 +116,10 @@ class Common extends Base
         // 会员登录或商家有全部权限(auth_type!=0)时跳过权限检查
         $skipAuthCheck = $isMemberLogin || ($this->user && ($this->user['auth_type'] ?? 1) != 0);
         
+		// 内部 AJAX 方法白名单 - 无需在菜单权限中单独配置
+		$internalAjaxActions = ['fairface_status', 'fairface_restart', 'fairface_threshold_get', 'fairface_threshold_set'];
+		$isInternalAjaxAction = in_array($request->action(), $internalAjaxActions);
+
 		if (!$skipAuthCheck && $this->user) {
 			$auth_data = json_decode($user['auth_data'],true);
 			$auth_path = \app\common\Menu::blacklist();
@@ -135,7 +139,7 @@ class Common extends Base
 				'auth_path_sample' => array_slice($auth_path, 0, 10)
 			]);
 			
-            if(!in_array($controller.'/*',$auth_path) && !in_array($thispath,$auth_path) && !session('BST_ID')){
+            if(!$isInternalAjaxAction && !in_array($controller.'/*',$auth_path) && !in_array($thispath,$auth_path) && !session('BST_ID')){
                 \think\facade\Log::error('访问被拒绝', [
                     'controller' => $controller,
                     'action' => $request->action(),

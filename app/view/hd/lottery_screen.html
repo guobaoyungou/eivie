@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>大屏抽奖</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+/* ============================================================
+   CSS Variables - 四色主题系统
+   ============================================================ */
+:root {
+    --theme-accent-rgb: 255,215,0;
+    --theme-accent: #FFD700;
+    --theme-accent2: #FFA000;
+    --theme-bg: #1a0a00;
+    --theme-bg2: #0d0500;
+    --font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    --text-color: #e1e1e1;
+    --text-shadow-color: #676767;
+}
+.theme-gold { --theme-accent-rgb: 255,215,0; --theme-accent: #FFD700; --theme-accent2: #FFA000; --theme-bg: #1a0a00; --theme-bg2: #0d0500; }
+.theme-red  { --theme-accent-rgb: 239,83,80;  --theme-accent: #EF5350; --theme-accent2: #C62828; --theme-bg: #1a0005; --theme-bg2: #0d0003; }
+.theme-blue { --theme-accent-rgb: 66,165,245; --theme-accent: #42A5F5; --theme-accent2: #1565C0; --theme-bg: #000a1a; --theme-bg2: #000510; }
+.theme-gray { --theme-accent-rgb: 176,190,197; --theme-accent: #B0BEC5; --theme-accent2: #78909C; --theme-bg: #0a0a0f; --theme-bg2: #050508; }
+
+/* ============================================================
+   Base Reset
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100vw; height: 100vh; overflow: hidden; font-family: var(--font-family); background: var(--theme-bg); color: var(--text-color); }
+body { display: flex; flex-direction: column; position: relative; }
+
+#starfield { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+
+/* ============================================================
+   Layer 1: Top Prize Selector Bar (Carousel: < [prize] >)
+   ============================================================ */
+.prize-bar {
+    position: relative; z-index: 10; display: flex; align-items: center; justify-content: center; gap: 0;
+    padding: 12px 24px; background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 100%);
+    border-bottom: 1px solid rgba(var(--theme-accent-rgb), 0.15); flex-shrink: 0;
+    min-height: 56px;
+}
+/* 左右箭头 */
+.prize-arrow {
+    width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); cursor: pointer;
+    font-size: 18px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.25s; flex-shrink: 0; user-select: none;
+}
+.prize-arrow:hover { border-color: rgba(var(--theme-accent-rgb), 0.6); color: var(--theme-accent); background: rgba(var(--theme-accent-rgb), 0.1); }
+.prize-arrow:active { transform: scale(0.92); }
+.prize-arrow.disabled { opacity: 0.25; cursor: not-allowed; pointer-events: none; }
+/* 当前奖品名称 */
+.prize-current-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    min-width: 180px; padding: 0 24px; cursor: default; user-select: none;
+}
+.prize-current-label {
+    font-size: 24px; font-weight: 700; color: #fff;
+    text-shadow: 0 0 20px rgba(var(--theme-accent-rgb), 0.5);
+    letter-spacing: 2px; transition: all 0.3s;
+}
+.prize-current-meta {
+    font-size: 11px; color: rgba(255,255,255,0.45); display: flex; align-items: center; gap: 6px;
+}
+.prize-current-meta .dot {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--theme-accent);
+    display: inline-block;
+}
+.prize-current-meta .dot.done { background: #888; }
+/* 已抽完状态 */
+.prize-current-wrap.exhausted .prize-current-label { opacity: 0.45; text-decoration: line-through; }
+
+.participant-badge {
+    margin-left: auto; flex-shrink: 0; display: none; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--text-color); opacity: 0.7;
+    padding: 6px 14px; background: rgba(255,255,255,0.06); border-radius: 14px;
+}
+.participant-badge.visible { display: flex; }
+.participant-badge i { font-size: 14px; color: var(--theme-accent); }
+.participant-count-num { font-weight: 700; color: var(--theme-accent); }
+
+/* ============================================================
+   Layer 2: Central Animation Area
+   ============================================================ */
+.anim-stage {
+    position: relative; z-index: 5; flex: 1; display: flex; align-items: center;
+    justify-content: center; overflow: hidden; min-height: 0;
+}
+
+/* --- 奖品标题 --- */
+.prize-title-wrap { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 14px; }
+.prize-title-wrap::before, .prize-title-wrap::after { content: ''; width: 50px; height: 1px; background: var(--text-color); opacity: 0.3; }
+.prize-title { font-size: 32px; font-weight: 700; color: var(--text-color); text-shadow: 0 2px 8px var(--text-shadow-color); }
+
+/* --- Three.js 3D Canvas 容器 --- */
+#lottery3dCanvas {
+    display: block; width: 100%; height: 100%;
+    position: absolute; top: 0; left: 0; z-index: 1;
+}
+#animContent { position: relative; min-height: 300px; }
+
+/* ============================================================
+   Layer 3: Bottom Control Bar
+   ============================================================ */
+.control-bar {
+    position: relative; z-index: 10; display: flex; align-items: center; justify-content: center;
+    gap: 16px; padding: 16px 24px;
+    background: linear-gradient(0deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 100%);
+    border-top: 1px solid rgba(var(--theme-accent-rgb), 0.15); flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+/* 动效模式选择器（Carousel: < [动效] >） */
+.mode-selector { display: flex; align-items: center; gap: 8px; }
+.mode-arrow {
+    width: 32px; height: 32px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); cursor: pointer;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.25s; flex-shrink: 0; user-select: none;
+}
+.mode-arrow:hover { border-color: rgba(var(--theme-accent-rgb), 0.6); color: var(--theme-accent); background: rgba(var(--theme-accent-rgb), 0.1); }
+.mode-arrow:active { transform: scale(0.9); }
+.mode-arrow.disabled { opacity: 0.25; cursor: not-allowed; pointer-events: none; }
+.mode-current {
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    border: 2px solid var(--theme-accent); border-radius: 20px;
+    background: rgba(var(--theme-accent-rgb), 0.15);
+    box-shadow: 0 0 10px rgba(var(--theme-accent-rgb), 0.2);
+    color: #fff; font-size: 13px; cursor: default; user-select: none;
+    min-width: 120px; justify-content: center; transition: all 0.3s;
+}
+.mode-current i { font-size: 18px; color: var(--theme-accent); }
+.mode-label { font-size: 10px; color: rgba(255,255,255,0.3); margin-right: 2px; }
+
+/* 人数调节 */
+.count-control { display: flex; align-items: center; gap: 8px; }
+.count-btn {
+    width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.08); color: var(--text-color); cursor: pointer;
+    font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+}
+.count-btn:hover { background: rgba(var(--theme-accent-rgb), 0.2); border-color: var(--theme-accent); }
+.count-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.count-display {
+    font-size: 22px; font-weight: 700; color: var(--theme-accent); min-width: 32px; text-align: center;
+}
+.draw-count-label { font-size: 12px; color: rgba(255,255,255,0.5); }
+
+/* 开始按钮 */
+.draw-btn {
+    padding: 14px 48px; background: rgba(var(--theme-accent-rgb), 0.25);
+    border: 2px solid rgba(var(--theme-accent-rgb), 0.5); border-radius: 30px;
+    color: #fff; font-size: 18px; font-weight: 700; cursor: pointer;
+    transition: all 0.3s; letter-spacing: 4px;
+    box-shadow: 0 0 20px rgba(var(--theme-accent-rgb), 0.2);
+}
+.draw-btn:hover { background: rgba(var(--theme-accent-rgb), 0.4); border-color: var(--theme-accent); transform: translateY(-2px); box-shadow: 0 0 30px rgba(var(--theme-accent-rgb), 0.4); }
+.draw-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.draw-btn.running { animation: drawPulse 0.8s ease-in-out infinite; }
+@keyframes drawPulse { 0%,100% { box-shadow: 0 0 20px rgba(var(--theme-accent-rgb), 0.2); } 50% { box-shadow: 0 0 50px rgba(var(--theme-accent-rgb), 0.6), 0 0 80px rgba(var(--theme-accent-rgb), 0.3); } }
+
+/* ============================================================
+   Drawing Mode - 控件淡出隐藏
+   ============================================================ */
+.prize-bar.drawing,
+.mode-selector.drawing,
+.count-control.drawing {
+    animation: fadeOutUp 0.4s ease forwards;
+    pointer-events: none;
+}
+@keyframes fadeOutUp {
+    0% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-10px); }
+}
+
+/* ============================================================
+   Layer 4: Winner Panel (collapsible sidebar)
+   ============================================================ */
+.winner-panel {
+    position: fixed; right: 0; top: 0; width: 320px; height: 100vh; z-index: 20;
+    background: rgba(0,0,0,0.85); border-left: 1px solid rgba(var(--theme-accent-rgb), 0.2);
+    transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
+    display: flex; flex-direction: column; backdrop-filter: blur(20px);
+}
+.winner-panel.open { transform: translateX(0); }
+
+.panel-toggle {
+    position: fixed; right: 12px; bottom: 120px; z-index: 21;
+    width: 44px; height: 44px; border-radius: 50%; background: rgba(var(--theme-accent-rgb), 0.2);
+    border: 1px solid rgba(var(--theme-accent-rgb), 0.4); color: var(--theme-accent);
+    cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.3s;
+}
+.panel-toggle:hover { background: rgba(var(--theme-accent-rgb), 0.35); }
+.panel-toggle .badge {
+    position: absolute; top: -4px; right: -4px; width: 18px; height: 18px; border-radius: 50%;
+    background: #E53935; color: #fff; font-size: 10px; display: flex; align-items: center;
+    justify-content: center; font-weight: 700;
+}
+
+.panel-header {
+    padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: space-between;
+}
+.panel-header h3 { font-size: 16px; color: var(--theme-accent); display: flex; align-items: center; gap: 8px; }
+.panel-close { background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; font-size: 18px; }
+.panel-list { flex: 1; overflow-y: auto; padding: 12px; }
+.panel-list::-webkit-scrollbar { width: 3px; }
+.panel-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.winner-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px;
+    background: rgba(255,255,255,0.04); border-radius: 10px; margin-bottom: 6px;
+    animation: winnerSlideIn 0.4s cubic-bezier(0.68,-0.55,0.27,1.55);
+}
+@keyframes winnerSlideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+.winner-item .w-avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; object-fit: cover; }
+.winner-item .w-avatar-placeholder {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(var(--theme-accent-rgb), 0.2); display: flex; align-items: center;
+    justify-content: center; font-size: 18px; color: var(--theme-accent);
+}
+.winner-item .w-info { flex: 1; min-width: 0; }
+.winner-item .w-name { font-size: 14px; font-weight: 600; color: var(--text-color); }
+.winner-item .w-prize { font-size: 11px; color: var(--theme-accent); margin-top: 2px; }
+.winner-item .w-round { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 1px; }
+.winner-item.new { border-left: 3px solid var(--theme-accent); }
+
+.panel-empty { text-align: center; color: rgba(255,255,255,0.3); padding: 40px 20px; font-size: 14px; }
+
+/* ============================================================
+   Winner Result Overlay (透明全屏弹窗)
+   ============================================================ */
+.winner-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    z-index: 100; pointer-events: none; opacity: 0;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.4s ease;
+}
+.winner-overlay.show {
+    opacity: 1; pointer-events: auto;
+}
+.winner-overlay .win-dialog {
+    position: relative;
+    background: transparent; border: none; border-radius: 0;
+    padding: 40px 48px; text-align: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    max-width: 90vw; max-height: 90vh; overflow-y: auto;
+}
+.winner-overlay .win-dialog.zoomed {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    max-width: 100vw; max-height: 100vh; border-radius: 0; padding: 24px;
+    background: rgba(0,0,0,0.3); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.winner-overlay .win-dialog::-webkit-scrollbar { width: 4px; }
+.winner-overlay .win-dialog::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+/* 顶部操作栏 */
+.win-topbar {
+    position: absolute; top: 12px; right: 12px; display: flex; gap: 8px; z-index: 5;
+}
+.win-dialog.zoomed .win-topbar { top: 16px; right: 16px; }
+.win-topbar button {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); cursor: pointer;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.25s;
+}
+.win-topbar button:hover { background: rgba(var(--theme-accent-rgb), 0.25); border-color: var(--theme-accent); color: var(--theme-accent); }
+.winner-overlay h2 { color: var(--theme-accent); font-size: 32px; margin-bottom: 24px; text-shadow: 0 0 24px rgba(var(--theme-accent-rgb), 0.4); }
+.winner-overlay .win-avatars { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin-bottom: 0; }
+.winner-overlay .win-avatar-item { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.winner-overlay .win-avatar-item img {
+    width: 80px; height: 80px; border-radius: 50%; border: 2px solid var(--theme-accent);
+    object-fit: cover; box-shadow: 0 0 24px rgba(var(--theme-accent-rgb), 0.5);
+}
+.winner-overlay .win-avatar-item .wt-name { font-size: 16px; color: #fff; font-weight: 600; }
+.winner-overlay .win-avatar-item .wt-prize { font-size: 12px; color: var(--theme-accent); opacity: 0.8; }
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 768px) {
+    .prize-title { font-size: 22px; }
+    .control-bar { gap: 8px; padding: 10px 12px; }
+    .draw-btn { padding: 10px 32px; font-size: 15px; }
+    .winner-panel { width: 260px; }
+}
+</style>
+<script src="/static/hd/assets/js/three.min.js"></script>
+</head>
+<body class="theme-gold">
+<canvas id="starfield"></canvas>
+
+<!-- ===== Layer 1: Top Prize Selector ===== -->
+<div class="prize-bar" id="prizeBar">
+    <!-- filled by JS -->
+    <div class="participant-badge" id="participantBadge">
+        <i class="fas fa-users"></i> 参与人数：<span class="participant-count-num" id="participantCount">0</span>人
+    </div>
+</div>
+
+<!-- ===== Layer 2: Central Animation Stage ===== -->
+<div class="anim-stage" id="animStage">
+    <div class="prize-title-wrap">
+        <span class="prize-title" id="prizeTitle">抽奖</span>
+    </div>
+    <!-- 动效渲染区 -->
+    <div id="animContent" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div>
+</div>
+
+<!-- ===== Layer 3: Bottom Control Bar ===== -->
+<div class="control-bar">
+    <div class="mode-selector" id="modeSelector">
+        <span class="mode-label">动效</span>
+        <button class="mode-arrow" id="modeArrowLeft" title="上一个动效">&#8249;</button>
+        <div class="mode-current" id="modeCurrent">
+            <i class="fas fa-images"></i><span id="modeCurrentName">滚动头像</span>
+        </div>
+        <button class="mode-arrow" id="modeArrowRight" title="下一个动效">&#8250;</button>
+    </div>
+    <div class="count-control">
+        <span class="draw-count-label">抽取</span>
+        <button class="count-btn" id="countMinus">−</button>
+        <span class="count-display" id="drawCount">1</span>
+        <button class="count-btn" id="countPlus">+</button>
+        <span class="draw-count-label">人</span>
+    </div>
+    <button class="draw-btn" id="drawBtn">开 始 抽 奖</button>
+</div>
+
+<!-- ===== Layer 4: Winner Panel Toggle + Panel ===== -->
+<button class="panel-toggle" id="panelToggle" title="中奖名单">
+    <i class="fas fa-trophy"></i>
+    <span class="badge" id="winnerBadge" style="display:none;">0</span>
+</button>
+
+<div class="winner-panel" id="winnerPanel">
+    <div class="panel-header">
+        <h3><i class="fas fa-list-ol"></i> 已中奖名单</h3>
+        <button class="panel-close" id="panelClose">✕</button>
+    </div>
+    <div class="panel-list" id="winnerList">
+        <div class="panel-empty">暂无中奖记录</div>
+    </div>
+</div>
+
+<!-- ===== Winner Result Overlay ===== -->
+<div class="winner-overlay" id="winnerOverlay">
+    <div class="win-dialog" id="winDialog">
+        <div class="win-topbar">
+            <button id="btnZoomToggle" title="放大/缩小"><i class="fas fa-expand"></i></button>
+            <button id="btnCloseOverlay" title="关闭"><i class="fas fa-times"></i></button>
+        </div>
+        <h2>🎉 恭喜中奖</h2>
+        <div class="win-avatars" id="winAvatars"></div>
+    </div>
+</div>
+
+<script>
+/* ============================================================
+   Server-injected Configuration
+   ============================================================ */
+var SERVER = {{SERVER_VARS}};
+
+/* ============================================================
+   Global State
+   ============================================================ */
+var STATE = {
+    rounds: [],            // 轮次列表
+    participants: [],      // 参与者列表
+    currentRoundId: null,  // 当前选中轮次 ID
+    drawCount: 1,          // 一次抽取人数
+    animMode: 'gene',      // 当前动效模式: gene | grid | sphere | helix
+    isDrawing: false,      // 是否正在抽奖中
+    allWinners: [],        // 所有中奖者（聚合）
+    signCount: 0,          // 签到人数
+    theme: SERVER.template || 'gold',
+    textColor: SERVER.textColor || '#e1e1e1',
+    shadowColor: SERVER.shadowColor || '#676767',
+    showCount: SERVER.showCount || 0,
+    displayMode: SERVER.displayMode || 'nickname',
+    animTimer: null,       // requestAnimationFrame ID
+    THREE_CTX: null,       // 当前活动的 Three.js 上下文 { renderer, scene, camera, objects, dispose() }
+    winHighlightObjects: [], // 中奖者高亮的 3D 对象引用
+};
+
+/* ============================================================
+   Animation Modes Definition
+   ============================================================ */
+var MODES = [
+    { key: 'gene',   icon: 'fa-dna',        name: '基因螺旋' },
+    { key: 'grid',   icon: 'fa-th',         name: '方阵卡片' },
+    { key: 'sphere', icon: 'fa-globe',      name: '球形抽奖' },
+    { key: 'helix',  icon: 'fa-circle-notch', name: '上升螺旋' },
+];
+
+/* ============================================================
+   Three.js Core Utilities
+   ============================================================ */
+
+/** 从 CSS 变量获取主题色 THREE.Color */
+function getAccentColor() {
+    var rgb = getComputedStyle(document.body).getPropertyValue('--theme-accent-rgb').trim() || '255,215,0';
+    var parts = rgb.split(',').map(Number);
+    return new THREE.Color(parts[0]/255, parts[1]/255, parts[2]/255);
+}
+
+/** 创建 Three.js 渲染器并挂载到 #animContent */
+function initThreeRenderer() {
+    var container = document.getElementById('animContent');
+    // 使用 anim-stage 的实际渲染区域尺寸
+    var stage = document.getElementById('animStage');
+    var w = (stage ? stage.clientWidth : 0) || container.clientWidth || window.innerWidth || 1024;
+    var h = (stage ? stage.clientHeight : 0) || container.clientHeight || window.innerHeight || 600;
+    // 确保最小尺寸
+    if (w < 100) w = window.innerWidth || 1024;
+    if (h < 100) h = window.innerHeight || 600;
+    container.innerHTML = '';
+
+    var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(w, h);
+    // 淡色背景确认 canvas 可见（半透明深色，能看到底下的 theme-bg 但不透明）
+    renderer.setClearColor(0x0a0a14, 0.95);
+    renderer.domElement.id = 'lottery3dCanvas';
+    // 确保 canvas 覆盖整个 animContent
+    renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;position:absolute;top:0;left:0;z-index:2;';
+    container.appendChild(renderer.domElement);
+
+    var scene = new THREE.Scene();
+
+    // Fog for depth (very subtle)
+    scene.fog = new THREE.FogExp2(0x000000, 0.00003);
+
+    var camera = new THREE.PerspectiveCamera(60, w / Math.max(h, 1), 0.5, 2000);
+    camera.position.set(0, 0, 600);
+    camera.lookAt(0, 0, 0);
+
+    // Ambient light
+    var ambient = new THREE.AmbientLight(0x333344, 0.6);
+    scene.add(ambient);
+
+    // Directional light (key)
+    var dir = new THREE.DirectionalLight(0xffffff, 0.5);
+    dir.position.set(1, 1, 1);
+    scene.add(dir);
+
+    // Point light with theme color
+    var accent = getAccentColor();
+    var pt = new THREE.PointLight(accent, 0.8, 800);
+    pt.position.set(0, 100, 300);
+    scene.add(pt);
+
+    // Second point light from opposite side
+    var pt2 = new THREE.PointLight(accent, 0.3, 600);
+    pt2.position.set(0, -200, -100);
+    scene.add(pt2);
+
+    return { renderer: renderer, scene: scene, camera: camera, pointLight: pt, objects: [] };
+}
+
+/** Canvas 离屏合成参与者纹理（头像 + 昵称） */
+function createParticipantTexture(p, size) {
+    size = size || 128;
+    var canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size + 30;
+    var ctx = canvas.getContext('2d');
+
+    var cx = size / 2, cy = size / 2, r = size / 2 - 4;
+
+    // 圆形裁剪
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+
+    // 深色背景
+    ctx.fillStyle = 'rgba(20,20,30,0.85)';
+    ctx.fill();
+
+    if (p.avatar) {
+        // 异步加载图片纹理，先返回占位纹理
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = p.avatar;
+        if (img.complete && img.naturalWidth > 0) {
+            ctx.drawImage(img, cx - r, cy - r, r * 2, r * 2);
+        } else {
+            // Placeholder icon
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            ctx.font = 'bold ' + (size * 0.28) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('👤', cx, cy);
+        }
+    } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.font = 'bold ' + (size * 0.28) + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('👤', cx, cy);
+    }
+
+    ctx.restore();
+
+    var tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.encoding = THREE.sRGBEncoding;
+    return { texture: tex, canvas: canvas, ctx: ctx, size: size, avatarUrl: p.avatar };
+}
+
+/** 异步更新纹理加载真实头像 */
+function updateTextureWithAvatar(texData, callback) {
+    if (!texData.avatarUrl) return;
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() {
+        var ctx = texData.ctx;
+        var size = texData.size;
+        var cx = size / 2, cy = size / 2, r = size / 2 - 4;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.fillStyle = 'rgba(20,20,30,0.85)';
+        ctx.fill();
+        ctx.drawImage(img, cx - r, cy - r, r * 2, r * 2);
+        ctx.restore();
+        texData.texture.needsUpdate = true;
+        if (callback) callback();
+    };
+    img.src = texData.avatarUrl;
+}
+
+/** 释放 Three.js 场景资源 */
+function disposeThreeScene(ctx) {
+    if (!ctx) return;
+    if (ctx.frameId) cancelAnimationFrame(ctx.frameId);
+    if (ctx.scene) {
+        ctx.scene.traverse(function(obj) {
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+                if (Array.isArray(obj.material)) {
+                    obj.material.forEach(function(m) { disposeMaterial(m); });
+                } else {
+                    disposeMaterial(obj.material);
+                }
+            }
+        });
+    }
+    if (ctx.renderer) {
+        ctx.renderer.dispose();
+        var dom = ctx.renderer.domElement;
+        if (dom && dom.parentNode) dom.parentNode.removeChild(dom);
+    }
+    STATE.THREE_CTX = null;
+    STATE.winHighlightObjects = [];
+}
+
+function disposeMaterial(m) {
+    if (m.map) m.map.dispose();
+    if (m.emissiveMap) m.emissiveMap.dispose();
+    if (m.alphaMap) m.alphaMap.dispose();
+    m.dispose();
+}
+
+/** 窗口 resize 时更新 3D 渲染器 */
+function onThreeResize() {
+    var ctx = STATE.THREE_CTX;
+    if (!ctx) return;
+    var container = document.getElementById('animContent');
+    var w = container.clientWidth || window.innerWidth;
+    var h = container.clientHeight || window.innerHeight;
+    ctx.camera.aspect = w / Math.max(h, 1);
+    ctx.camera.updateProjectionMatrix();
+    ctx.renderer.setSize(w, h);
+}
+window.addEventListener('resize', onThreeResize);
+
+/* ============================================================
+   Init
+   ============================================================ */
+(function init() {
+    applyTheme(STATE.theme);
+    applyTextColors();
+    if (STATE.showCount) document.getElementById('participantBadge').classList.add('visible');
+    initStarfield();
+    initEventListeners();
+    refreshModeDisplay();
+    loadConfig();
+})();
+
+function applyTheme(t) {
+    document.body.className = 'theme-' + t;
+    STATE.theme = t;
+}
+function applyTextColors() {
+    document.documentElement.style.setProperty('--text-color', STATE.textColor);
+    document.documentElement.style.setProperty('--text-shadow-color', STATE.shadowColor);
+}
+
+function initEventListeners() {
+    // 动效模式左右箭头
+    document.getElementById('modeArrowLeft').addEventListener('click', function() { prevMode(); });
+    document.getElementById('modeArrowRight').addEventListener('click', function() { nextMode(); });
+
+    // 人数 +/- 
+    document.getElementById('countMinus').addEventListener('click', function() {
+        if (STATE.isDrawing) return;
+        if (STATE.drawCount > 1) { STATE.drawCount--; updateDrawCountDisplay(); }
+    });
+    document.getElementById('countPlus').addEventListener('click', function() {
+        if (STATE.isDrawing) return;
+        if (STATE.drawCount < 20) { STATE.drawCount++; updateDrawCountDisplay(); }
+    });
+
+    // 开始抽奖
+    document.getElementById('drawBtn').addEventListener('click', function() { startDraw(); });
+
+    // 中奖面板
+    document.getElementById('panelToggle').addEventListener('click', function() { toggleWinnerPanel(); });
+    document.getElementById('panelClose').addEventListener('click', function() { closeWinnerPanel(); });
+
+    // 结果弹窗按钮
+    document.getElementById('btnCloseOverlay').addEventListener('click', function() { closeWinnerOverlay(); });
+    document.getElementById('btnZoomToggle').addEventListener('click', function() { toggleWinnerZoom(); });
+
+    // 点击遮罩层关闭弹窗
+    document.getElementById('winnerOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeWinnerOverlay();
+    });
+
+    // 键盘快捷键
+    document.addEventListener('keydown', function(e) {
+        if (e.code === 'Space') {
+            e.preventDefault();
+            // 如果结果弹窗正在显示，关闭弹窗
+            if (document.getElementById('winnerOverlay').classList.contains('show')) {
+                closeWinnerOverlay();
+            } else {
+                startDraw();
+            }
+        }
+        if (e.code === 'ArrowRight') { nextRound(); }
+        if (e.code === 'ArrowLeft') { prevRound(); }
+    });
+}
+
+/* ============================================================
+   API: Load Config & Rounds & Participants
+   ============================================================ */
+function loadConfig() {
+    fetch(SERVER.apiBase + '/config')
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.code === 0 && res.data && res.data.activity && res.data.activity.screen_config) {
+                var ls = res.data.activity.screen_config.lottery_screen || {};
+                if (ls.template && ls.template !== STATE.theme) applyTheme(ls.template);
+                if (ls.text_color) { STATE.textColor = ls.text_color; applyTextColors(); }
+                if (ls.shadow_color) { STATE.shadowColor = ls.shadow_color; applyTextColors(); }
+                if (typeof ls.show_count !== 'undefined') {
+                    STATE.showCount = parseInt(ls.show_count) || 0;
+                    var badge = document.getElementById('participantBadge');
+                    if (STATE.showCount) badge.classList.add('visible'); else badge.classList.remove('visible');
+                }
+                if (ls.display_mode) STATE.displayMode = ls.display_mode;
+            }
+            return loadRounds();
+        })
+        .then(function() { return loadParticipants(); })
+        .then(function() { connectSSE(); })
+        .catch(function(e) { console.error('Init error:', e); });
+}
+
+function loadRounds() {
+    return fetch(SERVER.apiBase + '/lottery/rounds')
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.code === 0 && res.data) {
+                STATE.rounds = Array.isArray(res.data) ? res.data : (res.data.rounds || res.data.list || []);
+                renderPrizeBar();
+                if (STATE.rounds.length > 0 && !STATE.currentRoundId) {
+                    STATE.currentRoundId = STATE.rounds[0].id;
+                    highlightActivePrize();
+                }
+                // 加载已有中奖名单
+                loadAllWinners();
+            }
+        });
+}
+
+function loadParticipants() {
+    return fetch(SERVER.apiBase + '/sign-list')
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.code === 0 && res.data) {
+                STATE.participants = Array.isArray(res.data) ? res.data : (res.data.list || []);
+                STATE.signCount = STATE.participants.length;
+                updateParticipantCount();
+                renderAnimationContent();
+            }
+        });
+}
+
+function loadAllWinners() {
+    STATE.allWinners = [];
+    (STATE.rounds || []).forEach(function(rd) {
+        var winners = rd.winners;
+        if (!winners) return;
+        if (typeof winners === 'string') {
+            try { winners = JSON.parse(winners); } catch(e) { winners = []; }
+        }
+        if (!Array.isArray(winners)) return;
+        winners.forEach(function(w) {
+            STATE.allWinners.push({
+                roundId: rd.id,
+                roundName: rd.round_name || rd.name || '',
+                prizeName: w.prize_name || rd.prize_name || rd.name || '',
+                nickname: w.nickname || w.name || '',
+                name: w.name || w.nickname || '',
+                avatar: w.avatar || '',
+                phone: w.phone || '',
+            });
+        });
+    });
+    renderWinnerList();
+}
+
+/* ============================================================
+   SSE - 实时同步
+   ============================================================ */
+function connectSSE() {
+    var es = new EventSource(SERVER.apiBase + '/sse');
+    es.onmessage = function(e) {
+        try {
+            var data = JSON.parse(e.data);
+            if (data.event === 'sign') {
+                STATE.signCount = data.count || (STATE.signCount + 1);
+                updateParticipantCount();
+                loadParticipants();
+            } else if (data.event === 'lottery_result') {
+                handleSSELotteryResult(data);
+            }
+        } catch(ex) {}
+    };
+    es.onerror = function() { es.close(); setTimeout(connectSSE, 5000); };
+}
+
+function handleSSELotteryResult(data) {
+    var winners = data.winners || data.data || [];
+    if (!Array.isArray(winners)) winners = [winners];
+    winners.forEach(function(w) {
+        STATE.allWinners.push({
+            roundId: STATE.currentRoundId,
+            roundName: STATE.currentRoundId ? (getRoundName(STATE.currentRoundId) || '') : '',
+            prizeName: w.prize_name || '',
+            nickname: w.nickname || w.name || '',
+            name: w.name || w.nickname || '',
+            avatar: w.avatar || '',
+            phone: w.phone || '',
+        });
+    });
+    renderWinnerList();
+}
+
+/* ============================================================
+   Render Helpers
+   ============================================================ */
+function getRoundName(id) {
+    var found = STATE.rounds.find(function(r) { return r.id == id; });
+    return found ? (found.round_name || found.name || '') : '';
+}
+
+function getDisplayName(p) {
+    if (!p) return '---';
+    if (STATE.displayMode === 'name') return p.name || p.nickname || '---';
+    if (STATE.displayMode === 'name_phone') {
+        var name = p.name || p.nickname || '---';
+        var phone = p.phone || '';
+        if (phone && phone.length >= 11) phone = phone.substring(0, 3) + '****' + phone.substring(7);
+        return name + (phone ? ' ' + phone : '');
+    }
+    return p.nickname || p.name || '---';
+}
+
+function updateParticipantCount() {
+    document.getElementById('participantCount').textContent = STATE.signCount;
+}
+
+function updateDrawCountDisplay() {
+    document.getElementById('drawCount').textContent = STATE.drawCount;
+}
+
+/* ============================================================
+   Prize Bar Rendering (Carousel: < [prize] >)
+   ============================================================ */
+function renderPrizeBar() {
+    var bar = document.getElementById('prizeBar');
+    var rounds = STATE.rounds || [];
+    var html = '';
+
+    if (rounds.length === 0) {
+        bar.innerHTML = '<div class="prize-current-wrap"><span class="prize-current-label" style="color:rgba(255,255,255,0.4);">暂无奖品</span></div>';
+        return;
+    }
+
+    // 左箭头
+    html += '<button class="prize-arrow" id="prizeArrowLeft" title="上一个奖品">&#8249;</button>';
+
+    // 当前奖品（只渲染当前选中的那一个）
+    html += '<div class="prize-current-wrap" id="prizeCurrentWrap"></div>';
+
+    // 右箭头
+    html += '<button class="prize-arrow" id="prizeArrowRight" title="下一个奖品">&#8250;</button>';
+
+    // 参与人数 badge
+    html += '<div class="participant-badge' + (STATE.showCount ? ' visible' : '') + '" id="participantBadge">' +
+        '<i class="fas fa-users"></i> 参与人数：<span class="participant-count-num" id="participantCount">' + STATE.signCount + '</span>人</div>';
+
+    bar.innerHTML = html;
+
+    // 绑定箭头事件
+    var btnLeft  = document.getElementById('prizeArrowLeft');
+    var btnRight = document.getElementById('prizeArrowRight');
+    if (btnLeft)  btnLeft.addEventListener('click', function() { prevRound(); });
+    if (btnRight) btnRight.addEventListener('click', function() { nextRound(); });
+
+    // 首次渲染时选中第一个
+    if (!STATE.currentRoundId && rounds.length > 0) {
+        STATE.currentRoundId = rounds[0].id;
+    }
+
+    // 渲染当前奖品名称
+    refreshCurrentPrizeDisplay();
+}
+
+/** 根据 currentRoundId 刷新中间奖品名称和箭头状态 */
+function refreshCurrentPrizeDisplay() {
+    var wrap = document.getElementById('prizeCurrentWrap');
+    var btnLeft  = document.getElementById('prizeArrowLeft');
+    var btnRight = document.getElementById('prizeArrowRight');
+    var rounds = STATE.rounds || [];
+    if (!rounds.length) return;
+
+    var idx = rounds.findIndex(function(r) { return r.id == STATE.currentRoundId; });
+    if (idx < 0) {
+        STATE.currentRoundId = rounds[0].id;
+        idx = 0;
+    }
+
+    var rd = rounds[idx];
+    var name = rd.prize_name || rd.round_name || rd.name || ('轮次#' + rd.id);
+    var used = rd.used_num || 0;
+    var total = rd.total_num || 0;
+    var exhausted = rd.status == 2 || (total > 0 && used >= total);
+
+    var cls = exhausted ? ' prize-current-wrap exhausted' : 'prize-current-wrap';
+    wrap.className = cls;
+    wrap.innerHTML = '<span class="prize-current-label">' + name + '</span>' +
+        '<span class="prize-current-meta">' +
+            '<span class="dot' + (exhausted ? ' done' : '') + '"></span>' +
+            '第 ' + (idx + 1) + '/' + rounds.length + ' 轮 &nbsp;·&nbsp;已抽 ' + used + '/' + (total || '∞') +
+        '</span>';
+
+    // 箭头禁用状态
+    if (btnLeft)  btnLeft.classList.toggle('disabled', idx <= 0);
+    if (btnRight) btnRight.classList.toggle('disabled', idx >= rounds.length - 1);
+
+    // 同步标题
+    updatePrizeTitle();
+}
+
+function selectRound(id) {
+    if (STATE.isDrawing) return;
+    STATE.currentRoundId = id;
+    refreshCurrentPrizeDisplay();
+    renderAnimationContent();
+}
+
+function highlightActivePrize() {
+    // 不再需要，已用 refreshCurrentPrizeDisplay() 替代
+    refreshCurrentPrizeDisplay();
+}
+
+function nextRound() {
+    if (STATE.isDrawing || !STATE.rounds.length) return;
+    var idx = STATE.rounds.findIndex(function(r) { return r.id == STATE.currentRoundId; });
+    if (idx < STATE.rounds.length - 1) selectRound(STATE.rounds[idx + 1].id);
+}
+function prevRound() {
+    if (STATE.isDrawing || !STATE.rounds.length) return;
+    var idx = STATE.rounds.findIndex(function(r) { return r.id == STATE.currentRoundId; });
+    if (idx > 0) selectRound(STATE.rounds[idx - 1].id);
+}
+
+/* ============================================================
+   Mode Carousel Navigation
+   ============================================================ */
+function getModeIndex() {
+    for (var i = 0; i < MODES.length; i++) {
+        if (MODES[i].key === STATE.animMode) return i;
+    }
+    return 0;
+}
+function refreshModeDisplay() {
+    var idx = getModeIndex();
+    var m = MODES[idx];
+    document.getElementById('modeCurrentName').textContent = m.name;
+    var icon = document.querySelector('#modeCurrent i');
+    if (icon) icon.className = 'fas ' + m.icon;
+    // 箭头禁用
+    document.getElementById('modeArrowLeft').classList.toggle('disabled', idx <= 0);
+    document.getElementById('modeArrowRight').classList.toggle('disabled', idx >= MODES.length - 1);
+}
+function nextMode() {
+    if (STATE.isDrawing) return;
+    var idx = getModeIndex();
+    if (idx < MODES.length - 1) {
+        STATE.animMode = MODES[idx + 1].key;
+        refreshModeDisplay();
+        renderAnimationContent();
+    }
+}
+function prevMode() {
+    if (STATE.isDrawing) return;
+    var idx = getModeIndex();
+    if (idx > 0) {
+        STATE.animMode = MODES[idx - 1].key;
+        refreshModeDisplay();
+        renderAnimationContent();
+    }
+}
+
+function updatePrizeTitle() {
+    var title = document.getElementById('prizeTitle');
+    var rd = STATE.rounds.find(function(r) { return r.id == STATE.currentRoundId; });
+    title.textContent = rd ? (rd.prize_name || rd.round_name || rd.name || '抽奖') : '抽奖';
+}
+
+/* ============================================================
+   Animation Content Renderer (Three.js 3D)
+   ============================================================ */
+function renderAnimationContent() {
+    var container = document.getElementById('animContent');
+    var mode = STATE.animMode;
+    var parts = STATE.participants;
+    if (!parts.length) {
+        disposeThreeScene(STATE.THREE_CTX);
+        container.innerHTML = '<div style="color:rgba(255,255,255,0.3);font-size:24px;">等待参与者签到...</div>';
+        return;
+    }
+    if (mode === 'gene') renderGeneMode(parts);
+    else if (mode === 'grid') renderGridMode(parts);
+    else if (mode === 'sphere') renderSphereMode(parts);
+    else if (mode === 'helix') renderHelixMode(parts);
+    document.getElementById('prizeTitle').parentElement.style.display = 'flex';
+}
+
+/** 创建带纹理的圆形头像 Sprite */
+function makeAvatarSprite(p, spriteSize, texSize) {
+    spriteSize = spriteSize || 70;
+    texSize = texSize || 128;
+    var td = createParticipantTexture(p, texSize);
+    var mat = new THREE.SpriteMaterial({ map: td.texture, transparent: true, depthTest: true, depthWrite: false });
+    var sprite = new THREE.Sprite(mat);
+    sprite.scale.set(spriteSize, spriteSize, 1);
+    sprite.userData = { name: getDisplayName(p), participant: p, texData: td };
+    updateTextureWithAvatar(td);
+    return sprite;
+}
+
+/* ============================================================
+   3D Mode 1: 基因螺旋 (gene) — DNA双螺旋
+   ============================================================ */
+function renderGeneMode(parts) {
+    disposeThreeScene(STATE.THREE_CTX);
+    var ctx = initThreeRenderer();
+    ctx.camera.position.set(0, 0, 450);
+    ctx.camera.lookAt(0, 0, 0);
+    var accent = getAccentColor();
+    var display = parts.slice(0, 30);
+    var objects = [];
+
+    // 线框球
+    var wireGeo = new THREE.SphereGeometry(155, 32, 32);
+    var wireMat = new THREE.MeshBasicMaterial({ color: accent, wireframe: true, transparent: true, opacity: 0.08, depthWrite: false });
+    ctx.scene.add(new THREE.Mesh(wireGeo, wireMat));
+
+    // 轨道环
+    for (var ring = 0; ring < 3; ring++) {
+        var ringGeo = new THREE.TorusGeometry(170 + ring * 30, 0.3, 8, 100);
+        var ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.25 - ring * 0.06, depthWrite: false }));
+        ringMesh.rotation.x = Math.PI / 3 + ring * 0.5;
+        ringMesh.rotation.y = ring * 0.4;
+        ctx.scene.add(ringMesh);
+        ctx['_geneRing' + ring] = ringMesh;
+    }
+
+    // DNA双螺旋 Sprite — 偶数索索引→链A，奇数索引→链B
+    var totalPairs = Math.ceil(display.length / 2);
+    for (var i = 0; i < display.length; i++) {
+        var p = display[i];
+        if (!p) continue;
+        var sprite = makeAvatarSprite(p, 50, 100);
+        var strand = i % 2;
+        var pairIdx = Math.floor(i / 2);
+        var t = pairIdx / Math.max(totalPairs - 1, 1);
+        var angle = t * Math.PI * 8 + strand * Math.PI;
+        var height = -160 + t * 320;
+        sprite.position.set(Math.cos(angle) * 140, height, Math.sin(angle) * 140);
+        ctx.scene.add(sprite);
+        objects.push(sprite);
+    }
+
+    ctx.objects = objects;
+    STATE.THREE_CTX = ctx;
+    ctx.renderer.render(ctx.scene, ctx.camera);
+}
+
+function runGeneAnimation() {
+    var ctx = STATE.THREE_CTX;
+    if (!ctx) { STATE.isDrawing = false; exitDrawingMode(); return; }
+    if (ctx._geneGroup) { ctx.scene.remove(ctx._geneGroup); ctx._geneGroup = null; }
+    var startTime = performance.now();
+    var geneGroup = new THREE.Group();
+    ctx.objects.forEach(function(s) { geneGroup.add(s); });
+    ctx.scene.add(geneGroup);
+    ctx._geneGroup = geneGroup;
+
+    function loop(now) {
+        if (!STATE.isDrawing) return;
+        STATE.animTimer = requestAnimationFrame(loop);
+        var t = (now - startTime) * 0.001;
+        var speed = 1.8 + Math.sin(t * 0.3) * 0.8;
+        if (ctx._geneGroup) {
+            ctx._geneGroup.rotation.y += speed * 0.02;
+            ctx._geneGroup.rotation.x = Math.sin(t * 0.3) * 0.15;
+        }
+        for (var r = 0; r < 3; r++) {
+            var ring = ctx['_geneRing' + r];
+            if (ring) { ring.rotation.z += 0.015 + r * 0.005; }
+        }
+        ctx.pointLight.intensity = 0.7 + Math.sin(t * 1.8) * 0.25;
+        ctx.renderer.render(ctx.scene, ctx.camera);
+    }
+    STATE.animTimer = requestAnimationFrame(loop);
+}
+
+/* ============================================================
+   3D Mode 2: 方阵卡片 (grid) — 头像矩阵 + Group微动
+   ============================================================ */
+function renderGridMode(parts) {
+    disposeThreeScene(STATE.THREE_CTX);
+    var ctx = initThreeRenderer();
+    ctx.camera.position.set(0, 0, 450);
+    ctx.camera.lookAt(0, 0, 0);
+    var accent = getAccentColor();
+    var display = parts.slice(0, 30);
+    var cols = 6;
+    var objects = [];
+    var spacingX = 80, spacingY = 80;
+    var rows = Math.ceil(display.length / cols);
+    var offX = -(cols - 1) * spacingX / 2;
+    var offY = -(rows - 1) * spacingY / 2;
+
+    // 头像方阵
+    for (var i = 0; i < display.length; i++) {
+        var sprite = makeAvatarSprite(display[i], 50, 100);
+        var row = Math.floor(i / cols);
+        var col = i % cols;
+        sprite.position.set(offX + col * spacingX, offY + row * spacingY, 0);
+        ctx.scene.add(sprite);
+        objects.push(sprite);
+    }
+
+    ctx.objects = objects;
+    STATE.THREE_CTX = ctx;
+    ctx.renderer.render(ctx.scene, ctx.camera);
+}
+
+function runGridAnimation() {
+    var ctx = STATE.THREE_CTX;
+    if (!ctx) { STATE.isDrawing = false; exitDrawingMode(); return; }
+    if (ctx._gridGroup) { ctx.scene.remove(ctx._gridGroup); ctx._gridGroup = null; }
+    var startTime = performance.now();
+    var gridGroup = new THREE.Group();
+    ctx.objects.forEach(function(s) { gridGroup.add(s); });
+    ctx.scene.add(gridGroup);
+    ctx._gridGroup = gridGroup;
+
+    function loop(now) {
+        if (!STATE.isDrawing) return;
+        STATE.animTimer = requestAnimationFrame(loop);
+        var t = (now - startTime) * 0.001;
+        if (ctx._gridGroup) {
+            ctx._gridGroup.rotation.y += 0.02;
+        }
+        ctx.pointLight.intensity = 0.7 + Math.sin(t * 1.8) * 0.25;
+        ctx.renderer.render(ctx.scene, ctx.camera);
+    }
+    STATE.animTimer = requestAnimationFrame(loop);
+}
+
+/* ============================================================
+   3D Mode 3: 球形抽奖 (sphere) — 照片星球 ✅ 已验证工作
+   ============================================================ */
+function renderSphereMode(parts) {
+    disposeThreeScene(STATE.THREE_CTX);
+    var ctx = initThreeRenderer();
+    ctx.camera.position.set(0, 0, 450);
+    ctx.camera.lookAt(0, 0, 0);
+    var accent = getAccentColor();
+    var display = parts.slice(0, 30);
+    var sphereRadius = 150;
+    var objects = [];
+
+    // 球体线框
+    var wireGeo = new THREE.SphereGeometry(sphereRadius + 5, 32, 32);
+    var wireMat = new THREE.MeshBasicMaterial({ color: accent, wireframe: true, transparent: true, opacity: 0.08, depthWrite: false });
+    ctx.scene.add(new THREE.Mesh(wireGeo, wireMat));
+
+    // 轨道粒子环
+    for (var ring = 0; ring < 3; ring++) {
+        var ringGeo = new THREE.TorusGeometry(sphereRadius + 20 + ring * 30, 0.3, 8, 100);
+        var ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.25 - ring * 0.06, depthWrite: false }));
+        ringMesh.rotation.x = Math.PI / 3 + ring * 0.5;
+        ringMesh.rotation.y = ring * 0.4;
+        ctx.scene.add(ringMesh);
+        ctx['_orbitRing' + ring] = ringMesh;
+    }
+
+    // 头像 Sprite 分布在球面
+    display.forEach(function(p, i) {
+        var sprite = makeAvatarSprite(p, 50, 100);
+        var phi = Math.acos(-1 + (2 * (i + 0.5)) / display.length);
+        var theta = Math.sqrt(display.length * Math.PI) * phi;
+        var r = sphereRadius;
+        sprite.position.set(
+            r * Math.cos(theta) * Math.sin(phi),
+            r * Math.cos(phi),
+            r * Math.sin(theta) * Math.sin(phi)
+        );
+        sprite.userData.basePos = sprite.position.clone();
+        sprite.userData.phi = phi;
+        sprite.userData.theta = theta;
+        ctx.scene.add(sprite);
+        objects.push(sprite);
+    });
+
+    ctx.objects = objects;
+    STATE.THREE_CTX = ctx;
+    ctx.renderer.render(ctx.scene, ctx.camera);
+}
+
+function runSphereAnimation() {
+    var ctx = STATE.THREE_CTX;
+    if (!ctx) { STATE.isDrawing = false; exitDrawingMode(); return; }
+    if (ctx._sphereGroup) {
+        ctx.scene.remove(ctx._sphereGroup);
+        ctx._sphereGroup = null;
+    }
+    var startTime = performance.now();
+    var sphereGroup = new THREE.Group();
+    ctx.objects.forEach(function(s) { sphereGroup.add(s); });
+    ctx.scene.add(sphereGroup);
+    ctx._sphereGroup = sphereGroup;
+
+    function loop(now) {
+        if (!STATE.isDrawing) return;
+        STATE.animTimer = requestAnimationFrame(loop);
+        var t = (now - startTime) * 0.001;
+        var speed = 1.8 + Math.sin(t * 0.3) * 0.8;
+
+        if (ctx._sphereGroup) {
+            ctx._sphereGroup.rotation.y += speed * 0.02;
+            ctx._sphereGroup.rotation.x = Math.sin(t * 0.4) * 0.2;
+            ctx._sphereGroup.rotation.z += speed * 0.008;
+        }
+
+        for (var r = 0; r < 3; r++) {
+            var ring = ctx['_orbitRing' + r];
+            if (ring) {
+                ring.rotation.z += (0.015 + r * 0.005);
+                ring.rotation.x += (0.008 - r * 0.002);
+                ring.material.opacity = 0.2 + Math.sin(t * 1.5 + r) * 0.08;
+            }
+        }
+
+        ctx.pointLight.intensity = 0.7 + Math.sin(t * 1.8) * 0.25;
+        ctx.renderer.render(ctx.scene, ctx.camera);
+    }
+    STATE.animTimer = requestAnimationFrame(loop);
+}
+
+/* ============================================================
+   3D Mode 4: 上升螺旋 (helix) — 单螺旋 + Group旋转
+   ============================================================ */
+function renderHelixMode(parts) {
+    disposeThreeScene(STATE.THREE_CTX);
+    var ctx = initThreeRenderer();
+    ctx.camera.position.set(0, 0, 450);
+    ctx.camera.lookAt(0, 0, 0);
+    var accent = getAccentColor();
+    var display = parts.slice(0, 30);
+    var objects = [];
+
+    // 底部光环
+    var baseRingGeo = new THREE.TorusGeometry(130, 1, 8, 80);
+    var baseRing = new THREE.Mesh(baseRingGeo, new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.3, depthWrite: false }));
+    baseRing.rotation.x = Math.PI / 2;
+    baseRing.position.y = -170;
+    ctx.scene.add(baseRing);
+    ctx._helixBase = baseRing;
+
+    // 头像沿螺旋上升排列
+    display.forEach(function(p, i) {
+        var sprite = makeAvatarSprite(p, 50, 100);
+        var t = i / display.length;
+        var angle = t * Math.PI * 2 * 6;
+        var radius = 140 * (1 - t * 0.5);
+        var height = -170 + t * 340;
+        sprite.position.set(
+            Math.cos(angle) * radius,
+            height,
+            Math.sin(angle) * radius
+        );
+        ctx.scene.add(sprite);
+        objects.push(sprite);
+    });
+
+    ctx.objects = objects;
+    STATE.THREE_CTX = ctx;
+    ctx.renderer.render(ctx.scene, ctx.camera);
+}
+
+function runHelixAnimation() {
+    var ctx = STATE.THREE_CTX;
+    if (!ctx) { STATE.isDrawing = false; exitDrawingMode(); return; }
+    if (ctx._helixGroup) { ctx.scene.remove(ctx._helixGroup); ctx._helixGroup = null; }
+    var startTime = performance.now();
+    var helixGroup = new THREE.Group();
+    ctx.objects.forEach(function(s) { helixGroup.add(s); });
+    ctx.scene.add(helixGroup);
+    ctx._helixGroup = helixGroup;
+
+    function loop(now) {
+        if (!STATE.isDrawing) return;
+        STATE.animTimer = requestAnimationFrame(loop);
+        var t = (now - startTime) * 0.001;
+        var speed = 1.8 + Math.sin(t * 0.3) * 0.8;
+
+        if (ctx._helixGroup) {
+            ctx._helixGroup.rotation.y += speed * 0.03;
+            ctx._helixGroup.rotation.x = Math.sin(t * 0.35) * 0.1;
+        }
+
+        // 底环旋转
+        if (ctx._helixBase) {
+            ctx._helixBase.rotation.z += speed * 0.04;
+            ctx._helixBase.scale.setScalar(1 + Math.sin(t * 1.5) * 0.05);
+        }
+
+        ctx.pointLight.intensity = 0.7 + Math.sin(t * 1.8) * 0.25;
+        ctx.renderer.render(ctx.scene, ctx.camera);
+    }
+    STATE.animTimer = requestAnimationFrame(loop);
+}
+
+/* ============================================================
+   Draw Logic (Three.js Adapted)
+   ============================================================ */
+function startDraw() {
+    if (STATE.isDrawing) { stopDraw(); return; }
+    if (!STATE.currentRoundId) { alert('请先选择抽奖奖品'); return; }
+    if (!STATE.participants.length) { alert('没有参与者，无法抽奖'); return; }
+
+    // 确保 3D 场景已创建（防止因时序问题导致 ctx 为 null）
+    renderAnimationContent();
+
+    STATE.isDrawing = true;
+    STATE.winHighlightObjects = [];
+    enterDrawingMode();
+
+    if (STATE.animMode === 'gene') runGeneAnimation();
+    else if (STATE.animMode === 'grid') runGridAnimation();
+    else if (STATE.animMode === 'sphere') runSphereAnimation();
+    else if (STATE.animMode === 'helix') runHelixAnimation();
+}
+
+function stopDraw() {
+    // 停止 rAF 动画循环
+    if (STATE.animTimer) {
+        cancelAnimationFrame(STATE.animTimer);
+        STATE.animTimer = null;
+    }
+    callDrawAPI();
+}
+
+function enterDrawingMode() {
+    document.getElementById('prizeBar').classList.add('drawing');
+    document.getElementById('modeSelector').classList.add('drawing');
+    document.querySelector('.count-control').classList.add('drawing');
+    var btn = document.getElementById('drawBtn');
+    btn.textContent = '停 止 抽 奖';
+    btn.classList.add('running');
+}
+
+function exitDrawingMode() {
+    // 先停止动画
+    if (STATE.animTimer) {
+        cancelAnimationFrame(STATE.animTimer);
+        STATE.animTimer = null;
+    }
+    document.getElementById('prizeBar').classList.remove('drawing');
+    document.getElementById('modeSelector').classList.remove('drawing');
+    document.querySelector('.count-control').classList.remove('drawing');
+    resetDrawButton();
+}
+
+function callDrawAPI() {
+    var payload = {
+        round_id: STATE.currentRoundId,
+        count: STATE.drawCount,
+    };
+    fetch(SERVER.apiBase + '/lottery/draw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        exitDrawingMode();
+        STATE.isDrawing = false;
+        if (res.code === 0) {
+            var winners = res.data && res.data.winners ? res.data.winners : (Array.isArray(res.data) ? res.data : []);
+            if (winners.length) showWinners(winners);
+            loadRounds();
+        } else {
+            alert(res.msg || '抽奖失败');
+            loadRounds();
+        }
+    })
+    .catch(function(e) {
+        exitDrawingMode();
+        STATE.isDrawing = false;
+        console.error('Draw error:', e);
+    });
+}
+
+function resetDrawButton() {
+    var btn = document.getElementById('drawBtn');
+    btn.textContent = '开 始 抽 奖';
+    btn.classList.remove('running');
+}
+
+/* ============================================================
+   Winner Display
+   ============================================================ */
+function showWinners(winners) {
+    winners.forEach(function(w) {
+        STATE.allWinners.push({
+            roundId: STATE.currentRoundId,
+            roundName: getRoundName(STATE.currentRoundId),
+            prizeName: w.prize_name || w.name || '',
+            nickname: w.nickname || w.name || '',
+            name: w.name || w.nickname || '',
+            avatar: w.avatar || '',
+            phone: w.phone || '',
+        });
+    });
+    renderWinnerList();
+
+    var rd = STATE.rounds.find(function(r) { return r.id == STATE.currentRoundId; });
+    var prizeLabel = rd ? (rd.prize_name || rd.round_name || rd.name || '奖品') : '奖品';
+    var avatarsHtml = '';
+    winners.forEach(function(w) {
+        var name = w.nickname || w.name || '中奖者';
+        if (w.avatar) {
+            avatarsHtml += '<div class="win-avatar-item"><img src="' + w.avatar + '" onerror="this.style.display=\'none\'"><span class="wt-name">' + name + '</span><span class="wt-prize">' + prizeLabel + '</span></div>';
+        } else {
+            avatarsHtml += '<div class="win-avatar-item"><div style="width:80px;height:80px;border-radius:50%;border:2px solid var(--theme-accent);background:rgba(var(--theme-accent-rgb),0.15);display:flex;align-items:center;justify-content:center;font-size:32px;">🎁</div><span class="wt-name">' + name + '</span><span class="wt-prize">' + prizeLabel + '</span></div>';
+        }
+    });
+    document.getElementById('winAvatars').innerHTML = avatarsHtml;
+
+    var dialog = document.getElementById('winDialog');
+    dialog.classList.remove('zoomed');
+    document.getElementById('btnZoomToggle').innerHTML = '<i class="fas fa-expand"></i>';
+    document.getElementById('winnerOverlay').classList.add('show');
+
+    highlightWinnersInAnimation(winners);
+}
+
+function closeWinnerOverlay() {
+    document.getElementById('winnerOverlay').classList.remove('show');
+    document.getElementById('winDialog').classList.remove('zoomed');
+    document.getElementById('btnZoomToggle').innerHTML = '<i class="fas fa-expand"></i>';
+}
+
+var _winZoomed = false;
+function toggleWinnerZoom() {
+    var dialog = document.getElementById('winDialog');
+    var btn = document.getElementById('btnZoomToggle');
+    _winZoomed = !_winZoomed;
+    if (_winZoomed) {
+        dialog.classList.add('zoomed');
+        btn.innerHTML = '<i class="fas fa-compress"></i>';
+    } else {
+        dialog.classList.remove('zoomed');
+        btn.innerHTML = '<i class="fas fa-expand"></i>';
+    }
+}
+
+/** 3D 中奖者高亮——全局搜索匹配对象并播放庆祝动画 */
+function highlightWinnersInAnimation(winners) {
+    var ctx = STATE.THREE_CTX;
+    if (!ctx || !ctx.scene) return;
+    var accent = getAccentColor();
+
+    // 构建中奖者名称集合
+    var winNames = {};
+    winners.forEach(function(w) {
+        var key = (w.nickname || w.name || '').trim();
+        if (key) winNames[key] = true;
+    });
+
+    // 遍历场景中所有对象，匹配中奖者
+    var found = [];
+    ctx.scene.traverse(function(obj) {
+        if (obj.userData && obj.userData.name && winNames[obj.userData.name.trim()]) {
+            found.push(obj);
+        }
+    });
+
+    if (!found.length) return;
+
+    // 烟花粒子系统
+    var fwGeo = new THREE.BufferGeometry();
+    var fwCount = found.length * 120;
+    var fwVerts = new Float32Array(fwCount * 3);
+    var fwColors = new Float32Array(fwCount * 3);
+    for (var i = 0; i < fwCount; i++) {
+        var a = Math.random() * Math.PI * 2;
+        var phi = Math.random() * Math.PI;
+        var r = 20 + Math.random() * 300;
+        fwVerts[i*3] = Math.cos(a) * Math.sin(phi) * r;
+        fwVerts[i*3+1] = Math.cos(phi) * r;
+        fwVerts[i*3+2] = Math.sin(a) * Math.sin(phi) * r;
+        var hue = Math.random() < 0.6 ? accent : new THREE.Color().setHSL(Math.random() * 0.15, 0.9, 0.6 + Math.random() * 0.3);
+        fwColors[i*3] = hue.r;
+        fwColors[i*3+1] = hue.g;
+        fwColors[i*3+2] = hue.b;
+    }
+    fwGeo.setAttribute('position', new THREE.BufferAttribute(fwVerts, 3));
+    fwGeo.setAttribute('color', new THREE.BufferAttribute(fwColors, 3));
+    var fwMat = new THREE.PointsMaterial({ size: 3.5, vertexColors: true, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
+    var fireworks = new THREE.Points(fwGeo, fwMat);
+    fireworks.position.set(0, 0, 0);
+    ctx.scene.add(fireworks);
+    STATE.winHighlightObjects.push(fireworks);
+
+    // 高亮中奖者
+    found.forEach(function(obj, idx) {
+        if (obj.material) {
+            obj.userData._origOpacity = obj.material.opacity;
+            obj.userData._origColor = obj.material.color ? obj.material.color.getHex() : null;
+            obj.userData._origScale = obj.scale ? obj.scale.clone() : null;
+
+            // 发光
+            if (obj.material.emissive) obj.material.emissive = new THREE.Color(accent);
+            if (obj.material.opacity !== undefined) obj.material.opacity = 1;
+            if (obj.material.color) obj.material.color.set(accent);
+
+            // 放大弹跳
+            if (obj.scale) {
+                var targetScale = obj.userData._origScale ? obj.userData._origScale.clone().multiplyScalar(1.5) : new THREE.Vector3(1.5, 1.5, 1.5);
+                obj.userData._targetScale = targetScale;
+            }
+        }
+        STATE.winHighlightObjects.push(obj);
+    });
+
+    // 高亮动画循环（持续 2 秒）
+    var hlStart = performance.now();
+    function hlLoop(now) {
+        var elapsed = (now - hlStart) * 0.001;
+        if (elapsed > 2.5) {
+            // 恢复
+            found.forEach(function(obj) {
+                if (obj.material) {
+                    if (obj.material.emissive) obj.material.emissive = new THREE.Color(0x000000);
+                    if (obj.userData._origOpacity !== undefined) obj.material.opacity = obj.userData._origOpacity;
+                    if (obj.material.color && obj.userData._origColor !== null) obj.material.color.setHex(obj.userData._origColor);
+                    if (obj.scale && obj.userData._origScale) obj.scale.copy(obj.userData._origScale);
+                }
+            });
+            // 淡出烟花
+            if (fireworks.material) {
+                fireworks.material.opacity = Math.max(0, fireworks.material.opacity - 0.03);
+                if (fireworks.material.opacity <= 0) {
+                    ctx.scene.remove(fireworks);
+                    fireworks.geometry.dispose();
+                    fireworks.material.dispose();
+                }
+            }
+            return;
+        }
+
+        // 烟花缩放
+        var fwScale = 1 + elapsed * 0.8;
+        fireworks.scale.setScalar(fwScale);
+        fireworks.rotation.y += 0.02;
+        fireworks.material.opacity = Math.max(0, 1 - elapsed * 0.35);
+
+        // 中奖者脉动
+        found.forEach(function(obj, i) {
+            if (obj.scale && obj.userData._targetScale) {
+                var pulse = 1 + Math.sin(elapsed * 8 + i) * 0.15;
+                var ts = obj.userData._targetScale;
+                obj.scale.set(ts.x * pulse, ts.y * pulse, ts.z * pulse);
+            }
+        });
+
+        // 渲染一帧
+        if (ctx.renderer && ctx.scene && ctx.camera) {
+            ctx.renderer.render(ctx.scene, ctx.camera);
+        }
+        requestAnimationFrame(hlLoop);
+    }
+    requestAnimationFrame(hlLoop);
+}
+/* ============================================================
+   Winner Panel
+   ============================================================ */
+function renderWinnerList() {
+    var list = document.getElementById('winnerList');
+    var badge = document.getElementById('winnerBadge');
+    if (!STATE.allWinners.length) {
+        list.innerHTML = '<div class="panel-empty">暂无中奖记录</div>';
+        badge.style.display = 'none';
+        return;
+    }
+    badge.textContent = STATE.allWinners.length;
+    badge.style.display = 'flex';
+
+    // 当前轮次和往期分开
+    var currentRoundWinners = [];
+    var pastWinners = [];
+    STATE.allWinners.forEach(function(w) {
+        if (w.roundId == STATE.currentRoundId) currentRoundWinners.push(w);
+        else pastWinners.push(w);
+    });
+
+    var html = '';
+    if (currentRoundWinners.length) {
+        html += '<div style="font-size:11px;color:rgba(255,255,255,0.3);padding:4px 0;">—— 本轮 ——</div>';
+        currentRoundWinners.forEach(function(w) { html += buildWinnerItem(w, true); });
+    }
+    if (pastWinners.length) {
+        html += '<div style="font-size:11px;color:rgba(255,255,255,0.3);padding:4px 0;margin-top:8px;">—— 往期 ——</div>';
+        pastWinners.forEach(function(w) { html += buildWinnerItem(w, false); });
+    }
+    list.innerHTML = html;
+}
+
+function buildWinnerItem(w, isNew) {
+    var cls = 'winner-item' + (isNew ? ' new' : '');
+    var avatarHtml = w.avatar
+        ? '<img class="w-avatar" src="' + w.avatar + '" onerror="this.style.display=\'none\';this.nextSibling?this.nextSibling.style.display=\'flex\':null">' +
+          '<div class="w-avatar-placeholder" style="display:none;">' + (w.nickname || w.name || '?').charAt(0) + '</div>'
+        : '<div class="w-avatar-placeholder">' + (w.nickname || w.name || '?').charAt(0) + '</div>';
+    return '<div class="' + cls + '">' + avatarHtml +
+        '<div class="w-info"><div class="w-name">' + (w.nickname || w.name || '中奖者') + '</div>' +
+        '<div class="w-prize">' + (w.prizeName || w.roundName || '') + '</div>' +
+        '<div class="w-round">' + w.roundName + '</div></div></div>';
+}
+
+function toggleWinnerPanel() {
+    document.getElementById('winnerPanel').classList.toggle('open');
+}
+function closeWinnerPanel() {
+    document.getElementById('winnerPanel').classList.remove('open');
+}
+
+/* ============================================================
+   Canvas Starfield Background
+   ============================================================ */
+function initStarfield() {
+    var canvas = document.getElementById('starfield');
+    var ctx = canvas.getContext('2d');
+    var stars = [], lines = [];
+    var STAR_COUNT = 80, LINE_COUNT = 15;
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    for (var i = 0; i < STAR_COUNT; i++) {
+        stars.push({
+            x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+            r: Math.random() * 1.5 + 0.5, speed: Math.random() * 0.3 + 0.1,
+            opacity: Math.random(), twinkle: Math.random() * 0.02 + 0.01, dir: 1
+        });
+    }
+    for (var i = 0; i < LINE_COUNT; i++) {
+        lines.push({
+            a: { x: Math.random() * canvas.width, y: Math.random() * canvas.height },
+            b: { x: Math.random() * canvas.width, y: Math.random() * canvas.height },
+            opacity: Math.random() * 0.2 + 0.05
+        });
+    }
+
+    var accent = getComputedStyle(document.body).getPropertyValue('--theme-accent-rgb').trim() || '255,215,0';
+
+    function animate() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        lines.forEach(function(l) {
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(' + accent + ',' + l.opacity + ')';
+            ctx.lineWidth = 0.5;
+            ctx.moveTo(l.a.x, l.a.y);
+            ctx.lineTo(l.b.x, l.b.y);
+            ctx.stroke();
+        });
+
+        stars.forEach(function(s) {
+            s.opacity += s.twinkle * s.dir;
+            if (s.opacity >= 1) { s.dir = -1; s.twinkle = Math.random() * 0.02 + 0.01; }
+            if (s.opacity <= 0.05) { s.dir = 1; s.twinkle = Math.random() * 0.02 + 0.01; }
+            s.y -= s.speed;
+            if (s.y < -5) { s.y = canvas.height + 5; s.x = Math.random() * canvas.width; }
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(' + accent + ',' + s.opacity + ')';
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        requestAnimationFrame(animate);
+    }
+    animate();
+}
+
+/* ============================================================
+   Initial render
+   ============================================================ */
+renderAnimationContent();
+</script>
+</body>
+</html>

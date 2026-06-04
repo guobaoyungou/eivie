@@ -112,12 +112,23 @@
         if (!tags) return '<span style="color:#ccc">-</span>';
         if (typeof tags === 'string') { try { tags = JSON.parse(tags); } catch(e) { return '-'; } }
         var pts = tags.primary_tags || [];
-        if (pts.length === 0) return '<span style="color:#ccc">-</span>';
         var html = '';
-        for (var i = 0; i < pts.length; i++) {
-          html += '<span style="display:inline-block;padding:1px 6px;margin:1px 2px;background:#e8f4f8;color:#1E9FFF;border-radius:2px;font-size:11px">' + pts[i] + '</span>';
+        if (pts.length > 0) {
+          for (var i = 0; i < pts.length; i++) {
+            html += '<span style="display:inline-block;padding:1px 6px;margin:1px 2px;background:#e8f4f8;color:#1E9FFF;border-radius:2px;font-size:11px">' + pts[i] + '</span>';
+          }
         }
-        return html;
+        // 单人/多人 + 人脸数量
+        var fc = parseInt(tags.face_count) || 0;
+        if (fc > 0) {
+          if (tags.is_multi_face || fc > 1) {
+            html += '<span style="display:inline-block;padding:1px 6px;margin:1px 2px;background:#FF5722;color:#fff;border-radius:2px;font-size:11px">多人</span>';
+          } else {
+            html += '<span style="display:inline-block;padding:1px 6px;margin:1px 2px;background:#5FB878;color:#fff;border-radius:2px;font-size:11px">单人</span>';
+          }
+          html += '<span style="display:inline-block;padding:1px 6px;margin:1px 2px;background:#f0f0f0;color:#666;border-radius:2px;font-size:11px">' + fc + '脸</span>';
+        }
+        return html ? html : '<span style="color:#ccc">-</span>';
       }},
       {field: 'model_name', title: '绑定模型', width: 150},
       {field: 'use_count', title: '使用次数', width: 90, sort: true, templet: function(d) {

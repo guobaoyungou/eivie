@@ -132,6 +132,31 @@
             return '<span title="' + names.join('、') + '">' + names.join('、') + '</span>';
           }
         }},
+        {field: 'business_price', title: '采购价', width: 90, templet: function(d){
+          var p = d.business_price;
+          return p && p > 0 ? '¥' + parseFloat(p).toFixed(2) : '-';
+        }},
+        {field: 'auto_tags', title: '自动标签', width: 240, templet: function(d){
+          var html = '';
+          // Use joined fields from generation_scene_template
+          var g = d.scene_gender_tag;
+          if(g){var gl={'Male':'男性','Female':'女性','Unknown':'未知'}[g]||g;html+='<span style="display:inline-block;padding:1px 6px;margin:1px 2px;background:#e8f4f8;color:#1E9FFF;border-radius:2px;font-size:11px">'+gl+'</span>';}
+          var a = d.scene_age_tag;
+          if(a){var am={'0-2':'新生儿婴儿','3-9':'小学低龄','10-19':'初中少年','20-29':'职场青年','30-39':'而立青年','36-40':'青中年','41-45':'壮年期','46-50':'中年主力','51-55':'中老年前期','56-60':'准老年前期','61-65':'低龄活力老人','66-70':'健康老人','71-75':'中年老人','76-80':'高龄老人','81-85':'超高龄老人','86+':'长寿老人','Unknown':'未知','新生儿婴儿':'新生儿婴儿','学步期':'学步期','低龄幼童':'低龄幼童','小班幼儿':'小班幼儿','中班幼儿':'中班幼儿','大班幼儿':'大班幼儿','小学低龄':'小学低龄','小学高龄':'小学高龄','初中少年':'初中少年','高中青年':'高中青年','校园青年':'校园青年','初入职场':'初入职场','职场青年':'职场青年','而立青年':'而立青年','青中年':'青中年','壮年期':'壮年期','中年主力':'中年主力','中老年前期':'中老年前期','准老年前期':'准老年前期','低龄活力老人':'低龄活力老人','健康老人':'健康老人','中年老人':'中年老人','高龄老人':'高龄老人','超高龄老人':'超高龄老人','长寿老人':'长寿老人','青少年':'青少年','婴幼儿':'婴幼儿','儿童':'儿童','青年':'青年','中青年':'中青年','中年':'中年','中老年':'中老年','老年':'老年','准老年':'准老年'};html+='<span style="display:inline-block;padding:1px 6px;margin:1px 2px;background:#e8f4f8;color:#1E9FFF;border-radius:2px;font-size:11px">'+(am[a]||a)+'</span>';}
+          // Single/multi person + face count
+          var fc = parseInt(d.scene_face_count) || 0;
+          var isMulti = parseInt(d.scene_is_multi) || 0;
+          if(fc > 0 || isMulti > 0) {
+            if(isMulti > 0 || fc > 1) {
+              html += '<span style="display:inline-block;padding:1px 6px;margin:1px 2px;background:#FF5722;color:#fff;border-radius:2px;font-size:11px">多人</span>';
+            } else {
+              html += '<span style="display:inline-block;padding:1px 6px;margin:1px 2px;background:#5FB878;color:#fff;border-radius:2px;font-size:11px">单人</span>';
+            }
+            if(fc > 0) html += '<span style="display:inline-block;padding:1px 6px;margin:1px 2px;background:#f0f0f0;color:#666;border-radius:2px;font-size:11px">' + fc + '脸</span>';
+          }
+          return html ? html : '<span style="color:#ccc">-</span>';
+        }},
+        {field: 'category', title: '分类', width: 100},
         {field: 'images', title: '模板图片', width: 250, templet: '#imagesTpl'},
         {field: 'sort', title: '排序', width: 80, edit: 'text'},
         {field: 'status', title: '状态', width: 100, templet: '#statusTpl'},

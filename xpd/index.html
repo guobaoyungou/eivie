@@ -4,124 +4,543 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI旅拍选片端</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-            background: #000;
-            overflow: hidden;
-        }
-        #loading {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: #000;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: #fff;
-            z-index: 9999;
-        }
-        #loading .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top-color: #ff6b6b;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        #loading p {
-            margin-top: 20px;
-            font-size: 16px;
-            color: #999;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
+
+    <!-- Swiper CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+    <!-- 布局系统样式 -->
+    <link rel="stylesheet" href="css/layout.css">
+    <!-- 模块样式 -->
+    <link rel="stylesheet" href="css/modules.css">
 </head>
 <body>
-    <div id="loading">
+<div id="app">
+    <!-- 加载遮罩 -->
+    <div id="loading-overlay">
         <div class="spinner"></div>
-        <p>正在加载模板...</p>
+        <p>正在加载...</p>
     </div>
 
+    <!-- 布局画布（由 LayoutEngine 填充） -->
+    <div id="xpd-canvas" class="xpd-canvas"></div>
+
+    <!-- 人脸检测状态指示（展示模式悬浮，编辑模式隐藏） -->
+    <div class="module-face-status" id="globalFaceStatus">
+        <div class="face-status-inner">
+            <div class="dot" id="faceStatusDot"></div>
+            <span id="faceStatusText">初始化...</span>
+        </div>
+    </div>
+
+    <!-- 隐藏摄像头 -->
+    <video id="cameraVideo" muted playsinline></video>
+</div>
+
+    <!-- Vue 3 -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+    <!-- Axios -->
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <!-- Swiper -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <!-- QRCode -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs2@0.0.2/qrcode.min.js"></script>
+    <!-- face-api.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1/dist/face-api.js"></script>
+
+    <!-- 自定义模块 JS -->
+    <script src="js/api.js"></script>
+    <script src="js/modules/swiper-module.js"></script>
+    <script src="js/modules/avatar-module.js"></script>
+    <script src="js/modules/qrcode-module.js"></script>
+    <script src="js/modules/face-detect-module.js"></script>
+    <script src="js/layout-engine.js"></script>
+    <script src="js/layout-editor.js"></script>
+
     <script>
-        // 模板路由系统
-        (function() {
-            // 解析URL参数
-            function getQueryParams() {
-                const params = {};
-                const search = window.location.search.substring(1);
-                if (search) {
-                    search.split('&').forEach(param => {
-                        const [key, value] = param.split('=');
-                        params[decodeURIComponent(key)] = decodeURIComponent(value || '');
-                    });
+    const { createApp } = Vue;
+
+    createApp({
+        data() {
+            return {
+                // URL参数
+                aid: '',
+                bid: '',
+                mdid: '0',
+                mode: 'display', // display | edit
+
+                // 数据
+                dataList: [],
+
+                // 播放状态
+                currentGroupIndex: 0,
+                currentImageIndex: 0,
+                groupStartTime: 0,
+                isPlaying: false,
+
+                // API配置
+                config: {
+                    imageDuration: 1000,
+                    groupDuration: 5000,
+                    refreshInterval: 30000,
+                    retryCount: 3,
+                    retryDelay: 5000,
+                    limit: 15,
+                },
+
+                // 布局配置
+                layoutConfig: null,
+                bgColor: '#000000',
+                faceDetectEnabled: true,
+
+                // 定时器
+                playTimer: null,
+                refreshTimer: null,
+
+                // 人脸检测状态
+                faceStatus: 'init',
+                faceStatusText: '',
+                currentMode: 'default', // 'default' | 'faceMatch'
+            };
+        },
+
+        mounted() {
+            this.parseUrlParams();
+            this.validateParams();
+            this.initApp();
+        },
+
+        beforeUnmount() {
+            this.cleanup();
+        },
+
+        methods: {
+            // ========================================
+            // 初始化
+            // ========================================
+
+            parseUrlParams() {
+                const params = new URLSearchParams(window.location.search);
+                this.aid = params.get('aid') || '';
+                this.bid = params.get('bid') || '';
+                this.mdid = params.get('mdid') || '0';
+                this.mode = params.get('mode') === 'edit' ? 'edit' : 'display';
+            },
+
+            validateParams() {
+                if (!this.aid || (!this.bid && this.mdid === '0')) {
+                    this.showError('缺少必要参数：aid 和 bid/mdid');
+                    return false;
                 }
-                return params;
-            }
+                if (!/^\d+$/.test(this.aid) || !/^\d+$/.test(this.bid) || !/^\d+$/.test(this.mdid)) {
+                    this.showError('参数格式错误：必须为正整数');
+                    return false;
+                }
+                return true;
+            },
 
-            // 获取参数
-            const params = getQueryParams();
-            const aid = params.aid || '';
-            const bid = params.bid || '';
-            const mdid = params.mdid || '0';
-            const template = params.template || 'template_1'; // 从 URL 读取模板参数
+            async initApp() {
+                // 获取数据
+                await this.fetchSelectionData();
 
-            // 参数验证
-            if (!aid || !bid) {
-                document.getElementById('loading').innerHTML = `
-                    <div style="text-align:center; color:#ff6b6b;">
-                        <h2 style="font-size:24px; margin-bottom:20px;">参数错误</h2>
-                        <p style="font-size:16px;">缺少必要参数 aid 或 bid</p>
-                        <p style="font-size:14px; color:#999; margin-top:10px;">请检查访问链接是否正确</p>
+                // 初始化布局引擎
+                this.initLayoutEngine();
+
+                // 初始化各模块
+                this.initModules();
+
+                // 初始化人脸检测
+                this.initFaceDetection();
+
+                // 设置背景色
+                document.body.style.backgroundColor = this.bgColor;
+
+                // 隐藏加载遮罩
+                document.getElementById('loading-overlay').style.display = 'none';
+
+                // 编辑模式：启动编辑器
+                if (this.mode === 'edit') {
+                    LayoutEditor.init(LayoutEngine);
+                    this.bindEditEvents();
+                }
+
+                // 展示模式：启动播放
+                if (this.dataList.length > 0) {
+                    this.startPlay();
+                    this.scheduleRefresh();
+                }
+
+                // 监听布局变化事件（缩放后重新计算头像等）
+                window.addEventListener('layout-resized', () => {
+                    AvatarModule.resize();
+                });
+            },
+
+            bindEditEvents() {
+                // 保存布局事件
+                window.addEventListener('layout-save', async (e) => {
+                    try {
+                        const result = await XpdApi.saveLayout({
+                            aid: this.aid,
+                            mdid: this.mdid,
+                            layout: e.detail.layout,
+                            bg_color: this.bgColor,
+                            face_detect: this.faceDetectEnabled ? 1 : 0
+                        });
+                        if (result.status === 1) {
+                            alert('布局保存成功');
+                        } else {
+                            alert('保存失败: ' + (result.msg || '未知错误'));
+                        }
+                    } catch (err) {
+                        alert('保存失败: ' + err.message);
+                    }
+                });
+            },
+
+            // ========================================
+            // 数据获取
+            // ========================================
+
+            async fetchSelectionData(retryCount = 0) {
+                try {
+                    const response = await XpdApi.fetchSelectionList({
+                        aid: this.aid,
+                        bid: this.bid,
+                        mdid: this.mdid,
+                        limit: this.config.limit
+                    });
+
+                    if (response.status === 1 && response.data) {
+                        this.dataList = response.data.list || [];
+
+                        // 应用API返回的配置
+                        const cfg = response.data.config || {};
+                        if (cfg.image_duration) this.config.imageDuration = cfg.image_duration;
+                        if (cfg.group_duration) this.config.groupDuration = cfg.group_duration;
+                        if (cfg.bg_color) this.bgColor = cfg.bg_color;
+                        this.faceDetectEnabled = cfg.face_detect_enabled !== undefined
+                            ? cfg.face_detect_enabled
+                            : true;
+                        this.layoutConfig = cfg.layout;
+
+                        // 按时间倒序
+                        this.dataList.sort((a, b) => (b.create_time || 0) - (a.create_time || 0));
+
+                        if (this.dataList.length === 0) {
+                            this.showEmpty();
+                        }
+                    } else {
+                        throw new Error(response.msg || '数据获取失败');
+                    }
+                } catch (error) {
+                    console.error('获取数据失败:', error);
+                    if (retryCount < this.config.retryCount) {
+                        await new Promise(r => setTimeout(r, this.config.retryDelay));
+                        return this.fetchSelectionData(retryCount + 1);
+                    }
+                    this.showEmpty();
+                }
+            },
+
+            // ========================================
+            // 布局引擎
+            // ========================================
+
+            initLayoutEngine() {
+                const canvas = document.getElementById('xpd-canvas');
+
+                // 构建布局配置
+                const layoutConf = this.layoutConfig ? {
+                    bgColor: this.bgColor,
+                    faceDetectEnabled: this.faceDetectEnabled,
+                    modules: this.layoutConfig.modules
+                } : null;
+
+                LayoutEngine.init(canvas, layoutConf, this.mode === 'edit');
+            },
+
+            // ========================================
+            // 模块初始化
+            // ========================================
+
+            initModules() {
+                // Swiper 模块
+                const swiperEl = LayoutEngine.getModuleByType('swiper');
+                if (swiperEl) {
+                    SwiperModule.init(swiperEl);
+                    SwiperModule.renderSlides(this.dataList);
+                }
+
+                // Avatar 模块
+                const avatarEl = LayoutEngine.getModuleByType('avatar');
+                if (avatarEl) {
+                    AvatarModule.init(avatarEl, (index) => this.handleAvatarClick(index));
+                    AvatarModule.render(this.dataList, this.currentGroupIndex);
+                }
+
+                // QRCode 模块
+                const qrcodeEl = LayoutEngine.getModuleByType('qrcode');
+                if (qrcodeEl) {
+                    QRCodeModule.init(qrcodeEl);
+                    if (this.dataList.length > 0) {
+                        QRCodeModule.update(this.dataList[0], false);
+                    }
+                }
+
+                // 人脸状态指示器
+                const statusEl = LayoutEngine.getModuleByType('face-status');
+                if (statusEl && this.faceDetectEnabled) {
+                    statusEl.classList.add('active');
+                }
+            },
+
+            // ========================================
+            // 播放控制
+            // ========================================
+
+            startPlay() {
+                this.isPlaying = true;
+                this.currentGroupIndex = 0;
+                this.currentImageIndex = 0;
+                this.groupStartTime = Date.now();
+                this.currentMode = 'default';
+
+                SwiperModule.slideTo(0, 0);
+
+                if (this.playTimer) clearInterval(this.playTimer);
+                this.playTimer = setInterval(() => {
+                    this.playNext();
+                }, this.config.imageDuration);
+            },
+
+            stopPlay() {
+                this.isPlaying = false;
+                if (this.playTimer) {
+                    clearInterval(this.playTimer);
+                    this.playTimer = null;
+                }
+            },
+
+            playNext() {
+                if (!this.isPlaying || this.dataList.length === 0) return;
+
+                const currentTime = Date.now();
+                const elapsed = currentTime - this.groupStartTime;
+
+                if (elapsed >= this.config.groupDuration) {
+                    this.switchToNextGroup();
+                } else {
+                    this.switchToNextImage();
+                }
+            },
+
+            switchToNextImage() {
+                const group = this.dataList[this.currentGroupIndex];
+                if (!group || !group.results) return;
+
+                this.currentImageIndex = (this.currentImageIndex + 1) % group.results.length;
+
+                let globalIndex = 0;
+                for (let i = 0; i < this.currentGroupIndex; i++) {
+                    globalIndex += this.dataList[i].results.length;
+                }
+                globalIndex += this.currentImageIndex;
+
+                SwiperModule.slideTo(globalIndex);
+            },
+
+            switchToNextGroup() {
+                // 人脸匹配模式下，播放完当前组后回退
+                if (this.currentMode === 'faceMatch') {
+                    FaceDetectModule.markPlayComplete();
+                    setTimeout(() => {
+                        if (FaceDetectModule.getMode() === 'faceMatch') {
+                            this.switchToDefaultMode();
+                        }
+                    }, 3000);
+                    return;
+                }
+
+                this.currentGroupIndex = (this.currentGroupIndex + 1) % this.dataList.length;
+                this.currentImageIndex = 0;
+                this.groupStartTime = Date.now();
+
+                let globalIndex = 0;
+                for (let i = 0; i < this.currentGroupIndex; i++) {
+                    globalIndex += this.dataList[i].results.length;
+                }
+
+                SwiperModule.slideTo(globalIndex);
+                AvatarModule.highlight(this.currentGroupIndex);
+                QRCodeModule.update(this.dataList[this.currentGroupIndex], false);
+
+                // 一轮播放完成触发刷新
+                if (this.currentGroupIndex === 0) {
+                    this.scheduleRefresh();
+                }
+            },
+
+            // ========================================
+            // 头像点击
+            // ========================================
+
+            handleAvatarClick(groupIndex) {
+                if (groupIndex < 0 || groupIndex >= this.dataList.length) return;
+                this.stopPlay();
+                this.currentGroupIndex = groupIndex;
+                this.currentImageIndex = 0;
+                this.groupStartTime = Date.now();
+                this.currentMode = 'default';
+
+                let globalIndex = 0;
+                for (let i = 0; i < groupIndex; i++) {
+                    globalIndex += this.dataList[i].results.length;
+                }
+
+                SwiperModule.slideTo(globalIndex, 500);
+                AvatarModule.highlight(groupIndex);
+                QRCodeModule.update(this.dataList[groupIndex], false);
+
+                setTimeout(() => this.startPlay(), 500);
+            },
+
+            // ========================================
+            // 人脸检测
+            // ========================================
+
+            async initFaceDetection() {
+                FaceDetectModule.init(
+                    this.faceDetectEnabled,
+                    (portraitId) => this.onFaceMatched(portraitId),
+                    () => this.switchToDefaultMode(),
+                    (state, text) => this.updateFaceStatus(state, text)
+                );
+
+                // 构建特征库
+                if (this.faceDetectEnabled && this.dataList.length > 0) {
+                    await FaceDetectModule.buildDescriptors(this.dataList);
+                }
+            },
+
+            onFaceMatched(portraitId) {
+                this.currentMode = 'faceMatch';
+                this.stopPlay();
+
+                const index = this.dataList.findIndex(item => item.id === portraitId);
+                if (index < 0) return;
+
+                this.currentGroupIndex = index;
+                this.currentImageIndex = 0;
+                this.groupStartTime = Date.now();
+
+                let globalIndex = 0;
+                for (let i = 0; i < index; i++) {
+                    globalIndex += this.dataList[i].results.length;
+                }
+
+                SwiperModule.slideTo(globalIndex, 500);
+                AvatarModule.highlight(index);
+                QRCodeModule.update(this.dataList[index], true);
+
+                this.isPlaying = true;
+                this.playTimer = setInterval(() => this.playNext(), this.config.imageDuration);
+            },
+
+            switchToDefaultMode() {
+                console.log('回到默认轮播');
+                this.currentMode = 'default';
+                this.stopPlay();
+                this.startPlay();
+                AvatarModule.highlight(this.currentGroupIndex);
+                QRCodeModule.update(this.dataList[this.currentGroupIndex], false);
+                this.updateFaceStatus('active', '人脸检测已开启');
+            },
+
+            updateFaceStatus(state, text) {
+                this.faceStatus = state;
+                this.faceStatusText = text;
+
+                const dot = document.getElementById('faceStatusDot');
+                const textEl = document.getElementById('faceStatusText');
+                const statusMod = document.getElementById('globalFaceStatus');
+
+                if (state === 'disabled') {
+                    if (statusMod) statusMod.classList.remove('active');
+                    return;
+                }
+
+                if (statusMod && this.faceDetectEnabled) {
+                    statusMod.classList.add('active');
+                }
+
+                if (dot) {
+                    dot.className = 'dot ' + state;
+                }
+                if (textEl) {
+                    textEl.textContent = text;
+                }
+            },
+
+            // ========================================
+            // 定时刷新
+            // ========================================
+
+            scheduleRefresh() {
+                if (this.refreshTimer) clearTimeout(this.refreshTimer);
+                this.refreshTimer = setTimeout(async () => {
+                    await this.fetchSelectionData();
+                    this.initLayoutEngine();
+                    this.initModules();
+                    this.startPlay();
+                    this.initFaceDetection();
+                }, this.config.refreshInterval);
+            },
+
+            // ========================================
+            // 空状态/错误
+            // ========================================
+
+            showEmpty() {
+                // 先隐藏加载遮罩
+                document.getElementById('loading-overlay').style.display = 'none';
+                const canvas = document.getElementById('xpd-canvas');
+                canvas.innerHTML = `
+                    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#999;z-index:10000;">
+                        <div style="font-size:80px;margin-bottom:20px;">📸</div>
+                        <div style="font-size:24px;margin-bottom:10px;">暂无内容</div>
+                        <div style="font-size:16px;">请上传人像照片开始生成</div>
                     </div>
                 `;
-                return;
-            }
+            },
 
-            // 验证参数为正整数
-            if (!/^\d+$/.test(aid) || !/^\d+$/.test(bid) || !/^\d+$/.test(mdid)) {
-                document.getElementById('loading').innerHTML = `
-                    <div style="text-align:center; color:#ff6b6b;">
-                        <h2 style="font-size:24px; margin-bottom:20px;">参数格式错误</h2>
-                        <p style="font-size:16px;">参数必须为正整数</p>
+            showError(msg) {
+                document.getElementById('loading-overlay').innerHTML = `
+                    <div style="text-align:center;color:#ff6b6b;">
+                        <h2 style="font-size:24px;margin-bottom:20px;">参数错误</h2>
+                        <p style="font-size:16px;">${msg}</p>
+                        <p style="font-size:14px;color:#999;margin-top:10px;">请检查访问链接是否正确</p>
                     </div>
                 `;
-                return;
-            }
+            },
 
-            // 加载模板
-            const templateUrl = `templates/${template}/index.html?aid=${aid}&bid=${bid}&mdid=${mdid}&_t=${Date.now()}`;
-            
-            // 创建iframe加载模板
-            const iframe = document.createElement('iframe');
-            iframe.src = templateUrl;
-            iframe.style.cssText = 'width:100vw; height:100vh; border:none; display:block;';
-            iframe.onload = function() {
-                setTimeout(() => {
-                    document.getElementById('loading').style.display = 'none';
-                }, 500);
-            };
-            iframe.onerror = function() {
-                document.getElementById('loading').innerHTML = `
-                    <div style="text-align:center; color:#ff6b6b;">
-                        <h2 style="font-size:24px; margin-bottom:20px;">模板加载失败</h2>
-                        <p style="font-size:16px;">无法加载模板 ${template}</p>
-                    </div>
-                `;
-            };
-            
-            document.body.appendChild(iframe);
-        })();
+            // ========================================
+            // 清理
+            // ========================================
+
+            cleanup() {
+                this.stopPlay();
+                if (this.refreshTimer) clearTimeout(this.refreshTimer);
+                SwiperModule.destroy();
+                FaceDetectModule.destroy();
+                LayoutEditor.destroy();
+                LayoutEngine.destroy();
+
+                const video = document.getElementById('cameraVideo');
+                if (video && video.srcObject) {
+                    video.srcObject.getTracks().forEach(t => t.stop());
+                }
+            }
+        }
+    }).mount('#app');
     </script>
 </body>
 </html>

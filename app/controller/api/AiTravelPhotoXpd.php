@@ -72,4 +72,45 @@ class AiTravelPhotoXpd extends BaseController
             ]);
         }
     }
+
+    /**
+     * 保存布局配置
+     * POST /api/ai-travel-photo/layout-save
+     * 参数: aid, mdid, layout(JSON字符串), bg_color, face_detect
+     * 
+     * @return Response
+     */
+    public function layout_save(): Response
+    {
+        try {
+            $aid   = (int)$this->request->post('aid', 0);
+            $mdid  = (int)$this->request->post('mdid', 0);
+            $layoutJson = $this->request->post('layout', null);
+            $bgColor    = $this->request->post('bg_color', null);
+            $faceDetect = $this->request->post('face_detect', null);
+
+            if (!$aid || !$mdid) {
+                return json(['status' => 0, 'msg' => '缺少必要参数 aid 或 mdid']);
+            }
+
+            // face_detect 转换
+            $faceDetectVal = null;
+            if ($faceDetect !== null) {
+                $faceDetectVal = (int)$faceDetect;
+            }
+
+            $this->qrcodeService->saveXpdLayout($aid, $mdid, $layoutJson, $bgColor, $faceDetectVal);
+
+            return json([
+                'status' => 1,
+                'msg' => '保存成功'
+            ]);
+
+        } catch (\Exception $e) {
+            return json([
+                'status' => 0,
+                'msg' => $e->getMessage()
+            ]);
+        }
+    }
 }

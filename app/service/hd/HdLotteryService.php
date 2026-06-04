@@ -859,11 +859,18 @@ class HdLotteryService
         $settings = $screenConfig['lottery_screen'] ?? [
             'display_mode'              => 'nickname',
             'template'                  => 'gold',
+            'show_count'                => 0,
+            'text_color'                => '#e1e1e1',
+            'text_shadow_color'         => '#676767',
             'screen_enabled'            => 0,
             'screen_mode'               => 'normal',
             'screen_animation_duration' => 3000,
             'background'                => null,
         ];
+        // 兼容旧数据，补充缺失的字段默认值
+        $settings['show_count'] = $settings['show_count'] ?? 0;
+        $settings['text_color'] = $settings['text_color'] ?? '#e1e1e1';
+        $settings['text_shadow_color'] = $settings['text_shadow_color'] ?? '#676767';
 
         return ['code' => 0, 'data' => $settings];
     }
@@ -887,6 +894,9 @@ class HdLotteryService
         $screenConfig['lottery_screen'] = [
             'display_mode'              => $data['display_mode'] ?? 'nickname',
             'template'                  => $data['template'] ?? 'gold',
+            'show_count'                => (int)($data['show_count'] ?? 0),
+            'text_color'                => $data['text_color'] ?? '#e1e1e1',
+            'text_shadow_color'         => $data['text_shadow_color'] ?? '#676767',
             'screen_enabled'            => (int)($data['screen_enabled'] ?? 0),
             'screen_mode'               => $data['screen_mode'] ?? 'normal',
             'screen_animation_duration' => (int)($data['screen_animation_duration'] ?? 3000),

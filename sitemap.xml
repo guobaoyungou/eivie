@@ -1,0 +1,115 @@
+<?xml version=" 1.0\ encoding=\UTF-8\?>
+<urlset xmlns=\http://www.sitemaps.org/schemas/sitemap/0.9\
+ xmlns:mobile=\http://www.sitemaps.org/schemas/sitemap/0.9/mobile\
+ xmlns:image=\http://www.google.com/schemas/sitemap-image/1.1\>
+ <!-- 首页 -->
+ <url>
+ <loc>https://ai.eivie.cn/</loc>
+ <priority>1.0</priority>
+ <changefreq>daily</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- H5移动端首页 -->
+ <url>
+ <loc>https://ai.eivie.cn/h5/index.html</loc>
+ <mobile:mobile/>
+ <priority>0.9</priority>
+ <changefreq>weekly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- AI工具落地页 -->
+ <url>
+ <loc>https://ai.eivie.cn/xpd/index.html</loc>
+ <priority>0.8</priority>
+ <changefreq>monthly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- AI旅拍（扫码授权页） -->
+ <url>
+ <loc>https://ai.eivie.cn/public/aivideo/index.html</loc>
+ <mobile:mobile/>
+ <priority>0.7</priority>
+ <changefreq>monthly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- AI算八字 -->
+ <url>
+ <loc>https://ai.eivie.cn/public/bazi/index.html</loc>
+ <mobile:mobile/>
+ <priority>0.7</priority>
+ <changefreq>monthly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- 选片工具 -->
+ <url>
+ <loc>https://ai.eivie.cn/public/pick/index.html</loc>
+ <mobile:mobile/>
+ <priority>0.7</priority>
+ <changefreq>monthly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- AI自拍 -->
+ <url>
+ <loc>https://ai.eivie.cn/public/selfie/index.html</loc>
+ <mobile:mobile/>
+ <priority>0.7</priority>
+ <changefreq>monthly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- OTO机器人 -->
+ <url>
+ <loc>https://ai.eivie.cn/OTObot/index.html</loc>
+ <priority>0.6</priority>
+ <changefreq>monthly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- 文章列表页 -->
+ <url>
+ <loc>https://ai.eivie.cn/article</loc>
+ <priority>0.7</priority>
+ <changefreq>weekly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- 帮助中心 -->
+ <url>
+ <loc>https://ai.eivie.cn/help</loc>
+ <priority>0.6</priority>
+ <changefreq>monthly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- 八字AI（ThinkPHP路由） -->
+ <url>
+ <loc>https://ai.eivie.cn/bazi</loc>
+ <priority>0.8</priority>
+ <changefreq>weekly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- 八字AI付费页 -->
+ <url>
+ <loc>https://ai.eivie.cn/bazi/go-pay</loc>
+ <priority>0.6</priority>
+ <changefreq>monthly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- 八字AI结果页 -->
+ <url>
+ <loc>https://ai.eivie.cn/bazi/result</loc>
+ <priority>0.6</priority>
+ <changefreq>monthly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- 下载APP -->
+ <url>
+ <loc>https://ai.eivie.cn/index/downloadapp</loc>
+ <priority>0.5</priority>
+ <changefreq>monthly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+ <!-- 联系页面 -->
+ <url>
+ <loc>https://ai.eivie.cn/lianxi</loc>
+ <priority>0.4</priority>
+ <changefreq>monthly</changefreq>
+ <lastmod>2026-05-09</lastmod>
+ </url>
+</urlset>

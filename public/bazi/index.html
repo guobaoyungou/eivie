@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>算八字 · AI 命理分析</title>
+<style>
+:root {
+  --bg: #080614;
+  --bg-card: rgba(18, 14, 38, 0.88);
+  --border: rgba(198, 165, 90, 0.12);
+  --border-active: rgba(198, 165, 90, 0.40);
+  --gold: #c6a55a;
+  --gold-glow: #e8d390;
+  --gold-muted: #8a7340;
+  --text: #e4ddcc;
+  --text-dim: #8a8070;
+  --text-bright: #faf6ea;
+  --danger: #e0706a;
+  --success: #5cb878;
+  --r-xs: 8px; --r-sm: 12px; --r-md: 18px; --r-lg: 24px;
+  --ease: cubic-bezier(.4,0,.2,1);
+  --ease-spring: cubic-bezier(.34,1.56,.64,1);
+}
+*,*::before,*::after{ margin:0; padding:0; box-sizing:border-box; }
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+}
+/* ===== BACKGROUND ===== */
+.bg-layer{ position:fixed;inset:0;pointer-events:none;z-index:0; }
+.bg-layer .orb{ position:absolute;border-radius:50%;filter:blur(80px); }
+.bg-layer .orb-1{ width:380px;height:380px;background:radial-gradient(circle,rgba(198,165,90,.07),transparent 70%);top:-100px;left:-120px; }
+.bg-layer .orb-2{ width:280px;height:280px;background:radial-gradient(circle,rgba(120,100,180,.05),transparent 70%);bottom:-80px;right:-60px; }
+.bg-layer .orb-3{ width:200px;height:200px;background:radial-gradient(circle,rgba(198,165,90,.04),transparent 65%);top:40%;left:60%; }
+.bg-layer .grid{ position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(198,165,90,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(198,165,90,.03) 1px,transparent 1px);
+  background-size:48px 48px;
+  -webkit-mask-image:radial-gradient(ellipse at center,black 30%,transparent 70%);
+  mask-image:radial-gradient(ellipse at center,black 30%,transparent 70%);
+}
+
+/* ===== CONTAINER ===== */
+.container{ position:relative;z-index:1;width:100%;margin:0 auto;padding:16px 10px 56px; }
+
+/* ===== HEADER ===== */
+.header{ text-align:center;padding:28px 0 8px; }
+.header .brand{ display:inline-flex;align-items:center;gap:6px; }
+.header .brand-mark{
+  width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 30% 30%,rgba(198,165,90,.25),transparent 70%);
+  border-radius:50%;font-size:26px;color:var(--gold-glow);
+  filter:drop-shadow(0 0 12px rgba(198,165,90,.3));
+}
+.header h1{ font-size:32px;font-weight:800;letter-spacing:4px;margin-top:4px;
+  background:linear-gradient(180deg,var(--gold-glow) 0%,var(--gold) 50%,var(--gold-muted) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 1px 4px rgba(198,165,90,.15));
+}
+.header .sub{ font-size:12px;color:var(--text-dim);letter-spacing:2px;margin-top:6px; }
+
+/* ===== MEMBER AVATAR ===== */
+.member-badge{
+  position:absolute;top:20px;right:14px;display:none;align-items:center;gap:8px;
+  font-size:11px;color:var(--text-dim);letter-spacing:.5px;
+  padding:4px 10px 4px 4px;border-radius:20px;
+  background:rgba(198,165,90,.04);
+}
+.member-badge.show{ display:flex; }
+.member-badge .avatar{
+  width:28px;height:28px;border-radius:50%;object-fit:cover;
+  border:1.5px solid rgba(198,165,90,.25);
+  background:rgba(198,165,90,.1);
+}
+.member-badge .avatar-fallback{
+  width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:rgba(198,165,90,.1);border:1.5px solid rgba(198,165,90,.25);
+  font-size:14px;color:var(--gold-glow);
+}
+
+/* ===== SECTION TITLE ===== */
+.section-title{
+  display:flex;align-items:center;gap:10px;margin-bottom:24px;justify-content:center;
+}
+.section-title::before,.section-title::after{
+  content:'';width:28px;height:1px;background:var(--border);
+}
+.section-title span{ font-size:14px;font-weight:600;color:var(--gold);letter-spacing:2px; }
+
+/* ===== CARD ===== */
+.card{
+  background:var(--bg-card);border-radius:var(--r-lg);
+  padding:24px 12px;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  box-shadow:0 1px 2px rgba(0,0,0,.18),0 8px 40px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.015);
+  margin-bottom:12px;
+}
+
+/* ===== FORM ===== */
+.form-field{ margin-bottom:20px;position:relative; }
+.form-field .field-icon{
+  position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  font-size:15px;color:var(--text-dim);pointer-events:none;z-index:1;transition:color .25s var(--ease);
+}
+.form-field:focus-within .field-icon{ color:var(--gold); }
+.form-label{ display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;letter-spacing:.5px;font-weight:500; }
+.form-label .req{ color:var(--gold); }
+.form-input{
+  width:100%;padding:14px 16px 14px 40px;background:rgba(8,6,20,.6);border:1px solid var(--border);
+  border-radius:var(--r-xs);color:var(--text-bright);font-size:15px;outline:none;
+  transition:all .25s var(--ease);font-family:inherit;
+}
+.form-input:focus{ border-color:var(--border-active);box-shadow:0 0 0 3px rgba(198,165,90,.06); }
+.form-input::placeholder{ color:rgba(138,128,112,.35); }
+.form-input.date-input,.form-input.time-input{
+  color-scheme:dark;
+}
+.form-input.date-input::-webkit-calendar-picker-indicator,
+.form-input.time-input::-webkit-calendar-picker-indicator{
+  filter:invert(.65);cursor:pointer;opacity:.7;
+}
+/* name field no icon */
+.form-input.no-icon{ padding-left:16px; }
+
+/* ===== GENDER PICKER ===== */
+.gender-row{ display:flex;gap:12px; }
+.gender-pill{
+  flex:1;padding:14px 16px;background:rgba(8,6,20,.6);border:1px solid var(--border);
+  border-radius:var(--r-xs);color:var(--text-dim);font-size:15px;text-align:center;
+  cursor:pointer;transition:all .25s var(--ease);user-select:none;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.gender-pill .pill-icon{ font-size:18px;transition:all .25s var(--ease); }
+.gender-pill:hover{ border-color:rgba(198,165,90,.3); }
+.gender-pill.active{
+  border-color:var(--gold);color:var(--gold-glow);
+  background:rgba(198,165,90,.08);box-shadow:0 0 0 3px rgba(198,165,90,.04);
+}
+.gender-pill.active .pill-icon{ filter:drop-shadow(0 0 4px rgba(198,165,90,.4)); }
+
+/* ===== PRICE BADGE ===== */
+.price-badge{ display:none;text-align:center;margin-bottom:20px; }
+.price-badge.show{ display:block; }
+.price-badge .badge-inner{
+  display:inline-block;padding:8px 20px;background:rgba(198,165,90,.08);
+  border-radius:20px;font-size:13px;color:var(--gold-muted);letter-spacing:.5px;
+}
+
+/* ===== BUTTONS ===== */
+.btn-primary{
+  width:100%;padding:16px;font-size:16px;font-weight:700;letter-spacing:2px;
+  border:none;border-radius:var(--r-sm);cursor:pointer;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,#a07828 0%,#c6a55a 30%,#d4b870 60%,#c6a55a 100%);
+  color:#1a1008;transition:all .3s var(--ease);
+  box-shadow:0 4px 20px rgba(198,165,90,.15),inset 0 1px 0 rgba(255,255,255,.15);
+}
+.btn-primary:active{ transform:scale(.98); }
+.btn-primary:disabled{ opacity:.5;cursor:not-allowed;transform:none; }
+.btn-primary .btn-label{ transition:opacity .2s; }
+.btn-primary .btn-load{ display:none;align-items:center;justify-content:center;gap:6px; }
+.btn-primary.loading .btn-label{ opacity:0; }
+.btn-primary.loading .btn-load{ display:flex;position:absolute;inset:0; }
+.btn-load .dot{ width:7px;height:7px;border-radius:50%;background:#1a1008;animation:dotPulse 1.4s infinite ease-in-out; }
+.btn-load .dot:nth-child(2){ animation-delay:.15s; }
+.btn-load .dot:nth-child(3){ animation-delay:.3s; }
+
+.btn-outline{
+  display:block;width:100%;padding:14px;margin-top:10px;background:transparent;
+  border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-dim);
+  font-size:14px;cursor:pointer;letter-spacing:1px;text-align:center;transition:all .25s var(--ease);
+}
+.btn-outline:hover{ border-color:var(--gold-muted);color:var(--gold); }
+
+.btn-danger{
+  display:block;width:100%;padding:16px;background:linear-gradient(135deg,#b82e28,#d94040);
+  border:none;border-radius:var(--r-sm);color:#fff;font-size:16px;font-weight:700;
+  cursor:pointer;letter-spacing:1px;transition:all .3s var(--ease);
+}
+.btn-danger:disabled{ opacity:.5;cursor:not-allowed; }
+
+/* ===== SUBMITTED STATE ===== */
+.submitted-view{ display:none; }
+.submitted-view.show{ display:block;animation:fadeIn .5s var(--ease); }
+.submitted-view .done-icon{
+  text-align:center;font-size:56px;margin-bottom:12px;
+  animation:popIn .5s var(--ease-spring);
+}
+.submitted-view .done-title{ font-size:20px;color:var(--gold-glow);text-align:center;font-weight:700;letter-spacing:1px; }
+.submitted-view .done-desc{ text-align:center;font-size:14px;color:var(--text-dim);line-height:1.8;margin:16px 0; }
+.submitted-view .done-desc .hl{ color:var(--gold);font-weight:600; }
+.submitted-view .done-info{
+  background:rgba(198,165,90,.04);border-radius:var(--r-sm);padding:16px;margin-bottom:20px;
+  font-size:13px;color:var(--text-dim);line-height:2;
+}
+.submitted-view .done-info .lbl{ color:rgba(138,128,112,.5);font-size:11px; }
+
+/* ===== RECORDS ===== */
+.records-section{ display:none; }
+.records-section.open{ display:block;animation:fadeIn .4s var(--ease); }
+.records-header{
+  display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;
+  cursor:pointer;
+}
+.records-header h3{ font-size:15px;color:var(--gold);font-weight:600;letter-spacing:1px; }
+.records-header .hint{ font-size:11px;color:var(--text-dim); }
+.record-card{
+  padding:16px;margin-bottom:10px;background:rgba(18,14,38,.5);
+  border-radius:var(--r-sm);cursor:pointer;transition:all .2s var(--ease);
+}
+.record-card:active{ transform:scale(.985);background:rgba(198,165,90,.04); }
+.record-card .rc-top{ display:flex;justify-content:space-between;align-items:center;margin-bottom:8px; }
+.record-card .rc-name{ font-size:15px;font-weight:600;color:var(--text-bright); }
+.record-card .rc-status{ font-size:10px;padding:3px 10px;border-radius:10px;font-weight:600;letter-spacing:.5px; }
+.record-card .rc-status.ok{ background:rgba(92,184,120,.12);color:var(--success); }
+.record-card .rc-status.wait{ background:rgba(198,165,90,.1);color:var(--gold-muted); }
+.record-card .rc-meta{ font-size:12px;color:var(--text-dim);line-height:1.6; }
+.record-card .rc-time{ font-size:11px;color:rgba(138,128,112,.5);margin-top:6px;display:flex;align-items:center;justify-content:space-between; }
+.record-card .rc-arrow{ font-size:12px;color:var(--gold-muted); }
+.records-empty{ text-align:center;padding:40px 20px;color:var(--text-dim);font-size:14px; }
+.records-empty .empty-icon{ font-size:40px;margin-bottom:12px;opacity:.5; }
+
+/* ===== LOADING ===== */
+.loading-screen{ display:none;text-align:center;padding:48px 20px; }
+.loading-screen.show{ display:block; }
+.spinner-ring{
+  width:48px;height:48px;border:3px solid rgba(198,165,90,.08);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 20px;
+}
+.loading-screen .ls-text{ font-size:15px;color:var(--text-dim);letter-spacing:1px; }
+.loading-screen .ls-sub{ font-size:12px;color:rgba(138,128,112,.5);margin-top:8px; }
+
+/* ===== RESULT AREA (同步流程保留) ===== */
+.result-area{ display:none; }
+.result-area.show{ display:block;animation:fadeIn .5s var(--ease); }
+.result-area .result-body{ font-size:15px;line-height:1.85;margin-top:4px;color:var(--text); }
+.result-area .result-body p{margin:6px 0; }
+.result-area .result-body h2{ color:var(--gold);font-size:17px;margin:28px 0 12px;padding-bottom:8px;border-bottom:2px solid rgba(198,165,90,.2);font-weight:700;letter-spacing:1px; }
+.result-area .result-body h3{ color:var(--gold-glow);font-size:15px;margin:18px 0 8px;font-weight:600; }
+.result-area .result-body strong{ color:var(--gold-glow);font-weight:600; }
+.result-area .result-body em{ color:var(--text-bright);font-style:italic; }
+
+/* Section Card */
+.result-body .section-card{background:rgba(198,165,90,.025);border-radius:var(--r-sm);padding:12px 10px;margin-bottom:12px; }
+
+/* Table */
+.result-body .md-table-wrap{overflow-x:auto;margin:14px 0;border-radius:8px;border:1px solid rgba(198,165,90,.1); }
+.result-body table{width:100%;border-collapse:collapse;font-size:13px; }
+.result-body table td,.result-body table th{padding:8px 10px;border-bottom:1px solid rgba(198,165,90,.08);text-align:left;vertical-align:top; }
+.result-body table th{background:rgba(198,165,90,.08);color:var(--gold);font-weight:600;font-size:12px;letter-spacing:.5px;white-space:nowrap; }
+.result-body table tr:nth-child(even) td{background:rgba(198,165,90,.02); }
+.result-body table tr:hover td{background:rgba(198,165,90,.05); }
+
+/* Blockquote */
+.result-body blockquote{margin:14px 0;padding:12px 16px;border-left:3px solid var(--gold);background:rgba(198,165,90,.04);border-radius:0 8px 8px 0;font-size:14px;color:var(--text-dim);font-style:italic; }
+.result-body blockquote p{margin:4px 0; }
+
+/* Lists */
+.result-body ul,.result-body ol{margin:10px 0;padding-left:22px; }
+.result-body li{padding:3px 0;color:var(--text);line-height:1.7; }
+
+/* Code */
+.result-body code{background:rgba(0,0,0,.35);color:#d4b870;padding:2px 6px;border-radius:3px;font-size:13px;font-family:monospace;word-break:break-all; }
+
+/* Horizontal Rule */
+.result-body hr{border:none;height:1px;background:linear-gradient(90deg,transparent,rgba(198,165,90,.12),transparent);margin:20px 0; }
+
+/* TOC Navigation */
+.toc-nav{margin-bottom:16px;background:rgba(198,165,90,.03);border:1px solid rgba(198,165,90,.08);border-radius:var(--r-sm);padding:12px 16px; }
+.toc-nav summary{cursor:pointer;color:var(--gold);font-weight:600;font-size:14px;outline:none;letter-spacing:.5px;list-style:none; }
+.toc-nav summary::-webkit-details-marker{display:none; }
+.toc-nav[open] summary{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(198,165,90,.08); }
+.toc-nav ul{list-style:none;padding:0;margin:0; }
+.toc-nav li{padding:4px 0; }
+.toc-nav li a{color:var(--text-dim);text-decoration:none;font-size:13px;transition:color .2s var(--ease);display:block;padding:2px 0; }
+.toc-nav li a:hover{color:var(--gold-glow); }
+.result-stats{ font-size:11px;color:var(--text-dim);text-align:center;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border); }
+
+/* ===== TOAST ===== */
+.toast{
+  position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:200;
+  padding:12px 24px;border-radius:var(--r-xs);font-size:13px;font-weight:500;
+  pointer-events:none;opacity:0;transition:opacity .3s var(--ease);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+}
+.toast.show{ opacity:1; }
+.toast.err{ background:rgba(224,112,106,.88);color:#fff; }
+.toast.ok{ background:rgba(92,184,120,.88);color:#fff; }
+
+/* ===== FOOTER ===== */
+.footer{ text-align:center;padding:16px 0;font-size:11px;color:rgba(138,128,112,.35);letter-spacing:.5px;line-height:1.8; }
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeIn{ from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeUpSlow{ from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+@keyframes popIn{ 0%{opacity:0;transform:scale(.6)} 70%{transform:scale(1.05)} 100%{opacity:1;transform:scale(1)} }
+@keyframes dotPulse{ 0%,80%,100%{transform:scale(.4)} 40%{transform:scale(1)} }
+@keyframes spin{ to{transform:rotate(360deg)} }
+@keyframes shimmer{ 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+@keyframes cardEnter{ from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+.card{ animation:cardEnter .5s var(--ease); }
+.card:nth-child(2){ animation-delay:.05s; }
+.card:nth-child(3){ animation-delay:.1s; }
+
+</style>
+</head>
+<body>
+
+<div class="bg-layer">
+  <div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+  <div class="grid"></div>
+</div>
+
+<div class="container">
+
+  <!-- ====== HEADER ====== -->
+  <div class="header" style="position:relative;">
+    <div class="brand"><div class="brand-mark">☯</div></div>
+    <h1>算 八 字</h1>
+    <p class="sub">AI 命理分析 · 豆包大模型</p>
+    <div class="member-badge" id="memberBadge">
+      <img class="avatar" id="memberAvatar" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <span class="avatar-fallback" id="memberAvatarFallback" style="display:none">👤</span>
+      <span id="memberName"></span>
+    </div>
+  </div>
+
+  <!-- ====== FORM CARD ====== -->
+  <div class="card" id="formCard">
+    <div class="section-title"><span>出生信息</span></div>
+    <div class="price-badge" id="priceBadge"><div class="badge-inner"></div></div>
+
+    <form id="baziForm" autocomplete="off">
+      <div class="form-field">
+        <label class="form-label">姓名</label>
+        <input type="text" class="form-input no-icon" id="name" placeholder="请输入姓名（选填）" maxlength="20">
+      </div>
+      <div class="form-field">
+        <label class="form-label">阳历出生日期 <span class="req">*</span></label>
+        <span class="field-icon">📅</span>
+        <input type="date" class="form-input date-input" id="birth_date" required>
+      </div>
+      <div class="form-field">
+        <label class="form-label">出生时间 <span class="req">*</span></label>
+        <span class="field-icon">🕐</span>
+        <input type="time" class="form-input time-input" id="birth_time" required>
+      </div>
+      <div class="form-field">
+        <label class="form-label">出生地点 <span class="req">*</span></label>
+        <span class="field-icon">📍</span>
+        <input type="text" class="form-input" id="birth_place" placeholder="如：广东省广州市" maxlength="50" required>
+      </div>
+      <div class="form-field">
+        <label class="form-label">性别 <span class="req">*</span></label>
+        <div class="gender-row">
+          <div class="gender-pill active" data-gender="男" onclick="pickGender('男',this)">
+            <span class="pill-icon">♂</span>男
+          </div>
+          <div class="gender-pill" data-gender="女" onclick="pickGender('女',this)">
+            <span class="pill-icon">♀</span>女
+          </div>
+        </div>
+        <input type="hidden" id="gender" value="男">
+      </div>
+
+      <button type="submit" class="btn-primary" id="submitBtn" style="margin-top:8px;">
+        <span class="btn-label">✦ 开 始 分 析</span>
+        <span class="btn-load"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>
+      </button>
+    </form>
+  </div>
+
+  <!-- ====== 我的记录入口 ====== -->
+  <button class="btn-outline" id="btnRecords" onclick="toggleRecords()">📋 我的测算记录</button>
+
+  <!-- ====== RECORDS SECTION ====== -->
+  <div class="records-section" id="recordsSection">
+    <div class="card">
+      <div class="records-header" onclick="toggleRecords()">
+        <h3>📋 我的测算记录</h3>
+        <span class="hint">点击收起</span>
+      </div>
+      <div id="recordsContent"></div>
+    </div>
+  </div>
+
+  <!-- ====== SUBMITTED VIEW ====== -->
+  <div class="submitted-view" id="submittedView">
+    <div class="card">
+      <div class="done-icon">✨</div>
+      <div class="done-title">分析请求已提交</div>
+      <div class="done-desc">
+        <p>预计需要 <span class="hl">约 5 分钟</span> 完成分析</p>
+        <p style="margin-top:8px;">完成后将通过<span class="hl">公众号</span>推送结果通知</p>
+        <p style="margin-top:8px;font-size:12px;color:rgba(138,128,112,.5);">请留意微信服务通知</p>
+      </div>
+      <div class="done-info" id="submitInfo"></div>
+      <a class="btn-primary" id="btnViewResult" href="javascript:;" onclick="goResult()" style="display:none;text-align:center;text-decoration:none;">
+        查看结果 →
+      </a>
+      <button class="btn-outline" onclick="javascript:window.close();void(0);" style="margin-top:12px;">关闭页面</button>
+    </div>
+  </div>
+
+  <!-- ====== LOADING ====== -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="spinner-ring"></div>
+    <p class="ls-text">AI 排盘分析中...</p>
+    <p class="ls-sub">八字推演 · 预计 30~60 秒</p>
+  </div>
+
+  <!-- ====== PAYMENT LOADING ====== -->
+  <div class="loading-screen" id="payLoadingScreen">
+    <div class="spinner-ring"></div>
+    <p class="ls-text">正在确认支付状态</p>
+    <p class="ls-sub">请稍候...</p>
+    <button class="btn-outline" onclick="cancelPollPay()" style="margin-top:20px;width:auto;display:inline-block;padding:8px 32px;">取消等待</button>
+  </div>
+
+  <!-- ====== RESULT AREA ====== -->
+  <div class="result-area" id="resultArea">
+    <div class="card">
+      <div class="section-title"><span>命理分析报告</span></div>
+      <div class="result-stats" id="resultStats"></div>
+      <div class="result-body" id="resultBody"></div>
+      <div id="unlockBlock" style="display:none;margin-top:20px;">
+        <button class="btn-danger" id="unlockBtn" onclick="doUnlock()">🔓 付费查看完整报告</button>
+      </div>
+    </div>
+    <button class="btn-outline" onclick="resetAll()">🔄 重新分析</button>
+  </div>
+
+  <!-- ====== FOOTER ====== -->
+  <div class="footer">
+    <p>命理学为概率性倾向描述，仅供参考</p>
+    <p>Powered by 豆包 Seed 2.0 Pro</p>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+var busy=false,gender='男',CFG={pm:'free',pr:0,pp:50,hasOauth:false,mNick:'',mAvatar:''},
+    pendOrder=null,pendPayId=0,lastOrder=null;
+
+fetchCfg();
+
+// ========== 性别选择 ==========
+window.pickGender=function(g,el){ gender=g; document.getElementById('gender').value=g;
+  document.querySelectorAll('.gender-pill').forEach(function(p){p.classList.remove('active')});el.classList.add('active'); };
+
+// ========== TOAST ==========
+function toast(m,t){ var e=document.getElementById('toast');e.textContent=m;e.className='toast '+(t||'err')+' show';
+  clearTimeout(e._t);e._t=setTimeout(function(){e.classList.remove('show')},2800); }
+
+// ========== 配置 ==========
+function fetchCfg(){
+  var x=new XMLHttpRequest();x.open('GET','/api/bazi/config',true);
+  x.onload=function(){if(x.status===200){try{var r=JSON.parse(x.responseText);if(r.status===1&&r.data){CFG.pm=r.data.pay_mode||'free';CFG.pr=+r.data.price||0;CFG.pp=+r.data.preview_percent||50;CFG.hasOauth=r.data.has_openid||false;CFG.mNick=r.data.member_nickname||'';CFG.mAvatar=r.data.member_headimg||'';syncUI()}}catch(e){}}};x.send();}
+
+function syncUI(){
+  var b=document.getElementById('priceBadge'),l=document.getElementById('submitBtn').querySelector('.btn-label');
+  if(CFG.pm==='pay_then_predict'&&CFG.pr>0){b.classList.add('show');b.querySelector('.badge-inner').textContent='付费后分析 · ¥'+CFG.pr.toFixed(2);l.textContent='💰 付费预测 ¥'+CFG.pr.toFixed(2)}
+  else if(CFG.pm==='predict_then_pay'&&CFG.pr>0){b.classList.add('show');b.querySelector('.badge-inner').textContent='免费分析 · 查看全文 ¥'+CFG.pr.toFixed(2)+'（预览'+CFG.pp+'%）';l.textContent='✦ 开始分析（免费）'}
+  else{b.classList.remove('show');l.textContent='✦ 开 始 分 析';}
+  // 会员头像
+  var badge=document.getElementById('memberBadge'),name=document.getElementById('memberName'),
+      av=document.getElementById('memberAvatar'),fb=document.getElementById('memberAvatarFallback');
+  if(CFG.hasOauth&&(CFG.mNick||CFG.mAvatar)){
+    badge.classList.add('show');
+    name.textContent=CFG.mNick||'已登录';
+    if(CFG.mAvatar){av.src=CFG.mAvatar;av.style.display='inline-block';fb.style.display='none'}
+    else{av.style.display='none';fb.style.display='flex'}
+  }
+}
+
+// ========== 参数收集 ==========
+function getParams(){
+  return ['name='+encodeURIComponent((document.getElementById('name').value||'').trim()),
+    'birth_date='+encodeURIComponent(document.getElementById('birth_date').value),
+    'birth_time='+encodeURIComponent(document.getElementById('birth_time').value),
+    'birth_place='+encodeURIComponent((document.getElementById('birth_place').value||'').trim()),
+    'gender='+encodeURIComponent(gender)];
+}
+
+// ========== 表单校验 ==========
+function valid(){
+  var d=document.getElementById('birth_date').value,t=document.getElementById('birth_time').value,
+      p=(document.getElementById('birth_place').value||'').trim();
+  if(!d){toast('请填写出生日期');return false}if(!t){toast('请填写出生时间');return false}
+  if(!p){toast('请填写出生地点');return false}
+  var dp=d.split('-');if(dp.length!==3||dp[0].length!==4){toast('日期格式错误');return false}
+  if(+dp[0]<1900||+dp[0]>new Date().getFullYear()){toast('年份需在1900~今年');return false}
+  return true;
+}
+
+// ========== 表单提交 ==========
+document.getElementById('baziForm').addEventListener('submit',function(e){
+  e.preventDefault();if(busy)return;if(!valid())return;
+  // 需要付费但未授权 → 先跳转 OAuth 获取微信身份，再回来提交
+  if(CFG.pr>0&&!CFG.hasOauth){
+    pendingSubmit=true;
+    location.href='/?s=/bazi';
+    return;
+  }
+  if(CFG.pm==='pay_then_predict'&&CFG.pr>0)doPayFlow();else doSubmit();
+});
+
+function setLoading(on){
+  var b=document.getElementById('submitBtn');busy=on;
+  if(on){b.classList.add('loading');b.disabled=true}else{b.classList.remove('loading');b.disabled=false}
+}
+
+// ========== 异步提交 ==========
+function doSubmit(){
+  setLoading(true);var x=new XMLHttpRequest();
+  x.open('POST','/api/bazi/submit',true);
+  x.setRequestHeader('Content-Type','application/x-www-form-urlencoded');x.timeout=15000;
+  x.onload=function(){setLoading(false);
+    if(x.status===200){try{var r=JSON.parse(x.responseText);
+      if(r.status===2&&r.data&&r.data.need_oauth){setLoading(false);location.href='/?s=/bazi';return}
+      if(r.status===1){lastOrder=r.data.ordernum;pendPayId=r.data.payorder_id||0;showDone(r.data)}else toast(r.msg||'提交失败')}catch(e){toast('响应异常')}}
+    else toast('服务器错误('+x.status+')');};
+  x.onerror=function(){setLoading(false);toast('网络异常')};
+  x.ontimeout=function(){setLoading(false);toast('请求超时')};
+  x.send(getParams().join('&'));
+}
+
+function showDone(d){
+  document.getElementById('formCard').style.display='none';
+  document.getElementById('resultArea').classList.remove('show');
+  var n=document.getElementById('name'),info='<p><span class="lbl">订单号</span> '+(d.ordernum||'-')+'</p>';
+  if(n.value.trim())info+='<p><span class="lbl">姓名</span> '+n.value.trim()+'</p>';
+  info+='<p><span class="lbl">出生</span> '+document.getElementById('birth_date').value+' '+document.getElementById('birth_time').value+' · '+document.getElementById('birth_place').value.trim()+' · '+gender+'</p>';
+  document.getElementById('submitInfo').innerHTML=info;
+  var v=document.getElementById('btnViewResult');v.style.display='block';v.setAttribute('data-ordernum',d.ordernum||'');
+  document.getElementById('submittedView').classList.add('show');
+  scrollTo(0,0);
+}
+
+window.goResult=function(){
+  var o=document.getElementById('btnViewResult').getAttribute('data-ordernum')||lastOrder;
+  if(o)location.href='/?s=/bazi/result&ordernum='+encodeURIComponent(o);
+};
+
+// ========== 付费流程 ==========
+function doPayFlow(){
+  setLoading(true);var x=new XMLHttpRequest();
+  x.open('POST','/api/bazi/create-order',true);
+  x.setRequestHeader('Content-Type','application/x-www-form-urlencoded');x.timeout=15000;
+  x.onload=function(){setLoading(false);
+    if(x.status===200){try{var r=JSON.parse(x.responseText);
+      if(r.status===2&&r.data&&r.data.need_oauth){location.href='/?s=/bazi';return}
+      if(r.status===1&&r.data){location.href='/?s=/ApiPay/pay&orderid='+r.data.payorder_id+'&return_url='+encodeURIComponent(location.origin+location.pathname+'?ordernum='+r.data.ordernum)}
+      else toast(r.msg||'创建订单失败')}catch(e){toast('响应异常')}}
+    else toast('服务器错误');};
+  x.onerror=function(){setLoading(false);toast('网络异常')};
+  x.send(getParams().join('&'));
+}
+
+// ========== 支付回调 ==========
+// v20260508-1130: pollPay 含 predict_then_pay 智能轮询+防重复支付
+var pollTimer=null;
+var q=new URLSearchParams(location.search);pendOrder=q.get('ordernum');
+if(pendOrder){document.getElementById('formCard').style.display='none';pollPay();}
+function pollPay(){
+  document.getElementById('payLoadingScreen').classList.add('show');
+  var a=0;function ck(){var x=new XMLHttpRequest();
+    x.timeout=8000;
+    x.open('GET','/api/bazi/order-status?ordernum='+encodeURIComponent(pendOrder),true);
+    x.onload=function(){if(x.status===200){try{var r=JSON.parse(x.responseText);
+      // 订单不存在或接口返回错误 → 停止轮询恢复页面
+      if(r.status!==1||!r.data){stopPollPay();document.getElementById('formCard').style.display='block';toast(r.msg||'订单状态查询失败');return}
+      if(r.data){
+        // ===== predict_then_pay 单独支线（与下方通用检查互斥）=====
+        if(r.data.pay_mode==='predict_then_pay'){
+          if(r.data.paid){stopPollPay();location.href='/?s=/bazi/result&ordernum='+encodeURIComponent(pendOrder);return}
+          if(!r.data.completed){stopPollPay();location.href='/?s=/bazi/result&ordernum='+encodeURIComponent(pendOrder);return}
+          // 已完成但未支付：等待通知到达（最多10轮≈20秒），超时也跳结果
+          if(a>=10){stopPollPay();location.href='/?s=/bazi/result&ordernum='+encodeURIComponent(pendOrder);return}
+          // 否则继续轮询 → 跳过下方通用检查，直接到 a++ 逻辑
+        }else{
+          // ===== 通用检查（非 predict_then_pay）=====
+          if(r.data.completed){stopPollPay();location.href='/?s=/bazi/result&ordernum='+encodeURIComponent(pendOrder);return}
+          if(r.data.pay_mode==='free'){stopPollPay();document.getElementById('formCard').style.display='block';return}
+          if(r.data.paid){stopPollPay();
+            if(CFG.pm==='pay_then_predict')calcWithPay(pendOrder);
+            else location.href='/?s=/bazi/result&ordernum='+encodeURIComponent(pendOrder);
+            return}
+      }}}catch(e){}}
+      a++;if(a<30)pollTimer=setTimeout(ck,2000);else{stopPollPay();toast('支付确认超时');document.getElementById('formCard').style.display='block'}};
+    x.onerror=function(){a++;if(a<30)pollTimer=setTimeout(ck,2000);else stopPollPay()};
+    x.ontimeout=function(){a++;if(a<30)pollTimer=setTimeout(ck,2000);else stopPollPay()};
+    x.send()}
+  pollTimer=setTimeout(ck,1500);
+}
+function stopPollPay(){
+  document.getElementById('payLoadingScreen').classList.remove('show');
+  if(pollTimer){clearTimeout(pollTimer);pollTimer=null}
+}
+window.cancelPollPay=function(){
+  stopPollPay();document.getElementById('formCard').style.display='block';pendOrder=null;
+};
+function calcWithPay(o){
+  busy=true;document.getElementById('loadingScreen').classList.add('show');
+  var x=new XMLHttpRequest();x.open('POST','/api/bazi/calculate',true);x.setRequestHeader('Content-Type','application/x-www-form-urlencoded');x.timeout=360000;
+  x.onload=function(){busy=false;document.getElementById('loadingScreen').classList.remove('show');
+    if(x.status===200){try{var r=JSON.parse(x.responseText);if(r.status===1&&r.data&&r.data.result)showRes(r.data,false);else{toast(r.msg||'失败');document.getElementById('formCard').style.display='block'}}catch(e){toast('解析失败');document.getElementById('formCard').style.display='block'}}
+    else{toast('服务器错误');document.getElementById('formCard').style.display='block'}};
+  x.onerror=function(){busy=false;document.getElementById('loadingScreen').classList.remove('show');toast('网络异常');document.getElementById('formCard').style.display='block'};
+  x.ontimeout=function(){busy=false;document.getElementById('loadingScreen').classList.remove('show');toast('超时');document.getElementById('formCard').style.display='block'};
+  x.send('ordernum='+encodeURIComponent(o));
+}
+function unlockWithPay(o){
+  document.getElementById('loadingScreen').classList.add('show');
+  var x=new XMLHttpRequest();x.open('POST','/api/bazi/unlock-result',true);x.setRequestHeader('Content-Type','application/x-www-form-urlencoded');x.timeout=30000;
+  x.onload=function(){document.getElementById('loadingScreen').classList.remove('show');
+    if(x.status===200){try{var r=JSON.parse(x.responseText);if(r.status===1&&r.data)showRes(r.data,false);else toast(r.msg||'失败')}catch(e){toast('解析失败')}}else toast('服务器错误')};
+  x.onerror=function(){document.getElementById('loadingScreen').classList.remove('show');toast('网络错误')};
+  x.send('ordernum='+encodeURIComponent(o));
+}
+
+// ========== 付费解锁 ==========
+window.doUnlock=function(){
+  if(busy||!pendOrder)return;busy=true;
+  var b=document.getElementById('unlockBtn');b.disabled=true;b.textContent='⏳ 跳转支付...';
+  if(pendPayId>0){
+    // 新订单：用 ApiPay/pay 通用支付页
+    location.href='/?s=/ApiPay/pay&orderid='+pendPayId+'&return_url='+encodeURIComponent(location.origin+location.pathname+'?ordernum='+pendOrder);
+  }else{
+    // 旧订单无 payorder：回退到 goPay 创建
+    location.href='/?s=/bazi/go-pay&ordernum='+encodeURIComponent(pendOrder);
+  }
+};
+
+// ========== JS Markdown 渲染器 ==========
+function renderMarkdownJS(t) {
+  // 预处理：HTML 实体转义（除已转义部分）
+  t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  
+  // 统一换行
+  t = t.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  
+  // 第1轮：保护行内代码
+  var codes = [];
+  t = t.replace(/`([^`]+)`/g, function(m, c1) {
+    var id = codes.length;
+    codes[id] = '<code>' + c1.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code>';
+    return '\x00CODE' + id + '\x00';
+  });
+  
+  // 第2轮：表格
+  var lines = t.split('\n');
+  var out = [];
+  for (var i = 0; i < lines.length; i++) {
+    var ln = lines[i].trim();
+    if (/^\|.+\|$/.test(ln) && i + 1 < lines.length && /^\|[\s\-:|]+\|$/.test(lines[i + 1].trim())) {
+      var tableLines = [ln];
+      i++;
+      var sepLine = lines[i];
+      i++;
+      while (i < lines.length && /^\|.+\|$/.test(lines[i].trim())) { tableLines.push(lines[i].trim()); i++; }
+      i--;
+      // 对齐
+      var cells = sepLine.replace(/^\||\|$/g, '').split('|');
+      var aligns = [];
+      for (var ai = 0; ai < cells.length; ai++) {
+        var c = cells[ai].trim();
+        if (c[0] === ':' && c[c.length - 1] === ':') aligns[ai] = 'center';
+        else if (c[c.length - 1] === ':') aligns[ai] = 'right';
+        else aligns[ai] = 'left';
+      }
+      var html = '<div class="md-table-wrap"><table>';
+      for (var ri = 0; ri < tableLines.length; ri++) {
+        var rawCells = tableLines[ri].replace(/^\||\|$/g, '').split('|');
+        var tag = 'td';
+        if (ri === 0 && !/^[\s\-:|]+$/.test(tableLines[ri].replace(/\|/g, ''))) tag = 'th';
+        html += '<tr>';
+        for (var ci = 0; ci < rawCells.length; ci++) {
+          var cell = rawCells[ci].trim();
+          html += '<'+tag+ (aligns[ci] ? ' style="text-align:' + aligns[ci] + '"' : '') + '>' + cell + '</'+tag+'>';
+        }
+        html += '</tr>';
+      }
+      html += '</table></div>';
+      out.push(html);
+      continue;
+    }
+    out.push(ln);
+  }
+  t = out.join('\n');
+  
+  // 第3轮：水平分隔线
+  lines = t.split('\n');
+  out = [];
+  for (var i = 0; i < lines.length; i++) {
+    if (/^(-{3,}|\*{3,})\s*$/.test(lines[i].trim())) {
+      out.push('\x00HR\x00');
+    } else { out.push(lines[i]); }
+  }
+  t = out.join('\n');
+  
+  // 第4轮：引用块
+  lines = t.split('\n');
+  out = [];
+  for (var i = 0; i < lines.length; i++) {
+    var m = lines[i].match(/^>\s?(.*)$/);
+    if (m) {
+      var qlines = [m[1]];
+      i++;
+      while (i < lines.length) {
+        var qm = lines[i].match(/^>\s?(.*)$/);
+        if (qm) { qlines.push(qm[1]); i++; }
+        else break;
+      }
+      i--;
+      out.push('<blockquote><p>' + qlines.join('<br>') + '</p></blockquote>');
+      continue;
+    }
+    out.push(lines[i]);
+  }
+  t = out.join('\n');
+  lines = t.split('\n');
+  
+  // 第5轮：按空行分组，处理列表
+  var groups = [], cur = [];
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === '') { if (cur.length) { groups.push(cur); cur = []; } groups.push(['']); }
+    else { cur.push(lines[i]); }
+  }
+  if (cur.length) groups.push(cur);
+  
+  var result = [], inList = false, listType = '', listItems = [];
+  for (var gi = 0; gi < groups.length; gi++) {
+    var g = groups[gi];
+    if (g.length === 1 && g[0] === '') { if (inList) { result.push((listType === 'ol' ? '<ol>' : '<ul>') + listItems.join('') + (listType === 'ol' ? '</ol>' : '</ul>')); inList = false; listItems = []; } continue; }
+    
+    var allUl = true, allOl = true;
+    for (var gj = 0; gj < g.length; gj++) {
+      var tgl = g[gj].trim();
+      if (!/^[-*+]\s/.test(tgl)) allUl = false;
+      if (!/^\d+[.)]\s/.test(tgl)) allOl = false;
+    }
+    if (allUl || allOl) {
+      var gt = allUl ? 'ul' : 'ol';
+      if (inList && listType !== gt) { result.push((listType === 'ol' ? '<ol>' : '<ul>') + listItems.join('') + (listType === 'ol' ? '</ol>' : '</ul>')); listItems = []; }
+      inList = true; listType = gt;
+      for (var gj2 = 0; gj2 < g.length; gj2++) {
+        var content = gt === 'ul' ? g[gj2].replace(/^[-*+]\s/, '') : g[gj2].replace(/^\d+[.)]\s/, '');
+        listItems.push('<li>' + content.trim() + '</li>');
+      }
+      continue;
+    }
+    if (inList) { result.push((listType === 'ol' ? '<ol>' : '<ul>') + listItems.join('') + (listType === 'ol' ? '</ol>' : '</ul>')); inList = false; listItems = []; }
+    result.push(g.join('\n'));
+  }
+  if (inList) { result.push((listType === 'ol' ? '<ol>' : '<ul>') + listItems.join('') + (listType === 'ol' ? '</ol>' : '</ul>')); }
+  t = result.join('\n\n');
+  lines = t.split('\n');
+  
+  // 第6轮：标题
+  for (var i = 0; i < lines.length; i++) {
+    var hm3 = lines[i].match(/^### (.+)$/);
+    if (hm3) { lines[i] = '<h3>' + hm3[1] + '</h3>'; continue; }
+    var hm2 = lines[i].match(/^## (.+)$/);
+    if (hm2) { lines[i] = '<h2 class="md-h2">' + hm2[1] + '</h2>'; }
+  }
+  t = lines.join('\n');
+  
+  // 第7轮：段落包裹
+  lines = t.split('\n');
+  out = [];
+  var para = [];
+  for (var i = 0; i < lines.length; i++) {
+    var trimmed = lines[i].trim();
+    if (trimmed === '') {
+      if (para.length) { out.push('<p>' + para.join('<br>') + '</p>'); para = []; }
+    } else if (/^<(h[2-3]|table|blockquote|ul|ol|div|tr|td|th|thead|tbody|li|p|hr|section)[ >]/.test(lines[i])) {
+      if (para.length) { out.push('<p>' + para.join('<br>') + '</p>'); para = []; }
+      out.push(lines[i]);
+    } else { para.push(lines[i]); }
+  }
+  if (para.length) { out.push('<p>' + para.join('<br>') + '</p>'); }
+  t = out.join('\n');
+  
+  // 第8轮：恢复占位符
+  t = t.replace(/\x00HR\x00/g, '<hr>');
+  
+  // 第9轮：行内格式化
+  t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
+  
+  // 恢复行内代码
+  t = t.replace(/\x00CODE(\d+)\x00/g, function(m, id) { return codes[parseInt(id)] || m; });
+  
+  return t;
+}
+
+// ========== 展示结果 ==========
+function showRes(d,isPrev){
+  var rendered = renderMarkdownJS(d.result||'');
+  
+  // 生成目录
+  var tocHtml = '';
+  var tocMatch = rendered.match(/<h([23])(?:[^>]*)>(.*?)<\/h[23]>/g);
+  if (tocMatch && tocMatch.length > 1) {
+    tocHtml = '<details class="toc-nav"><summary>📑 目录导航</summary><ul>';
+    for (var ti = 0; ti < tocMatch.length; ti++) {
+      var tm = tocMatch[ti];
+      var level = tm.match(/<h([23])/)[1];
+      var title = tm.replace(/<\/?[^>]+>/g, '');
+      var anchor = 'section-js-' + ti;
+      rendered = rendered.replace(tm, tm.replace(/^<h([23])/, '<h$1 id="' + anchor + '"'));
+      var pad = level == 3 ? ' style="padding-left:16px"' : '';
+      tocHtml += '<li' + pad + '><a href="#' + anchor + '">' + title + '</a></li>';
+    }
+    tocHtml += '</ul></details>';
+  }
+  
+  // section-card 包裹 h2 章节
+  rendered = rendered.replace(/(<h2[^>]*>.*?<\/h2>)((?:(?!<h2[^>]*>)[\s\S])*)/g, function(m, h2, body) {
+    return '<div class="section-card">' + h2 + body + '</div>';
+  });
+  
+  document.getElementById('resultBody').innerHTML = tocHtml + rendered;
+  var u=d.usage||{},s='Token '+ (u.total_tokens||'-')+' · 耗时 '+((d.latency_ms||0)/1000).toFixed(1)+'s';
+  if(isPrev)s+=' · 预览 '+(d.preview_percent||CFG.pp)+'%';
+  document.getElementById('resultStats').textContent=s;
+  document.getElementById('resultArea').classList.add('show');
+  if(isPrev&&d.need_pay&&d.ordernum){pendOrder=d.ordernum;pendPayId=d.payorder_id||pendPayId||0;document.getElementById('unlockBlock').style.display='block';
+    document.getElementById('unlockBtn').textContent='🔓 付费查看完整报告 ¥'+(d.price||CFG.pr).toFixed(2)}else{document.getElementById('unlockBlock').style.display='none'}
+  setTimeout(function(){document.getElementById('resultArea').scrollIntoView({behavior:'smooth',block:'start'})},80);
+}
+
+// ========== 重置 ==========
+window.resetAll=function(){
+  document.getElementById('resultArea').classList.remove('show');document.getElementById('resultBody').innerHTML='';
+  document.getElementById('resultStats').textContent='';document.getElementById('unlockBlock').style.display='none';
+  document.getElementById('submittedView').classList.remove('show');document.getElementById('formCard').style.display='block';
+  pendOrder=null;pendPayId=0;lastOrder=null;history.pushState&&history.pushState(null,'',location.pathname);scrollTo(0,0);
+};
+
+// ========== 记录列表 ==========
+var recLoaded=false;
+window.toggleRecords=function(){
+  var s=document.getElementById('recordsSection');
+  if(s.classList.contains('open')){s.classList.remove('open')}
+  else{s.classList.add('open');setTimeout(function(){s.scrollIntoView({behavior:'smooth',block:'start'})},100);if(!recLoaded)loadRecords()}
+};
+function loadRecords(){
+  var e=document.getElementById('recordsContent');e.innerHTML='<div class="records-empty">加载中...</div>';
+  var x=new XMLHttpRequest();x.open('GET','/api/bazi/my-records',true);x.timeout=15000;
+  x.onload=function(){if(x.status===200){try{var r=JSON.parse(x.responseText);if(r.status===1&&r.data){recLoaded=true;renderRecs(r.data.list||[])}else e.innerHTML='<div class="records-empty">'+ (r.msg||'加载失败')+'</div>'}catch(ex){e.innerHTML='<div class="records-empty">解析失败</div>'}}
+    else e.innerHTML='<div class="records-empty">加载失败('+x.status+')</div>'};
+  x.onerror=function(){e.innerHTML='<div class="records-empty">网络异常</div>'};x.send();
+}
+function renderRecs(l){
+  var e=document.getElementById('recordsContent');
+  if(!l||!l.length){e.innerHTML='<div class="records-empty"><div class="empty-icon">📭</div>暂无测算记录<br><span style="font-size:12px;opacity:.6;">提交分析后记录将显示在此处</span></div>';return}
+  var h='';l.forEach(function(r){var ok=r.completed,m=(r.birth_date||'')+' '+ (r.birth_time||'');
+    if(r.gender)m+=' · '+r.gender;if(r.birth_place)m+=' · '+r.birth_place;if(ok&&r.total_tokens)m+=' · '+r.total_tokens+' tokens';
+    h+='<div class="record-card" onclick="goRec(\''+r.ordernum+'\')">';
+    h+='<div class="rc-top"><span class="rc-name">'+esc(r.name||'匿名')+'</span>';
+    h+='<span class="rc-status '+(ok?'ok':'wait')+'">'+(ok?'已完成':'分析中')+'</span></div>';
+    h+='<div class="rc-meta">'+esc(m)+'</div>';
+    h+='<div class="rc-time"><span>'+r.create_time+'</span><span class="rc-arrow">查看详情 →</span></div>';
+    h+='</div>';
+  });e.innerHTML=h;
+}
+function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+window.goRec=function(o){
+  if(!o)return;
+  // 停止任何正在进行的轮询
+  stopPollPay();pendOrder=o;
+  // 隐藏表单，显示 loading
+  document.getElementById('formCard').style.display='none';
+  document.getElementById('submittedView').classList.remove('show');
+  document.getElementById('resultArea').classList.remove('show');
+  document.getElementById('payLoadingScreen').classList.remove('show');
+  document.getElementById('loadingScreen').classList.add('show');
+  document.getElementById('loadingScreen').querySelector('.ls-text').textContent='加载分析结果中...';
+  document.getElementById('loadingScreen').querySelector('.ls-sub').textContent='请稍候...';
+  // AJAX 拉取结果
+  var x=new XMLHttpRequest();
+  x.open('GET','/api/bazi/result-status?ordernum='+encodeURIComponent(o),true);x.timeout=30000;
+  x.onload=function(){
+    document.getElementById('loadingScreen').classList.remove('show');
+    if(x.status===200){try{var r=JSON.parse(x.responseText);
+      if(r.status===1&&r.data){
+        if(r.data.completed){
+          // 构建 showRes 需要的参数
+          var d={result:r.data.result,usage:r.data.usage,latency_ms:r.data.latency_ms,ordernum:r.data.ordernum,need_pay:r.data.need_pay,preview_percent:r.data.preview_percent,price:r.data.price};
+          showRes(d,r.data.need_pay);
+        }else{
+          // 尚未完成分析
+          document.getElementById('formCard').style.display='block';
+          document.getElementById('resultArea').classList.remove('show');
+          toast('分析尚未完成，请稍后再试');
+        }
+      }else{toast(r.msg||'加载失败');document.getElementById('formCard').style.display='block'}
+    }catch(e){toast('解析失败');document.getElementById('formCard').style.display='block'}}
+    else{toast('加载失败('+x.status+')');document.getElementById('formCard').style.display='block'}};
+  x.onerror=function(){document.getElementById('loadingScreen').classList.remove('show');toast('网络异常');document.getElementById('formCard').style.display='block'};
+  x.ontimeout=function(){document.getElementById('loadingScreen').classList.remove('show');toast('加载超时');document.getElementById('formCard').style.display='block'};
+  x.send();
+};
+
+})();
+</script>
+</body>
+</html>

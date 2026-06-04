@@ -67,6 +67,7 @@
 							<div class="layui-input-inline" style="width:600px">
 								<input type="text" id="xpd_url" readonly class="layui-input" value="" style="background:#f6f6f6">
 							</div>
+							<button type="button" class="layui-btn layui-btn-warm" onclick="editXpdLayout()"><i class="layui-icon layui-icon-template-1"></i> 编辑布局</button>
 							<button type="button" class="layui-btn layui-btn-normal" onclick="copyXpdUrl()">复制链接</button>
 							<button type="button" class="layui-btn layui-btn-primary" onclick="previewXpdUrl()">预览</button>
 							<button type="button" class="layui-btn layui-btn-sm" onclick="showXpdQrcode()"><i class="fa fa-qrcode"></i> 二维码</button>
@@ -854,6 +855,20 @@
 		}
 		
 		window.open(url, '_blank');
+	}
+	
+	// 编辑选片端布局（打开编辑模式）
+	function editXpdLayout() {
+		var url = document.getElementById('xpd_url').value;
+		
+		if (!url) {
+			layer.msg('请先保存门店信息生成URL');
+			return;
+		}
+		
+		// 追加编辑模式参数，去掉旧 template 参数用新布局系统
+		var editUrl = url.replace(/&template=[^&]+/, '') + '&mode=edit';
+		window.open(editUrl, '_blank');
 	}
 	
 	// 显示二维码

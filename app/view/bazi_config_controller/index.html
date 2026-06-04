@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>算八字 - 功能配置</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  {include file="public/css"/}
+	<style>
+		.skill-editor-wrap { margin-bottom: 6px; }
+		.skill-editor-wrap .layui-form-label { width: 90px; }
+		.skill-editor-wrap .layui-input-block { margin-left: 120px; }
+		.skill-editor-wrap textarea { min-height: 400px; font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6; }
+    .pay-option-detail { display:none; padding:10px 0 0 120px; }
+    .pay-option-detail.show { display:block; }
+    .range-wrap { display:flex; align-items:center; gap:10px; }
+    .range-value { min-width:40px; text-align:center; color:#c9a55a; font-weight:bold; }
+	</style>
+</head>
+<body>
+<div class="layui-fluid">
+  <div class="layui-row layui-col-space15">
+    <div class="layui-card layui-col-md12">
+      <div class="layui-card-header"><i class="fa fa-cog"></i> 算八字 - 功能配置</div>
+      <div class="layui-card-body" pad15>
+        <div class="layui-form form-label-w8" lay-filter="">
+
+          <!-- 模型选择 -->
+          <div class="layui-form-item">
+            <label class="layui-form-label">AI模型：</label>
+            <div class="layui-input-inline" style="width:300px;">
+              <select name="info[model]" lay-filter="model_select">
+                {foreach $models as $code=>$name}
+                <option value="{$code}" {if $info['model']==$code}selected{/if}>{$name}</option>
+                {/foreach}
+              </select>
+            </div>
+            <div class="layui-form-mid layui-word-aux">选择用于八字分析的AI大模型</div>
+          </div>
+
+          <!-- 付费模式 -->
+          <div class="layui-form-item">
+            <label class="layui-form-label">付费模式：</label>
+            <div class="layui-input-inline">
+              <input type="radio" name="info[pay_mode]" value="free" title="免费" lay-filter="pay_mode" {if $info['pay_mode']=='free'}checked{/if}>
+              <input type="radio" name="info[pay_mode]" value="pay_then_predict" title="先付费后预测" lay-filter="pay_mode" {if $info['pay_mode']=='pay_then_predict'}checked{/if}>
+              <input type="radio" name="info[pay_mode]" value="predict_then_pay" title="预测后付费看全文" lay-filter="pay_mode" {if $info['pay_mode']=='predict_then_pay'}checked{/if}>
+            </div>
+          </div>
+
+          <!-- 价格（非免费模式显示） -->
+          <div class="layui-form-item pay-price-setting" {if $info['pay_mode']=='free'}style="display:none"{/if}>
+            <label class="layui-form-label">价格(元)：</label>
+            <div class="layui-input-inline" style="width:150px;">
+              <input type="number" name="info[price]" class="layui-input" value="{$info.price}" step="0.01" min="0">
+            </div>
+            <div class="layui-form-mid layui-word-aux">用户每次八字分析的价格</div>
+          </div>
+
+          <!-- 预览百分比（预测后付费模式显示） -->
+          <div class="layui-form-item preview-percent-setting" {if $info['pay_mode']!='predict_then_pay'}style="display:none"{/if}>
+            <label class="layui-form-label">预览百分比：</label>
+            <div class="layui-input-inline range-wrap" style="width:350px;">
+              <input type="range" name="info[preview_percent]" value="{$info.preview_percent|default=50}" min="0" max="100" step="1" oninput="document.getElementById('percentVal').textContent = this.value + '%'" style="flex:1;">
+              <span class="range-value" id="percentVal">{$info.preview_percent|default=50}%</span>
+            </div>
+            <div class="layui-form-mid layui-word-aux">分析结果展示的百分比（0%=全隐藏，50%=一半，100%=全文）</div>
+          </div>
+
+          <!-- Skill内容编辑器 -->
+          <div class="layui-form-item skill-editor-wrap">
+            <label class="layui-form-label">Skill提示词：</label>
+            <div class="layui-input-block">
+              <textarea name="info[skill_prompt]" class="layui-textarea" placeholder="编写的AI系统提示词（Skill）">{$info.skill_prompt}</textarea>
+            </div>
+          </div>
+
+          <!-- 提交 -->
+          <div class="layui-form-item">
+            <label class="layui-form-label"></label>
+            <div class="layui-input-block">
+              <button class="layui-btn" lay-submit lay-filter="formsubmit">保 存</button>
+              <a href="/?s=/bazi" class="layui-btn layui-btn-primary" target="_blank" style="margin-left:10px;">预览活动页</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{include file="public/js"/}
+<script>
+layui.use(['form','element'], function(){
+  var form = layui.form;
+  var $ = layui.$;
+
+  // 付费模式切换
+  form.on('radio(pay_mode)', function(data){
+    var v = data.value;
+    if (v === 'free') {
+      $('.pay-price-setting').hide();
+      $('.preview-percent-setting').hide();
+    } else if (v === 'pay_then_predict') {
+      $('.pay-price-setting').show();
+      $('.preview-percent-setting').hide();
+    } else if (v === 'predict_then_pay') {
+      $('.pay-price-setting').show();
+      $('.preview-percent-setting').show();
+    }
+  });
+
+  // 表单提交
+  form.on('submit(formsubmit)', function(obj){
+    var field = obj.field;
+    $.post("{:url('save')}", field, function(data){
+      dialog(data.msg, data.status, data.url);
+    });
+  });
+});
+</script>
+{include file="public/copyright"/}
+</body>
+</html>

@@ -541,6 +541,16 @@ class Menu
             $ordercollectreward_child[] = ['name'=>'奖励设置','path'=>'OrderCollectReward/set','authdata'=>'OrderCollectReward/*'];
             $yingxiao_child[] = ['name'=>'确认收货奖励','child'=>$ordercollectreward_child];
         }
+        if($isadmin){
+            $bazi_child = [];
+            $bazi_child[] = ['name'=>'活动页面','path'=>'BaziController/index','authdata'=>'Bazi/*'];
+            $bazi_child[] = ['name'=>'功能配置','path'=>'BaziConfigController/index','authdata'=>'Bazi/*'];
+            $bazi_child[] = ['name'=>'使用记录','path'=>'BaziRecordController/index','authdata'=>'Bazi/*'];
+            $bazi_child[] = ['name'=>'海报设置','path'=>'BaziPosterController/index','authdata'=>'Bazi/*'];
+            $yingxiao_child[] = ['name'=>'算八字','child'=>$bazi_child];
+        } else {
+            $yingxiao_child[] = ['name'=>'算八字','path'=>'BaziController/index','authdata'=>'Bazi/*'];
+        }
 		$menudata['yingxiao'] = ['name'=>'营销','fullname'=>'营销活动','icon'=>'my-icon my-icon-yingxiao','child'=>$yingxiao_child];
         $component_article = [];
 		$component_article[] = ['name'=>'文章列表','path'=>'Article/index','authdata'=>'Article/*'];

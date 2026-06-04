@@ -140,7 +140,7 @@ class MilvusService
     /**
      * 插入向量数据 (Milvus v2.3 Simple REST API)
      * @param array $vectors 向量数组（每个向量为 512 维浮点数数组）
-     * @param array $metadata 元数据（如人像ID等）
+     * @param array $metadata 元数据（如人像ID、商家ID等）
      * @return array 插入的ID列表
      */
     public function insert(array $vectors, array $metadata = []): array
@@ -158,12 +158,18 @@ class MilvusService
                 'vector' => $vector,
             ];
             
-            // 添加元数据字段，使向量可关联到具体人像/用户
+            // 添加元数据字段，使向量可关联到具体人像/用户/商家
             if (isset($metadata['portrait_id'])) {
                 $insertData['portrait_id'] = (int)$metadata['portrait_id'];
             }
             if (isset($metadata['user_id'])) {
                 $insertData['user_id'] = (int)$metadata['user_id'];
+            }
+            if (isset($metadata['bid'])) {
+                $insertData['bid'] = (int)$metadata['bid'];
+            }
+            if (isset($metadata['mdid'])) {
+                $insertData['mdid'] = (int)$metadata['mdid'];
             }
             
             $data['data'][] = $insertData;

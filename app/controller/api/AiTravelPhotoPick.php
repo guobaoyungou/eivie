@@ -360,6 +360,31 @@ class AiTravelPhotoPick extends BaseController
         }
     }
 
+
+    /**
+     * B端管理：门店所有待选片列表（含批量上传）
+     * GET /api/ai_travel_photo/pick/store_all_results?bid=X&mdid=Y
+     */
+    public function store_all_results(): Response
+    {
+        // B端管理权限验证
+        if (!session("?ADMIN_LOGIN")) {
+            return json(['code' => 401, 'msg' => '请重新登录']);
+        }
+        $bid = (int)$this->request->get('bid', 0);
+        $mdid = (int)$this->request->get('mdid', 0);
+
+        if (!$bid || !$mdid) {
+            return json(['code' => 400, 'msg' => '参数错误']);
+        }
+
+        try {
+            $data = $this->pickService->getStoreAllPortraits($bid, $mdid);
+            return json(['code' => 200, 'msg' => '成功', 'data' => $data]);
+        } catch (\Exception $e) {
+            return json(['code' => 500, 'msg' => $e->getMessage()]);
+        }
+    }
     /**
      * 获取成片列表
      * GET /api/ai-travel-photo/pick/results?portrait_id=xxx

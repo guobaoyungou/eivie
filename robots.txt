@@ -1,0 +1,81 @@
+User-agent: *
+Allow: /
+
+# 管理员后台 - 禁止抓取
+Disallow: /admin/
+Disallow: /sysadmin/
+Disallow: /backstage/
+Disallow: /lp_dashboard.php
+Disallow: /lp_login.php
+Disallow: /business.php
+Disallow: /cashdesk/
+Disallow: /cashier/
+Disallow: /business/
+Disallow: /Business/
+
+# API接口 - 禁止抓取
+Disallow: /api/
+Disallow: /Api/
+Disallow: /api_admin/
+Disallow: /ApiAdmin/
+
+# 内部系统目录 - 禁止抓取
+Disallow: /app/controller/
+Disallow: /app/model/
+Disallow: /app/service/
+Disallow: /app/common/
+Disallow: /app/middleware/
+Disallow: /app/validate/
+Disallow: /vendor/
+Disallow: /runtime/
+Disallow: /config/
+Disallow: /database/
+Disallow: /extend/
+Disallow: /think
+Disallow: /queue/
+Disallow: /job/
+
+# 私有/测试目录 - 禁止抓取
+Disallow: /upload/
+Disallow: /temp/
+Disallow: /temp_query.php
+Disallow: /test_*.php
+Disallow: /simple_test.php
+Disallow: /verify_*.php
+Disallow: /api_*.php
+Disallow: /upgrade*.php
+Disallow: /migrate_*.php
+Disallow: /h520260327/
+Disallow: /__pycache__/
+
+# 后台登录入口 - 禁止抓取
+Disallow: /login
+Disallow: /Login
+Disallow: /admin_login
+Disallow: /Login.php
+
+# ThinkPHP框架文件 - 禁止抓取
+Disallow: /index.php?s=
+Disallow: /?.php
+
+# Sitemap
+Sitemap: https://ai.eivie.cn/sitemap.xml
+
+# 百度蜘蛛特殊规则
+User-agent: Baiduspider
+Allow: /h5/
+Allow: /bazi
+Allow: /public/aivideo/
+Allow: /public/pick/
+Allow: /public/selfie/
+Allow: /public/bazi/
+Allow: /xpd/
+Allow: /OTObot/
+Allow: /article
+Allow: /help
+Allow: /downloadapp
+Crawl-delay: 1
+
+User-agent: Googlebot
+Allow: /
+

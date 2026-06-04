@@ -119,7 +119,8 @@ class HdScreenController extends HdBaseController
     public function lotteryDraw(string $access_code)
     {
         $roundId = (int)input('post.round_id', 0);
-        $result = $this->screenService->lotteryDraw($access_code, $roundId);
+        $count = (int)input('post.count', 0);
+        $result = $this->screenService->lotteryDraw($access_code, $roundId, $count);
         return json($result);
     }
 

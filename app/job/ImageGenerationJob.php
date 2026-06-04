@@ -152,6 +152,33 @@ class ImageGenerationJob
                         'update_time' => time(),
                     ]);
                     
+                    // 补充：有成功结果时创建选片记录（qrcode表）
+                    if ($successCount > 0) {
+                        try {
+                            $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
+                            if ($portrait) {
+                                $qrcodeExists = Db::name('ai_travel_photo_qrcode')->where('portrait_id', $portraitId)->find();
+                                if (!$qrcodeExists) {
+                                    $bid = $portrait['bid'] ?? 0;
+                                    $aid = $portrait['aid'] ?? 0;
+                                    $qrcodeValue = 'synth_' . $portraitId . '_' . time();
+                                    Db::name('ai_travel_photo_qrcode')->insertGetId([
+                                        'aid' => $aid,
+                                        'bid' => $bid,
+                                        'portrait_id' => $portraitId,
+                                        'qrcode' => $qrcodeValue,
+                                        'status' => 1,
+                                        'create_time' => time(),
+                                        'update_time' => time(),
+                                    ]);
+                                    trace("markGenerationFailed 补创建qrcode: portrait_id={$portraitId}, qrcode={$qrcodeValue}", 'info');
+                                }
+                            }
+                        } catch (\Throwable $qrEx) {
+                            trace('markGenerationFailed 创建qrcode异常: ' . $qrEx->getMessage(), 'error');
+                        }
+                    }
+
                     trace("Portrait {$portraitId} synthesis_status 更新为 {$synthesisStatus}（成功:{$successCount}）", 'info');
                 }
             }

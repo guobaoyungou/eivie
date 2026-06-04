@@ -667,6 +667,11 @@ class GenerationService
             return $this->buildGptImageRequestBody($modelCode, $inputParams);
         }
         
+        // 检查是否是豆包Seed 2.0 Chat大语言模型（使用Chat Completions API）
+        if ($this->isDoubaoSeed2ChatModel($modelCode)) {
+            return $this->buildDoubaoChatRequestBody($modelCode, $inputParams);
+        }
+        
         $body = [
             'model' => $modelCode
         ];
@@ -761,6 +766,19 @@ class GenerationService
             return false;
         }
         return strpos($modelCode, 'doubao-seedream') === 0;
+    }
+    
+    /**
+     * 检查是否为豆包Seed 2.0 Chat大语言模型
+     * doubao-seed-2-0-pro 和 doubao-seed-2-0-lite 系列使用 Chat Completions API
+     * 
+     * @param string $modelCode 模型代码
+     * @return bool
+     */
+    protected function isDoubaoSeed2ChatModel($modelCode)
+    {
+        return strpos($modelCode, 'doubao-seed-2-0-pro') === 0 
+            || strpos($modelCode, 'doubao-seed-2-0-lite') === 0;
     }
     
     /**
@@ -3461,6 +3479,68 @@ class GenerationService
                 'status' => 0,
                 'error_code' => 'RELAY_' . $response['code'],
                 'msg' => '中转平台错误: ' . $response['msg']
+            ];
+        }
+        
+        // Chat Completions 格式响应（豆包Seed 2.0 Chat、OpenAI兼容模型等）
+        // 响应格式: {"id":"...", "choices":[{"index":0,"message":{"role":"assistant","content":"...","reasoning_content":"..."},"finish_reason":"stop"}], "usage":{"total_tokens":100,...}}
+        if (isset($response['choices']) && is_array($response['choices'])) {
+            \think\facade\Log::info('parseApiResponse: Chat Completions格式检测到 choices=' . count($response['choices']));
+            
+            $outputs = [];
+            $tokens = 0;
+            
+            foreach ($response['choices'] as $choice) {
+                $message = $choice['message'] ?? [];
+                
+                // 主输出：文本内容
+                $content = $message['content'] ?? '';
+                if (!empty($content)) {
+                    $outputs[] = [
+                        'type' => 'text',
+                        'content' => $content,
+                        'role' => $message['role'] ?? 'assistant',
+                        'finish_reason' => $choice['finish_reason'] ?? 'unknown'
+                    ];
+                }
+                
+                // 思维链输出：reasoning_content
+                $reasoningContent = $message['reasoning_content'] ?? '';
+                if (!empty($reasoningContent)) {
+                    $outputs[] = [
+                        'type' => 'text',
+                        'content' => $reasoningContent,
+                        'label' => 'reasoning',
+                        'role' => 'assistant'
+                    ];
+                }
+                
+                // 工具调用输出
+                if (!empty($message['tool_calls'])) {
+                    $outputs[] = [
+                        'type' => 'tool_calls',
+                        'content' => $message['tool_calls']
+                    ];
+                }
+            }
+            
+            // 提取 token 用量
+            if (isset($response['usage']['total_tokens'])) {
+                $tokens = intval($response['usage']['total_tokens']);
+            }
+            
+            // 检查 finish_reason 错误状态
+            $finishReason = $response['choices'][0]['finish_reason'] ?? 'stop';
+            if ($finishReason === 'content_filter') {
+                \think\facade\Log::warning('parseApiResponse: Chat content_filter 被拦截');
+            }
+            
+            return [
+                'status' => 1,
+                'outputs' => $outputs,
+                'tokens' => $tokens,
+                'cost' => 0,
+                'finish_reason' => $finishReason
             ];
         }
         
@@ -6265,6 +6345,134 @@ class GenerationService
         if (!empty($options)) {
             $body['options'] = $options;
         }
+        
+        return $body;
+    }
+    
+    /**
+     * 为豆包Seed 2.0 Chat大语言模型构建请求体
+     * 
+     * 使用火山引擎 Ark Chat Completions API 格式 (OpenAI兼容):
+     * {
+     *   "model": "doubao-seed-2-0-pro-260215",
+     *   "messages": [
+     *     {"role": "system", "content": "系统提示词"},
+     *     {"role": "user", "content": "用户问题"}
+     *   ],
+     *   "thinking": {"type": "auto"},
+     *   "max_completion_tokens": 65536,
+     *   "temperature": 1,
+     *   "top_p": 0.95,
+     *   "stream": false
+     * }
+     * 
+     * 特殊规则：
+     * - temperature固定为1, top_p固定为0.95（doubao-seed-2-0-pro强制要求）
+     * - 不支持frequency_penalty、presence_penalty
+     * - thinking.type支持enabled/disabled/auto
+     * - 优先使用max_completion_tokens，其次max_tokens
+     * 
+     * @param string $modelCode 模型代码
+     * @param array $inputParams 用户输入参数
+     * @return array 符合API格式的请求体
+     */
+    protected function buildDoubaoChatRequestBody($modelCode, $inputParams)
+    {
+        $messages = [];
+        
+        // 1. 系统提示词
+        $systemPrompt = $inputParams['system_prompt'] ?? $inputParams['system'] ?? '';
+        if (!empty($systemPrompt)) {
+            $messages[] = ['role' => 'system', 'content' => $systemPrompt];
+        }
+        
+        // 2. 用户消息 - 支持messages数组格式和简单prompt格式
+        if (!empty($inputParams['messages']) && is_array($inputParams['messages'])) {
+            // 多轮对话格式：直接使用用户传入的完整messages数组
+            foreach ($inputParams['messages'] as $msg) {
+                if (isset($msg['role']) && isset($msg['content'])) {
+                    $m = ['role' => $msg['role'], 'content' => $msg['content']];
+                    // 支持 assistant 消息的 reasoning_content
+                    if (!empty($msg['reasoning_content']) && $msg['role'] === 'assistant') {
+                        $m['reasoning_content'] = $msg['reasoning_content'];
+                    }
+                    $messages[] = $m;
+                }
+            }
+        } else {
+            // 单轮prompt格式
+            $prompt = $inputParams['prompt'] ?? $inputParams['text'] ?? $inputParams['content'] ?? '';
+            if (!empty($prompt)) {
+                $messages[] = ['role' => 'user', 'content' => $prompt];
+            }
+        }
+        
+        // 3. 构建请求体
+        $body = [
+            'model' => $modelCode,
+            'messages' => $messages,
+            'stream' => !empty($inputParams['stream']) ? (bool)$inputParams['stream'] : false,
+        ];
+        
+        // 4. temperature - doubao-seed-2-0-pro 固定为1，但仍允许用户覆盖
+        $temperature = $inputParams['temperature'] ?? null;
+        if ($temperature !== null && $temperature !== '') {
+            $body['temperature'] = floatval($temperature);
+        } else {
+            $body['temperature'] = 1;
+        }
+        
+        // 5. top_p - doubao-seed-2-0-pro 固定为0.95
+        $topP = $inputParams['top_p'] ?? null;
+        if ($topP !== null && $topP !== '') {
+            $body['top_p'] = floatval($topP);
+        } else {
+            $body['top_p'] = 0.95;
+        }
+        
+        // 6. max_completion_tokens 优先于 max_tokens
+        $maxCompletionTokens = $inputParams['max_completion_tokens'] ?? null;
+        $maxTokens = $inputParams['max_tokens'] ?? null;
+        if ($maxCompletionTokens !== null && $maxCompletionTokens !== '') {
+            $body['max_completion_tokens'] = intval($maxCompletionTokens);
+        } elseif ($maxTokens !== null && $maxTokens !== '') {
+            $body['max_tokens'] = intval($maxTokens);
+        } elseif ($maxTokens === null && $maxCompletionTokens === null) {
+            // 默认使用 max_completion_tokens 支持长文本输出
+            $body['max_completion_tokens'] = 65536;
+        }
+        
+        // 7. thinking 深度思考模式
+        $thinkingType = $inputParams['thinking_type'] ?? null;
+        if ($thinkingType && in_array($thinkingType, ['enabled', 'disabled', 'auto'])) {
+            $body['thinking'] = ['type' => $thinkingType];
+        }
+        // 如果用户传了 reasoning_effort（备选字段名）
+        $reasoningEffort = $inputParams['reasoning_effort'] ?? null;
+        if ($reasoningEffort && in_array($reasoningEffort, ['minimal', 'low', 'medium', 'high'])) {
+            $body['reasoning_effort'] = $reasoningEffort;
+        }
+        
+        // 8. service_tier
+        $serviceTier = $inputParams['service_tier'] ?? null;
+        if ($serviceTier && in_array($serviceTier, ['auto', 'default', 'fast'])) {
+            $body['service_tier'] = $serviceTier;
+        }
+        
+        // 9. stop
+        if (!empty($inputParams['stop'])) {
+            $body['stop'] = $inputParams['stop'];
+        }
+        
+        // 10. response_format
+        $responseFormat = $inputParams['response_format'] ?? null;
+        if ($responseFormat) {
+            $body['response_format'] = ['type' => $responseFormat];
+        }
+        
+        \think\facade\Log::info('buildDoubaoChatRequestBody: 构建完成 model=' . $modelCode 
+            . ' messages_count=' . count($messages) 
+            . ' body=' . json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         
         return $body;
     }

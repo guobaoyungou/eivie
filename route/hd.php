@@ -146,6 +146,8 @@ Route::group('api/hd/screen/:access_code', function () {
 // ============================================================
 // 5. 大屏 iframe 功能页路由（必须在入口页路由之前，否则会被前缀匹配拦截）
 // ============================================================
+Route::get('s/:access_code/lottery-screen', 'hd.HdEntryController/lotteryScreen')->middleware([$hdCors, $hdTenant]);
+Route::get('s/:access_code/wall/lottery-screen', 'hd.HdEntryController/lotteryScreen')->middleware([$hdCors, $hdTenant]);
 Route::get('s/:access_code/wall/:feature', 'hd.HdEntryController/wallPage')->middleware([$hdCors, $hdTenant]);
 
 // ============================================================

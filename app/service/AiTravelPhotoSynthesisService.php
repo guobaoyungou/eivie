@@ -364,7 +364,55 @@ class AiTravelPhotoSynthesisService
             'model_id' => $template['model_id'] ?? 0,
         ]);
 
-        // 5. 调用 AI 模型生成图片（与管理员 generate() 相同路径）
+        // 5. AI提示词改写（根据人像标签改写提示词）
+        $synthesisSetting = $this->getSetting(0);
+        if (($synthesisSetting['prompt_rewrite_enabled'] ?? 1) == 1) {
+            try {
+                // 确定当前使用的提示词
+                $useDefaultParams = false;
+                $defaultParams = is_string($template['default_params'] ?? '')
+                    ? json_decode($template['default_params'] ?? '', true)
+                    : ($template['default_params'] ?? []);
+                if (!is_array($defaultParams)) $defaultParams = [];
+
+                $currentPrompt = $defaultParams['prompt'] ?? '';
+                if (!empty($currentPrompt)) {
+                    $useDefaultParams = true;
+                } else {
+                    $currentPrompt = $template['prompt'] ?? $template['description'] ?? '';
+                }
+
+                if (!empty($currentPrompt)) {
+                    $promptRewrite = new \app\service\PromptRewriteService();
+                    $newPrompt = $promptRewrite->rewrite(
+                        $currentPrompt,
+                        [
+                            'gender' => $portrait['gender_tag'] ?? '',
+                            'age' => $portrait['age_tag'] ?? '',
+                            'is_multi' => $portrait['is_multi_template'] ?? 0,
+                            'face_count' => $portrait['face_count'] ?? 1,
+                        ],
+                        $synthesisSetting['prompt_rewrite_provider'] ?? 'aliyun',
+                        $synthesisSetting['prompt_rewrite_model'] ?? 'qwen-plus'
+                    );
+                    if ($newPrompt !== $currentPrompt) {
+                        if ($useDefaultParams) {
+                            $defaultParams['prompt'] = $newPrompt;
+                            $template['default_params'] = json_encode($defaultParams);
+                        }
+                        $template['prompt'] = $newPrompt;
+                        Log::info('PromptRewrite 已改写提示词', [
+                            'original' => mb_substr($currentPrompt, 0, 60),
+                            'rewritten' => mb_substr($newPrompt, 0, 60),
+                        ]);
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning('PromptRewrite 失败，使用原提示词: ' . $e->getMessage());
+            }
+        }
+
+        // 6. 调用 AI 模型生成图片（与管理员 generate() 相同路径）
         $generatedUrl = $this->callAiModel($portraitUrl, $template);
 
         if (empty($generatedUrl)) {
@@ -420,7 +468,7 @@ class AiTravelPhotoSynthesisService
                 ->where('status', 2)
                 ->count();
 
-            $synthesisStatus = $successCount > 0 ? 3 : 4;
+                        $synthesisStatus = $successCount > 0 ? 3 : 4;
 
             // 失败时提取具体的 generation 级错误信息，帮助用户定位原因
             $synthesisError = '';

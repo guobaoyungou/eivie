@@ -1205,7 +1205,56 @@ class AiTravelPhotoSelfieService
             Log::info('自拍端：手动拍摄模式无face_embedding，跳过Milvus插入', ['portrait_id' => $portraitId]);
         }
 
-        // ===== 获取合成设置并触发合成（整体 try-catch 保障 synthesis_status 不会卡在 0） =====
+        // ===== Step 1: 自动标签分析 =====
+        $gender = 'Unknown';
+        $ageGroup = 'Unknown';
+        $isMultiFace = 0;
+        $faceCount = 0;
+
+        try {
+            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                'auto_tag_status' => 1, 'update_time' => time()
+            ]);
+
+            $analysisService = new ImageAnalysisService();
+            $result = $analysisService->analyzeFromUrl($originalUrl);
+            if ($result) {
+                $attr = ImageAnalysisService::extractMainSubject($result);
+                $gender = $attr['gender'] ?? 'Unknown';
+                $ageGroup = $attr['age_group'] ?? 'Unknown';
+                $isMultiFace = $attr['is_multi_face'] ? 1 : 0;
+                $faceCount = $attr['face_count'] ?? 0;
+
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'gender_tag' => $gender,
+                    'age_tag' => $ageGroup,
+                    'is_multi_face' => $isMultiFace,
+                    'face_count' => $faceCount,
+                    'auto_tag_status' => 2,
+                    'update_time' => time()
+                ]);
+
+                Log::info('自拍端自动标签分析完成', [
+                    'portrait_id' => $portraitId,
+                    'gender' => $gender, 'age_group' => $ageGroup,
+                    'is_multi' => $isMultiFace, 'face_count' => $faceCount,
+                ]);
+            } else {
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'auto_tag_status' => 3, 'update_time' => time()
+                ]);
+                Log::warning('自拍端自动标签分析失败', ['portrait_id' => $portraitId]);
+            }
+        } catch (\Throwable $e) {
+            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                'auto_tag_status' => 3, 'update_time' => time()
+            ]);
+            Log::error('自拍端自动标签分析异常', [
+                'portrait_id' => $portraitId, 'error' => $e->getMessage()
+            ]);
+        }
+
+        // ===== Step 2: 获取合成设置并触发合成（整体 try-catch 保障 synthesis_status 不会卡在 0） =====
         $templateCount = 0;
         $estimatedSeconds = 30;
         try {
@@ -1215,138 +1264,120 @@ class AiTravelPhotoSelfieService
             ->where('bid', $bid)
             ->find();
 
-        $templates = [];
-        $generateCount = 4; // 默认生成数量
-
-        if ($setting && !empty($setting['template_ids'])) {
-            $templateIds = explode(',', $setting['template_ids']);
+        if (!$setting || empty($setting['template_ids'])) {
+            \think\facade\Log::info('未配置合成模板，跳过自动生成', ['portrait_id' => $portraitId]);
+            // 无模板配置，不标记失败（可能后续再配置）
+        } else {
             $generateCount = (int)($setting['generate_count'] ?? 4);
             $generateMode = (int)($setting['generate_mode'] ?? 1);
 
-            // 从商户合成模板表查询模板
-            $availableTemplates = Db::name('ai_travel_photo_synthesis_template')
-                ->whereIn('id', $templateIds)
-                ->where('status', 1)
-                ->field('id, name as template_name, model_id, model_name, cover_image, images, prompt, default_params, description, scene_template_id')
-                ->select()
-                ->toArray();
+            // ===== Step 3: 自动标签匹配模板 =====
+            $matchService = new \app\service\TemplateMatchService();
+            $matchedTemplates = $matchService->matchSynthesisTemplates(
+                $gender, $ageGroup, $isMultiFace, $aid, $bid
+            );
 
-            // 根据生成模式选择模板
-            if (!empty($availableTemplates)) {
-                if ($generateMode == 1) {
-                    // 顺序模式
-                    for ($i = 0; $i < $generateCount; $i++) {
-                        $templates[] = $availableTemplates[$i % count($availableTemplates)];
-                    }
-                } else {
-                    // 随机模式
-                    $pool = [];
-                    for ($i = 0; $i < $generateCount; $i++) {
-                        if (empty($pool)) {
-                            $pool = $availableTemplates;
-                            shuffle($pool);
-                        }
-                        $templates[] = array_shift($pool);
-                    }
-                }
-            }
-        }
-
-        $templateCount = count($templates);
-
-        // 计算预估等待时间
-        $queuePending = $this->getQueuePendingCount();
-        $estimatedSeconds = $templateCount * 15 + $queuePending * 5;
-
-        // ===== 投递合成任务到队列（与 SmileCapture triggerAsyncTasks 保持一致） =====
-        if (!empty($templates)) {
-            // 更新人像合成状态为「处理中」
-            Db::name('ai_travel_photo_portrait')
-                ->where('id', $portraitId)
-                ->update([
-                    'synthesis_status' => 2,
-                    'synthesis_error' => '',
+            if (empty($matchedTemplates)) {
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'synthesis_status' => 4,
+                    'synthesis_error' => '未匹配到适合的模板，请管理员去添加（性别:' . $gender . ' 年龄段:' . $ageGroup . ' ' . ($isMultiFace ? '多人' : '单人') . '）',
                     'update_time' => time()
                 ]);
+                Log::warning('自拍端TemplateMatch: 无匹配模板', [
+                    'portrait_id' => $portraitId,
+                    'gender' => $gender, 'age_group' => $ageGroup, 'is_multi' => $isMultiFace,
+                ]);
+                // templateCount 保持 0，下方会返回
+            } else {
+                // ===== Step 4: 按生成数量和模式选择模板 =====
+                $templates = $matchService->selectTemplatesForGeneration(
+                    $matchedTemplates, $generateCount, $generateMode
+                );
 
-            $queuedCount = 0;
-            foreach ($templates as $template) {
-                try {
-                    // 创建 generation 记录（与 SmileCapture 一致）
-                    $generationId = Db::name('ai_travel_photo_generation')->insertGetId([
-                        'aid' => $aid,
-                        'portrait_id' => $portraitId,
-                        'scene_id' => 0,
-                        'template_id' => $template['id'],
-                        'uid' => 0,
-                        'bid' => $bid,
-                        'mdid' => $mdid,
-                        'type' => 1,
-                        'generation_type' => 1,
-                        'status' => 0, // 待处理
-                        'create_time' => time(),
-                        'update_time' => time(),
-                        'queue_time' => time()
-                    ]);
+                $templateCount = count($templates);
 
-                    // 推送到正确的队列（ai_image_generation，格式: generation_id）
-                    \think\facade\Queue::push(
-                        'app\\job\\ImageGenerationJob',
-                        ['generation_id' => $generationId],
-                        'ai_image_generation'
-                    );
+                // 计算预估等待时间
+                $queuePending = $this->getQueuePendingCount();
+                $estimatedSeconds = $templateCount * 15 + $queuePending * 5;
 
-                    $queuedCount++;
-                    Log::info('自拍端合成任务已推送', [
-                        'portrait_id' => $portraitId,
-                        'template_id' => $template['id'],
-                        'generation_id' => $generationId
-                    ]);
-                } catch (\Exception $e) {
-                    Log::error('自拍端合成任务推送失败', [
-                        'portrait_id' => $portraitId,
-                        'template_id' => $template['id'] ?? 0,
-                        'error' => $e->getMessage()
-                    ]);
+                // ===== Step 5: 投递合成任务到队列 =====
+                if (!empty($templates)) {
+                    Db::name('ai_travel_photo_portrait')
+                        ->where('id', $portraitId)
+                        ->update([
+                            'synthesis_status' => 2,
+                            'synthesis_error' => '',
+                            'update_time' => time()
+                        ]);
+
+                    $queuedCount = 0;
+                    foreach ($templates as $template) {
+                        try {
+                            $generationId = Db::name('ai_travel_photo_generation')->insertGetId([
+                                'aid' => $aid,
+                                'portrait_id' => $portraitId,
+                                'scene_id' => 0,
+                                'template_id' => $template['id'],
+                                'uid' => 0,
+                                'bid' => $bid,
+                                'mdid' => $mdid,
+                                'type' => 1,
+                                'generation_type' => 1,
+                                'status' => 0,
+                                'create_time' => time(),
+                                'update_time' => time(),
+                                'queue_time' => time()
+                            ]);
+
+                            \think\facade\Queue::push(
+                                'app\\job\\ImageGenerationJob',
+                                ['generation_id' => $generationId],
+                                'ai_image_generation'
+                            );
+
+                            $queuedCount++;
+                            Log::info('自拍端合成任务已推送', [
+                                'portrait_id' => $portraitId,
+                                'template_id' => $template['id'],
+                                'generation_id' => $generationId
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error('自拍端合成任务推送失败', [
+                                'portrait_id' => $portraitId,
+                                'template_id' => $template['id'] ?? 0,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+
+                    if ($queuedCount === 0) {
+                        Log::warning('自拍端所有队列任务推送失败，尝试同步合成', ['portrait_id' => $portraitId]);
+                        try {
+                            $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
+                            $synthesisService = new AiTravelPhotoSynthesisService();
+                            $result = $synthesisService->generate($portrait, $templates, 'selfie_auto');
+                            $resultCount = $result['data']['count'] ?? 0;
+                            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                                'synthesis_status' => $resultCount > 0 ? 3 : 4,
+                                'synthesis_count' => $resultCount,
+                                'synthesis_time' => time(),
+                                'synthesis_error' => $resultCount > 0 ? '' : ($result['msg'] ?? '合成失败'),
+                                'update_time' => time()
+                            ]);
+                        } catch (\Exception $ex) {
+                            Log::error('自拍端同步合成也失败', ['portrait_id' => $portraitId, 'error' => $ex->getMessage()]);
+                            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                                'synthesis_status' => 4,
+                                'synthesis_error' => $ex->getMessage(),
+                                'update_time' => time()
+                            ]);
+                        }
+                    }
                 }
             }
-
-            // 如果所有任务都推送失败，降级为同步合成
-            if ($queuedCount === 0) {
-                Log::warning('自拍端所有队列任务推送失败，尝试同步合成', ['portrait_id' => $portraitId]);
-                try {
-                    $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
-                    $synthesisService = new AiTravelPhotoSynthesisService();
-                    $result = $synthesisService->generate($portrait, $templates, 'selfie_auto');
-                    $resultCount = $result['data']['count'] ?? 0;
-                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                        'synthesis_status' => $resultCount > 0 ? 3 : 4,
-                        'synthesis_count' => $resultCount,
-                        'synthesis_time' => time(),
-                        'synthesis_error' => $resultCount > 0 ? '' : ($result['msg'] ?? '合成失败'),
-                        'update_time' => time()
-                    ]);
-                } catch (\Exception $ex) {
-                    Log::error('自拍端同步合成也失败', ['portrait_id' => $portraitId, 'error' => $ex->getMessage()]);
-                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                        'synthesis_status' => 4,
-                        'synthesis_error' => $ex->getMessage(),
-                        'update_time' => time()
-                    ]);
-                }
-            }
-        } else {
-            Log::warning('自拍端：未找到可用的合成模板', ['aid' => $aid, 'bid' => $bid, 'portrait_id' => $portraitId]);
-            // 无模板可用，标记为失败
-            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                'synthesis_status' => 4,
-                'synthesis_error' => '未配置合成模板，请管理员先在合成设置中关联模板',
-                'update_time' => time()
-            ]);
         }
 
         } catch (\Throwable $e) {
-            // 兜底：合成触发阶段异常，确保 portrait 不会永久卡在 status=0
             Log::error('自拍端合成触发异常', [
                 'portrait_id' => $portraitId, 'error' => $e->getMessage()
             ]);
@@ -1370,17 +1401,6 @@ class AiTravelPhotoSelfieService
             'template_count' => $templateCount,
         ];
     }
-
-    /**
-     * 生成自拍图片缩略图（800px宽度），上传OSS并返回URL
-     *
-     * @param string $imageData 图片二进制内容
-     * @param int $sourceWidth 原图宽度
-     * @param int $sourceHeight 原图高度
-     * @param string $savePath 保存目录相对路径 upload/aid/date/
-     * @param int $aid 平台ID
-     * @return string 缩略图URL
-     */
     private function generateSelfieThumbnail(string $imageData, int $sourceWidth, int $sourceHeight, string $savePath, int $aid): string
     {
         $targetWidth = 800;

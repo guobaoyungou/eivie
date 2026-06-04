@@ -22,6 +22,26 @@ Route::any('TeamSaleYeji/:function', 'yingxiao.TeamSaleYeji/:function');
 Route::any('TeamYejiManage/:function', 'yingxiao.TeamYejiManage/:function');
 Route::any('OrderCollectReward/:function', 'yingxiao.OrderCollectReward/:function');
 
+//------------------算八字（AI命理分析）------------------
+// C端活动页和API
+Route::get('bazi', 'BaziController/index');
+Route::get('bazi/go-pay', 'BaziController/goPay');
+Route::get('bazi/result', 'BaziController/resultView');
+Route::get('api/bazi/config', 'BaziController/getConfig');
+Route::post('api/bazi/submit', 'BaziController/submit');
+Route::get('api/bazi/result-status', 'BaziController/resultStatus');
+Route::post('api/bazi/calculate', 'BaziController/calculate');
+Route::post('api/bazi/create-order', 'BaziController/createOrder');
+Route::get('api/bazi/order-status', 'BaziController/orderStatus');
+Route::post('api/bazi/pay-to-unlock', 'BaziController/payToUnlock');
+Route::post('api/bazi/unlock-result', 'BaziController/unlockResult');
+Route::get('api/bazi/my-records', 'BaziController/myRecords');
+// 后台管理
+Route::any('BaziController/:function', 'BaziController/:function');
+Route::any('BaziConfigController/:function', 'BaziConfigController/:function');
+Route::any('BaziRecordController/:function', 'BaziRecordController/:function');
+Route::any('BaziPosterController/:function', 'BaziPosterController/:function');
+
 if(getcustom('yx_queue_free')){
     Route::any('ApiQueueFree/:function', 'yingxiao.ApiQueueFree/:function');
     Route::any('QueueFree/:function', 'yingxiao.QueueFree/:function');
@@ -321,6 +341,7 @@ Route::any('api/ai_travel_photo/selfie/:function', 'api.AiTravelPhotoSelfie/:fun
 
 // API路由 - XPD大屏选片端
 Route::any('api/ai-travel-photo/selection-list', 'api.AiTravelPhotoXpd/selection_list');
+Route::any('api/ai-travel-photo/layout-save', 'api.AiTravelPhotoXpd/layout_save');
 Route::any('api/ai_travel_photo/xpd/:function', 'api.AiTravelPhotoXpd/:function');
 // ====================AI旅拍系统路由结束====================
 

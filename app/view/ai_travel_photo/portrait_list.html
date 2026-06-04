@@ -61,6 +61,102 @@
             .info-card-progress-bar { height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; overflow: hidden; }
             .info-card-progress-fill { height: 100%; background: rgba(255,255,255,0.8); border-radius: 2px; transition: width 0.5s ease; }
             .info-card-progress-text { font-size: 11px; opacity: 0.8; margin-top: 4px; }
+          .fairface-card.panel-full {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+          }
+          .fairface-card.panel-fallback {
+            background: linear-gradient(135deg, #e65100 0%, #ef6c00 100%);
+          }
+          .fairface-card.panel-offline {
+            background: linear-gradient(135deg, #b71c1c 0%, #d32f2f 100%);
+          }
+          .fairface-card.panel-loading {
+            background: linear-gradient(135deg, #546e7a 0%, #78909c 100%);
+          }
+          /* 状态卡片行 - Milvus + FairFace 并排 */
+          .status-cards-row {
+            display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
+          }
+          .status-card {
+            flex: 1; min-width: 340px; border-radius: 12px; padding: 16px 20px;
+            color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; gap: 12px;
+            transition: all 0.3s ease; position: relative; overflow: hidden;
+          }
+          .status-card .card-header { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+          .status-card .card-header strong { font-weight: 600; }
+          .status-card .card-body { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+          .status-card .card-footer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+          .status-card .card-footer .layui-btn {
+            background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3);
+            color: #fff; border-radius: 20px; height: 28px; line-height: 28px; font-size: 12px;
+            padding: 0 14px; white-space: nowrap;
+          }
+          .status-card .card-footer .layui-btn:hover { background: rgba(255,255,255,0.35); color: #fff; }
+          .status-card .card-addr { font-size: 11px; opacity: 0.7; font-family: monospace; background: rgba(255,255,255,0.15); padding: 1px 8px; border-radius: 4px; }
+          .status-card .card-badge { color: #ffd54f; font-size: 12px; font-weight: 600; }
+          .status-card .card-time { font-size: 11px; opacity: 0.7; }
+          /* Milvus 卡片颜色 */
+          .milvus-card.status-ok { background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%); }
+          .milvus-card.status-error { background: linear-gradient(135deg, #b71c1c 0%, #d32f2f 100%); animation: milvusCardPulse 3s ease-in-out infinite; }
+          @keyframes milvusCardPulse {
+            0%, 100% { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+            50% { box-shadow: 0 4px 25px rgba(239, 68, 68, 0.3); }
+          }
+          .fairface-led {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 6px currentColor;
+            vertical-align: middle;
+          }
+          .fairface-led.led-on { background: #52c41a; color: #52c41a; animation: fairface-pulse 2s infinite; }
+          .fairface-led.led-warn { background: #faad14; color: #faad14; animation: fairface-pulse 2s infinite; }
+          .fairface-led.led-off { background: #ff4d4f; color: #ff4d4f; }
+          @keyframes fairface-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+          }
+          /* 阈值滑块区 */
+          .threshold-item { display: flex; align-items: center; gap: 8px; }
+          .threshold-item label {
+            font-size: 12px; white-space: nowrap;
+            opacity: 1; margin: 0;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+          }
+          .threshold-item input[type="range"] {
+            width: 100px; height: 6px;
+            -webkit-appearance: none;
+            background: rgba(255,255,255,0.55);
+            border-radius: 3px; outline: none;
+            cursor: pointer;
+          }
+          .threshold-item input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2px solid rgba(0,0,0,0.15);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            cursor: pointer;
+          }
+          .threshold-item input[type="range"]::-moz-range-thumb {
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2px solid rgba(0,0,0,0.15);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            cursor: pointer;
+          }
+          .threshold-val {
+            font-size: 13px; font-weight: 700;
+            min-width: 40px; text-align: center;
+            background: rgba(255,255,255,0.35);
+            border-radius: 10px;
+            padding: 2px 8px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+          }
           /* 表格复选框和ID列对齐样式 - 修复错位问题 */
           .layui-table-cell .layui-form-checkbox { top: 0; margin: 0 auto; }
           .layui-table-fixed-l .layui-table-cell { text-align: center; height: auto !important; line-height: inherit !important; }
@@ -130,76 +226,71 @@
             </div>
           </div>
 
-          <!-- Milvus 向量数据库服务状态提示条 -->
-          <div id="milvusStatusBar" class="milvus-status-bar {:$milvus_status['healthy'] ? 'status-ok' : 'status-error'}">
-            <div class="milvus-status-left">
-              <span class="milvus-status-dot {:$milvus_status['healthy'] ? 'dot-ok' : 'dot-error'}"></span>
-              <span class="milvus-status-icon">{:$milvus_status['healthy'] ? '✅' : '⚠️'}</span>
-              <strong class="milvus-status-title">向量数据库 (Milvus)</strong>
-              <span id="milvusStatusText" class="milvus-status-text">
-                {:$milvus_status['healthy'] ? '服务运行正常' : '服务未连接'}
-              </span>
-              <span class="milvus-status-addr" title="Milvus REST 地址">{$milvus_status.host}:{$milvus_status.port}</span>
-              {if $milvus_status['pending_sync'] > 0}
-              <span id="milvusPendingSync" class="milvus-pending-badge" title="MySQL已入库但尚未同步到Milvus的记录数">
-                • 待同步: <strong>{$milvus_status.pending_sync}</strong> 条
-              </span>
-              {/if}
+          <!-- Milvus + FairFace 状态卡片行 -->
+          <div class="status-cards-row">
+            <!-- Milvus 向量数据库卡片 -->
+            <div id="milvusCard" class="status-card milvus-card {:$milvus_status['healthy'] ? 'status-ok' : 'status-error'}">
+              <div class="card-header">
+                <span class="milvus-status-dot {:$milvus_status['healthy'] ? 'dot-ok' : 'dot-error'}"></span>
+                <span class="milvus-status-icon">{:$milvus_status['healthy'] ? '✅' : '⚠️'}</span>
+                <strong>向量数据库 (Milvus)</strong>
+              </div>
+              <div class="card-body">
+                <span id="milvusStatusText">{:$milvus_status['healthy'] ? '服务运行正常' : '服务未连接'}</span>
+                <span class="card-addr" title="Milvus REST 地址">{$milvus_status.host}:{$milvus_status.port}</span>
+                {if $milvus_status['pending_sync'] > 0}
+                <span id="milvusPendingSync" class="card-badge">• 待同步: <strong>{$milvus_status.pending_sync}</strong> 条</span>
+                {else}
+                <span id="milvusPendingSync" class="card-badge" style="display:none"></span>
+                {/if}
+              </div>
+              <div class="card-footer">
+                <span id="milvusCheckTime" class="card-time" title="上次检测时间">{$milvus_status.check_time}</span>
+                <button type="button" class="layui-btn layui-btn-sm" id="milvusRefreshBtn" onclick="refreshMilvusStatus()">
+                  <i class="layui-icon layui-icon-refresh"></i> 刷新
+                </button>
+                {if $milvus_status['healthy'] && $milvus_status['pending_sync'] > 0}
+                <button type="button" class="layui-btn layui-btn-sm" id="milvusSyncBtn" onclick="triggerMilvusSync()">
+                  <i class="layui-icon layui-icon-upload-drag"></i> 一键同步
+                </button>
+                {/if}
+                {if !$milvus_status['healthy']}
+                <button type="button" class="layui-btn layui-btn-sm" id="milvusTroubleBtn" onclick="showMilvusTroubleshoot()">
+                  <i class="layui-icon layui-icon-about"></i> 处理办法
+                </button>
+                {/if}
+              </div>
             </div>
-            <div class="milvus-status-right">
-              <span id="milvusCheckTime" class="milvus-check-time" title="上次检测时间">{$milvus_status.check_time}</span>
-              <button type="button" class="layui-btn layui-btn-xs layui-btn-primary" id="milvusRefreshBtn" onclick="refreshMilvusStatus()">
-                <i class="layui-icon layui-icon-refresh"></i> 刷新
-              </button>
-              {if $milvus_status['healthy'] && $milvus_status['pending_sync'] > 0}
-              <button type="button" class="layui-btn layui-btn-xs layui-btn-normal" id="milvusSyncBtn" onclick="triggerMilvusSync()">
-                <i class="layui-icon layui-icon-upload-drag"></i> 一键同步到Milvus
-              </button>
-              {/if}
-              {if !$milvus_status['healthy']}
-              <button type="button" class="layui-btn layui-btn-xs layui-btn-warm" onclick="showMilvusTroubleshoot()">
-                <i class="layui-icon layui-icon-about"></i> 处理办法
-              </button>
-              {/if}
+
+            <!-- FairFace AI 模型状态卡片 -->
+            <div class="status-card fairface-card panel-loading" id="fairfacePanel">
+              <div class="card-header">
+                <span class="fairface-led led-warn" id="ffLed"></span>
+                <strong>AI模型状态：<span id="ffMode">检测中...</span></strong>
+              </div>
+              <div class="card-body">
+                <span>人脸检测：<b id="ffInsightface">-</b></span>
+                <span>属性识别：<b id="ffFairface">-</b></span>
+                <span id="ffTimestamp" style="font-size:11px;opacity:0.7"></span>
+              </div>
+              <div class="card-body" style="border-top:1px solid rgba(255,255,255,0.2);padding-top:10px;">
+                <div class="threshold-item">
+                  <label>性别阈值</label>
+                  <input type="range" id="genderThreshold" min="0.30" max="0.95" step="0.01" value="0.65" oninput="onThresholdSlide()">
+                  <span class="threshold-val" id="genderThresholdVal">0.65</span>
+                </div>
+                <div class="threshold-item">
+                  <label>年龄阈值</label>
+                  <input type="range" id="ageThreshold" min="0.10" max="0.90" step="0.01" value="0.55" oninput="onThresholdSlide()">
+                  <span class="threshold-val" id="ageThresholdVal">0.55</span>
+                </div>
+              </div>
+              <div class="card-footer">
+                <button type="button" class="layui-btn layui-btn-sm" id="ffRestartBtn" onclick="restartFairface()">重启服务</button>
+                <button type="button" class="layui-btn layui-btn-sm" id="ffRefreshBtn" onclick="refreshFairfaceStatus()">刷新</button>
+              </div>
             </div>
           </div>
-          <style>
-            .milvus-status-bar {
-              display: flex; align-items: center; justify-content: space-between;
-              padding: 10px 16px; border-radius: 8px; margin-bottom: 15px;
-              font-size: 13px; transition: all 0.3s ease;
-            }
-            .milvus-status-bar.status-ok {
-              background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-              border: 1px solid #86efac;
-            }
-            .milvus-status-bar.status-error {
-              background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-              border: 1px solid #fca5a5;
-              animation: milvusStatusPulse 3s ease-in-out infinite;
-            }
-            @keyframes milvusStatusPulse {
-              0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.15); }
-              50% { box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.2); }
-            }
-            .milvus-status-left, .milvus-status-right { display: flex; align-items: center; gap: 8px; }
-            .milvus-status-dot {
-              width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0;
-            }
-            .milvus-status-dot.dot-ok { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.6); }
-            .milvus-status-dot.dot-error { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.6); animation: dotBlink 1.5s ease-in-out infinite; }
-            @keyframes dotBlink {
-              0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
-            }
-            .milvus-status-icon { font-size: 16px; }
-            .milvus-status-title { color: #333; font-size: 13px; }
-            .status-ok .milvus-status-text { color: #16a34a; font-weight: 500; }
-            .status-error .milvus-status-text { color: #dc2626; font-weight: 600; }
-            .milvus-status-addr { color: #999; font-size: 12px; font-family: monospace; background: rgba(0,0,0,0.05); padding: 1px 6px; border-radius: 3px; }
-            .milvus-pending-badge { color: #ea580c; font-size: 12px; }
-            .milvus-check-time { color: #aaa; font-size: 11px; }
-            .milvus-status-right .layui-btn { height: 26px; line-height: 26px; font-size: 12px; }
-          </style>
 
           <!-- 筛选区域 -->
           <div class="layui-form layui-form-search" style="margin-bottom: 15px;">
@@ -270,7 +361,7 @@
               <button class="layui-btn" lay-submit lay-filter="searchBtn"><i class="layui-icon layui-icon-search"></i> 搜索</button>
             </div>
           </div>
-          
+
           <!-- 上传操作区域 -->
           <div style="margin-bottom: 15px;">
             <button type="button" class="layui-btn layui-btn-normal" id="uploadBtn">
@@ -391,6 +482,9 @@
         {field: 'type', title: '上传方式', width: 100, templet: function(d){
           return d.type == 1 ? '商家上传' : '用户上传';
         }},
+        {field: 'uploader_account', title: '上传者账号', width: 120, templet: function(d){
+          return d.uploader_account ? '<span style="color:#333;font-weight:600;">'+d.uploader_account+'</span>' : '<span style="color:#ccc;">未记录</span>';
+        }},
         {field: 'source_type', title: '人像来源', width: 100, templet: function(d){
           var st = d.source_type || 1;
           if(st == 1) return '<span style="color:#5fb878">设备拍摄</span>';
@@ -406,9 +500,11 @@
           }
           return '<span style="display:inline-block;padding:2px 8px;background:#FF5722;color:#fff;border-radius:3px;font-size:12px;">未入库</span>';
         }},
-        {field: 'user_openid', title: '用户关联', width: 140, templet: function(d){
-          if(!d.user_openid) return '<span style="color:#ccc">未关联</span>';
-          return '<span style="color:#1e9fff;cursor:pointer;" title="'+d.user_openid+'" onclick="layer.tips(\''+d.user_openid+'\', this, {tips: 1, time: 5000})">' + d.user_openid_short + '</span>';
+        {field: 'user_openid', title: '用户关联', width: 160, templet: function(d){
+          if(!d.user_openid_short) return '<span style="color:#ccc">未关联</span>';
+          var oids = d.user_openid_short.replace(/\n/g, '<br>');
+          var bold = d.user_openid_count > 1 ? 'font-weight:600;' : '';
+          return '<span style="color:#1e9fff;cursor:pointer;' + bold + '">' + oids + '</span>';
         }},
         {field: 'mdid', title: '门店', width: 150, templet: function(d){
           var md = '';
@@ -420,6 +516,10 @@
           return md || '-';
         }},
         {field: 'result_count', title: '生成结果数', width: 120},
+        {field: 'rewritten_prompt_used', title: 'AI改写', width: 100, align: 'center', templet: function(d){
+          if(d.rewritten_prompt_used === '是') return '<span class="layui-badge layui-bg-green">是</span>';
+          return '<span class="layui-badge" style="background:#aaa;">否</span>';
+        }},
         {field: 'auto_tags', title: '自动标签', width: 170, align: 'center', templet: function(d){
           var tags = [];
           if(d.gender_text && d.gender_text !== '-') tags.push('<span class="layui-badge layui-bg-blue">'+d.gender_text+'</span>');
@@ -1381,50 +1481,50 @@
    * 更新 Milvus 状态栏 UI
    */
   function updateMilvusStatusUI(data) {
-    var bar = document.getElementById('milvusStatusBar');
+    var card = document.getElementById('milvusCard');
     var statusText = document.getElementById('milvusStatusText');
     var checkTime = document.getElementById('milvusCheckTime');
-    if(!bar) return;
+    if(!card) return;
 
     var wasDown = !milvusCurrentStatus;
     milvusCurrentStatus = data.healthy;
 
-    // 更新状态栏样式
+    // 更新卡片样式
     if(data.healthy) {
-      bar.className = 'milvus-status-bar status-ok';
-      bar.querySelector('.milvus-status-dot').className = 'milvus-status-dot dot-ok';
-      bar.querySelector('.milvus-status-icon').textContent = '\u2705';
+      card.className = 'status-card milvus-card status-ok';
+      card.querySelector('.milvus-status-dot').className = 'milvus-status-dot dot-ok';
+      card.querySelector('.milvus-status-icon').textContent = '\u2705';
       statusText.textContent = '\u670d\u52a1\u8fd0\u884c\u6b63\u5e38';
-      statusText.style.color = '#16a34a';
-      // 移除处理办法按钮
-      var troubleBtn = bar.querySelector('.layui-btn-warm');
+      // 隐藏处理办法按钮
+      var troubleBtn = document.getElementById('milvusTroubleBtn');
       if(troubleBtn) troubleBtn.style.display = 'none';
-      // 如果之前宕机现在恢复，提示用户
       if(wasDown) {
-        layer.msg('Milvus 服务已恢复连接！', {icon: 1, time: 2000});
+        layer.msg('Milvus \u670d\u52a1\u5df2\u6062\u590d\u8fde\u63a5\uff01', {icon: 1, time: 2000});
       }
     } else {
-      bar.className = 'milvus-status-bar status-error';
-      bar.querySelector('.milvus-status-dot').className = 'milvus-status-dot dot-error';
-      bar.querySelector('.milvus-status-icon').textContent = '\u26a0\ufe0f';
+      card.className = 'status-card milvus-card status-error';
+      card.querySelector('.milvus-status-dot').className = 'milvus-status-dot dot-error';
+      card.querySelector('.milvus-status-icon').textContent = '\u26a0\ufe0f';
       statusText.textContent = '\u670d\u52a1\u672a\u8fde\u63a5';
-      statusText.style.color = '#dc2626';
       // 显示处理办法按钮
-      var rightDiv = bar.querySelector('.milvus-status-right');
-      var troubleBtn = bar.querySelector('.layui-btn-warm');
-      if(!troubleBtn && rightDiv) {
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'layui-btn layui-btn-xs layui-btn-warm';
-        btn.onclick = showMilvusTroubleshoot;
-        btn.innerHTML = '<i class="layui-icon layui-icon-about"></i> \u5904\u7406\u529e\u6cd5';
-        rightDiv.appendChild(btn);
-      } else if(troubleBtn) {
+      var troubleBtn = document.getElementById('milvusTroubleBtn');
+      if(!troubleBtn) {
+        var footer = card.querySelector('.card-footer');
+        if(footer) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.id = 'milvusTroubleBtn';
+          btn.className = 'layui-btn layui-btn-sm';
+          btn.onclick = showMilvusTroubleshoot;
+          btn.innerHTML = '<i class="layui-icon layui-icon-about"></i> \u5904\u7406\u529e\u6cd5';
+          footer.appendChild(btn);
+        }
+      } else {
         troubleBtn.style.display = '';
       }
     }
 
-    // 更新待同步徽章（无论服务正常还是异常都显示）
+    // 更新待同步徽章
     var pendingCount = data.pending_sync || 0;
     var pendingEl = document.getElementById('milvusPendingSync');
     if(pendingCount > 0) {
@@ -1432,38 +1532,32 @@
         pendingEl.style.display = '';
         pendingEl.innerHTML = '\u2022 \u5f85\u540c\u6b65: <strong>' + pendingCount + '</strong> \u6761';
       } else {
-        var leftDiv = bar.querySelector('.milvus-status-left');
-        if(leftDiv) {
+        var body = card.querySelector('.card-body');
+        if(body) {
           var badge = document.createElement('span');
           badge.id = 'milvusPendingSync';
-          badge.className = 'milvus-pending-badge';
-          badge.title = 'MySQL\u5df2\u5165\u5e93\u4f46\u5c1a\u672a\u540c\u6b65\u5230Milvus\u7684\u8bb0\u5f55\u6570';
+          badge.className = 'card-badge';
           badge.innerHTML = '\u2022 \u5f85\u540c\u6b65: <strong>' + pendingCount + '</strong> \u6761';
-          leftDiv.appendChild(badge);
+          body.appendChild(badge);
         }
       }
     } else {
       if(pendingEl) pendingEl.style.display = 'none';
     }
 
-    // 更新同步按钮（服务正常且有待同步时显示）
+    // 更新同步按钮
     var syncBtn = document.getElementById('milvusSyncBtn');
     if(data.healthy && pendingCount > 0) {
       if(!syncBtn) {
-        var rightDiv = bar.querySelector('.milvus-status-right');
-        if(rightDiv) {
+        var footer = card.querySelector('.card-footer');
+        if(footer) {
           var nbtn = document.createElement('button');
           nbtn.type = 'button';
           nbtn.id = 'milvusSyncBtn';
-          nbtn.className = 'layui-btn layui-btn-xs layui-btn-normal';
+          nbtn.className = 'layui-btn layui-btn-sm';
           nbtn.onclick = triggerMilvusSync;
-          nbtn.innerHTML = '<i class="layui-icon layui-icon-upload-drag"></i> \u4e00\u952e\u540c\u6b65\u5230Milvus';
-          var refreshBtn = document.getElementById('milvusRefreshBtn');
-          if(refreshBtn && refreshBtn.nextSibling) {
-            rightDiv.insertBefore(nbtn, refreshBtn.nextSibling);
-          } else {
-            rightDiv.appendChild(nbtn);
-          }
+          nbtn.innerHTML = '<i class="layui-icon layui-icon-upload-drag"></i> \u4e00\u952e\u540c\u6b65';
+          footer.appendChild(nbtn);
         }
       } else {
         syncBtn.style.display = '';
@@ -1558,6 +1652,144 @@
 
   // 初始化轮询
   startMilvusPolling();
+
+  // ========== FairFace 模型状态面板 ==========
+  var ffRestarting = false;
+  var thresholdSaveTimer = null;
+
+  // 获取并显示 FairFace 状态
+  function refreshFairfaceStatus() {
+    var url = '{:url("AiTravelPhoto/fairface_status")}';
+    console.log('[FairFace] 请求URL:', url);
+    $.ajax({
+      url: url,
+      type: 'GET',
+      dataType: 'json',
+      success: function(res) {
+        console.log('[FairFace] 响应:', JSON.stringify(res));
+        if (res.code !== 0 || !res.data) {
+          console.log('[FairFace] code !== 0 或无数据, code=' + res.code + ', hasData=' + !!res.data);
+          updateFairfaceUI('panel-offline', '服务不可用', 'led-off', '未知', '未知', '');
+          return;
+        }
+        var d = res.data;
+        var loaded = d.fairface_loaded;
+        var mode = d.mode === 'full' ? 'FairFace 全功能' : (d.mode === 'insightface_only' ? 'InsightFace-Only' : d.mode);
+        var ledClass = loaded ? 'led-on' : 'led-warn';
+        var panelClass = loaded ? 'panel-full' : 'panel-fallback';
+
+        updateFairfaceUI(
+          panelClass,
+          mode,
+          ledClass,
+          d.insightface_loaded ? '已加载' : '未加载',
+          loaded ? 'FairFace 已加载' : '未加载（仅 InsightFace）',
+          d._timestamp || ''
+        );
+      },
+      error: function(xhr, status, error) {
+        console.log('[FairFace] AJAX失败:', status, error, 'HTTP状态:', xhr.status, '响应:', xhr.responseText ? xhr.responseText.substring(0, 500) : '');
+        updateFairfaceUI('panel-offline', '服务离线', 'led-off', '未知', '未知', '');
+      }
+    });
+  }
+
+  function updateFairfaceUI(panelClass, mode, ledClass, insightfaceText, fairfaceText, timestamp) {
+    var panel = $('#fairfacePanel');
+    panel.removeClass('panel-full panel-fallback panel-offline panel-loading').addClass(panelClass);
+    $('#ffLed').removeClass('led-on led-warn led-off').addClass(ledClass);
+    $('#ffMode').text(mode);
+    $('#ffInsightface').text(insightfaceText);
+    $('#ffFairface').text(fairfaceText);
+    if (timestamp) {
+      $('#ffTimestamp').text('\u66f4\u65b0\u4e8e ' + timestamp);
+    }
+  }
+
+  // 重启 FairFace 服务
+  function restartFairface() {
+    if (ffRestarting) return;
+    layer.confirm('确定要重启 AI 模型服务吗？<br>重启期间（约 30 秒）人物识别功能将暂时不可用。', {
+      title: '操作确认',
+      icon: 3,
+      btn: ['确认重启', '取消']
+    }, function(index) {
+      layer.close(index);
+      ffRestarting = true;
+      var loadIdx = layer.load(2);
+
+      $.post('{:url("AiTravelPhoto/fairface_restart")}', function(res) {
+        layer.close(loadIdx);
+        ffRestarting = false;
+
+        if (res.code === 0) {
+          layer.msg(res.msg || '重启成功', {icon: 1, time: 2000});
+          // 等待几秒后刷新状态
+          setTimeout(refreshFairfaceStatus, 5000);
+          setTimeout(refreshFairfaceStatus, 15000);
+          setTimeout(refreshFairfaceStatus, 30000);
+        } else {
+          layer.msg(res.msg || '重启失败', {icon: 2});
+        }
+      }).fail(function() {
+        layer.close(loadIdx);
+        ffRestarting = false;
+        layer.msg('请求失败，请检查网络', {icon: 2});
+      });
+    });
+  }
+
+  // 获取阈值设置
+  function loadThresholdSettings() {
+    $.get('{:url("AiTravelPhoto/fairface_threshold_get")}', function(res) {
+      if (res.code === 0 && res.data) {
+        var gtv = parseFloat(res.data.gender_confidence_threshold) || 0.65;
+        var atv = parseFloat(res.data.age_confidence_threshold) || 0.55;
+        $('#genderThreshold').val(gtv);
+        $('#ageThreshold').val(atv);
+        $('#genderThresholdVal').text(gtv.toFixed(2));
+        $('#ageThresholdVal').text(atv.toFixed(2));
+      }
+    });
+  }
+
+  // 滑块拖动时实时显示数值
+  function onThresholdSlide() {
+    var gtv = parseFloat($('#genderThreshold').val()).toFixed(2);
+    var atv = parseFloat($('#ageThreshold').val()).toFixed(2);
+    $('#genderThresholdVal').text(gtv);
+    $('#ageThresholdVal').text(atv);
+
+    // 防抖保存：停止拖动 800ms 后自动保存
+    if (thresholdSaveTimer) clearTimeout(thresholdSaveTimer);
+    thresholdSaveTimer = setTimeout(function() {
+      saveThresholdSettings(parseFloat(gtv), parseFloat(atv));
+    }, 800);
+  }
+
+  function saveThresholdSettings(genderVal, ageVal) {
+    $.post('{:url("AiTravelPhoto/fairface_threshold_set")}', {
+      gender_confidence_threshold: genderVal,
+      age_confidence_threshold: ageVal
+    }, function(res) {
+      if (res.code === 0) {
+        console.log('阈值已保存: 性别=' + genderVal + ' 年龄=' + ageVal);
+      } else {
+        layer.msg('阈值保存失败', {icon: 2, time: 1500});
+      }
+    }).fail(function() {
+      layer.msg('阈值保存请求失败', {icon: 2, time: 1500});
+    });
+  }
+
+  // 页面加载时初始化
+  $(function() {
+    refreshFairfaceStatus();
+    loadThresholdSettings();
+    // 每 60 秒自动刷新模型状态
+    setInterval(refreshFairfaceStatus, 60000);
+  });
+
   </script>
   {include file="public/copyright"/}
 </body>

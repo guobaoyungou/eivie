@@ -170,6 +170,55 @@ class AiTravelPhotoPickService
         ];
     }
 
+
+    /**
+     * 获取门店内所有已合成成片（含批量上传，供B端管理界面使用）
+     *
+     * @param int $bid 商家ID
+     * @param int $mdid 门店ID
+     * @return array
+     */
+    public function getStoreAllPortraits(int $bid, int $mdid): array
+    {
+        // 查找该门店所有已合成完成的人像（含user_openid为空的批量上传人像）
+        $portraits = Db::name('ai_travel_photo_portrait')
+            ->where('bid', $bid)
+            ->where('mdid', $mdid)
+            ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL)
+            ->where('synthesis_status', 3) // 合成已完成
+            ->field('id, aid, user_openid')
+            ->order('id', 'desc')
+            ->select()
+            ->toArray();
+
+        if (empty($portraits)) {
+            return [
+                'portrait_ids' => [],
+                'results' => [],
+                'total' => 0,
+            ];
+        }
+
+        $portraitIds = array_column($portraits, 'id');
+        $aid = (int)$portraits[0]['aid'];
+
+        // 聚合所有portrait的成片
+        $results = \app\model\AiTravelPhotoResult::whereIn('portrait_id', $portraitIds)
+            ->where('status', \app\model\AiTravelPhotoResult::STATUS_NORMAL)
+            ->field('id, type, url, thumbnail_url, watermark_url, width, height, create_time')
+            ->order('create_time DESC, id DESC')
+            ->select()
+            ->toArray();
+
+        $list = $this->formatResultItems($results);
+
+        return [
+            'portrait_ids' => array_map('intval', $portraitIds),
+            'aid' => $aid,
+            'results' => $list,
+            'total' => count($list),
+        ];
+    }
     /**
      * 检查用户在门店是否有已合成完成的成片
      *

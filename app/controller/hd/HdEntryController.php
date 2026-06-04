@@ -76,6 +76,55 @@ class HdEntryController extends HdBaseController
     }
 
     /**
+     * 大屏抽奖独立单页（新版）
+     * GET /s/{access_code}/lottery-screen
+     * 替代旧的 iframe+Smarty 架构，使用纯 HTML+CSS+JS 实现 17iu8 风格抽奖大屏
+     */
+    public function lotteryScreen(string $access_code)
+    {
+        $activity = HdActivity::where('access_code', $access_code)->find();
+        if (!$activity) {
+            return $this->renderError('活动不存在', '您访问的活动链接无效或已删除');
+        }
+
+        // 读取抽奖设置
+        $screenConfig = $activity->screen_config ?: [];
+        $lotterySettings = $screenConfig['lottery_screen'] ?? [];
+
+        $tpl = $lotterySettings['template'] ?? 'gold';
+        $textColor = $lotterySettings['text_color'] ?? '#e1e1e1';
+        $shadowColor = $lotterySettings['text_shadow_color'] ?? '#676767';
+        $showCount = (int)($lotterySettings['show_count'] ?? 0);
+        $displayMode = $lotterySettings['display_mode'] ?? 'nickname';
+        $background = $lotterySettings['background'] ?? '';
+        $activityTitle = $activity->title ?? '';
+
+        // 注入 PHP 变量到 HTML 的 <head> 中
+        $serverVars = json_encode([
+            'accessCode'   => $access_code,
+            'apiBase'      => '/api/hd/screen/' . $access_code,
+            'qrcodeUrl'    => 'https://wxhd.eivie.cn/s/' . $access_code,
+            'template'     => $tpl,
+            'textColor'    => $textColor,
+            'shadowColor'  => $shadowColor,
+            'showCount'    => $showCount,
+            'displayMode'  => $displayMode,
+            'background'   => $background,
+            'activityTitle'=> $activityTitle,
+        ], JSON_UNESCAPED_UNICODE);
+
+        $viewPath = app()->getRootPath() . 'app/view/hd/lottery_screen.html';
+        if (!file_exists($viewPath)) {
+            return $this->renderError('页面未就绪', '大屏抽奖页面模板不存在，请先创建视图文件');
+        }
+
+        $html = file_get_contents($viewPath);
+        $html = str_replace('{{SERVER_VARS}}', $serverVars, $html);
+
+        return response($html, 200, ['Content-Type' => 'text/html; charset=utf-8']);
+    }
+
+    /**
      * iframe 功能页渲染
      * GET /s/{access_code}/wall/{feature}
      */

@@ -1093,6 +1093,11 @@
       }
       if (autoTags.face_count) {
         html += '<span style="display:inline-block;padding:2px 8px;margin:2px 5px 2px 0;background:#e2e2e2;color:#666;border-radius:3px;font-size:12px">检测到 ' + autoTags.face_count + ' 张人脸</span>';
+        if (autoTags.is_multi_face) {
+          html += '<span style="display:inline-block;padding:2px 10px;margin:2px 5px 2px 0;background:#FF5722;color:#fff;border-radius:3px;font-size:12px">多人</span>';
+        } else {
+          html += '<span style="display:inline-block;padding:2px 10px;margin:2px 5px 2px 0;background:#5FB878;color:#fff;border-radius:3px;font-size:12px">单人</span>';
+        }
       }
     } else if (status === 3) {
       var errMsg = (autoTags.error) ? autoTags.error : '识别失败';

@@ -98,6 +98,42 @@
         </div>
       </div>
 
+      <!-- AI提示词改写 -->
+      <div class="layui-form-item" style="margin-top:20px;padding-top:20px;border-top:1px dashed #e2e2e2;">
+        <label class="layui-form-label">AI提示词改写</label>
+        <div class="layui-input-block">
+          <input type="checkbox" name="prompt_rewrite_enabled" id="promptRewriteEnabled" lay-skin="switch" lay-text="开启|关闭" value="1" lay-filter="promptRewriteSwitch">
+          <div style="color:#999;font-size:12px;margin-top:5px;">
+            开启后，合成时根据人像标签（性别、年龄、单人/多人）自动改写提示词，生成更符合人设的结果
+          </div>
+        </div>
+      </div>
+
+      <!-- 改写模型选择（开启时显示） -->
+      <div class="layui-form-item" id="promptRewriteConfig" style="display:none;margin-left:50px;">
+        <div style="display:flex;gap:15px;align-items:flex-end;flex-wrap:wrap;">
+          <!-- 供应商选择 -->
+          <div>
+            <label class="layui-form-label" style="width:auto;padding-left:0;">供应商</label>
+            <div>
+              <select name="prompt_rewrite_provider" id="promptRewriteProvider" lay-filter="promptRewriteProvider" style="min-width:160px;">
+                
+                </select>
+          </div>
+          <!-- 模型选择 -->
+          <div>
+            <label class="layui-form-label" style="width:auto;padding-left:0;">改写模型</label>
+            <div>
+              <select name="prompt_rewrite_model" id="promptRewriteModel" style="min-width:200px;">
+                
+                </select>
+          </div>
+        </div>
+        <div style="color:#999;font-size:12px;margin-top:5px;">
+          根据人像特征（性别、年龄、人数）改写提示词，使生成结果更符合人设
+        </div>
+      </div>
+
       <!-- 已关联模板 -->
       <div class="layui-form-item">
         <label class="layui-form-label">已关联模板</label>
@@ -337,7 +373,181 @@
     });
   };
 
-  // 开始生成（单个人像）
+  // ===== AI提示词改写 =====
+  var promptRewriteModels = {$prompt_rewrite_models|json_encode};
+  var promptRewriteLoaded = false;
+
+  // 初始化提示词改写配置
+  function initPromptRewriteConfig() {
+    if (promptRewriteLoaded) return;
+    promptRewriteLoaded = true;
+
+    var setting = {$setting|default=null|json_encode};
+    if (setting) {
+      // 开关状态
+      var enabled = setting.prompt_rewrite_enabled !== undefined ? setting.prompt_rewrite_enabled : 1;
+      $('#promptRewriteEnabled').prop('checked', enabled == 1);
+      layui.form.render('checkbox');
+
+      // 供应商
+      var provider = setting.prompt_rewrite_provider || 'aliyun';
+      $('#promptRewriteProvider').val(provider);
+
+      // 模型
+      var rewriteModel = setting.prompt_rewrite_model || 'qwen-plus';
+      // 先更新模型列表再设置值
+      updateModelSelect(provider, rewriteModel);
+
+      // 显示/隐藏配置区
+      if (enabled == 1) {
+        $('#promptRewriteConfig').show();
+      }
+      layui.form.render('select');
+    }
+  }
+
+  // 开关切换
+  layui.form.on('switch(promptRewriteSwitch)', function(data){
+    if (data.elem.checked) {
+      $('#promptRewriteConfig').slideDown(200);
+    } else {
+      $('#promptRewriteConfig').slideUp(200);
+    }
+  });
+
+  // 供应商切换时更新模型列表
+  layui.form.on('select(promptRewriteProvider)', function(data){
+    updateModelSelect(data.value);
+  });
+
+  function updateModelSelect(provider, selectedModel) {
+    var models = promptRewriteModels[provider] || [];
+    var $select = $('#promptRewriteModel');
+    $select.empty();
+    models.forEach(function(m) {
+      $select.append('<option value="' + m.code + '">' + m.name + '</option>');
+    });
+    if (selectedModel) {
+      $select.val(selectedModel);
+    }
+    layui.form.render('select');
+  }
+
+  // 保存时附带提示词改写配置
+  // 覆盖原来的 saveSettings，在 POST 中加三个字段
+  var _saveSettings = window.saveSettings;
+  window.saveSettings = function(callback) {
+    if (selectedTemplateIds.length === 0) {
+      layer.msg('请关联至少一个合成模板');
+      if (callback) callback({code: 1, msg: '请关联至少一个合成模板'});
+      return;
+    }
+    var generateCount = parseInt($('#generateCount').val()) || 4;
+    if(generateCount < 1 || generateCount > 10){
+      layer.msg('合成数量应在1-10之间');
+      if(callback) callback({code: 1, msg: '合成数量应在1-10之间'});
+      return;
+    }
+    var params = {
+      portrait_id: portraitId,
+      template_ids: selectedTemplateIds,
+      generate_count: generateCount,
+      generate_mode: $('input[name="generate_mode"]:checked').val(),
+      prompt_rewrite_enabled: $('#promptRewriteEnabled').is(':checked') ? 1 : 0,
+      prompt_rewrite_provider: $('#promptRewriteProvider').val(),
+      prompt_rewrite_model: $('#promptRewriteModel').val()
+    };
+    $.post('{:url("synthesis_settings_save")}', params, function(res) {
+      if (callback) callback(res);
+    });
+  };
+
+
+  // ===== AI提示词改写 JS =====
+  var promptRewriteModels = {$prompt_rewrite_models|json_encode};
+  var promptRewriteLoaded = false;
+
+  function initPromptRewriteConfig() {
+    if (promptRewriteLoaded) return;
+    promptRewriteLoaded = true;
+    var setting = {$setting|default=null|json_encode};
+    if (setting) {
+      var enabled = setting.prompt_rewrite_enabled || 1;
+      $("#promptRewriteEnabled").prop("checked", enabled == 1);
+      layui.form.render("checkbox");
+      var provider = setting.prompt_rewrite_provider || "aliyun";
+      $("#promptRewriteProvider").val(provider);
+      var rewriteModel = setting.prompt_rewrite_model || "qwen-plus";
+      updateModelSelect(provider, rewriteModel);
+      if (enabled == 1) {
+        $("#promptRewriteConfig").show();
+      }
+      layui.form.render("select");
+    }
+  }
+
+  layui.form.on("switch(promptRewriteSwitch)", function(data){
+    if (data.elem.checked) {
+      $("#promptRewriteConfig").slideDown(200);
+    } else {
+      $("#promptRewriteConfig").slideUp(200);
+    }
+  });
+
+  layui.form.on("select(promptRewriteProvider)", function(data){
+    updateModelSelect(data.value);
+  });
+
+  function updateModelSelect(provider, selectedModel) {
+    var models = promptRewriteModels[provider] || [];
+    var $select = $("#promptRewriteModel");
+    $select.empty();
+    models.forEach(function(m) {
+      $select.append("<option value=\"" + m.code + "\">" + m.name + "</option>");
+    });
+    if (selectedModel) {
+      $select.val(selectedModel);
+    }
+    layui.form.render("select");
+  }
+
+  window.saveSettings = function(callback) {
+    if (selectedTemplateIds.length === 0) {
+      layer.msg("请关联至少一个合成模板");
+      if (callback) callback({code: 1, msg: "请关联至少一个合成模板"});
+      return;
+    }
+    var generateCount = parseInt($("#generateCount").val()) || 4;
+    if (generateCount < 1 || generateCount > 10) {
+      layer.msg("合成数量应在1-10之间");
+      if (callback) callback({code: 1, msg: "合成数量应在1-10之间"});
+      return;
+    }
+    var params = {
+      portrait_id: portraitId,
+      template_ids: selectedTemplateIds,
+      generate_count: generateCount,
+      generate_mode: $("input[name=\"generate_mode\"]:checked").val(),
+      prompt_rewrite_enabled: $("#promptRewriteEnabled").is(":checked") ? 1 : 0,
+      prompt_rewrite_provider: $("#promptRewriteProvider").val(),
+      prompt_rewrite_model: $("#promptRewriteModel").val()
+    };
+    $.post('{:url("synthesis_settings_save")}', params, function(res) {
+      if (callback) callback(res);
+    });
+  };
+
+  // 页面加载时初始化
+  $(function() {
+    setTimeout(function() {
+      initPromptRewriteConfig();
+      if ($("#promptRewriteEnabled").is(":checked")) {
+        $("#promptRewriteConfig").show();
+      }
+    }, 200);
+  });
+
+  // 开始生成（单个人像）  // 开始生成（单个人像）  // 开始生成（单个人像）
   window.startGenerate = function(callback){
     // 先保存设置
     saveSettings(function(saveRes){

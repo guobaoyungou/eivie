@@ -896,6 +896,61 @@ class SmileCapture extends Base
 
             Log::info('抠图任务已推送(SmileCapture)', ['portrait_id' => $portraitId]);
 
+            // ===== Step 1: 自动标签分析 =====
+            $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
+            if (!$portrait) {
+                return;
+            }
+
+            $gender = 'Unknown';
+            $ageGroup = 'Unknown';
+            $isMultiFace = 0;
+            $faceCount = 0;
+
+            try {
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'auto_tag_status' => 1, 'update_time' => time()
+                ]);
+
+                $analysisService = new \app\service\ImageAnalysisService();
+                $result = $analysisService->analyzeFromUrl($portrait['original_url']);
+                if ($result) {
+                    $attr = \app\service\ImageAnalysisService::extractMainSubject($result);
+                    $gender = $attr['gender'] ?? 'Unknown';
+                    $ageGroup = $attr['age_group'] ?? 'Unknown';
+                    $isMultiFace = $attr['is_multi_face'] ? 1 : 0;
+                    $faceCount = $attr['face_count'] ?? 0;
+
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'gender_tag' => $gender,
+                        'age_tag' => $ageGroup,
+                        'is_multi_face' => $isMultiFace,
+                        'face_count' => $faceCount,
+                        'auto_tag_status' => 2,
+                        'update_time' => time()
+                    ]);
+
+                    Log::info('笑脸抓拍自动标签分析完成', [
+                        'portrait_id' => $portraitId,
+                        'gender' => $gender, 'age_group' => $ageGroup,
+                        'is_multi' => $isMultiFace, 'face_count' => $faceCount,
+                    ]);
+                } else {
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'auto_tag_status' => 3, 'update_time' => time()
+                    ]);
+                    Log::warning('笑脸抓拍自动标签分析失败', ['portrait_id' => $portraitId]);
+                }
+            } catch (\Exception $e) {
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'auto_tag_status' => 3, 'update_time' => time()
+                ]);
+                Log::error('笑脸抓拍自动标签分析异常', [
+                    'portrait_id' => $portraitId, 'error' => $e->getMessage()
+                ]);
+            }
+
+            // ===== Step 2: 获取合成设置 =====
             $setting = Db::name('ai_travel_photo_synthesis_setting')
                 ->where('portrait_id', 0)
                 ->where('aid', $this->aid)
@@ -907,94 +962,36 @@ class SmileCapture extends Base
                 return;
             }
 
-            // ===== 图片属性分析（性别/年龄/多人）并按标签自动匹配模板 =====
-            try {
-                $analysisService = new \app\service\ImageAnalysisService();
-                $originalUrl = Db::name('ai_travel_photo_portrait')
-                    ->where('id', $portraitId)
-                    ->value('original_url');
+            $generateCount = (int)($setting['generate_count'] ?? 4);
+            $generateMode = (int)($setting['generate_mode'] ?? 1);
 
-                $analyzeResult = null;
-                if ($originalUrl) {
-                    $analyzeResult = $analysisService->analyzeFromUrl($originalUrl);
-                }
+            // ===== Step 3: 自动标签匹配模板 =====
+            $matchService = new \app\service\TemplateMatchService();
+            $matchedTemplates = $matchService->matchSynthesisTemplates(
+                $gender, $ageGroup, $isMultiFace, $this->aid, $targetBid
+            );
 
-                if ($analyzeResult && !empty($analyzeResult['faces'])) {
-                    $subject = \app\service\ImageAnalysisService::extractMainSubject($analyzeResult);
-                    Log::info('图片属性分析(SmileCapture)', [
-                        'portrait_id' => $portraitId,
-                        'gender' => $subject['gender'],
-                        'age_group' => $subject['age_group'],
-                        'is_multi_face' => $subject['is_multi_face'],
-                        'face_count' => $subject['face_count'],
-                    ]);
-
-                    // 保存属性到 portrait 表
-                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                        'gender_tag' => $subject['gender'],
-                        'age_tag' => $subject['age_group'],
-                        'is_multi_face' => $subject['is_multi_face'] ? 1 : 0,
-                        'face_count' => $subject['face_count'],
-                    ]);
-                } else {
-                    Log::info('图片属性分析未检测到人脸(SmileCapture)', ['portrait_id' => $portraitId]);
-                    $subject = [
-                        'gender' => 'Unknown',
-                        'age_group' => 'Unknown',
-                        'is_multi_face' => false,
-                        'face_count' => 0,
-                    ];
-                }
-            } catch (\Exception $e) {
-                Log::warning('图片属性分析异常(SmileCapture)', [
-                    'portrait_id' => $portraitId, 'error' => $e->getMessage()
+            if (empty($matchedTemplates)) {
+                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'synthesis_status' => 4,
+                    'synthesis_error' => '未匹配到适合的模板，请管理员去添加（性别:' . $gender . ' 年龄段:' . $ageGroup . ' ' . ($isMultiFace ? '多人' : '单人') . '）',
+                    'update_time' => time()
                 ]);
-                $subject = [
-                    'gender' => 'Unknown',
-                    'age_group' => 'Unknown',
-                    'is_multi_face' => false,
-                    'face_count' => 0,
-                ];
+                Log::warning('笑脸抓拍TemplateMatch: 无匹配模板', [
+                    'portrait_id' => $portraitId,
+                    'gender' => $gender, 'age_group' => $ageGroup, 'is_multi' => $isMultiFace,
+                ]);
+                return;
             }
 
-            // ===== 按标签匹配模板 =====
-            $templateIds = explode(',', $setting['template_ids']);
-            $generateCount = $setting['generate_count'] ?? 4;
+            // ===== Step 4: 按生成数量和模式选择模板 =====
+            $templates = $matchService->selectTemplatesForGeneration(
+                $matchedTemplates, $generateCount, $generateMode
+            );
 
-            $templates = Db::name('generation_scene_template')
-                ->whereIn('id', $templateIds)
-                ->where('generation_type', 1)
-                ->where('status', 1)
-                ->field('id, template_name, model_id, category, category_ids, gender_tag, age_tag, is_multi_template')
-                ->limit($generateCount * 3)
-                ->select();
-
-            $matched = [];
-            $unmatched = [];
-            foreach ($templates as $tpl) {
-                $genderTag = strtolower($tpl['gender_tag'] ?? '');
-                $ageTag = strtolower($tpl['age_tag'] ?? '');
-                $isMulti = !empty($tpl['is_multi_template']);
-
-                // 标签匹配：性别/年龄都为空则通用，多人模板单独匹配
-                $genderMatch = empty($genderTag)
-                    || $genderTag === 'all'
-                    || strtolower($subject['gender']) === $genderTag;
-                $ageMatch = empty($ageTag)
-                    || $ageTag === 'all'
-                    || strtolower($subject['age_group']) === $ageTag;
-                $multiMatch = !$isMulti || $subject['is_multi_face'];
-
-                if ($genderMatch && $ageMatch && $multiMatch) {
-                    $matched[] = $tpl;
-                } else {
-                    $unmatched[] = $tpl;
-                }
-            }
-
-            // 优先取匹配的，不足时用通用模板补齐
-            $allCandidates = array_merge($matched, $unmatched);
-            $templates = array_slice($allCandidates, 0, $generateCount);
+            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                'synthesis_status' => 2, 'synthesis_error' => '', 'update_time' => time()
+            ]);
 
             foreach ($templates as $template) {
                 $generationId = Db::name('ai_travel_photo_generation')->insertGetId([
@@ -1022,11 +1019,15 @@ class SmileCapture extends Base
                 Log::info('图生图任务已推送(SmileCapture)', [
                     'portrait_id' => $portraitId,
                     'template_id' => $template['id'],
+                    'template_name' => $template['name'] ?? '',
                     'generation_id' => $generationId
                 ]);
             }
         } catch (\Exception $e) {
-            Log::error('异步任务推送失败(SmileCapture)', ['portrait_id' => $portraitId, 'error' => $e->getMessage()]);
+            Log::error('异步任务推送失败(SmileCapture)', [
+                'portrait_id' => $portraitId,
+                'error' => $e->getMessage()
+            ]);
         }
     }
 

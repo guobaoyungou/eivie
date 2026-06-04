@@ -11,6 +11,7 @@ use app\model\hd\HdActivityFeature;
 use app\model\hd\HdParticipant;
 use app\model\hd\HdWallMessage;
 use app\model\hd\HdLotteryConfig;
+use app\model\hd\HdLotteryWinner;
 use app\model\hd\HdPrize;
 use app\model\hd\HdShakeRecord;
 use app\model\hd\HdRedpacketRound;
@@ -580,15 +581,20 @@ class HdScreenService
 
     /**
      * 执行大屏抽奖
+     * @param string $accessCode 活动访问码
+     * @param int $roundId 轮次ID
+     * @param int $requestCount 前端传递的抽取人数，0表示使用轮次默认值
      */
-    public function lotteryDraw(string $accessCode, int $roundId): array
+    public function lotteryDraw(string $accessCode, int $roundId, int $requestCount = 0): array
     {
         $activity = HdActivity::where('access_code', $accessCode)->find();
         if (!$activity) {
             return ['code' => 1, 'msg' => '活动不存在'];
         }
 
-        $round = HdLotteryConfig::where('id', $roundId)
+        $round = HdLotteryConfig::where('aid', $activity->aid)
+            ->where('bid', $activity->bid)
+            ->where('id', $roundId)
             ->where('activity_id', $activity->id)
             ->find();
 
@@ -603,7 +609,9 @@ class HdScreenService
         // 获取已签到且未中奖的参与者
         $existingWinnerIds = [];
         if (!$round->is_repeat) {
-            $allRounds = HdLotteryConfig::where('activity_id', $activity->id)
+            $allRounds = HdLotteryConfig::where('aid', $activity->aid)
+                ->where('bid', $activity->bid)
+                ->where('activity_id', $activity->id)
                 ->where('status', 2)
                 ->column('winners');
             foreach ($allRounds as $w) {
@@ -629,8 +637,8 @@ class HdScreenService
             return ['code' => 1, 'msg' => '没有可抽奖的参与者'];
         }
 
-        // 随机选取中奖者
-        $winNum = min($round->win_num, count($candidates));
+        // 随机选取中奖者（优先使用前端传递的count，否则使用轮次默认win_num）
+        $winNum = $requestCount > 0 ? min($requestCount, count($candidates)) : min($round->win_num, count($candidates));
         $winnerKeys = array_rand($candidates, $winNum);
         if (!is_array($winnerKeys)) {
             $winnerKeys = [$winnerKeys];
@@ -646,11 +654,18 @@ class HdScreenService
             ];
         }
 
-        // 更新奖品使用数
+        // 更新奖品使用数（需同时过滤 aid/bid）
         if ($round->prize_id) {
-            $prize = HdPrize::find($round->prize_id);
+            $prize = HdPrize::where('aid', $activity->aid)
+                ->where('bid', $activity->bid)
+                ->where('id', $round->prize_id)
+                ->find();
             if ($prize) {
-                HdPrize::where('id', $prize->id)->inc('used_num', count($winners))->update();
+                HdPrize::where('aid', $activity->aid)
+                    ->where('bid', $activity->bid)
+                    ->where('id', $prize->id)
+                    ->inc('used_num', count($winners))
+                    ->update();
             }
         }
 
@@ -658,6 +673,25 @@ class HdScreenService
         $round->winners = $winners;
         $round->status = 2;
         $round->save();
+
+        // 写入中奖记录表 hd_lottery_winner（后台管理中奖名单读取此表）
+        $now = time();
+        foreach ($winners as $winner) {
+            $record = new HdLotteryWinner();
+            $record->aid          = $activity->aid;
+            $record->bid          = $activity->bid;
+            $record->activity_id  = $activity->id;
+            $record->round_id     = $round->id;
+            $record->prize_id     = $round->prize_id;
+            $record->participant_id = $winner['id'];
+            $record->nickname     = $winner['nickname'] ?? '';
+            $record->avatar       = $winner['avatar'] ?? '';
+            $record->phone        = '';
+            $record->win_time     = $now;
+            $record->createtime   = $now;
+            $record->status       = HdLotteryWinner::STATUS_NOT_GIVEN;
+            $record->save();
+        }
 
         // 通知SSE推送抽奖更新
         Cache::set("hd_lottery_result:{$activity->id}", json_encode(['status' => 'drawn', 'round_name' => $round->round_name, 'winners' => $winners]), 300);
@@ -999,19 +1033,33 @@ class HdScreenService
             return ['code' => 1, 'msg' => '活动不存在'];
         }
 
-        $rounds = HdLotteryConfig::where('activity_id', $activity->id)
+        $rounds = HdLotteryConfig::where('aid', $activity->aid)
+            ->where('bid', $activity->bid)
+            ->where('activity_id', $activity->id)
             ->order('round_num asc')
             ->select()
             ->toArray();
 
-        // 关联奖品信息
+        // 关联奖品信息（需同时过滤 aid/bid，防止跨租户数据泄露）
         foreach ($rounds as &$r) {
             if ($r['prize_id']) {
-                $prize = HdPrize::find($r['prize_id']);
-                $r['prize_name'] = $prize ? $prize->name : '';
-                $r['prize_image'] = $prize ? $prize->image : '';
+                $prize = HdPrize::where('aid', $activity->aid)
+                    ->where('bid', $activity->bid)
+                    ->where('id', $r['prize_id'])
+                    ->find();
+                if ($prize) {
+                    $r['prize_name']  = $prize->name;
+                    $r['prize_image'] = $prize->image;
+                    // 透传奖品级统计数据（轮次表无此字段）
+                    $r['total_num']   = (int)$prize->total_num;
+                    $r['used_num']    = (int)$prize->used_num;
+                    $r['leftnum']     = (int)$prize->leftnum;
+                } else {
+                    $r['prize_name']  = '';
+                    $r['prize_image'] = '';
+                }
             } else {
-                $r['prize_name'] = '';
+                $r['prize_name']  = '';
                 $r['prize_image'] = '';
             }
         }

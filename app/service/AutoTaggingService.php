@@ -66,14 +66,14 @@ class AutoTaggingService
                 'Female' => '女性',
             ],
             'age_group_map' => $fileConfig['age_group_map'] ?? [
-                '0-2'   => '婴幼儿',
-                '3-9'   => '儿童',
-                '10-19' => '少年',
-                '20-29' => '青年',
-                '30-39' => '中青年',
-                '40-49' => '中年',
-                '50-59' => '中老年',
-                '60-69' => '老年',
+                '0-2'   => '新生儿婴儿',
+                '3-9'   => '学龄儿童',
+                '10-19' => '青少年',
+                '20-29' => '职场青年',
+                '30-39' => '而立青年',
+                '40-49' => '壮年期',
+                '50-59' => '中年主力',
+                '60-69' => '准老年前期',
                 '70+'   => '高龄',
             ],
             'race_map'      => $fileConfig['race_map'] ?? [
@@ -350,6 +350,7 @@ class AutoTaggingService
             'primary_tags' => $primaryTags,
             'tag_string'   => implode(',', $primaryTags),
             'face_count'   => $faceCount,
+            'is_multi_face' => $faceCount > 1,
             'confidence'   => $confidence,
         ];
     }
@@ -404,12 +405,29 @@ class AutoTaggingService
         }
 
         // 写入数据库
+        // 从标签数据提取独立字段
+        $faceCount = intval($tagsData['face_count'] ?? 0);
+        $isMultiFace = !empty($tagsData['is_multi_face']);
+
+        // 提取主标签的 gender 和 age_group
+        $genderTag = '';
+        $ageTag = '';
+        if (!empty($tagsData['faces']) && is_array($tagsData['faces'])) {
+            $mainFace = $tagsData['faces'][0];
+            $genderTag = $mainFace['gender'] ?? '';
+            $ageTag = $mainFace['age_label'] ?? $mainFace['age_group'] ?? '';
+        }
+
         $updateData = [
-            'auto_tags'       => json_encode($tagsData, JSON_UNESCAPED_UNICODE),
-            'auto_tag_status' => 2,
-            'auto_tag_time'   => time(),
-            'category'        => $mergedCategory,
-            'update_time'     => time(),
+            'auto_tags'          => json_encode($tagsData, JSON_UNESCAPED_UNICODE),
+            'auto_tag_status'    => 2,
+            'auto_tag_time'      => time(),
+            'category'           => $mergedCategory,
+            'gender_tag'         => $genderTag,
+            'age_tag'            => $ageTag,
+            'is_multi_template'  => $isMultiFace ? 1 : 0,
+            'face_count'         => $faceCount,
+            'update_time'        => time(),
         ];
 
         Db::name('generation_scene_template')->where('id', $templateId)->update($updateData);

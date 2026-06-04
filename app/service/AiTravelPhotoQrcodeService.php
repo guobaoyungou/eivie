@@ -535,7 +535,7 @@ class AiTravelPhotoQrcodeService
     }
     
     /**
-     * 获取XPD配置
+     * 获取XPD配置（扩展返回布局配置、背景色、人脸识别开关）
      * @param int $bid 商家ID
      * @param int $mdid 门店ID
      * @return array
@@ -551,9 +551,83 @@ class AiTravelPhotoQrcodeService
         if (!$mendian && $bid > 0) {
             $mendian = \think\facade\Db::name('mendian')->where('bid', $bid)->order('id asc')->find();
         }
+        
+        // 解析布局配置JSON
+        $layout = null;
+        if (!empty($mendian['xpd_layout'])) {
+            $decoded = json_decode($mendian['xpd_layout'], true);
+            if (is_array($decoded)) {
+                $layout = $decoded;
+            }
+        }
+        
         return [
-            'image_duration' => $mendian['xpd_image_duration'] ?? 1000,
-            'group_duration' => $mendian['xpd_group_duration'] ?? 5000,
+            'image_duration' => (int)($mendian['xpd_image_duration'] ?? 1000),
+            'group_duration' => (int)($mendian['xpd_group_duration'] ?? 5000),
+            'layout' => $layout,
+            'bg_color' => $mendian['xpd_bg_color'] ?? '#000000',
+            'face_detect_enabled' => (bool)($mendian['xpd_face_detect'] ?? true),
+            'template' => $mendian['xpd_template'] ?? 'template_1',
         ];
+    }
+    
+    /**
+     * 保存XPD布局配置
+     * @param int $aid 平台ID
+     * @param int $mdid 门店ID
+     * @param string|null $layoutJson 布局JSON字符串
+     * @param string|null $bgColor 背景色
+     * @param int|null $faceDetect 人脸识别开关
+     * @return bool
+     */
+    public function saveXpdLayout(int $aid, int $mdid, ?string $layoutJson = null, ?string $bgColor = null, ?int $faceDetect = null): bool
+    {
+        if ($mdid <= 0) {
+            throw new \think\exception\ValidateException('缺少门店ID参数');
+        }
+        
+        // 验证门店存在
+        $mendian = \think\facade\Db::name('mendian')->where('id', $mdid)->find();
+        if (!$mendian) {
+            throw new \think\exception\ValidateException('门店不存在');
+        }
+        
+        $updateData = [];
+        
+        // 验证并更新布局JSON
+        if ($layoutJson !== null) {
+            $decoded = json_decode($layoutJson, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \think\exception\ValidateException('布局JSON格式无效');
+            }
+            // 基本验证：必须包含 modules 数组
+            if (!isset($decoded['modules']) || !is_array($decoded['modules'])) {
+                throw new \think\exception\ValidateException('布局JSON必须包含modules数组');
+            }
+            $updateData['xpd_layout'] = $layoutJson;
+        }
+        
+        // 验证并更新背景色（hex格式校验）
+        if ($bgColor !== null) {
+            if (!preg_match('/^#[0-9a-fA-F]{6}$/', $bgColor)) {
+                throw new \think\exception\ValidateException('背景色格式无效，需为hex格式如#000000');
+            }
+            $updateData['xpd_bg_color'] = $bgColor;
+        }
+        
+        // 更新人脸识别开关
+        if ($faceDetect !== null) {
+            $updateData['xpd_face_detect'] = $faceDetect ? 1 : 0;
+        }
+        
+        if (empty($updateData)) {
+            return true; // 无更新数据
+        }
+        
+        \think\facade\Db::name('mendian')->where('id', $mdid)->update($updateData);
+        
+        \think\facade\Log::info('[XPD布局保存] mdid=' . $mdid . ' update=' . json_encode(array_keys($updateData)));
+        
+        return true;
     }
 }

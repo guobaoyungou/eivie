@@ -426,6 +426,7 @@ class HdFrameDataProvider
             'redpacket'            => 'redpacket',
             'danye'                => 'danye',
             'choujiang'            => 'choujiang',
+            'scan_lottery'         => 'lottery-screen',
         ];
 
         $plugs = [];

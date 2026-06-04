@@ -1,0 +1,27 @@
+# OTO Bot robots.txt
+# https://oto.eivie.cn/
+
+User-agent: *
+Allow: /
+
+Sitemap: https://oto.eivie.cn/sitemap.xml
+
+Crawl-delay: 1
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+User-agent: Sogou
+Allow: /
+
+User-agent: 360Spider
+Allow: /
+
+User-agent: Bytespider
+Allow: /
