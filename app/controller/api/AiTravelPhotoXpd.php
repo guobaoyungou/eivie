@@ -54,10 +54,25 @@ class AiTravelPhotoXpd extends BaseController
                 return json(['status' => 0, 'msg' => '缺少必要参数 bid 或 mdid']);
             }
 
-            // 限制 limit 范围
+            // 从门店配置读取加载模式，优先于前端传参
+            if (!isset($mendian)) {
+                $mendian = Db::name('mendian')->where('id', $mdid)->where('aid', $aid)->find();
+            }
+            $loadMode = $this->request->get('load_mode', '');
+            if (empty($loadMode) && $mendian) {
+                $loadMode = $mendian['xpd_load_mode'] ?? 'today';
+            }
+            if (empty($loadMode)) {
+                $loadMode = 'today';
+            }
+
+            $configuredLimit = (int)($mendian['xpd_load_count'] ?? 0);
+            if ($configuredLimit > 0) {
+                $limit = $configuredLimit;
+            }
             $limit = max(1, min($limit, 50));
 
-            $data = $this->qrcodeService->getSelectionList($aid, $bid, $mdid, $limit);
+            $data = $this->qrcodeService->getSelectionList($aid, $bid, $mdid, $limit, $loadMode);
 
             return json([
                 'status' => 1,

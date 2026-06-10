@@ -18,10 +18,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .not-wechat h3{font-size:18px;color:#333;margin-bottom:10px}
 .not-wechat p{font-size:14px;color:#999}
 
-/* 过期提示 */
-.expired{display:none;text-align:center;padding:80px 40px}
-.expired h3{font-size:18px;color:#e64340;margin-bottom:10px}
-.expired p{font-size:14px;color:#999}
+/* 过期提示 / 解除关联页面 */
+.expired{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 24px 60px;background:linear-gradient(180deg,#f0faf4 0%,#f5f5f5 40%)}
+.expired .rescan-card{width:100%;max-width:360px;background:#fff;border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,.06);padding:40px 28px 32px;text-align:center;animation:rescanFadeIn .5s ease}
+@keyframes rescanFadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.expired .rescan-icon{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#07c160,#05a34a);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px;color:#fff;box-shadow:0 4px 16px rgba(7,193,96,.3)}
+.expired .rescan-title{font-size:22px;font-weight:700;color:#222;margin-bottom:8px;line-height:1.3}
+.expired .rescan-subtitle{font-size:15px;color:#666;margin-bottom:16px;line-height:1.5}
+.expired .rescan-divider{width:48px;height:3px;background:linear-gradient(90deg,#07c160,#5be08b);border-radius:2px;margin:20px auto 22px}
+.expired .rescan-hint{font-size:15px;color:#555;line-height:1.7;margin-bottom:6px}
+.expired .rescan-hint em{font-style:normal;color:#07c160;font-weight:600}
 
 /* 头部 */
 .header{background:linear-gradient(135deg,#07c160,#06ad56);color:#fff;padding:20px 16px 60px;text-align:center;position:relative}
@@ -60,6 +66,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .not-my-entry{margin:20px 12px 120px;text-align:center}
 .not-my-entry-btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#ff9500,#f08300);color:#fff;border:none;padding:14px 36px;border-radius:28px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(255,149,0,.3);transition:all .2s;-webkit-tap-highlight-color:transparent}
 .not-my-entry-btn:active{transform:scale(.96);opacity:.85}
+
+/* 我要重拍按钮 */
+.retake-btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#07c160,#06ad56);color:#fff;border:none;padding:14px 36px;border-radius:28px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(7,193,96,.3);transition:all .2s;-webkit-tap-highlight-color:transparent;margin-top:14px}
+.retake-btn:active{transform:scale(.96);opacity:.85}
+
+/* 重拍弹层 */
+.retake-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:500;display:none;align-items:center;justify-content:center}
+.retake-overlay.show{display:flex}
+.retake-card{background:#fff;border-radius:16px;padding:32px 28px 24px;text-align:center;max-width:300px;width:85%;box-shadow:0 8px 30px rgba(0,0,0,.15);position:relative;animation:followFadeIn .35s ease}
+.retake-card .retake-close{position:absolute;top:12px;right:14px;width:32px;height:32px;border-radius:50%;background:#f5f5f5;border:none;color:#999;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.retake-card .retake-close:active{background:#eee}
+.retake-card .retake-title{font-size:18px;font-weight:600;color:#333;margin-bottom:6px}
+.retake-card .retake-subtitle{font-size:13px;color:#999;margin-bottom:20px}
+.retake-card .retake-options{display:flex;gap:12px;margin-bottom:10px}
+.retake-card .retake-option{flex:1;background:#f5f7fa;border:2px solid #e8ecf1;border-radius:12px;padding:20px 10px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:8px;-webkit-tap-highlight-color:transparent}
+.retake-card .retake-option:active{background:#e8f5e9;border-color:#07c160;transform:scale(.97)}
+.retake-card .retake-option .retake-option-icon{font-size:32px;line-height:1}
+.retake-card .retake-option .retake-option-label{font-size:14px;font-weight:500;color:#333}
+.retake-card .retake-uploading{display:none;flex-direction:column;align-items:center;gap:12px;padding:20px 0}
+.retake-card .retake-uploading .spinner{width:32px;height:32px;border:3px solid #eee;border-top-color:#07c160;border-radius:50%;animation:spin .8s linear infinite}
+.retake-card .retake-uploading p{font-size:14px;color:#666}
+.retake-card .retake-error{font-size:12px;color:#e64340;margin-top:8px;display:none}
 /* 底部浮动栏 */
 .bottom-bar{position:fixed;bottom:0;left:0;width:100%;background:#fff;box-shadow:0 -2px 10px rgba(0,0,0,.08);z-index:100;display:none}
 .bar-guide{padding:8px 16px;background:#fff9ed;font-size:12px;color:#ff9500;line-height:1.4}
@@ -138,6 +166,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 /* 缩放容器 */
 .wm-zoom-wrap{width:100%;height:100%;overflow:hidden;touch-action:none;position:relative;display:flex;align-items:center;justify-content:center}
 .wm-zoom-wrap canvas{transform-origin:0 0;will-change:transform}
+
+/* 关注引导弹层 */
+.follow-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:500;display:none;align-items:center;justify-content:center}
+.follow-overlay.show{display:flex}
+.follow-card{background:#fff;border-radius:16px;padding:32px 28px 24px;text-align:center;max-width:300px;width:85%;box-shadow:0 8px 30px rgba(0,0,0,.15);position:relative;animation:followFadeIn .35s ease}
+@keyframes followFadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.follow-card .follow-close{position:absolute;top:12px;right:14px;width:32px;height:32px;border-radius:50%;background:#f5f5f5;border:none;color:#999;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.follow-card .follow-close:active{background:#eee}
+.follow-card .follow-title{font-size:18px;font-weight:600;color:#333;margin-bottom:6px}
+.follow-card .follow-subtitle{font-size:13px;color:#999;margin-bottom:20px}
+.follow-card .follow-qr-wrap{width:180px;height:180px;margin:0 auto 14px;border-radius:12px;overflow:hidden;background:#f9f9f9;display:flex;align-items:center;justify-content:center}
+.follow-card .follow-qr-wrap img{width:100%;height:100%;object-fit:contain}
+.follow-card .follow-mp-name{font-size:14px;color:#666;margin-bottom:4px}
+.follow-card .follow-tip{font-size:12px;color:#bbb;margin-bottom:20px}
+.follow-card .follow-btn{display:block;width:100%;background:linear-gradient(135deg,#07c160,#06ad56);color:#fff;border:none;padding:13px 0;border-radius:24px;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px;transition:all .2s}
+.follow-card .follow-btn:active{opacity:.8;transform:scale(.98)}
+.follow-card .follow-btn:disabled{background:#ccc;transform:none}
+.follow-card .follow-btn.loading{background:#ccc;pointer-events:none}
+.follow-card .follow-skip{font-size:13px;color:#aaa;background:none;border:none;cursor:pointer;padding:6px 12px}
+.follow-card .follow-skip:active{color:#666}
+.follow-card .follow-error{font-size:12px;color:#e64340;margin-bottom:8px;display:none}
 </style>
 </head>
 <body>
@@ -196,6 +245,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
     <!-- 不是我的照片 -->
     <div class="not-my-entry">
       <button class="not-my-entry-btn" onclick="notMyPhotos()">🙋 不是我的照片? 点击解除</button>
+      <br>
+      <button class="retake-btn" onclick="openRetakeModal()">📷 我要重拍</button>
     </div>
 
     <!-- 更多推荐成片区域 -->
@@ -254,6 +305,54 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
   </div>
 </div>
 
+<!-- 关注引导弹层 -->
+<div class="follow-overlay" id="followOverlay">
+  <div class="follow-card">
+    <button class="follow-close" onclick="skipFollow()">✕</button>
+    <div class="follow-title">关注公众号</div>
+    <div class="follow-subtitle" id="followMpName">关注后即可开始选片</div>
+    <div class="follow-qr-wrap">
+      <img id="followQrImg" src="" alt="公众号二维码">
+    </div>
+    <div class="follow-tip">📱 长按识别二维码关注</div>
+    <div class="follow-error" id="followError"></div>
+    <button class="follow-btn" id="followBtn" onclick="checkFollowAndContinue()">我已关注，开始选片</button>
+    <button class="follow-skip" onclick="skipFollow()">暂不关注，直接选片</button>
+  </div>
+</div>
+
+<!-- 我要重拍弹层 -->
+<div class="retake-overlay" id="retakeOverlay">
+  <div class="retake-card">
+    <button class="retake-close" onclick="closeRetakeModal()">✕</button>
+    <div class="retake-title">我要重拍</div>
+    <div class="retake-subtitle">拍摄一张新的个人照片，系统将自动为您合成</div>
+
+    <!-- 选项区域 -->
+    <div class="retake-options" id="retakeOptions">
+      <div class="retake-option" onclick="retakeFromAlbum()">
+        <div class="retake-option-icon">🖼️</div>
+        <div class="retake-option-label">从相册上传</div>
+      </div>
+      <div class="retake-option" onclick="retakeFromCamera()">
+        <div class="retake-option-icon">📸</div>
+        <div class="retake-option-label">相机自拍</div>
+      </div>
+    </div>
+
+    <!-- 上传中 -->
+    <div class="retake-uploading" id="retakeUploading">
+      <div class="spinner"></div>
+      <p>正在上传并处理照片...</p>
+    </div>
+
+    <div class="retake-error" id="retakeError"></div>
+  </div>
+</div>
+
+<!-- 隐藏的文件选择器 -->
+<input type="file" id="retakeFileInput" accept="image/jpeg,image/png" style="display:none" onchange="handleRetakeFileSelect(event)">
+
 <script>
 // 全局状态
 var APP = {
@@ -268,7 +367,13 @@ var APP = {
   // 门店模式
   storeMode: false,
   mdid: 0,
-  portraitIds: []
+  portraitIds: [],
+  // 免费选片模式
+  freePick: false,
+  // 关注状态
+  isSubscribed: true,
+  mpQrcode: '',
+  mpNameForSubscribe: ''
 };
 
 // 初始化
@@ -326,6 +431,10 @@ function storeInit() {
     APP.openid = res.data.openid || '';
     APP.faceWatermarkEnabled = res.data.face_watermark_enabled || 0;
     APP.mpNickname = res.data.mp_nickname || '';
+    APP.freePick = res.data.is_free_pick ? 1 : 0;
+    APP.isSubscribed = res.data.is_subscribed ? true : false;
+    APP.mpQrcode = res.data.mp_qrcode || '';
+    APP.mpNameForSubscribe = res.data.mp_nickname_for_subscribe || '';
     // 门店模式用第一个portrait_id作为主人像ID
     APP.portraitId = APP.portraitIds.length > 0 ? APP.portraitIds[0] : 0;
 
@@ -345,12 +454,69 @@ function storeInit() {
       return;
     }
 
+    spreadFollowOverlay();
+
     storeLoadResults();
   });
 }
 
 function storeStartOAuth() {
   window.location.href = window.location.origin + APP.apiBase + 'start_oauth&mode=store&bid=' + APP.bid + '&mdid=' + APP.mdid;
+}
+
+// ========== 关注引导弹层 ==========
+
+function spreadFollowOverlay() {
+  // 已关注，跳过
+  if (APP.isSubscribed) return;
+
+  // 更新弹层内容
+  var qrImg = document.getElementById('followQrImg');
+  if (APP.mpQrcode) {
+    qrImg.src = APP.mpQrcode;
+  }
+  var mpNameEl = document.getElementById('followMpName');
+  if (APP.mpNameForSubscribe) {
+    mpNameEl.textContent = APP.mpNameForSubscribe;
+  } else {
+    mpNameEl.textContent = '关注后即可开始选片';
+  }
+
+  // 显示弹层
+  document.getElementById('followOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function hideFollowOverlay() {
+  document.getElementById('followOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function checkFollowAndContinue() {
+  var btn = document.getElementById('followBtn');
+  var errEl = document.getElementById('followError');
+  errEl.style.display = 'none';
+  btn.textContent = '正在检测...';
+  btn.disabled = true;
+  btn.classList.add('loading');
+
+  fetchApi('check_subscribe', {aid: APP.aid}, 'POST', function(res) {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    btn.textContent = '我已关注，开始选片';
+
+    if (res.code === 200 && res.data && res.data.is_subscribed) {
+      APP.isSubscribed = true;
+      hideFollowOverlay();
+    } else {
+      errEl.textContent = res.msg || '暂未检测到关注，请扫码关注后再试';
+      errEl.style.display = 'block';
+    }
+  });
+}
+
+function skipFollow() {
+  hideFollowOverlay();
 }
 
 function storeLoadResults() {
@@ -400,10 +566,16 @@ function qrInit() {
       APP.mdid = res.data.mdid || 0;
       APP.qrcodeId = res.data.qrcode_id;
       APP.openid = res.data.openid || '';
+      APP.freePick = res.data.is_free_pick == 1;
 
       // 人脸水印配置
       APP.faceWatermarkEnabled = res.data.face_watermark_enabled || 0;
       APP.mpNickname = res.data.mp_nickname || '';
+
+      // 关注状态
+      APP.isSubscribed = res.data.is_subscribed ? true : false;
+      APP.mpQrcode = res.data.mp_qrcode || '';
+      APP.mpNameForSubscribe = res.data.mp_nickname_for_subscribe || '';
 
       // 展示商家/门店名称
       var bName = res.data.business_name || '';
@@ -413,6 +585,8 @@ function qrInit() {
         nameEl.textContent = sName ? (bName + ' · ' + sName) : bName;
         nameEl.style.display = 'block';
       }
+
+      spreadFollowOverlay();
 
       loadResults();
     } else {
@@ -631,6 +805,14 @@ function updatePricing() {
       APP.selectedPackageId = 0;
     }
 
+    // 免费模式：价格归零
+    if (APP.freePick) {
+      finalPrice = 0;
+      unitPrice = 0;
+      showOrig = false;
+      descText = '免费选片（' + count + '张）';
+    }
+
     // 更新UI
     priceEl.textContent = finalPrice.toFixed(2);
     if (showOrig) {
@@ -644,7 +826,7 @@ function updatePricing() {
     guide.textContent = res.data.guide_text || '';
     guide.style.display = res.data.guide_text ? 'block' : 'none';
 
-    btn.textContent = '立即支付 ¥' + finalPrice.toFixed(2);
+    btn.textContent = APP.freePick ? '免费下载(' + count + '张)' : ('立即支付 ¥' + finalPrice.toFixed(2));
     if (!APP.paying) {
       btn.disabled = false;
     }
@@ -669,11 +851,18 @@ function submitOrder() {
     package_id: APP.selectedPackageId,
     aid: APP.aid,
     bid: APP.bid,
-    qrcode_id: APP.qrcodeId
+    qrcode_id: APP.qrcodeId,
+    mdid: APP.mdid
   }, 'POST', function(res) {
     if (res.code !== 200) {
       alert(res.msg || '下单失败');
       resetPayBtn();
+      return;
+    }
+    // 免费模式：跳过支付，直接跳转下载页
+    if (res.data && res.data.is_free) {
+      btn.textContent = '免费下载中...';
+      window.location.href = window.location.origin + '/public/pick/download.html?order_no=' + encodeURIComponent(res.data.order_no);
       return;
     }
     startPay(res.data.order_no);
@@ -695,7 +884,7 @@ function resetPayBtn() {
   var btn = document.getElementById('barBtn');
   btn.disabled = false;
   var price = document.getElementById('barPrice').textContent;
-  btn.textContent = '立即支付 ¥' + price;
+  btn.textContent = APP.freePick ? '免费下载(' + APP.selectedIds.length + '张)' : ('立即支付 ¥' + price);
 }
 
 function pollPayStatus(orderNo) {
@@ -1196,12 +1385,138 @@ function showRescanPage() {
     tip = document.createElement('div');
     tip.id = 'rescanTip';
     tip.className = 'expired';
-    tip.style.display = 'block';
-    tip.innerHTML = '<h3 style="color:#07c160">✔ 已解除关联</h3><p>请重新扫描您的专属二维码进入选片中心</p><p style="font-size:12px;color:#bbb;margin-top:8px">您可以关闭此页面后重新扫码</p>';
+    tip.style.display = 'flex';
+    tip.innerHTML = '<div class="rescan-card">' +
+      '<div class="rescan-icon">✓</div>' +
+      '<div class="rescan-title">已解除关联</div>' +
+      '<div class="rescan-subtitle">请重新扫描您的专属二维码<br>进入选片中心</div>' +
+      '<div style="font-size:13px;color:#999;margin-bottom:4px">您可以关闭此页面后重新扫码</div>' +
+      '<div class="rescan-divider"></div>' +
+      '<div class="rescan-hint">如果在屏幕上没有看到您的头像，<br>点击下方按钮<em>重新拍摄</em>进行旅拍打卡</div>' +
+      '<button class="retake-btn" onclick="openRetakeModal()" style="margin-top:18px;padding:16px 40px;font-size:16px;width:100%;justify-content:center">📷 我要重拍</button>' +
+      '</div>';
     document.body.appendChild(tip);
   } else {
-    tip.style.display = 'block';
+    tip.style.display = 'flex';
   }
+}
+
+// ========== "我要重拍" - 弹窗交互 ==========
+
+// 当前选中的重拍模式
+var retakeMode = ''; // 'album' 或 'camera'
+
+function openRetakeModal() {
+  document.getElementById('retakeOverlay').classList.add('show');
+  document.getElementById('retakeOptions').style.display = 'flex';
+  document.getElementById('retakeUploading').style.display = 'none';
+  document.getElementById('retakeError').style.display = 'none';
+  retakeMode = '';
+}
+
+function closeRetakeModal() {
+  document.getElementById('retakeOverlay').classList.remove('show');
+  // 重置文件input
+  var fi = document.getElementById('retakeFileInput');
+  fi.value = '';
+  retakeMode = '';
+}
+
+function retakeFromAlbum() {
+  retakeMode = 'album';
+  var fi = document.getElementById('retakeFileInput');
+  fi.removeAttribute('capture');
+  fi.accept = 'image/jpeg,image/png';
+  fi.click();
+}
+
+function retakeFromCamera() {
+  retakeMode = 'camera';
+  var fi = document.getElementById('retakeFileInput');
+  fi.setAttribute('capture', 'environment');
+  fi.accept = 'image/*';
+  fi.click();
+}
+
+function handleRetakeFileSelect(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+
+  // 显示上传中状态
+  document.getElementById('retakeOptions').style.display = 'none';
+  document.getElementById('retakeUploading').style.display = 'flex';
+  document.getElementById('retakeError').style.display = 'none';
+
+  // 构建 FormData
+  var formData = new FormData();
+  formData.append('image', file);
+  formData.append('aid', APP.aid);
+  formData.append('bid', APP.bid);
+  formData.append('mdid', APP.mdid || 0);
+  formData.append('portrait_id', APP.portraitId);
+
+  // 使用 XHR 发送 multipart 请求（兼容微信浏览器）
+  var url = APP.apiBase + 'retake_upload';
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', url, true);
+  xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+  // 不设置 Content-Type，让浏览器自动设置 multipart/form-data 的 boundary
+
+  xhr.onload = function() {
+    try {
+      var res = JSON.parse(xhr.responseText);
+      handleRetakeResponse(res);
+    } catch(e) {
+      handleRetakeError('服务响应异常，请重试');
+    }
+  };
+  xhr.onerror = function() {
+    handleRetakeError('网络错误，请重试');
+  };
+  xhr.ontimeout = function() {
+    handleRetakeError('上传超时，请重试');
+  };
+  xhr.timeout = 60000; // 60秒超时
+  xhr.send(formData);
+}
+
+function handleRetakeResponse(res) {
+  if (res.code === 200) {
+    // 更新当前 portraitId
+    APP.portraitId = res.data.portrait_id;
+    if (APP.portraitIds && APP.portraitIds.length) {
+      APP.portraitIds = [res.data.portrait_id];
+    }
+
+    // 关闭弹窗
+    document.getElementById('retakeOverlay').classList.remove('show');
+
+    // 显示成功提示
+    var successTip = document.createElement('div');
+    successTip.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.8);color:#fff;padding:16px 24px;border-radius:10px;font-size:15px;z-index:9999;text-align:center;white-space:nowrap';
+    successTip.textContent = res.msg;
+    document.body.appendChild(successTip);
+    setTimeout(function() {
+      successTip.style.opacity = '0';
+      successTip.style.transition = 'opacity .4s';
+      setTimeout(function() { document.body.removeChild(successTip); }, 400);
+    }, 1500);
+
+    // 刷新选片结果
+    setTimeout(function() {
+      loadResults();
+    }, 800);
+  } else {
+    handleRetakeError(res.msg || '上传失败，请重试');
+  }
+}
+
+function handleRetakeError(msg) {
+  document.getElementById('retakeOptions').style.display = 'flex';
+  document.getElementById('retakeUploading').style.display = 'none';
+  var errEl = document.getElementById('retakeError');
+  errEl.textContent = msg;
+  errEl.style.display = 'block';
 }
 
 function goOrderDownload(orderNo) {

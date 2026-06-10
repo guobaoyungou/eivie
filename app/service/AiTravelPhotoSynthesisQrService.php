@@ -448,7 +448,7 @@ class AiTravelPhotoSynthesisQrService
 
             if (empty($result)) {
                 Log::warning('合成活动：人物分析返回空');
-                return ['gender' => 'Unknown', 'age_group' => '', 'is_multi_face' => false, 'face_count' => 0];
+                return ['gender' => '', 'age_group' => '', 'race' => '', 'is_multi_face' => false, 'face_count' => 0];
             }
 
             $tags = ImageAnalysisService::extractMainSubject($result);
@@ -456,7 +456,7 @@ class AiTravelPhotoSynthesisQrService
             return $tags;
         } catch (\Throwable $e) {
             Log::error('合成活动：人物分析异常: ' . $e->getMessage());
-            return ['gender' => 'Unknown', 'age_group' => '', 'is_multi_face' => false, 'face_count' => 0];
+            return ['gender' => '', 'age_group' => '', 'race' => '', 'is_multi_face' => false, 'face_count' => 0];
         }
     }
 

@@ -36,12 +36,18 @@ try {
     // 复制到h5目录
     const targetDir = path.join(__dirname, '../h5');
     
-    // 先备份 cashier.html（部署脚本必须保护现金页）
+    // 先备份需要保护的自定义页面
     const targetCashierPath = path.join(targetDir, 'cashier.html');
+    const targetGuidePortraitsPath = path.join(targetDir, 'guide-portraits.html');
     let cashierBackup = null;
+    let guidePortraitsBackup = null;
     if (fs.existsSync(targetCashierPath)) {
       cashierBackup = fs.readFileSync(targetCashierPath);
       console.log('  - 已备份 cashier.html');
+    }
+    if (fs.existsSync(targetGuidePortraitsPath)) {
+      guidePortraitsBackup = fs.readFileSync(targetGuidePortraitsPath);
+      console.log('  - 已备份 guide-portraits.html');
     }
     
     if (fs.existsSync(targetDir)) {
@@ -164,6 +170,20 @@ try {
         console.log('  - 复制 cashier.html（从项目public目录）');
       } else {
         console.log('  - ⚠️  未找到 cashier.html，跳过');
+      }
+    }
+
+    // 恢复 guide-portraits.html（优先使用之前备份的内容）
+    if (guidePortraitsBackup) {
+      fs.writeFileSync(targetGuidePortraitsPath, guidePortraitsBackup);
+      console.log('  - 已恢复 guide-portraits.html（从内存备份）');
+    } else {
+      const guidePortraitsSourcePath = path.join(__dirname, 'public/guide-portraits.html');
+      if (fs.existsSync(guidePortraitsSourcePath)) {
+        fs.copyFileSync(guidePortraitsSourcePath, targetGuidePortraitsPath);
+        console.log('  - 复制 guide-portraits.html（从项目public目录）');
+      } else {
+        console.log('  - ⚠️  未找到 guide-portraits.html，跳过');
       }
     }
     

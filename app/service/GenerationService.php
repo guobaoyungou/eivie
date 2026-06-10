@@ -22,6 +22,11 @@ class GenerationService
      * @var SystemApiKeyService
      */
     protected $apiKeyService;
+
+    /**
+     * @var SystemApiKeyPoolService
+     */
+    protected $keyPoolService;
     
     /**
      * @var ModelSquareService
@@ -31,6 +36,7 @@ class GenerationService
     public function __construct()
     {
         $this->apiKeyService = new SystemApiKeyService();
+        $this->keyPoolService = new SystemApiKeyPoolService();
         $this->modelService = new ModelSquareService();
     }
     
@@ -262,6 +268,13 @@ class GenerationService
     
     /**
      * 执行生成任务
+     * 
+     * 支持 Key 池多 Key 加权轮询 + 自动故障切换：
+     * - 从 SystemApiKeyPoolService 按加权轮询获取可用 Key
+     * - 调用失败时自动标记 Key 失败并切换到下一个
+     * - 余额不足/认证失败等不可重试错误会永久跳过该 Key
+     * - 超时/503 等临时错误也会尝试下一个 Key
+     * 
      * @param int $recordId
      * @return array
      */
@@ -279,12 +292,7 @@ class GenerationService
             return ['status' => 0, 'msg' => '模型不存在'];
         }
         
-        // 获取API Key
-        $apiKeyConfig = $this->apiKeyService->getActiveConfigByProvider($model['provider_code']);
-        if (!$apiKeyConfig) {
-            $record->markFailed('API_KEY_NOT_CONFIGURED', 'API Key未配置');
-            return ['status' => 0, 'msg' => 'API Key未配置'];
-        }
+        $providerCode = $model['provider_code'];
         
         // 更新为处理中
         $taskId = $this->generateTaskId();
@@ -292,47 +300,95 @@ class GenerationService
         
         $startTime = microtime(true);
         
-        try {
-            // 调用模型API
-            $result = $this->callModelApi($model, $apiKeyConfig, $record->input_params);
+        // 重试循环：从 Key 池逐个尝试可用 Key
+        $lastError = '';
+        $lastErrorCode = 'API_ERROR';
+        $maxRetries = 10;  // 安全上限，避免死循环
+        $retryCount = 0;
+        
+        while ($retryCount < $maxRetries) {
+            $retryCount++;
             
-            $costTime = (microtime(true) - $startTime) * 1000;
-            
-            if ($result['status'] == 1) {
-                // 检查是否为异步任务（如Seedance视频生成）
-                if (!empty($result['async'])) {
-                    // 异步任务：存储外部任务ID，保持处理中状态，等待前端轮询
-                    $externalTaskId = $result['external_task_id'] ?? '';
-                    if (!empty($externalTaskId)) {
-                        $record->task_id = $externalTaskId;
-                        $record->save();
-                    }
-                    \think\facade\Log::info('异步任务已提交, record_id=' . $recordId . ' external_task_id=' . $externalTaskId);
-                    return ['status' => 1, 'msg' => '异步任务已提交，等待处理', 'async' => true];
-                }
-                
-                // 同步结果：直接保存输出
-                if (!empty($result['outputs'])) {
-                    // 对图片类型的输出执行 WebP 压缩转存
-                    $result['outputs'] = $this->persistImageOutputs($result['outputs'], $record->aid ?? 0);
-                    GenerationOutput::createOutputs($record->id, $result['outputs']);
-                }
-                
-                $record->markSuccess(
-                    $costTime,
-                    $result['tokens'] ?? 0,
-                    $result['cost'] ?? 0
-                );
-                
-                return ['status' => 1, 'msg' => '生成成功', 'outputs' => $result['outputs'] ?? []];
-            } else {
-                $record->markFailed($result['error_code'] ?? 'API_ERROR', $result['msg'] ?? '生成失败');
-                return ['status' => 0, 'msg' => $result['msg'] ?? '生成失败'];
+            // 从 Key 池获取一个可用 Key（加权轮询，自动跳过并发已满的 Key）
+            $keyConfig = $this->keyPoolService->acquireKey($providerCode);
+            if (!$keyConfig) {
+                $errMsg = $lastError ?: "供应商 {$providerCode} 无可用API Key";
+                $record->markFailed('NO_KEY_AVAILABLE', $errMsg);
+                Log::warning("GenerationService: Key池耗尽 provider={$providerCode} tried={$retryCount}");
+                return ['status' => 0, 'msg' => $errMsg];
             }
-        } catch (\Exception $e) {
-            $record->markFailed('EXCEPTION', $e->getMessage());
-            return ['status' => 0, 'msg' => $e->getMessage()];
+            
+            $keyId = $keyConfig['id'];
+            
+            try {
+                // 调用模型API
+                $result = $this->callModelApi($model, $keyConfig, $record->input_params);
+                
+                if ($result['status'] == 1) {
+                    // 成功：记录调用成功，释放 Key
+                    $this->keyPoolService->recordCallResult($keyId, true);
+                    $this->keyPoolService->releaseKey($keyId);
+                    
+                    $costTime = (microtime(true) - $startTime) * 1000;
+                    
+                    // 检查是否为异步任务
+                    if (!empty($result['async'])) {
+                        $externalTaskId = $result['external_task_id'] ?? '';
+                        if (!empty($externalTaskId)) {
+                            $record->task_id = $externalTaskId;
+                            $record->save();
+                        }
+                        Log::info('异步任务已提交, record_id=' . $recordId . ' external_task_id=' . $externalTaskId . ' key_id=' . $keyId);
+                        return ['status' => 1, 'msg' => '异步任务已提交，等待处理', 'async' => true];
+                    }
+                    
+                    // 同步结果：直接保存输出
+                    if (!empty($result['outputs'])) {
+                        $result['outputs'] = $this->persistImageOutputs($result['outputs'], $record->aid ?? 0);
+                        GenerationOutput::createOutputs($record->id, $result['outputs']);
+                    }
+                    
+                    $record->markSuccess(
+                        $costTime,
+                        $result['tokens'] ?? 0,
+                        $result['cost'] ?? 0
+                    );
+                    
+                    Log::info('生成成功 record_id=' . $recordId . ' key_id=' . $keyId . ' retries=' . ($retryCount - 1));
+                    return ['status' => 1, 'msg' => '生成成功', 'outputs' => $result['outputs'] ?? []];
+                }
+                
+                // 调用失败：记录失败，分析错误类型
+                $errorMsg = $result['msg'] ?? '生成失败';
+                $errorCode = $result['error_code'] ?? 'API_ERROR';
+                $this->keyPoolService->recordCallResult($keyId, false, $errorMsg);
+                $lastError = $errorMsg;
+                $lastErrorCode = $errorCode;
+                
+                // 分类错误：决定是否继续切换 Key
+                $errorType = $this->classifyKeyError($result, $errorCode);
+                Log::info("Key调用失败, key_id={$keyId} provider={$providerCode} error=\"{$errorMsg}\" type={$errorType}", [
+                    'retry' => $retryCount,
+                ]);
+                
+                // 释放当前 Key 并尝试下一个
+                $this->keyPoolService->releaseKey($keyId);
+                
+            } catch (\Exception $e) {
+                // 异常：记录失败并释放 Key
+                $this->keyPoolService->recordCallResult($keyId, false, $e->getMessage());
+                $this->keyPoolService->releaseKey($keyId);
+                $lastError = $e->getMessage();
+                $lastErrorCode = 'EXCEPTION';
+                Log::error("Key调用异常 key_id={$keyId} error=\"{$e->getMessage()}\"", [
+                    'retry' => $retryCount,
+                ]);
+            }
         }
+        
+        // 所有 Key 均已尝试失败
+        $record->markFailed($lastErrorCode, '所有Key均已尝试失败: ' . $lastError);
+        return ['status' => 0, 'msg' => '所有可用Key均已尝试失败: ' . $lastError];
     }
     
     /**
@@ -529,6 +585,105 @@ class GenerationService
         
         // 返回完整body作为参考
         return json_encode($body, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * 分类 API Key 错误类型
+     * 
+     * 用于 Key 池自动故障切换决策：
+     * - auth_failure: 认证失败（401/403），Key 彻底无效，不重试当前 Key
+     * - insufficient_balance: 余额不足（402 或关键词），不可重试
+     * - invalid_key: Key 被禁用或无效
+     * - rate_limited: 被限流（429），短暂不可用，可稍后重试
+     * - timeout: 请求超时，可能是网络问题
+     * - server_error: 服务端错误（5xx），临时故障可重试
+     * - generic: 其他通用错误
+     * 
+     * @param array $result callModelApi 的返回结果
+     * @param string $errorCode 错误码
+     * @return string 错误类型标识
+     */
+    protected function classifyKeyError($result, $errorCode)
+    {
+        $msg = $result['msg'] ?? '';
+        $httpCode = 0;
+        
+        // 从 error_code 提取 HTTP 状态码
+        if (strpos($errorCode, 'HTTP_') === 0) {
+            $httpCode = intval(substr($errorCode, 5));
+        }
+        
+        // 余额不足检测（HTTP 402 或关键词匹配）
+        if ($httpCode === 402 || 
+            stripos($msg, '余额不足') !== false ||
+            stripos($msg, 'insufficient_balance') !== false ||
+            stripos($msg, 'insufficient balance') !== false ||
+            stripos($msg, 'low balance') !== false ||
+            stripos($msg, 'quota exceeded') !== false ||
+            stripos($msg, '账户余额') !== false ||
+            stripos($msg, 'credit') !== false ||
+            stripos($msg, 'billing') !== false) {
+            return 'insufficient_balance';
+        }
+        
+        // 认证失败
+        if ($httpCode === 401 || $httpCode === 403 ||
+            stripos($msg, 'unauthorized') !== false ||
+            stripos($msg, '认证失败') !== false ||
+            stripos($msg, '密钥不正确') !== false ||
+            stripos($msg, '密钥无效') !== false ||
+            stripos($msg, 'invalid api key') !== false ||
+            stripos($msg, 'invalid token') !== false ||
+            stripos($msg, 'access denied') !== false) {
+            return 'auth_failure';
+        }
+        
+        // Key 无效/禁用
+        if (stripos($msg, 'invalid_api_key') !== false ||
+            stripos($msg, 'key disabled') !== false ||
+            stripos($msg, 'key not found') !== false ||
+            stripos($msg, 'API key not valid') !== false) {
+            return 'invalid_key';
+        }
+        
+        // 被限流
+        if ($httpCode === 429 ||
+            stripos($msg, 'rate limit') !== false ||
+            stripos($msg, 'too many requests') !== false ||
+            stripos($msg, '请求过于频繁') !== false) {
+            return 'rate_limited';
+        }
+        
+        // 请求超时
+        if ($httpCode === 408 || $httpCode === 504 ||
+            stripos($msg, 'timeout') !== false ||
+            stripos($msg, '超时') !== false ||
+            stripos($msg, 'timed out') !== false) {
+            return 'timeout';
+        }
+        
+        // 服务端错误（5xx）
+        if ($httpCode >= 500 && $httpCode < 600) {
+            return 'server_error';
+        }
+        
+        return 'generic';
+    }
+
+    /**
+     * 判断是否为 Key 耗尽型错误（不应在此 Key 上重试）
+     * 
+     * 返回 true 表示当前 Key 已失效/余额不足/认证失败，
+     * 调用方应永久跳过该 Key 并尝试下一个。
+     * 
+     * @param array $result
+     * @return bool
+     */
+    protected function isKeyExhaustedError($result)
+    {
+        $errorCode = $result['error_code'] ?? '';
+        $errorType = $this->classifyKeyError($result, $errorCode);
+        return in_array($errorType, ['auth_failure', 'insufficient_balance', 'invalid_key']);
     }
     
     /**
@@ -770,7 +925,7 @@ class GenerationService
     
     /**
      * 检查是否为豆包Seed 2.0 Chat大语言模型
-     * doubao-seed-2-0-pro 和 doubao-seed-2-0-lite 系列使用 Chat Completions API
+     * doubao-seed-2-0-pro、doubao-seed-2-0-lite 和 doubao-seed-2-0-mini 系列使用 Chat Completions API
      * 
      * @param string $modelCode 模型代码
      * @return bool
@@ -778,7 +933,8 @@ class GenerationService
     protected function isDoubaoSeed2ChatModel($modelCode)
     {
         return strpos($modelCode, 'doubao-seed-2-0-pro') === 0 
-            || strpos($modelCode, 'doubao-seed-2-0-lite') === 0;
+            || strpos($modelCode, 'doubao-seed-2-0-lite') === 0
+            || strpos($modelCode, 'doubao-seed-2-0-mini') === 0;
     }
     
     /**
@@ -2167,15 +2323,17 @@ class GenerationService
             return $pollResult;
         }
         
-        $apiKeyConfig = $this->apiKeyService->getActiveConfigByProvider($model['provider_code']);
-        if (!$apiKeyConfig) {
-            \think\facade\Log::warning('pollJimengTaskStatus: API Key未配置 provider=' . $model['provider_code']);
+        $keyConfig = $this->keyPoolService->acquireKey($model['provider_code']);
+        if (!$keyConfig) {
+            \think\facade\Log::warning('pollJimengTaskStatus: 无可用Key provider=' . $model['provider_code']);
             return $pollResult;
         }
+        $keyId = $keyConfig['id'];
         
-        $accessKey = $apiKeyConfig['api_key_decrypted'];
-        $secretKey = $apiKeyConfig['api_secret_decrypted'] ?? '';
+        $accessKey = $keyConfig['api_key'];
+        $secretKey = $keyConfig['api_secret'];
         if (empty($accessKey) || empty($secretKey)) {
+            $this->keyPoolService->releaseKey($keyId);
             return $pollResult;
         }
         
@@ -2339,6 +2497,8 @@ class GenerationService
                 'record_id' => $record['id'],
                 'task_id' => $externalTaskId
             ]);
+        } finally {
+            $this->keyPoolService->releaseKey($keyId);
         }
         
         return $pollResult;
@@ -3792,13 +3952,13 @@ class GenerationService
             if ($type === 'image' && !empty($url)) {
                 try {
                     $persistedUrl = $persistService->persistAndCompress($url, $aid, 'generation');
-                    if (!empty($persistedUrl)) {
+                    if (!empty($persistedUrl) && $persistedUrl !== $url) {
                         $output['url'] = $persistedUrl;
                         // 更新 file_size 为压缩后的实际大小
                         $output['file_size'] = ImagePersistService::getFileSize($persistedUrl);
                     }
-                } catch (\Exception $e) {
-                    \think\facade\Log::warning('persistImageOutputs: 单张转存失败 - ' . $e->getMessage(), [
+                } catch (\Throwable $e) {
+                    \think\facade\Log::warning('persistImageOutputs: 单张转存失败(' . get_class($e) . '): ' . $e->getMessage(), [
                         'url' => substr($url, 0, 120),
                     ]);
                     // 失败时保留原 URL
@@ -4205,14 +4365,16 @@ class GenerationService
             return $pollResult;
         }
         
-        $apiKeyConfig = $this->apiKeyService->getActiveConfigByProvider($model['provider_code']);
-        if (!$apiKeyConfig) {
-            \think\facade\Log::warning('pollSeedanceTaskStatus: API Key未配置 provider=' . $model['provider_code']);
+        $keyConfig = $this->keyPoolService->acquireKey($model['provider_code']);
+        if (!$keyConfig) {
+            \think\facade\Log::warning('pollSeedanceTaskStatus: 无可用Key provider=' . $model['provider_code']);
             return $pollResult;
         }
+        $keyId = $keyConfig['id'];
         
-        $apiKey = $apiKeyConfig['api_key_decrypted'];
+        $apiKey = $keyConfig['api_key'];
         if (empty($apiKey)) {
+            $this->keyPoolService->releaseKey($keyId);
             return $pollResult;
         }
         
@@ -4326,6 +4488,8 @@ class GenerationService
                 'record_id' => $record['id'],
                 'external_task_id' => $externalTaskId
             ]);
+        } finally {
+            $this->keyPoolService->releaseKey($keyId);
         }
         
         return $pollResult;
@@ -4351,14 +4515,16 @@ class GenerationService
             return $pollResult;
         }
         
-        $apiKeyConfig = $this->apiKeyService->getActiveConfigByProvider($model['provider_code']);
-        if (!$apiKeyConfig) {
-            \think\facade\Log::warning('pollDashScopeTaskStatus: API Key未配置 provider=' . $model['provider_code']);
+        $keyConfig = $this->keyPoolService->acquireKey($model['provider_code']);
+        if (!$keyConfig) {
+            \think\facade\Log::warning('pollDashScopeTaskStatus: 无可用Key provider=' . $model['provider_code']);
             return $pollResult;
         }
+        $keyId = $keyConfig['id'];
         
-        $apiKey = $apiKeyConfig['api_key_decrypted'];
+        $apiKey = $keyConfig['api_key'];
         if (empty($apiKey)) {
+            $this->keyPoolService->releaseKey($keyId);
             return $pollResult;
         }
         
@@ -4492,6 +4658,8 @@ class GenerationService
                 'record_id' => $record['id'],
                 'external_task_id' => $externalTaskId
             ]);
+        } finally {
+            $this->keyPoolService->releaseKey($keyId);
         }
         
         return $pollResult;
@@ -4541,15 +4709,17 @@ class GenerationService
             'provider_id' => $model['provider_id'] ?? ''
         ]);
 
-        $apiKeyConfig = $this->apiKeyService->getActiveConfigByProvider($model['provider_code']);
-        if (!$apiKeyConfig) {
-            \think\facade\Log::warning('pollSucaiTaskStatus: API Key未配置 provider=' . $model['provider_code']);
+        $keyConfig = $this->keyPoolService->acquireKey($model['provider_code']);
+        if (!$keyConfig) {
+            \think\facade\Log::warning('pollSucaiTaskStatus: 无可用Key provider=' . $model['provider_code']);
             return $pollResult;
         }
+        $keyId = $keyConfig['id'];
 
-        $apiKey = $apiKeyConfig['api_key_decrypted'] ?? '';
+        $apiKey = $keyConfig['api_key'] ?? '';
         if (empty($apiKey)) {
             \think\facade\Log::warning('pollSucaiTaskStatus: API Key为空 provider=' . $model['provider_code']);
+            $this->keyPoolService->releaseKey($keyId);
             return $pollResult;
         }
 
@@ -4702,6 +4872,8 @@ class GenerationService
                 'external_task_id' => $externalTaskId,
                 'trace' => $e->getTraceAsString()
             ]);
+        } finally {
+            $this->keyPoolService->releaseKey($keyId);
         }
 
         return $pollResult;
@@ -4759,13 +4931,15 @@ class GenerationService
             return ['status' => 0, 'msg' => '模型不存在'];
         }
         
-        $apiKeyConfig = $this->apiKeyService->getActiveConfigByProvider($model['provider_code']);
-        if (!$apiKeyConfig) {
+        $keyConfig = $this->keyPoolService->acquireKey($model['provider_code']);
+        if (!$keyConfig) {
             return ['status' => 0, 'msg' => 'API Key未配置'];
         }
+        $keyId = $keyConfig['id'];
         
-        $apiKey = $apiKeyConfig['api_key_decrypted'];
+        $apiKey = $keyConfig['api_key'];
         if (empty($apiKey)) {
+            $this->keyPoolService->releaseKey($keyId);
             return ['status' => 0, 'msg' => 'API Key解密失败'];
         }
         
@@ -4835,6 +5009,8 @@ class GenerationService
         } catch (\Exception $e) {
             \think\facade\Log::error('refetchSeedanceResult 异常: ' . $e->getMessage());
             return ['status' => 0, 'msg' => '查询异常: ' . $e->getMessage()];
+        } finally {
+            $this->keyPoolService->releaseKey($keyId);
         }
     }
     

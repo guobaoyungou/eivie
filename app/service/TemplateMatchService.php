@@ -17,7 +17,7 @@ class TemplateMatchService
     /**
      * 匹配合成模板（从 ai_travel_photo_synthesis_template 表）
      *
-     * @param string $gender     Male / Female / Unknown
+     * @param string $gender     Male / Female
      * @param string $ageGroup   0-2, 3-9, 10-19, 20-29, ...
      * @param int    $isMultiFace 0=单人 1=多人
      * @param int    $aid

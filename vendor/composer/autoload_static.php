@@ -95,10 +95,10 @@ class ComposerStaticInit6fa24cacc7733af572b2803561ff620b
         '263010cc0791a948b93b0451326d8490' => __DIR__ . '/..' . '/baidu/aip-sdk/AipNlp.php',
         '20465600cdf87e7598e8d3b23e358ef7' => __DIR__ . '/..' . '/baidu/aip-sdk/AipOcr.php',
         '03d6be5ce0d7e73da2264e6c76dbce69' => __DIR__ . '/..' . '/baidu/aip-sdk/AipSpeech.php',
+        'cd5441689b14144e5573bf989ee47b34' => __DIR__ . '/..' . '/qcloud/cos-sdk-v5/src/Common.php',
         '841780ea2e1d6545ea3a253239d59c05' => __DIR__ . '/..' . '/qiniu/php-sdk/src/Qiniu/functions.php',
         '1cfd2761b63b0a29ed23657ea394cb2d' => __DIR__ . '/..' . '/topthink/think-captcha/src/helper.php',
         'cc56288302d9df745d97c934d6a6e5f0' => __DIR__ . '/..' . '/topthink/think-queue/src/common.php',
-        'cd5441689b14144e5573bf989ee47b34' => __DIR__ . '/..' . '/qcloud/cos-sdk-v5/src/Common.php',
     );
 
     public static $prefixLengthsPsr4 = array (

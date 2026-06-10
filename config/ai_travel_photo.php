@@ -42,7 +42,7 @@ return [
         'size' => 300,
         'margin' => 10,
         'expire_days' => 30,
-        'base_url' => '', // 需在后台设置
+        'base_url' => '', // 选片页基础URL，留空则自动使用当前域名，格式如：https://your-domain.com
     ],
 
     // 订单配置

@@ -939,6 +939,18 @@ class SmileCapture extends Base
                         'gender' => $gender, 'age_group' => $ageGroup,
                         'is_multi' => $isMultiFace, 'face_count' => $faceCount,
                     ]);
+
+                    // --- 自然语言描述人像（商户开关控制） ---
+                    if (\app\service\PortraitDescriptionService::isEnabled($this->aid, $targetBid)) {
+                        try {
+                            $descService = new \app\service\PortraitDescriptionService();
+                            $descService->generateDescription($portraitId);
+                        } catch (\Exception $de) {
+                            \think\facade\Log::warning('笑脸抓拍自然语言描述生成异常', [
+                                'portrait_id' => $portraitId, 'error' => $de->getMessage()
+                            ]);
+                        }
+                    }
                 } else {
                     Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
                         'auto_tag_status' => 3, 'update_time' => time()

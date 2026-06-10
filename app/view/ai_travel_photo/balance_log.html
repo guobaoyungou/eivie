@@ -32,6 +32,17 @@
     .type-tag.recharge { background: #4CAF50; }
     .amount-deduct { color: #FF5722; font-weight: bold; }
     .amount-plus { color: #4CAF50; font-weight: bold; }
+    .summary-cards { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .summary-card {
+      flex: 1; min-width: 160px; border-radius: 10px; padding: 14px 18px; color: #fff;
+      position: relative; overflow: hidden;
+    }
+    .summary-card .sc-label { font-size: 12px; opacity: 0.85; margin-bottom: 4px; }
+    .summary-card .sc-value { font-size: 20px; font-weight: bold; }
+    .summary-card.card-synthesis { background: linear-gradient(135deg, #fe5196, #f77062); }
+    .summary-card.card-rewrite { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+    .summary-card.card-total { background: linear-gradient(135deg, #f093fb, #f5576c); }
+    .summary-card.card-count { background: linear-gradient(135deg, #43e97b, #38f9d7); color: #333; }
   </style>
 </head>
 <body>
@@ -76,8 +87,40 @@
             </div>
           </div>
 
-          <!-- 数据表格 -->
+          <!-- 余额变动流水表格 -->
           <table class="layui-table" id="tabledata" lay-filter="tabledata"></table>
+
+          <!-- 分割线 -->
+          <hr style="margin: 24px 0 16px 0; border-top: 2px solid #e6e6e6;">
+
+          <!-- 人像消费统计面板 -->
+          <div class="layui-card-header" style="background: #f8f8f8; border-radius: 4px 4px 0 0; margin-bottom: 12px;">
+            <i class="layui-icon layui-icon-component" style="font-size: 16px; color: #f5576c;"></i> 人像消费统计
+            <span style="color: #999; font-size: 12px; margin-left: 8px;">金额 = (商采价格 × 生成结果数) + (生成结果数 × 0.10元AI改写费)</span>
+          </div>
+
+          <!-- 汇总卡片 -->
+          <div class="summary-cards" id="summaryCards">
+            <div class="summary-card card-count">
+              <div class="sc-label">人像数</div>
+              <div class="sc-value" id="scCount">-</div>
+            </div>
+            <div class="summary-card card-synthesis">
+              <div class="sc-label">合成费小计</div>
+              <div class="sc-value" id="scSynthesis">¥-</div>
+            </div>
+            <div class="summary-card card-rewrite">
+              <div class="sc-label">AI改写费小计</div>
+              <div class="sc-value" id="scRewrite">¥-</div>
+            </div>
+            <div class="summary-card card-total">
+              <div class="sc-label">消费总计</div>
+              <div class="sc-value" id="scTotal">¥-</div>
+            </div>
+          </div>
+
+          <!-- 人像消费表格 -->
+          <table class="layui-table" id="portraitCostTable" lay-filter="portraitCostTable"></table>
         </div>
       </div>
     </div>
@@ -131,11 +174,18 @@
 
     // 搜索
     form.on('submit(searchBtn)', function(data){
-      datawhere = data.field;
+      datawhere = Object.assign({}, data.field, {start_date: data.field.start_date, end_date: data.field.end_date});
       tableIns.reload({
         where: datawhere,
         page: {curr: 1}
       });
+      // 同步刷新人像消费统计表
+      if (typeof portraitCostTable !== 'undefined') {
+        portraitCostTable.reload({
+          where: datawhere,
+          page: {curr: 1}
+        });
+      }
       return false;
     });
 
@@ -148,10 +198,44 @@
       });
     });
 
-    // 重置
+    // ===== 人像消费统计表格 =====
+    var portraitCostTable = table.render({
+      elem: '#portraitCostTable',
+      url: '{:url("portrait_cost_list")}',
+      page: true,
+      limit: 20,
+      limits: [10, 20, 50, 100],
+      where: datawhere,
+      cols: [[
+        {field: 'id', title: '人像ID', width: 80, sort: true},
+        {field: 'file_name', title: '文件名', minWidth: 140},
+        {field: 'scene_name', title: '场景模板', width: 110},
+        {field: 'business_price_fmt', title: '商采单价', width: 90, templet: function(d){ return '¥' + d.business_price_fmt; }},
+        {field: 'result_count', title: '结果数', width: 80},
+        {field: 'synthesis_cost', title: '合成费', width: 90, templet: function(d){ return '<span style="color:#f5576c">¥' + d.synthesis_cost + '</span>'; }},
+        {field: 'rewrite_cost', title: '改写费', width: 90, templet: function(d){ return '<span style="color:#4facfe">¥' + d.rewrite_cost + '</span>'; }},
+        {field: 'total_cost', title: '消费金额', width: 110, templet: function(d){ return '<span style="font-weight:bold;color:#ff5722">¥' + d.total_cost + '</span>'; }},
+        {field: 'create_time', title: '创建时间', width: 160}
+      ]],
+      text: { none: '暂无人像消费记录' },
+      done: function(res) {
+        if (res.summary) {
+          document.getElementById('scCount').textContent = res.summary.portrait_count;
+          document.getElementById('scSynthesis').textContent = '¥' + res.summary.synthesis_total;
+          document.getElementById('scRewrite').textContent = '¥' + res.summary.rewrite_total;
+          document.getElementById('scTotal').textContent = '¥' + res.summary.grand_total;
+        }
+      }
+    });
+
+    // 重置按钮同时刷新两个表格
     document.getElementById('resetBtn').addEventListener('click', function(){
       datawhere = {};
       tableIns.reload({
+        where: datawhere,
+        page: {curr: 1}
+      });
+      portraitCostTable.reload({
         where: datawhere,
         page: {curr: 1}
       });

@@ -283,7 +283,7 @@
               <div class="result-grid">
                 {foreach $photos as $result}
                 <div class="result-item">
-                  <img src="{$result.thumbnail_url ?: $result.url}" title="{if $portrait.rewritten_prompt}改写提示词：{$portrait.rewritten_prompt|htmlspecialchars}{/if}" onclick="layer.photos({photos: {data: [{src: '{$result.url}'}]}, anim: 5});" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                  <img src="{$result.thumbnail_url ?: $result.url}" title="{if $result.rewritten_prompt}改写提示词：{$result.rewritten_prompt|htmlspecialchars}{elseif $result.generation_prompt /}原始提示词：{$result.generation_prompt|htmlspecialchars}{/if}" onclick="layer.photos({photos: {data: [{src: '{$result.url}'}]}, anim: 5});" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
                   <div class="result-error-fallback">加载失败</div>
                   <div class="result-item-info">
                     <span class="scene-name">场景：{$result.scene_name ?: '未知'}</span>

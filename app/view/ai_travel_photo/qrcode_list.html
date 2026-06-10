@@ -145,6 +145,9 @@
         {field: 'expire_time', title: '过期时间', width: 160, templet: function(d){
           return d.expire_time ? date('Y-m-d H:i:s', d.expire_time) : '永不过期';
         }},
+        {field: 'is_free_pick', title: '免费选片', width: 100, templet: function(d){
+          return d.is_free_pick == 1 ? '<span style="color:#5FB878;">已开启</span>' : '<span style="color:#999;">未开启</span>';
+        }},
         {field: 'create_time', title: '创建时间', width: 160, templet: function(d){
           return d.create_time ? date('Y-m-d H:i:s', d.create_time) : '-';
         }},

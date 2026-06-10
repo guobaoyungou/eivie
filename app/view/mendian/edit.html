@@ -73,18 +73,14 @@
 							<button type="button" class="layui-btn layui-btn-sm" onclick="showXpdQrcode()"><i class="fa fa-qrcode"></i> 二维码</button>
 							<div class="layui-form-mid layui-word-aux">在门店大屏浏览器中打开此链接，展示AI旅拍选片页面</div>
 						</div>
-						<div class="layui-form-item">
+						<!-- 展示模板已隐藏，统一使用自由布局系统 -->
+						<div class="layui-form-item" style="display:none">
 							<label class="layui-form-label">展示模板：</label>
 							<div class="layui-input-inline" style="width:200px">
 								<select name="info[xpd_template]" lay-filter="xpd_template">
-									<option value="template_1" {if !$info['xpd_template'] || $info['xpd_template']=='template_1'}selected{/if}>经典上下布局</option>
-									<option value="template_2" {if $info['xpd_template']=='template_2'}selected{/if}>全屏沉浸式</option>
-									<option value="template_3" {if $info['xpd_template']=='template_3'}selected{/if}>左右分屏</option>
-									<option value="template_4" {if $info['xpd_template']=='template_4'}selected{/if}>栅格多屏</option>
-									<option value="template_5" {if $info['xpd_template']=='template_5'}selected{/if}>轮播卡片</option>
+									<option value="template_1" selected>经典上下布局</option>
 								</select>
 							</div>
-							<div class="layui-form-mid layui-word-aux">选择适合的展示模板，修改后需重新打开选片页面生效</div>
 						</div>
 						<div class="layui-form-item">
 							<label class="layui-form-label">轮播时间设置：</label>
@@ -116,6 +112,28 @@
 								「公众号二维码」：用户扫码后先关注公众号再进入选片中心<br>
 								「H5选片码」：用户扫码直接进入H5选片中心
 							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">加载选片模式：</label>
+							<div class="layui-input-inline" style="width:250px">
+								<input type="radio" name="info[xpd_load_mode]" value="today" title="按当日创建时间" {if !$info.xpd_load_mode || $info.xpd_load_mode=='today'}checked{/if}>
+								<input type="radio" name="info[xpd_load_mode]" value="count" title="按加载数量" {if $info.xpd_load_mode=='count'}checked{/if}>
+							</div>
+							<div class="layui-form-mid layui-word-aux">二选一，默认"按当日创建时间"加载当日全部头像</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">加载选片数量：</label>
+							<div class="layui-input-inline" style="width:100px">
+								<input type="number" name="info[xpd_load_count]" class="layui-input" value="{$info.xpd_load_count|default='15'}" min="1" max="50" step="1">
+							</div>
+							<div class="layui-form-mid layui-word-aux">条（范围1-50），默认15条。"按加载数量"模式时生效</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">刷新时间：</label>
+							<div class="layui-input-inline" style="width:100px">
+								<input type="number" name="info[xpd_refresh_interval]" class="layui-input" value="{$info.xpd_refresh_interval|default='10'}" min="10" max="3600" step="1">
+							</div>
+							<div class="layui-form-mid layui-word-aux">秒（范围10-3600），默认10秒。选片端将按此间隔自动刷新数据</div>
 						</div>
 						{/if}
 						{if getcustom('douyin_groupbuy')}

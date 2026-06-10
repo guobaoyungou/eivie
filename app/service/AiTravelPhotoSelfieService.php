@@ -1307,8 +1307,9 @@ class AiTravelPhotoSelfieService
         }
 
         // ===== Step 1: 自动标签分析 =====
-        $gender = 'Unknown';
-        $ageGroup = 'Unknown';
+        $gender = '';
+        $ageGroup = '';
+        $race = '';
         $isMultiFace = 0;
         $faceCount = 0;
 
@@ -1321,23 +1322,44 @@ class AiTravelPhotoSelfieService
             $result = $analysisService->analyzeFromUrl($originalUrl);
             if ($result) {
                 $attr = ImageAnalysisService::extractMainSubject($result);
-                $gender = $attr['gender'] ?? 'Unknown';
-                $ageGroup = $attr['age_group'] ?? 'Unknown';
+                $gender = $attr['gender'] ?? '';
+                $ageGroup = $attr['age_group'] ?? '';
+                $race = $attr['race'] ?? '';
                 $isMultiFace = $attr['is_multi_face'] ? 1 : 0;
                 $faceCount = $attr['face_count'] ?? 0;
 
                 Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
                     'gender_tag' => $gender,
                     'age_tag' => $ageGroup,
+                    'race_tag' => $race,
                     'is_multi_face' => $isMultiFace,
                     'face_count' => $faceCount,
                     'auto_tag_status' => 2,
                     'update_time' => time()
                 ]);
 
+                // --- 自然语言描述人像（商户开关控制） ---
+                $setting = Db::name('ai_travel_photo_synthesis_setting')
+                    ->where('aid', $portrait['aid'] ?? 1)
+                    ->where('bid', $portrait['bid'] ?? 1)
+                    ->where('portrait_id', 0)
+                    ->field('description_mode,nl_description_enabled')
+                    ->find();
+                $nlEnabled = ($setting && (($setting['description_mode'] ?? 'nl') === 'nl'));
+                if ($nlEnabled) {
+                    try {
+                        $descService = new \app\service\PortraitDescriptionService();
+                        $descService->generateDescription($portraitId);
+                    } catch (\Exception $de) {
+                        \think\facade\Log::warning('自拍端自然语言描述生成异常', [
+                            'portrait_id' => $portraitId, 'error' => $de->getMessage()
+                        ]);
+                    }
+                }
+
                 Log::info('自拍端自动标签分析完成', [
                     'portrait_id' => $portraitId,
-                    'gender' => $gender, 'age_group' => $ageGroup,
+                    'gender' => $gender, 'age_group' => $ageGroup, 'race' => $race,
                     'is_multi' => $isMultiFace, 'face_count' => $faceCount,
                 ]);
             } else {
@@ -2209,7 +2231,7 @@ class AiTravelPhotoSelfieService
      *
      * @param int $bid 商家ID
      * @param int $mdid 门店ID
-     * @param int $gender 性别 1=男 2=女 3=未知
+     * @param int $gender 性别 1=男 2=女（不再支持3=未知，性别永远二选一）
      * @return array 推荐模板列表
      */
     public function getRecommendTemplates(int $bid, int $mdid, int $gender): array
@@ -2463,8 +2485,9 @@ class AiTravelPhotoSelfieService
             if ($result) {
                 $attr = ImageAnalysisService::extractMainSubject($result);
                 Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                    'gender_tag' => $attr['gender'] ?? 'Unknown',
-                    'age_tag' => $attr['age_group'] ?? 'Unknown',
+                    'gender_tag' => $attr['gender'] ?? '',
+                    'age_tag' => $attr['age_group'] ?? '',
+                    'race_tag' => $attr['race'] ?? '',
                     'is_multi_face' => ($attr['is_multi_face'] ?? false) ? 1 : 0,
                     'face_count' => $attr['face_count'] ?? 0,
                     'auto_tag_status' => 2,
@@ -2472,9 +2495,23 @@ class AiTravelPhotoSelfieService
                 ]);
                 Log::info('自拍端选模板合成: 自动标签分析完成', [
                     'portrait_id' => $portraitId,
-                    'gender' => $attr['gender'] ?? 'Unknown',
-                    'age_group' => $attr['age_group'] ?? 'Unknown',
+                    'gender' => $attr['gender'] ?? '',
+                    'age_group' => $attr['age_group'] ?? '',
+                    'race' => $attr['race'] ?? '',
                 ]);
+
+                // --- 自然语言描述人像（商户开关控制） ---
+                $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->field('aid,bid')->find();
+                if ($portrait && \app\service\PortraitDescriptionService::isEnabled($portrait['aid'], $portrait['bid'])) {
+                    try {
+                        $descService = new \app\service\PortraitDescriptionService();
+                        $descService->generateDescription($portraitId);
+                    } catch (\Exception $de) {
+                        \think\facade\Log::warning('自拍端选模板合成自然语言描述生成异常', [
+                            'portrait_id' => $portraitId, 'error' => $de->getMessage()
+                        ]);
+                    }
+                }
             }
         } catch (\Exception $e) {
             Log::warning('自拍端选模板合成: 自动标签分析失败，使用原提示词', [

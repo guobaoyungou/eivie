@@ -117,7 +117,7 @@ class Common extends Base
         $skipAuthCheck = $isMemberLogin || ($this->user && ($this->user['auth_type'] ?? 1) != 0);
         
 		// 内部 AJAX 方法白名单 - 无需在菜单权限中单独配置
-		$internalAjaxActions = ['fairface_status', 'fairface_restart', 'fairface_threshold_get', 'fairface_threshold_set'];
+		$internalAjaxActions = ['fairface_status', 'fairface_restart', 'fairface_threshold_get', 'fairface_threshold_set', 'selfie_toggle_free_pick'];
 		$isInternalAjaxAction = in_array($request->action(), $internalAjaxActions);
 
 		if (!$skipAuthCheck && $this->user) {

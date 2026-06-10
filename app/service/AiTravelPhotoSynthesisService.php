@@ -67,6 +67,24 @@ class AiTravelPhotoSynthesisService
             $lastError = '';
             $failedCount = 0;
 
+            // 一次性读取合成设置（所有模板共享）
+            $synthesisSetting = $this->getSetting(0);
+
+            // 一次性生成/获取 NL 描述（所有模板共享，避免循环内重复调用）
+            $nlDescReady = $portrait['nl_description'] ?? '';
+            if (empty($nlDescReady)) {
+                try {
+                    $descService = new \app\service\PortraitDescriptionService();
+                    $descResult = $descService->generateDescription($portrait['id']);
+                    if ($descResult['status']) {
+                        $nlDescReady = $descResult['description'] ?? '';
+                        $portrait['nl_description'] = $nlDescReady;
+                    }
+                } catch (\Throwable $de) {
+                    Log::warning('generate 前置生成NL描述失败: ' . $de->getMessage());
+                }
+            }
+
             // 遍历模板生成图片
             foreach ($templates as $template) {
                 $templateId = $template['id'] ?? 0;
@@ -81,62 +99,94 @@ class AiTravelPhotoSynthesisService
                     $lastError = '创建generation记录失败: ' . $e->getMessage();
                 }
 
-                // AI提示词改写（对齐 processSingleGeneration 逻辑，覆盖同步生成路径）
+                // AI提示词改写（顺序流水线：NL描述 → 提示词改写 → 图生图）
+                // 每个模板独立改写，使用预生成的共享 NL 描述
                 try {
-                    $synthesisSetting = $this->getSetting(0);
-                    if (($synthesisSetting['prompt_rewrite_enabled'] ?? 1) == 1) {
-                        $useDefaultParams = false;
-                        $defaultParams = is_string($template['default_params'] ?? '')
-                            ? json_decode($template['default_params'] ?? '', true)
-                            : ($template['default_params'] ?? []);
-                        if (!is_array($defaultParams)) $defaultParams = [];
-                        $currentPrompt = $defaultParams['prompt'] ?? '';
-                        if (!empty($currentPrompt)) {
-                            $useDefaultParams = true;
-                        } else {
-                            $currentPrompt = $template['prompt'] ?? $template['description'] ?? '';
-                        }
-                        if (!empty($currentPrompt)) {
-                            $promptRewrite = new \app\service\PromptRewriteService();
-                            $newPrompt = $promptRewrite->rewrite(
-                                $currentPrompt,
-                                [
-                                    'gender' => $portrait['gender_tag'] ?? '',
-                                    'age' => $portrait['age_tag'] ?? '',
-                                    'is_multi' => $portrait['is_multi_template'] ?? 0,
-                                    'face_count' => $portrait['face_count'] ?? 1,
-                                ],
-                                $synthesisSetting['prompt_rewrite_provider'] ?? 'aliyun',
-                                $synthesisSetting['prompt_rewrite_model'] ?? 'qwen-plus',
-                                $synthesisSetting['prompt_rewrite_template'] ?? '',
-                                $template['model_name'] ?? ''
-                            );
-                            if ($newPrompt !== $currentPrompt) {
+                    $useDefaultParams = false;
+                    $defaultParams = is_string($template['default_params'] ?? '')
+                        ? json_decode($template['default_params'] ?? '', true)
+                        : ($template['default_params'] ?? []);
+                    if (!is_array($defaultParams)) $defaultParams = [];
+                    $currentPrompt = $defaultParams['prompt'] ?? '';
+                    if (!empty($currentPrompt)) {
+                        $useDefaultParams = true;
+                    } else {
+                        $currentPrompt = $template['prompt'] ?? $template['description'] ?? '';
+                    }
+
+                    // 🔍 调试日志：追踪改写条件是否满足
+                    Log::info('generate 改写条件检查', [
+                        'portrait_id' => $portrait['id'],
+                        'template_id' => $templateId,
+                        'template_name' => $templateName,
+                        'currentPrompt_len' => mb_strlen($currentPrompt),
+                        'nlDescReady_len' => mb_strlen($nlDescReady),
+                        'currentPrompt_empty' => empty($currentPrompt),
+                        'nlDescReady_empty' => empty($nlDescReady),
+                        'has_default_params' => !empty($template['default_params']),
+                    ]);
+
+                    if (!empty($currentPrompt) && !empty($nlDescReady)) {
+                        $nlTemplate = $synthesisSetting['nl_prompt_template'] ?? '';
+                        $promptRewriteTemplate = $synthesisSetting['prompt_rewrite_template'] ?? '';
+                        $templateModel = $template['model_name'] ?? '';
+
+                        $promptRewrite = new \app\service\PromptRewriteService();
+                        $result = $promptRewrite->rewriteWithDescription(
+                            $currentPrompt,
+                            $nlDescReady,
+                            $nlTemplate ?: $this->getDefaultNlPromptTemplate(),
+                            $synthesisSetting['prompt_rewrite_provider'] ?? 'volcengine',
+                            $synthesisSetting['prompt_rewrite_model'] ?? 'doubao-seed-2-0-pro-260215',
+                            $promptRewriteTemplate,
+                            $templateModel
+                        );
+                        if ($result['success']) {
+                            if (!empty($result['optimize_prompt'])) {
+                                $newPrompt = $result['optimize_prompt'];
                                 if ($useDefaultParams) {
                                     $defaultParams['prompt'] = $newPrompt;
                                     $template['default_params'] = json_encode($defaultParams);
                                 }
                                 $template['prompt'] = $newPrompt;
-                                // 将改写结果存入人像表
-                                Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])
-                                    ->update(['rewritten_prompt' => $newPrompt, 'update_time' => time()]);
-                                Log::info('generate PromptRewrite 已改写提示词', [
+                                // 回写改写后的 prompt 到人像表，供列表页显示 AI 改写状态
+                                Db::name('ai_travel_photo_portrait')
+                                    ->where('id', $portrait['id'])
+                                    ->update([
+                                        'rewritten_prompt' => $newPrompt,
+                                        'update_time' => time(),
+                                    ]);
+                                Log::info('generate 提示词改写成功', [
                                     'portrait_id' => $portrait['id'],
-                                    'original' => mb_substr($currentPrompt, 0, 60),
-                                    'rewritten' => mb_substr($newPrompt, 0, 60),
+                                    'template_id' => $templateId,
+                                    'template_name' => $templateName,
+                                    'optimize_len' => mb_strlen($newPrompt),
                                 ]);
                             }
+                        } else {
+                            Log::warning('generate 提示词改写返回失败', [
+                                'portrait_id' => $portrait['id'],
+                                'template_id' => $templateId,
+                                'template_name' => $templateName,
+                            ]);
                         }
+                    } elseif (empty($nlDescReady)) {
+                        Log::warning('generate NL描述为空，跳过提示词改写', [
+                            'portrait_id' => $portrait['id'],
+                            'template_name' => $templateName,
+                        ]);
                     }
                 } catch (\Throwable $e) {
-                    Log::warning('generate PromptRewrite 失败，使用原提示词: ' . $e->getMessage());
+                    Log::warning('generate 提示词改写失败，使用原提示词: ' . $e->getMessage());
                 }
 
                 try {
-                    // 调用AI模型生成图片
-                    $generatedUrl = $this->callAiModel($portraitUrl, $template, $portrait, $forcePromptRewrite);
+                    // 调用AI模型生成图片（返回 ['urls' => [], 'prompt' => '']）
+                    $aiResult = $this->callAiModel($portraitUrl, $template, $portrait, $forcePromptRewrite);
+                    $generatedUrls = $aiResult['urls'] ?? [];
+                    $usedPrompt = $aiResult['prompt'] ?? '';
 
-                    if (empty($generatedUrl)) {
+                    if (empty($generatedUrls)) {
                         // 更新generation状态为失败
                         $this->updateGenerationStatus($generationId, 3, '生成结果为空');
                         // M6: 生成结果为空也需退款
@@ -154,48 +204,52 @@ class AiTravelPhotoSynthesisService
                     // 更新generation状态为成功
                     $this->updateGenerationStatus($generationId, 2);
 
-                    // 添加水印
-                    $watermarkedUrl = $generatedUrl;
-                    // 只有水印服务初始化成功且商家开启了水印时才添加水印
-                    if ($this->watermarkEnabled && !empty($business['ai_logo_watermark'])) {
-                        try {
-                            // 先将生成的结果存入result表获取ID
-                            $resultId = $this->saveResult($portraitId, $bid, $template, $generatedUrl, $generationId);
+                    // 遍历每张生成图片，分别保存结果
+                    foreach ($generatedUrls as $generatedUrl) {
+                        // 添加水印
+                        $watermarkedUrl = $generatedUrl;
+                        $resultId = 0;
+                        // 只有水印服务初始化成功且商家开启了水印时才添加水印
+                        if ($this->watermarkEnabled && !empty($business['ai_logo_watermark'])) {
+                            try {
+                                // 先将生成的结果存入result表获取ID
+                                $resultId = $this->saveResult($portraitId, $bid, $template, $generatedUrl, $generationId, $usedPrompt);
 
-                            // 添加水印
-                            $watermarkResult = $this->watermarkService->addWatermark($resultId);
-                            $watermarkedUrl = $watermarkResult['watermark_url'] ?? $generatedUrl;
+                                // 添加水印
+                                $watermarkResult = $this->watermarkService->addWatermark($resultId);
+                                $watermarkedUrl = $watermarkResult['watermark_url'] ?? $generatedUrl;
 
-                            // 更新水印URL
-                            Db::name('ai_travel_photo_result')
-                                ->where('id', $resultId)
-                                ->update(['result_url_watermark' => $watermarkedUrl]);
-                        } catch (\Throwable $e) {
-                            // 水印添加失败，使用原图
-                            \think\facade\Log::error('合成图片水印添加失败: ' . $e->getMessage());
+                                // 更新水印URL
+                                Db::name('ai_travel_photo_result')
+                                    ->where('id', $resultId)
+                                    ->update(['result_url_watermark' => $watermarkedUrl]);
+                            } catch (\Throwable $e) {
+                                // 水印添加失败，使用原图
+                                \think\facade\Log::error('合成图片水印添加失败: ' . $e->getMessage());
+                            }
+                        } else {
+                            // 没有设置水印，直接保存结果
+                            $resultId = $this->saveResult($portraitId, $bid, $template, $generatedUrl, $generationId, $usedPrompt);
                         }
-                    } else {
-                        // 没有设置水印，直接保存结果
-                        $resultId = $this->saveResult($portraitId, $bid, $template, $generatedUrl, $generationId);
-                    }
 
-                    // 如果水印添加成功，更新水印URL字段
-                    if (!empty($watermarkedUrl) && $watermarkedUrl !== $generatedUrl && !empty($resultId)) {
-                        try {
-                            Db::name('ai_travel_photo_result')
-                                ->where('id', $resultId)
-                                ->update(['watermark_url' => $watermarkedUrl]);
-                        } catch (\Exception $e) {
-                            // 忽略字段不存在的错误
+                        // 如果水印添加成功，更新水印URL字段
+                        if (!empty($watermarkedUrl) && $watermarkedUrl !== $generatedUrl && !empty($resultId)) {
+                            try {
+                                Db::name('ai_travel_photo_result')
+                                    ->where('id', $resultId)
+                                    ->update(['watermark_url' => $watermarkedUrl]);
+                            } catch (\Exception $e) {
+                                // 忽略字段不存在的错误
+                            }
                         }
-                    }
 
-                    $generatedResults[] = [
-                        'template_id' => $templateId,
-                        'template_name' => $templateName,
-                        'result_url' => $generatedUrl,
-                        'watermarked_url' => $watermarkedUrl
-                    ];
+                        $generatedResults[] = [
+                            'template_id' => $templateId,
+                            'template_name' => $templateName,
+                            'result_url' => $generatedUrl,
+                            'watermarked_url' => $watermarkedUrl
+                        ];
+                    }
 
                     // M6: 成功生成后更新云空间用量
                     try {
@@ -401,7 +455,6 @@ class AiTravelPhotoSynthesisService
 
         // 字段映射：将 name 映射为 template_name，保持下游兼容
         $template['template_name'] = $template['name'] ?? '';
-        $template['output_quantity'] = 1; // 合成模板固定输出1张
 
         // 补充 aid / bid / mdid，让 callAiModel 的 getApiConfigByModelId 能正确查找配置
         $template['aid'] = $generation['aid'] ?? $portrait['aid'] ?? 0;
@@ -415,76 +468,97 @@ class AiTravelPhotoSynthesisService
             'model_id' => $template['model_id'] ?? 0,
         ]);
 
-        // 5. AI提示词改写（根据人像标签改写提示词）
+        // 5. AI提示词改写（顺序流水线：NL描述 → 提示词改写 → 图生图）
         $synthesisSetting = $this->getSetting(0);
-        Log::info('processSingleGeneration 改写-设置检查', [
-            'setting_id' => $synthesisSetting['id'] ?? 'NULL',
-            'prompt_rewrite_enabled' => $synthesisSetting['prompt_rewrite_enabled'] ?? 'NULL_KEY',
-            'provider' => $synthesisSetting['prompt_rewrite_provider'] ?? 'NULL_KEY',
-            'template_prompt' => mb_substr($template['prompt'] ?? '', 0, 40),
-            'gender_tag' => $portrait['gender_tag'] ?? 'NULL',
-            'age_tag' => $portrait['age_tag'] ?? 'NULL',
-        ]);
-        if (($synthesisSetting['prompt_rewrite_enabled'] ?? 1) == 1) {
-            try {
-                // 确定当前使用的提示词
-                $useDefaultParams = false;
-                $defaultParams = is_string($template['default_params'] ?? '')
-                    ? json_decode($template['default_params'] ?? '', true)
-                    : ($template['default_params'] ?? []);
-                if (!is_array($defaultParams)) $defaultParams = [];
 
-                $currentPrompt = $defaultParams['prompt'] ?? '';
-                if (!empty($currentPrompt)) {
-                    $useDefaultParams = true;
-                } else {
-                    $currentPrompt = $template['prompt'] ?? $template['description'] ?? '';
-                }
-
-                if (!empty($currentPrompt)) {
-                    $promptRewrite = new \app\service\PromptRewriteService();
-                    $newPrompt = $promptRewrite->rewrite(
-                        $currentPrompt,
-                        [
-                            'gender' => $portrait['gender_tag'] ?? '',
-                            'age' => $portrait['age_tag'] ?? '',
-                            'is_multi' => $portrait['is_multi_template'] ?? 0,
-                            'face_count' => $portrait['face_count'] ?? 1,
-                        ],
-                        $synthesisSetting['prompt_rewrite_provider'] ?? 'aliyun',
-                        $synthesisSetting['prompt_rewrite_model'] ?? 'qwen-plus',
-                        $synthesisSetting['prompt_rewrite_template'] ?? '',
-                        $template['model_name'] ?? ''
-                    );
-                    if ($newPrompt !== $currentPrompt) {
-                        if ($useDefaultParams) {
-                            $defaultParams['prompt'] = $newPrompt;
-                            $template['default_params'] = json_encode($defaultParams);
-                        }
-                        $template['prompt'] = $newPrompt;
-                        Log::info('PromptRewrite 已改写提示词', [
-                            'original' => mb_substr($currentPrompt, 0, 60),
-                            'rewritten' => mb_substr($newPrompt, 0, 60),
-                        ]);
-                        // 将改写结果存入人像表
-                        Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])
-                            ->update(['rewritten_prompt' => $newPrompt, 'update_time' => time()]);
-                    }
-                }
-            } catch (\Throwable $e) {
-                Log::warning('PromptRewrite 失败，使用原提示词: ' . $e->getMessage());
-            }
+        $useDefaultParams = false;
+        $defaultParams = is_string($template['default_params'] ?? '')
+            ? json_decode($template['default_params'] ?? '', true)
+            : ($template['default_params'] ?? []);
+        if (!is_array($defaultParams)) $defaultParams = [];
+        $currentPrompt = $defaultParams['prompt'] ?? '';
+        if (!empty($currentPrompt)) {
+            $useDefaultParams = true;
         } else {
-            Log::warning('processSingleGeneration 改写-跳过: 开关关闭或设置不存在', [
-                'setting_null' => is_null($synthesisSetting) ? 'yes' : 'no',
-                'enabled_val' => $synthesisSetting['prompt_rewrite_enabled'] ?? 'NULL_KEY',
-            ]);
+            $currentPrompt = $template['prompt'] ?? $template['description'] ?? '';
+        }
+
+        if (!empty($currentPrompt)) {
+            // 使用已有的 NL 描述（上传时已生成），为空时补生成
+            $nlDesc = $portrait['nl_description'] ?? '';
+            if (empty($nlDesc)) {
+                try {
+                    $descService = new \app\service\PortraitDescriptionService();
+                    $descResult = $descService->generateDescription($portrait['id']);
+                    if ($descResult['status']) {
+                        $nlDesc = $descResult['description'] ?? '';
+                        $portrait['nl_description'] = $nlDesc;
+                    }
+                } catch (\Throwable $de) {
+                    Log::warning('processSingleGeneration 实时补生成NL描述失败: ' . $de->getMessage());
+                }
+            }
+
+            if (!empty($nlDesc)) {
+                $nlTemplate = $synthesisSetting['nl_prompt_template'] ?? '';
+                $promptRewriteTemplate = $synthesisSetting['prompt_rewrite_template'] ?? '';
+                $templateModel = $template['model_name'] ?? '';
+
+                try {
+                    $promptRewrite = new \app\service\PromptRewriteService();
+                    $result = $promptRewrite->rewriteWithDescription(
+                        $currentPrompt,
+                        $nlDesc,
+                        $nlTemplate ?: $this->getDefaultNlPromptTemplate(),
+                        $synthesisSetting['prompt_rewrite_provider'] ?? 'volcengine',
+                        $synthesisSetting['prompt_rewrite_model'] ?? 'doubao-seed-2-0-pro-260215',
+                        $promptRewriteTemplate,
+                        $templateModel
+                    );
+                    if ($result['success']) {
+                        if (!empty($result['optimize_prompt'])) {
+                            $newPrompt = $result['optimize_prompt'];
+                            if ($useDefaultParams) {
+                                $defaultParams['prompt'] = $newPrompt;
+                                $template['default_params'] = json_encode($defaultParams);
+                            }
+                            $template['prompt'] = $newPrompt;
+                            // 回写改写后的 prompt 到人像表，供列表页显示 AI 改写状态
+                            Db::name('ai_travel_photo_portrait')
+                                ->where('id', $portrait['id'])
+                                ->update([
+                                    'rewritten_prompt' => $newPrompt,
+                                    'update_time' => time(),
+                                ]);
+                            Log::info('processSingleGeneration 提示词改写成功', [
+                                'portrait_id' => $portrait['id'],
+                                'template_id' => $template['id'],
+                                'optimize_len' => mb_strlen($newPrompt),
+                            ]);
+                        }
+                    } else {
+                        Log::warning('processSingleGeneration 提示词改写返回失败', [
+                            'portrait_id' => $portrait['id'],
+                            'template_id' => $template['id'],
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('processSingleGeneration 提示词改写失败: ' . $e->getMessage());
+                }
+            } else {
+                Log::warning('processSingleGeneration NL描述为空，跳过提示词改写', [
+                    'portrait_id' => $portrait['id'],
+                    'template_id' => $template['id'],
+                ]);
+            }
         }
 
         // 6. 调用 AI 模型生成图片（与管理员 generate() 相同路径）
-        $generatedUrl = $this->callAiModel($portraitUrl, $template);
+        $aiResult = $this->callAiModel($portraitUrl, $template);
+        $generatedUrls = $aiResult['urls'] ?? [];
+        $usedPrompt = $aiResult['prompt'] ?? '';
 
-        if (empty($generatedUrl)) {
+        if (empty($generatedUrls)) {
             $this->updateGenerationStatus($generationId, 3, '生成结果为空');
             throw new \Exception('生成结果为空');
         }
@@ -496,9 +570,11 @@ class AiTravelPhotoSynthesisService
             'update_time' => time(),
         ]);
 
-        // 7. 保存结果到 result 表
+        // 7. 保存结果到 result 表（每张图一条记录）
         $bid = $generation['bid'] ?? $portrait['bid'] ?? 0;
-        $this->saveResult($portrait['id'], $bid, $template, $generatedUrl, $generationId);
+        foreach ($generatedUrls as $generatedUrl) {
+            $this->saveResult($portrait['id'], $bid, $template, $generatedUrl, $generationId, $usedPrompt);
+        }
 
         // 8. 添加水印（可选）
         if ($this->watermarkEnabled) {
@@ -632,9 +708,9 @@ class AiTravelPhotoSynthesisService
      *
      * @param string $portraitUrl 人像图片URL（抠图后的人像）
      * @param array $template 模板信息（包含model_id, prompt, default_params等）
-     * @return string|null
+     * @return array 返回 ['urls' => string[], 'prompt' => string] 格式，urls为空表示失败
      */
-    protected function callAiModel(string $portraitUrl, array $template, array $portrait = [], bool $forcePromptRewrite = false): ?string
+    protected function callAiModel(string $portraitUrl, array $template, array $portrait = [], bool $forcePromptRewrite = false): array
     {
         // 调试日志
         Log::info('callAiModel 模板数据: ' . json_encode($template, JSON_UNESCAPED_UNICODE));
@@ -668,6 +744,14 @@ class AiTravelPhotoSynthesisService
                 : $template['default_params'];
             if (!is_array($defaultParams)) {
                 $defaultParams = [];
+            }
+        }
+
+        // 2.5 注入模板的 output_quantity 到 defaultParams.n（若未显式设置）
+        if (!isset($defaultParams['n']) && !empty($template['output_quantity'])) {
+            $outputQty = intval($template['output_quantity']);
+            if ($outputQty > 1) {
+                $defaultParams['n'] = $outputQty;
             }
         }
 
@@ -705,37 +789,39 @@ class AiTravelPhotoSynthesisService
         if ($forcePromptRewrite && !empty($portrait)) {
             try {
                 $synthesisSetting = $this->getSetting(0);
-                $rewriteTemplate = $synthesisSetting['prompt_rewrite_template'] ?? '';
-                if (empty($rewriteTemplate)) {
-                    $rewriteTemplate = '请将以下图生提示词改成适合{自动标签性别}，{自动标签年龄}风格的适合{模板绑定模型}提示词';
+
+                // 确保 NL 描述已生成
+                $nlDesc = $portrait['nl_description'] ?? '';
+                if (empty($nlDesc)) {
+                    try {
+                        $descService = new \app\service\PortraitDescriptionService();
+                        $descResult = $descService->generateDescription($portrait['id']);
+                        if ($descResult['status']) {
+                            $nlDesc = $descResult['description'] ?? '';
+                        }
+                    } catch (\Throwable $de) {
+                        Log::warning('callAiModel 实时补生成NL描述失败: ' . $de->getMessage());
+                    }
                 }
-                $promptRewrite = new \app\service\PromptRewriteService();
-                $newPrompt = $promptRewrite->rewrite(
-                    $prompt,
-                    [
-                        'gender' => $portrait['gender_tag'] ?? '',
-                        'age' => $portrait['age_tag'] ?? '',
-                        'is_multi' => $portrait['is_multi_template'] ?? 0,
-                        'face_count' => $portrait['face_count'] ?? 1,
-                    ],
-                    $synthesisSetting['prompt_rewrite_provider'] ?? 'aliyun',
-                    $synthesisSetting['prompt_rewrite_model'] ?? 'qwen-plus',
-                    $rewriteTemplate,
-                    $template['model_name'] ?? ''
-                );
-                if ($newPrompt !== $prompt) {
-                    $originalPrompt = $prompt;
-                    $prompt = $newPrompt;
-                    // 同步更新 default_params 中的 prompt
-                    $defaultParams['prompt'] = $newPrompt;
-                    Log::info('callAiModel 强制改写提示词', [
-                        'original' => mb_substr($originalPrompt, 0, 60),
-                        'rewritten' => mb_substr($newPrompt, 0, 60),
-                    ]);
-                    // 将改写结果存入人像表
-                    if (!empty($portrait['id'])) {
-                        Db::name('ai_travel_photo_portrait')->where('id', $portrait['id'])
-                            ->update(['rewritten_prompt' => $newPrompt, 'update_time' => time()]);
+
+                if (!empty($nlDesc)) {
+                    $nlTemplate = $synthesisSetting['nl_prompt_template'] ?? '';
+                    $promptRewriteTemplate = $synthesisSetting['prompt_rewrite_template'] ?? '';
+                    $templateModel = $template['model_name'] ?? '';
+
+                    $promptRewrite = new \app\service\PromptRewriteService();
+                    $result = $promptRewrite->rewriteWithDescription(
+                        $prompt,
+                        $nlDesc,
+                        $nlTemplate ?: $this->getDefaultNlPromptTemplate(),
+                        $synthesisSetting['prompt_rewrite_provider'] ?? 'volcengine',
+                        $synthesisSetting['prompt_rewrite_model'] ?? 'doubao-seed-2-0-pro-260215',
+                        $promptRewriteTemplate,
+                        $templateModel
+                    );
+                    if ($result['success'] && !empty($result['optimize_prompt'])) {
+                        $prompt = $result['optimize_prompt'];
+                        $defaultParams['prompt'] = $prompt;
                     }
                 }
             } catch (\Throwable $e) {
@@ -746,14 +832,33 @@ class AiTravelPhotoSynthesisService
         Log::info('callAiModel 参数: modelId=' . $modelId . ', prompt=' . substr($prompt, 0, 50) . '..., referenceImage=' . $referenceImage . ', hasDefaultParams=' . (!empty($defaultParams) ? 'yes' : 'no'));
 
         // 5. 调用AI图生图API，传入模板预设参数
-        $resultUrl = $this->callImageGenerationApi($portraitUrl, $referenceImage, $prompt, $apiConfig, $defaultParams);
+        $keyId = (int)($apiConfig['id'] ?? 0);
+        $isFromPool = ($apiConfig['source'] ?? '') === 'system_key_pool';
 
-        // 6. 统一 WebP 压缩转存：确保成片 URL 为永久 WebP 格式
-        if (!empty($resultUrl)) {
-            $resultUrl = $this->persistImageUrl($resultUrl);
+        try {
+            $resultUrls = $this->callImageGenerationApi($portraitUrl, $referenceImage, $prompt, $apiConfig, $defaultParams);
+
+            // 6. 对于非火山引擎的结果，统一 WebP 压缩转存
+            $isVolcengine = in_array($apiConfig['provider'] ?? '', ['volcengine', 'doubao']);
+            if (!$isVolcengine) {
+                foreach ($resultUrls as &$url) {
+                    if (!empty($url)) {
+                        $url = $this->persistImageUrl($url);
+                    }
+                }
+                unset($url);
+            }
+
+            return [
+                'urls' => array_filter($resultUrls),
+                'prompt' => $prompt,
+            ];
+        } finally {
+            // 确保并发计数释放，防止Key池泄露（volcengine/sucai内部已释放，此处为兜底）
+            if ($isFromPool && $keyId > 0) {
+                $this->releaseKey($keyId);
+            }
         }
-
-        return $resultUrl;
     }
 
     /**
@@ -951,23 +1056,29 @@ class AiTravelPhotoSynthesisService
      * @param array $defaultParams 模板预设的API请求参数（来自default_params字段）
      * @return string
      */
-    protected function callImageGenerationApi(string $portraitUrl, string $referenceImage, string $prompt, array $apiConfig, array $defaultParams = []): string
+    protected function callImageGenerationApi(string $portraitUrl, string $referenceImage, string $prompt, array $apiConfig, array $defaultParams = []): array
     {
         $provider = $apiConfig['provider'] ?? '';
 
         switch ($provider) {
             case 'aliyun':
-                return $this->callAliyunImageApi($portraitUrl, $referenceImage, $prompt, $apiConfig);
+                $url = $this->callAliyunImageApi($portraitUrl, $referenceImage, $prompt, $apiConfig);
+                return !empty($url) ? [$url] : [];
 
             case 'baidu':
-                return $this->callBaiduImageApi($portraitUrl, $referenceImage, $prompt, $apiConfig);
+                $url = $this->callBaiduImageApi($portraitUrl, $referenceImage, $prompt, $apiConfig);
+                return !empty($url) ? [$url] : [];
 
             case 'openai':
-                return $this->callOpenAiImageApi($portraitUrl, $referenceImage, $prompt, $apiConfig);
+                $url = $this->callOpenAiImageApi($portraitUrl, $referenceImage, $prompt, $apiConfig);
+                return !empty($url) ? [$url] : [];
 
             case 'volcengine':
             case 'doubao':
                 return $this->callVolcengineImageApi($portraitUrl, $referenceImage, $prompt, $apiConfig, $defaultParams);
+
+            case 'sucai':
+                return $this->callSucaiImageApi($portraitUrl, $referenceImage, $prompt, $apiConfig, $defaultParams);
 
             default:
                 throw new \Exception('不支持的服务提供商: ' . $provider);
@@ -1236,7 +1347,7 @@ class AiTravelPhotoSynthesisService
      * @param array $defaultParams 模板预设的API请求参数（来自default_params字段，包含size/image/model等完整配置）
      * @return string
      */
-    protected function callVolcengineImageApi(string $portraitUrl, string $referenceImage, string $prompt, array $apiConfig, array $defaultParams = []): string
+    protected function callVolcengineImageApi(string $portraitUrl, string $referenceImage, string $prompt, array $apiConfig, array $defaultParams = []): array
     {
         $endpointUrl = $apiConfig['endpoint_url'] ?? '';
         $apiKey = $apiConfig['api_key'] ?? '';
@@ -1324,11 +1435,13 @@ class AiTravelPhotoSynthesisService
         }
 
         // 4. 构建请求参数（公共部分）
+        // n 值从 defaultParams 读取，未设置则默认 1
+        $nValue = max(intval($defaultParams['n'] ?? 1), 1);
         $requestParams = [
             'model' => $model,
             'prompt' => $textPrompt,
             'size' => $size,
-            'n' => 1,
+            'n' => $nValue,
             'response_format' => $defaultParams['response_format'] ?? 'url',
         ];
 
@@ -1423,9 +1536,9 @@ class AiTravelPhotoSynthesisService
 
             Log::info('火山方舟图生图响应: ' . json_encode($result, JSON_UNESCAPED_UNICODE));
 
-            // 解析响应 - 提取图片URL
-            // 支持组图场景：遍历 data 数组，过滤含 error 的项，收集成功图片
-            $imageUrl = null;
+            // 解析响应 - 提取所有图片URL
+            // 支持多图场景：遍历 data 数组，过滤含 error 的项，收集全部成功图片
+            $imageUrls = [];
 
             if (isset($result['data']) && is_array($result['data'])) {
                 // 遍历 data 数组，跳过含 error 的项（组图审核失败场景）
@@ -1435,40 +1548,52 @@ class AiTravelPhotoSynthesisService
                         continue;
                     }
                     if (!empty($dataItem['url'])) {
-                        $imageUrl = $dataItem['url'];
-                        break; // 取第一张成功的图
+                        $imageUrls[] = $dataItem['url'];
                     }
                     if (!empty($dataItem['b64_json'])) {
-                        $imageUrl = $this->saveBase64Image($dataItem['b64_json']);
-                        $this->releaseKey($keyId);
-                        return $imageUrl; // base64已保存为本地文件，无需再持久化
+                        $b64Url = $this->saveBase64Image($dataItem['b64_json']);
+                        if (!empty($b64Url)) {
+                            $imageUrls[] = $b64Url;
+                        }
                     }
                 }
             }
 
             // 请求级错误
-            if (empty($imageUrl) && isset($result['error'])) {
+            if (empty($imageUrls) && isset($result['error'])) {
                 $this->releaseKey($keyId);
                 throw new \Exception('火山方舟生成失败: ' . ($result['error']['message'] ?? json_encode($result['error'])));
             }
 
             // 异步任务模式
-            if (empty($imageUrl) && isset($result['task_id'])) {
-                $imageUrl = $this->pollVolcengineTask($result['task_id'], $apiKey, $endpointUrl);
+            if (empty($imageUrls) && isset($result['task_id'])) {
+                $taskUrl = $this->pollVolcengineTask($result['task_id'], $apiKey, $endpointUrl);
+                if (!empty($taskUrl)) {
+                    $imageUrls[] = $taskUrl;
+                }
             }
 
-            if (empty($imageUrl)) {
+            if (empty($imageUrls)) {
                 $this->releaseKey($keyId);
                 throw new \Exception('火山方舟API返回格式异常: ' . json_encode($result));
             }
 
             // 关键修复：将API返回的临时签名URL持久化到本地/OSS
             // 火山方舟TOS返回的URL是临时签名的，会很快过期
-            $persistedUrl = $this->persistImageUrl($imageUrl);
-            Log::info('火山方舟图片持久化完成: temp_url=' . substr($imageUrl, 0, 120) . ', persisted_url=' . $persistedUrl);
+            $persistedUrls = [];
+            foreach ($imageUrls as $imageUrl) {
+                $persistedUrl = $this->persistImageUrl($imageUrl);
+                $persistedUrls[] = $persistedUrl;
+                Log::info('火山方舟图片持久化完成: temp_url=' . substr($imageUrl, 0, 120) . ', persisted_url=' . $persistedUrl);
+            }
+
+            Log::info('火山方舟多图生成完成', [
+                'n_requested' => $nValue,
+                'n_received' => count($persistedUrls),
+            ]);
 
             $this->releaseKey($keyId);
-            return $persistedUrl;
+            return $persistedUrls;
 
         } catch (\GuzzleHttp\Exception\ClientException $e) {
             $this->releaseKey($keyId);
@@ -1488,6 +1613,239 @@ class AiTravelPhotoSynthesisService
             $this->releaseKey($keyId);
             throw new \Exception('火山方舟API调用异常: ' . $e->getMessage() . ' [at ' . $e->getFile() . ':' . $e->getLine() . ']');
         }
+    }
+
+    /**
+     * 调用速创API中转平台（GPT-Image 2异步接口）
+     * 
+     * 提交异步任务 → 轮询结果 → 返回图片URL列表
+     * 
+     * @param string $portraitUrl  人像图片URL
+     * @param string $referenceImage 参考图URL
+     * @param string $prompt       提示词
+     * @param array  $apiConfig    API配置（含api_key, endpoint_url等）
+     * @param array  $defaultParams 模板预设参数
+     * @return array 图片URL列表
+     */
+    protected function callSucaiImageApi(string $portraitUrl, string $referenceImage, string $prompt, array $apiConfig, array $defaultParams = []): array
+    {
+        $apiKey = $apiConfig['api_key'] ?? '';
+        if (empty($apiKey)) {
+            throw new \Exception('速创API Key未配置');
+        }
+
+        $keyId = (int)($apiConfig['id'] ?? 0);
+
+        // 获取 endpoint: 优先从 model_info 的 relay_config.submit_endpoint 获取
+        $submitEndpoint = 'https://api.wuyinkeji.com/api/async/image_gpt';
+        $queryEndpoint = 'https://api.wuyinkeji.com/api/async/detail';
+        
+        // 尝试从 default_params 或 apiConfig 中获取自定义 endpoint
+        if (!empty($apiConfig['endpoint_url'])) {
+            $submitEndpoint = $apiConfig['endpoint_url'];
+        }
+
+        // 构建请求体
+        $requestBody = [
+            'prompt' => $prompt,
+        ];
+
+        // 收集参考图
+        $imageUrls = [];
+        if (!empty($defaultParams['image'])) {
+            if (is_array($defaultParams['image'])) {
+                $imageUrls = $defaultParams['image'];
+            } elseif (is_string($defaultParams['image'])) {
+                $imageUrls = array_filter(explode(',', $defaultParams['image']));
+            }
+        }
+        if (!empty($defaultParams['images']) && is_array($defaultParams['images'])) {
+            $imageUrls = array_merge($imageUrls, $defaultParams['images']);
+        }
+        if (!empty($portraitUrl)) {
+            array_unshift($imageUrls, $portraitUrl);
+        }
+        if (!empty($referenceImage) && !empty($imageUrls)) {
+            // referenceImage 可能和 portraitUrl 重复，去重后加入
+            if (!in_array($referenceImage, $imageUrls)) {
+                $imageUrls[] = $referenceImage;
+            }
+        }
+        
+        if (!empty($imageUrls)) {
+            $requestBody['urls'] = array_values(array_unique($imageUrls));
+        }
+
+        // size 处理
+        $size = $defaultParams['size'] ?? 'auto';
+        if (preg_match('/^(\d+)x(\d+)$/i', $size, $m)) {
+            // 像素尺寸转为比例
+            $requestBody['size'] = $this->convertSizeToRatio($size);
+        } else {
+            $requestBody['size'] = $size;
+        }
+
+        // 生成数量
+        $n = (int)($defaultParams['n'] ?? 1);
+        if ($n < 1) $n = 1;
+        if ($n > 10) $n = 10;
+        $requestBody['count'] = $n;
+
+        Log::info('callSucaiImageApi 请求', [
+            'submit_endpoint' => $submitEndpoint,
+            'prompt_len' => strlen($prompt),
+            'image_count' => count($imageUrls),
+            'size' => $requestBody['size'],
+            'count' => $n,
+        ]);
+
+        try {
+            $client = new \GuzzleHttp\Client(['timeout' => 30]);
+            $response = $client->post($submitEndpoint, [
+                'headers' => [
+                    'Authorization' => $apiKey,
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => $requestBody,
+            ]);
+
+            $respBody = $response->getBody()->getContents();
+            $result = json_decode($respBody, true);
+            Log::info('callSucaiImageApi 提交响应: ' . substr($respBody, 0, 1000));
+
+            $code = (int)($result['code'] ?? 0);
+            if ($code !== 200) {
+                $this->releaseKey($keyId);
+                throw new \Exception('速创API提交失败: ' . ($result['msg'] ?? '未知错误'));
+            }
+
+            // 获取异步任务 ID
+            $taskId = '';
+            if (isset($result['data'])) {
+                if (is_string($result['data'])) {
+                    $taskId = $result['data'];
+                } elseif (is_array($result['data'])) {
+                    $taskId = $result['data']['id'] ?? $result['data']['task_id'] ?? '';
+                }
+            }
+
+            if (empty($taskId)) {
+                $this->releaseKey($keyId);
+                throw new \Exception('速创API未返回任务ID');
+            }
+
+            Log::info('callSucaiImageApi 任务已提交', ['task_id' => $taskId]);
+
+            // 轮询结果（每5秒一次，最多240次 = 20分钟）
+            // GPT-Image 2 等模型生成耗时较长，需要更充裕的超时时间
+            $maxAttempts = 240;
+            $interval = 5;
+            for ($i = 0; $i < $maxAttempts; $i++) {
+                sleep($interval);
+
+                $queryUrl = $queryEndpoint . '?key=' . urlencode($apiKey) . '&id=' . urlencode($taskId);
+                $queryResp = $client->get($queryUrl, [
+                    'headers' => [
+                        'Authorization' => $apiKey,
+                    ],
+                ]);
+
+                $queryBody = $queryResp->getBody()->getContents();
+                $queryResult = json_decode($queryBody, true);
+
+                $queryCode = (int)($queryResult['code'] ?? 0);
+                if ($queryCode !== 200) {
+                    Log::warning('callSucaiImageApi 查询失败', [
+                        'task_id' => $taskId, 'attempt' => $i + 1,
+                        'code' => $queryCode, 'msg' => $queryResult['msg'] ?? '',
+                    ]);
+                    continue;
+                }
+
+                $status = $queryResult['data']['status'] ?? '';
+                if ($status === 'completed') {
+                    $this->releaseKey($keyId);
+                    $urls = $queryResult['data']['result'] ?? [];
+                    if (!is_array($urls)) $urls = [$urls];
+                    $urls = array_filter($urls);
+                    if (empty($urls)) {
+                        throw new \Exception('速创API任务完成但无结果图片');
+                    }
+                    Log::info('callSucaiImageApi 任务完成', [
+                        'task_id' => $taskId, 'url_count' => count($urls), 'attempts' => $i + 1,
+                    ]);
+                    return $urls;
+                }
+
+                if ($status === 'failed') {
+                    $this->releaseKey($keyId);
+                    throw new \Exception('速创API任务失败: ' . ($queryResult['data']['message'] ?? '任务处理失败'));
+                }
+
+                // 仍在处理中，继续轮询
+                if (($i + 1) % 5 === 0) {
+                    Log::info('callSucaiImageApi 轮询中', [
+                        'task_id' => $taskId, 'attempt' => $i + 1, 'status' => $status,
+                    ]);
+                }
+            }
+
+            // 超时
+            $this->releaseKey($keyId);
+            throw new \Exception('速创API任务超时（已轮询' . $maxAttempts . '次）');
+
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $this->releaseKey($keyId);
+            $respBody = '';
+            try { $respBody = $e->getResponse()->getBody()->getContents(); } catch (\Exception $ex) {}
+            throw new \Exception('速创API请求错误: ' . ($respBody ?: $e->getMessage()));
+        } catch (\Exception $e) {
+            // 避免重复释放（releaseKey 内部有 current_concurrency > 0 保护）
+            if (strpos($e->getMessage(), '速创API') === 0) {
+                // 已在 try 块中释放
+                throw $e;
+            }
+            $this->releaseKey($keyId);
+            throw new \Exception('速创API调用异常: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 像素尺寸转为比例字符串（用于速创API）
+     */
+    protected function convertSizeToRatio(string $size): string
+    {
+        $ratioMap = [
+            '1024x1024' => '1:1',
+            '1024x1536' => '2:3',
+            '1536x1024' => '3:2',
+            '1024x1792' => '9:16',
+            '1792x1024' => '16:9',
+            '512x768' => '2:3',
+            '768x512' => '3:2',
+        ];
+        
+        if (isset($ratioMap[$size])) {
+            return $ratioMap[$size];
+        }
+        
+        // 通用像素→比例计算
+        if (preg_match('/^(\d+)x(\d+)$/i', $size, $m)) {
+            $w = (int)$m[1];
+            $h = (int)$m[2];
+            $gcd = $this->gcd($w, $h);
+            return ($w / $gcd) . ':' . ($h / $gcd);
+        }
+        
+        return 'auto';
+    }
+
+    /**
+     * 最大公约数
+     */
+    private function gcd(int $a, int $b): int
+    {
+        return $b === 0 ? $a : $this->gcd($b, $a % $b);
     }
 
     /**
@@ -1669,15 +2027,27 @@ class AiTravelPhotoSynthesisService
             $aid = defined('aid') ? aid : 0;
             $persistService = new ImagePersistService();
             $persistedUrl = $persistService->persistAndCompress($tempUrl, $aid, 'ai_travel_photo');
-            if (!empty($persistedUrl)) {
+
+            // 安全阀：如果返回的URL和原始临时URL完全一致，说明持久化未生效
+            if (!empty($persistedUrl) && $persistedUrl !== $tempUrl) {
+                Log::info('persistImageUrl 成功: 已转存为永久地址', [
+                    'temp' => substr($tempUrl, 0, 80),
+                    'persisted' => substr($persistedUrl, 0, 80),
+                ]);
                 return $persistedUrl;
             }
 
-            // 如果都失败了，返回原始临时URL（虽然会过期）
-            Log::error('图片持久化完全失败，返回临时URL', ['url' => substr($tempUrl, 0, 120)]);
+            // 持久化未产出新URL（结果为空或与原始相同）
+            Log::error('图片持久化失败，保留临时URL（将很快过期）', [
+                'url' => substr($tempUrl, 0, 120),
+                'result' => substr($persistedUrl ?: '(empty)', 0, 120),
+            ]);
             return $tempUrl;
-        } catch (\Exception $e) {
-            Log::error('图片持久化异常: ' . $e->getMessage(), ['url' => substr($tempUrl, 0, 120)]);
+        } catch (\Throwable $e) {
+            Log::error('图片持久化异常(' . get_class($e) . '): ' . $e->getMessage(), [
+                'url' => substr($tempUrl, 0, 120),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return $tempUrl;
         }
     }
@@ -1826,7 +2196,7 @@ class AiTravelPhotoSynthesisService
         return $orderId;
     }
 
-    protected function saveResult(int $portraitId, int $bid, array $template, string $resultUrl, int $generationId = 0)
+    protected function saveResult(int $portraitId, int $bid, array $template, string $resultUrl, int $generationId = 0, string $rewrittenPrompt = '')
     {
         // 获取人像信息中的aid
         $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
@@ -1846,6 +2216,7 @@ class AiTravelPhotoSynthesisService
             'type' => 1, // 图片类型
             'status' => 1,
             'desc' => $template['template_name'] ?? $template['name'] ?? '',
+            'rewritten_prompt' => $rewrittenPrompt,
             'create_time' => time(),
             'update_time' => time()
         ];
@@ -1961,6 +2332,17 @@ class AiTravelPhotoSynthesisService
      */
     public function generateWithPhotoAndTemplate(string $portraitUrl, array $template): ?string
     {
-        return $this->callAiModel($portraitUrl, $template);
+        $result = $this->callAiModel($portraitUrl, $template);
+        $urls = $result['urls'] ?? [];
+        return !empty($urls) ? $urls[0] : null;
+    }
+
+    /**
+     * 获取默认 NL 提示词模板（特征提取部分）
+     * 当设置中 nl_prompt_template 为空时使用
+     */
+    private function getDefaultNlPromptTemplate(): string
+    {
+        return '仔细解析图片里人物全部特征：性别、年龄段、脸型、五官细节、妆容、发型发色、配饰、服装款式颜色、身材体态、表情、画面光影风格，输出结构化信息。并写入"feature_info":人像特征描述,。';
     }
 }

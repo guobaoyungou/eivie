@@ -2800,4 +2800,139 @@ class ApiBusiness extends ApiCommon{
             ]);
         }
     }
+
+    /**
+     * H5 导拍查看批量上传人像的生成结果（含选片二维码）
+     * GET /ApiBusiness/guide_portrait_list?bid=X&mdid=Y&page=1&limit=20
+     */
+    public function guide_portrait_list()
+    {
+        // 1. 登录校验
+        $this->checklogin();
+        if (!$this->member) {
+            return $this->json(['code' => 401, 'msg' => '请先登录']);
+        }
+
+        // 2. 角色校验：仅导拍用户（levelid=92）
+        if (!isset($this->member['levelid']) || $this->member['levelid'] != 92) {
+            return $this->json(['code' => 403, 'msg' => '当前账号无查看权限']);
+        }
+
+        // 3. 参数
+        $bid = input('get.bid/d', 0);
+        $mdid = input('get.mdid/d', 0);
+        $page = input('get.page/d', 1);
+        $limit = min((int)input('get.limit/d', 20), 50);
+
+        if ($bid <= 0) {
+            return $this->json(['code' => 400, 'msg' => '请指定商家']);
+        }
+
+        try {
+            // 4. 查询合成已完成的人像
+            $portraitQuery = Db::name('ai_travel_photo_portrait')
+                ->where('bid', $bid)
+                ->where('status', 1)
+                ->where('synthesis_status', 3);
+
+            if ($mdid > 0) {
+                $portraitQuery->where('mdid', $mdid);
+            }
+
+            $count = $portraitQuery->count();
+
+            $portraits = $portraitQuery
+                ->field('id, file_name, create_time')
+                ->order('id', 'desc')
+                ->page($page, $limit)
+                ->select()
+                ->toArray();
+
+            if (empty($portraits)) {
+                return $this->json([
+                    'code' => 200, 'msg' => 'ok',
+                    'data' => ['portraits' => [], 'total' => 0, 'page' => $page, 'limit' => $limit],
+                ]);
+            }
+
+            $portraitIds = array_column($portraits, 'id');
+
+            // 5. 批量查询成片结果
+            $results = Db::name('ai_travel_photo_result')
+                ->whereIn('portrait_id', $portraitIds)
+                ->where('status', 1)
+                ->field('id, portrait_id, type, url, thumbnail_url, watermark_url, width, height, create_time')
+                ->order('create_time DESC, id DESC')
+                ->select()
+                ->toArray();
+
+            // 6. 批量查询选片二维码
+            $qrcodes = Db::name('ai_travel_photo_qrcode')
+                ->whereIn('portrait_id', $portraitIds)
+                ->where('status', 1)
+                ->field('id, portrait_id, qrcode, qrcode_url, mp_qrcode_url')
+                ->order('id', 'desc')
+                ->select()
+                ->toArray();
+
+            // 7. 按 portrait_id 分组
+            $resultMap = [];
+            foreach ($results as $r) {
+                $resultMap[$r['portrait_id']][] = $r;
+            }
+
+            $qrMap = [];
+            foreach ($qrcodes as $q) {
+                if (!isset($qrMap[$q['portrait_id']])) {
+                    $qrMap[$q['portrait_id']] = $q;
+                }
+            }
+
+            // 8. 组装数据
+            $pickService = new \app\service\AiTravelPhotoPickService();
+            $list = [];
+            foreach ($portraits as $p) {
+                $pid = $p['id'];
+                $resultsForPortrait = $resultMap[$pid] ?? [];
+                $formattedResults = $pickService->formatResultItemsPublic($resultsForPortrait);
+
+                $qr = $qrMap[$pid] ?? null;
+                $qrcodeUrl = '';
+                $pickUrl = '';
+                if ($qr) {
+                    $qrcodeUrl = $qr['mp_qrcode_url'] ?: ($qr['qrcode_url'] ?: '');
+                    if ($qrcodeUrl && !empty($qr['qrcode'])) {
+                        $pickUrl = request()->domain() . '/public/pick/index.html?qr=' . $qr['qrcode'];
+                    }
+                }
+
+                $list[] = [
+                    'id' => $pid,
+                    'file_name' => $p['file_name'] ?? '',
+                    'create_time' => $p['create_time'] ? date('Y-m-d H:i:s', $p['create_time']) : '-',
+                    'result_count' => count($formattedResults),
+                    'results' => $formattedResults,
+                    'qrcode_url' => $qrcodeUrl,
+                    'pick_url' => $pickUrl,
+                ];
+            }
+
+            return $this->json([
+                'code' => 200,
+                'msg' => 'ok',
+                'data' => [
+                    'portraits' => $list,
+                    'total' => $count,
+                    'page' => $page,
+                    'limit' => $limit,
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->json([
+                'code' => 500,
+                'msg' => '查询失败：' . $e->getMessage(),
+            ]);
+        }
+    }
 }

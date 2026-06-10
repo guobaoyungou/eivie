@@ -62,8 +62,8 @@ class CutoutJob
     }
 
     /**
-     * 自动标签识别：调用 InsightFace+FairFace 分析人物属性
-     * 使用原图进行人脸分析（抠图后透明背景可能影响识别准确率）
+     * 自动标签识别：从 NL 自然语言描述中正则提取人物属性
+     * 替代原 InsightFace+FairFace API 调用，基于 LLM 生成的 nl_description 文本提取标签
      *
      * @param int $portraitId
      * @return void
@@ -71,57 +71,69 @@ class CutoutJob
     private function autoTagPortrait(int $portraitId): void
     {
         try {
-            // 标记为识别中
-            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                'auto_tag_status' => 1,
-                'update_time' => time(),
-            ]);
-
-            // 获取人像原图 URL
+            // 获取人像的 NL 描述
             $portrait = Db::name('ai_travel_photo_portrait')
                 ->where('id', $portraitId)
-                ->field('id, original_url')
+                ->field('id, nl_description, nl_description_status, auto_tag_status')
                 ->find();
 
-            if (empty($portrait) || empty($portrait['original_url'])) {
-                Log::warning('CutoutJob: autoTagPortrait 人像记录不存在或无原图', ['portrait_id' => $portraitId]);
+            if (empty($portrait)) {
+                Log::warning('CutoutJob: autoTagPortrait 人像记录不存在', ['portrait_id' => $portraitId]);
                 return;
             }
 
-            // 调用人物属性分析服务
-            $analysisService = new ImageAnalysisService();
-            $result = $analysisService->analyzeFromUrl($portrait['original_url']);
+            $nlDesc = $portrait['nl_description'] ?? '';
 
-            if (!$result || empty($result['faces'])) {
-                // 未检测到人脸，标记失败
-                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                    'auto_tag_status' => 3,
-                    'gender_tag' => 'Unknown',
-                    'age_tag' => 'Unknown',
-                    'is_multi_face' => 0,
-                    'face_count' => 0,
-                    'update_time' => time(),
-                ]);
-                Log::info('CutoutJob: 人像 ' . $portraitId . ' 未检测到人脸');
+            if (empty(trim($nlDesc))) {
+                $nlStatus = (int)($portrait['nl_description_status'] ?? 0);
+
+                // 如果 NL 描述生成失败（status=3），尝试重试一次
+                if ($nlStatus === 3) {
+                    Log::info('CutoutJob: NL描述生成失败，尝试重新生成 portrait_id=' . $portraitId);
+                    try {
+                        $descService = new \app\service\PortraitDescriptionService();
+                        $retryResult = $descService->generateDescription($portraitId);
+                        if ($retryResult['status']) {
+                            Log::info('CutoutJob: NL描述重新生成成功 portrait_id=' . $portraitId);
+                            return; // generateDescription 内部已完成标签写入
+                        }
+                        Log::warning('CutoutJob: NL描述重新生成仍然失败 portrait_id=' . $portraitId);
+                    } catch (\Exception $e) {
+                        Log::warning('CutoutJob: NL描述重新生成异常 portrait_id=' . $portraitId, ['error' => $e->getMessage()]);
+                    }
+                }
+
+                // NL 描述尚未生成
+                $currentAutoTagStatus = (int)($portrait['auto_tag_status'] ?? 0);
+                if ($currentAutoTagStatus !== 2 && $currentAutoTagStatus !== 4) {
+                    // 仅在 auto_tag 未完成时标记待处理（避免覆盖上传时已写入的结果）
+                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                        'auto_tag_status' => 0,
+                        'update_time'     => time(),
+                    ]);
+                }
+                Log::info('CutoutJob: 人像 ' . $portraitId . ' NL描述未生成，跳过自动标签（nl_status=' . $nlStatus . ' auto_tag_status=' . $currentAutoTagStatus . '）');
                 return;
             }
 
-            // 提取主体人物属性
-            $attr = ImageAnalysisService::extractMainSubject($result);
+            // 从 NL 描述正则提取全量标签
+            $tags = ImageAnalysisService::extractTagsFromDescription($nlDesc);
 
-            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                'gender_tag' => $attr['gender'] ?? 'Unknown',
-                'age_tag' => $attr['age_group'] ?? 'Unknown',
-                'is_multi_face' => ($attr['is_multi_face'] ?? false) ? 1 : 0,
-                'face_count' => $attr['face_count'] ?? 0,
-                'auto_tag_status' => 2, // 2=已完成
-                'update_time' => time(),
-            ]);
+            // 合并 update_time
+            $tags['update_time'] = time();
+            $tags['extended_tag_status'] = 2;
+            $tags['extended_tag_time'] = time();
 
-            Log::info('CutoutJob: 人像 ' . $portraitId . ' 自动标签识别完成', [
-                'gender' => $attr['gender'] ?? 'Unknown',
-                'age_group' => $attr['age_group'] ?? 'Unknown',
-                'face_count' => $attr['face_count'] ?? 0,
+            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update($tags);
+
+            Log::info('CutoutJob: 人像 ' . $portraitId . ' 自动标签识别完成（NL正则提取）', [
+                'gender'        => $tags['gender_tag'],
+                'age'           => $tags['age_tag'],
+                'emotion'       => $tags['emotion_primary'],
+                'glasses'       => $tags['glasses_type'],
+                'has_beard'     => $tags['has_beard'],
+                'hair_length'   => $tags['hair_length'],
+                'face_shape'    => $tags['face_shape'],
             ]);
 
         } catch (\Throwable $e) {

@@ -25,6 +25,9 @@ const LayoutEditor = {
     // 最小模块尺寸限制(百分比)
     minSizePercent: 5,
 
+    // 边框边缘检测阈值(px) — 在此范围内悬停即触发缩放光标
+    borderEdgeThreshold: 10,
+
     /**
      * 初始化编辑器
      * @param {Object} engine - LayoutEngine 实例
@@ -95,6 +98,34 @@ const LayoutEditor = {
     },
 
     /**
+     * 检测指针是否靠近模块边框边缘（返回缩放方向，否则null）
+     */
+    _detectBorderEdge(modEl, e) {
+        const rect = modEl.getBoundingClientRect();
+        const t = Math.abs(e.clientY - rect.top);
+        const b = Math.abs(e.clientY - rect.bottom);
+        const l = Math.abs(e.clientX - rect.left);
+        const r = Math.abs(e.clientX - rect.right);
+        const th = this.borderEdgeThreshold;
+
+        const nearTop = t < th;
+        const nearBottom = b < th;
+        const nearLeft = l < th;
+        const nearRight = r < th;
+
+        // 角落优先
+        if (nearTop && nearLeft) return 'nw';
+        if (nearTop && nearRight) return 'ne';
+        if (nearBottom && nearLeft) return 'sw';
+        if (nearBottom && nearRight) return 'se';
+        if (nearTop) return 'n';
+        if (nearBottom) return 's';
+        if (nearLeft) return 'w';
+        if (nearRight) return 'e';
+        return null;
+    },
+
+    /**
      * Pointer Down 事件处理
      */
     _onPointerDown(e) {
@@ -107,15 +138,30 @@ const LayoutEditor = {
         // 选中模块
         this._select(modEl);
 
-        const resizeHandle = e.target.closest('.resize-handle');
-
-        if (resizeHandle) {
-            // 开始缩放
-            this._startResize(e, modEl, resizeHandle.dataset.resizeDir);
-        } else {
-            // 任何在模块内部（非缩放手柄）的点击都触发拖拽
-            this._startDrag(e, modEl);
+        // 优先检测尺寸拖拽输入框（scrubber）
+        const scrubber = e.target.closest('.size-scrubber');
+        if (scrubber) {
+            const dir = scrubber.dataset.scrubDir;
+            this._startScrubResize(e, modEl, dir, scrubber);
+            return;
         }
+
+        // 其次检测缩放手柄（显式手柄）
+        const resizeHandle = e.target.closest('.resize-handle');
+        if (resizeHandle) {
+            this._startResize(e, modEl, resizeHandle.dataset.resizeDir);
+            return;
+        }
+
+        // 其次检测边框边缘缩放（无需显式手柄）
+        const borderDir = this._detectBorderEdge(modEl, e);
+        if (borderDir) {
+            this._startResize(e, modEl, borderDir);
+            return;
+        }
+
+        // 否则在模块内部 → 拖拽移动
+        this._startDrag(e, modEl);
     },
 
     /**
@@ -155,10 +201,37 @@ const LayoutEditor = {
             startTop: rect.top,
             startWidth: rect.width,
             startHeight: rect.height,
-            pointerId: e.pointerId
+            pointerId: e.pointerId,
+            scrubberEl: null   // 无关联 scrubber
         };
 
         modEl.classList.add('resizing');
+    },
+
+    /**
+     * 通过 scrubber 输入框开始缩放（纯宽度/纯高度，仅沿一个方向）
+     */
+    _startScrubResize(e, modEl, dir, scrubberEl) {
+        e.preventDefault();
+        e.stopPropagation();
+        modEl.setPointerCapture(e.pointerId);
+
+        const rect = modEl.getBoundingClientRect();
+        this.resizeInfo = {
+            el: modEl,
+            dir: dir,
+            startX: e.clientX,
+            startY: e.clientY,
+            startLeft: rect.left,
+            startTop: rect.top,
+            startWidth: rect.width,
+            startHeight: rect.height,
+            pointerId: e.pointerId,
+            scrubberEl: scrubberEl   // 关联的 scrubber，用于实时更新数值
+        };
+
+        modEl.classList.add('resizing');
+        scrubberEl.classList.add('scrubbing');
     },
 
     /**
@@ -175,6 +248,45 @@ const LayoutEditor = {
         if (this.resizeInfo && e.pointerId === this.resizeInfo.pointerId) {
             this._handleResizeMove(e);
             return;
+        }
+
+        // 悬停检测：当鼠标靠近编辑模式模块边框时，改变光标为缩放图标
+        this._updateHoverCursor(e);
+    },
+
+    /**
+     * 悬停时检测边框边缘并更新光标样式
+     */
+    _updateHoverCursor(e) {
+        // 查找当前悬停的编辑模式模块
+        const modEl = document.elementFromPoint(e.clientX, e.clientY);
+        if (!modEl) {
+            document.body.style.cursor = '';
+            return;
+        }
+
+        const editMod = modEl.closest('.layout-module.edit-mode');
+        if (!editMod) {
+            document.body.style.cursor = '';
+            return;
+        }
+
+        // 如果在缩放手柄或 scrubber 上，由 CSS cursor 处理
+        if (e.target.closest('.resize-handle') || e.target.closest('.size-scrubber')) {
+            return;
+        }
+
+        // 检测是否靠近边框边缘
+        const dir = this._detectBorderEdge(editMod, e);
+        if (dir) {
+            const cursorMap = {
+                'nw': 'nw-resize', 'n': 'n-resize', 'ne': 'ne-resize',
+                'w': 'w-resize', 'e': 'e-resize',
+                'sw': 'sw-resize', 's': 's-resize', 'se': 'se-resize'
+            };
+            document.body.style.cursor = cursorMap[dir] || 'default';
+        } else {
+            document.body.style.cursor = '';
         }
     },
 
@@ -230,25 +342,37 @@ const LayoutEditor = {
         let newHeight = (info.startHeight / canvasRect.height) * 100;
 
         const dir = info.dir;
+        const isScrubber = !!info.scrubberEl;
 
-        // 按方向调整尺寸和位置
-        if (dir.includes('e')) {
-            newWidth = Math.max(minW, newWidth + dxPercent);
-        }
-        if (dir.includes('w')) {
-            const proposedW = Math.max(minW, newWidth - dxPercent);
-            const deltaW = newWidth - proposedW;
-            newLeft = newLeft + deltaW;
-            newWidth = proposedW;
-        }
-        if (dir.includes('s')) {
-            newHeight = Math.max(minH, newHeight + dyPercent);
-        }
-        if (dir.includes('n')) {
-            const proposedH = Math.max(minH, newHeight - dyPercent);
-            const deltaH = newHeight - proposedH;
-            newTop = newTop + deltaH;
-            newHeight = proposedH;
+        if (isScrubber) {
+            // Scrubber 模式：永远使用水平位移(dx)来调整数值，左右滑动
+            if (dir === 'e') {
+                // 宽度 scrubber：拖拽右边缘
+                newWidth = Math.max(minW, newWidth + dxPercent);
+            } else if (dir === 's') {
+                // 高度 scrubber：拖拽底边缘，但用水平位移控制高度
+                newHeight = Math.max(minH, newHeight + dxPercent);
+            }
+        } else {
+            // 标准缩放模式：按方向调整尺寸和位置
+            if (dir.includes('e')) {
+                newWidth = Math.max(minW, newWidth + dxPercent);
+            }
+            if (dir.includes('w')) {
+                const proposedW = Math.max(minW, newWidth - dxPercent);
+                const deltaW = newWidth - proposedW;
+                newLeft = newLeft + deltaW;
+                newWidth = proposedW;
+            }
+            if (dir.includes('s')) {
+                newHeight = Math.max(minH, newHeight + dyPercent);
+            }
+            if (dir.includes('n')) {
+                const proposedH = Math.max(minH, newHeight - dyPercent);
+                const deltaH = newHeight - proposedH;
+                newTop = newTop + deltaH;
+                newHeight = proposedH;
+            }
         }
 
         // 限制不溢出
@@ -261,6 +385,15 @@ const LayoutEditor = {
         info.el.style.top = newTop.toFixed(2) + '%';
         info.el.style.width = newWidth.toFixed(2) + '%';
         info.el.style.height = newHeight.toFixed(2) + '%';
+
+        // 更新关联 scrubber 的数值显示
+        if (info.scrubberEl) {
+            const valEl = info.scrubberEl.querySelector('.scrub-value');
+            if (valEl) {
+                const prop = info.scrubberEl.dataset.scrubProperty;
+                valEl.textContent = (prop === 'width' ? newWidth : newHeight).toFixed(1) + '%';
+            }
+        }
 
         this._showTooltip(e.clientX, e.clientY, newLeft, newTop, newWidth, newHeight);
     },
@@ -275,11 +408,26 @@ const LayoutEditor = {
             this.dragInfo = null;
             this._hideTooltip();
             this._hideAlignLines();
+            document.body.style.cursor = '';
         }
 
         if (this.resizeInfo) {
             this.resizeInfo.el.classList.remove('resizing');
             this.resizeInfo.el.releasePointerCapture(this.resizeInfo.pointerId);
+            document.body.style.cursor = '';
+
+            // 清理 scrubber 状态并更新最终数值
+            const scrubEl = this.resizeInfo.scrubberEl;
+            if (scrubEl) {
+                scrubEl.classList.remove('scrubbing');
+                const valEl = scrubEl.querySelector('.scrub-value');
+                if (valEl) {
+                    const prop = scrubEl.dataset.scrubProperty;
+                    const curVal = parseFloat(this.resizeInfo.el.style[prop]) || 0;
+                    valEl.textContent = curVal.toFixed(1) + '%';
+                }
+            }
+
             this.resizeInfo = null;
             this._hideTooltip();
             this._hideAlignLines();

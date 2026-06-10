@@ -37,7 +37,6 @@ const QRCodeModule = {
         el.innerHTML = `
             <div class="qrcode-inner" style="display:flex;">
                 <img class="qrcode-image" src="" alt="选片二维码" style="display:block;">
-                <div class="qrcode-tip">微信扫码<br>查看您的专属照片</div>
             </div>
         `;
     },

@@ -102,14 +102,15 @@ class Pic
 		}
 
 		// 转换成功后删除原文件（仅在路径不同时）
-		if ($webpPath !== $filePath) {
+		$originalFileExists = $webpPath !== $filePath;
+		if ($originalFileExists) {
 			@unlink($filePath);
 		}
 
 		\think\facade\Log::info('convertToWebp: 转换成功', [
 			'original' => basename($filePath),
 			'webp' => basename($webpPath),
-			'originalSize' => filesize($filePath) ?: 'deleted',
+			'originalSize' => 'deleted',
 			'webpSize' => filesize($webpPath)
 		]);
 

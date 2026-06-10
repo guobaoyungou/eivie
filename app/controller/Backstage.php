@@ -1486,13 +1486,16 @@ class Backstage extends Common
 					$autoTaggingData = [
 						'fairface_api_url' => $autoTaggingPost['fairface_api_url'] ?? 'http://127.0.0.1:8867',
 						'fairface_timeout' => intval($autoTaggingPost['fairface_timeout'] ?? 30),
+						'extended_analyze_timeout' => intval($autoTaggingPost['extended_analyze_timeout'] ?? 45),
 						'auto_tag_enabled' => intval($autoTaggingPost['auto_tag_enabled'] ?? 0),
-						'auto_tag_confidence_threshold' => floatval($autoTaggingPost['auto_tag_confidence_threshold'] ?? 0.7),
+						'extended_tagging_enabled' => intval($autoTaggingPost['extended_tagging_enabled'] ?? 0),
+						'auto_tag_confidence_threshold' => floatval($autoTaggingPost['auto_tag_confidence_threshold'] ?? 0.55),
 						'auto_tag_queue' => $autoTaggingPost['auto_tag_queue'] ?? 'auto_image_tagging',
 						'auto_tag_max_retry' => intval($autoTaggingPost['auto_tag_max_retry'] ?? 2),
 						'auto_tag_retry_delay' => intval($autoTaggingPost['auto_tag_retry_delay'] ?? 60),
 						'batch_limit' => intval($autoTaggingPost['batch_limit'] ?? 50),
 						'detect_body_type' => intval($autoTaggingPost['detect_body_type'] ?? 1),
+						'preferred_model' => $autoTaggingPost['preferred_model'] ?? 'insightface_buffalo_l',
 					];
 					$autoTaggingJson = json_encode($autoTaggingData, JSON_UNESCAPED_UNICODE);
 					$existAutoTag = Db::name('sysset')->where('name', 'auto_tagging')->find();
@@ -2164,13 +2167,16 @@ class Backstage extends Common
 			$autoTaggingDefaults = [
 				'fairface_api_url' => 'http://127.0.0.1:8867',
 				'fairface_timeout' => 30,
+				'extended_analyze_timeout' => 45,
 				'auto_tag_enabled' => 0,
-				'auto_tag_confidence_threshold' => 0.7,
+				'extended_tagging_enabled' => 0,
+				'auto_tag_confidence_threshold' => 0.55,
 				'auto_tag_queue' => 'auto_image_tagging',
 				'auto_tag_max_retry' => 2,
 				'auto_tag_retry_delay' => 60,
 				'batch_limit' => 50,
 				'detect_body_type' => 1,
+				'preferred_model' => 'insightface_buffalo_l',
 			];
 			$autoTaggingConfig = array_merge($autoTaggingDefaults, $autoTaggingConfig);
 			View::assign('auto_tagging', $autoTaggingConfig);

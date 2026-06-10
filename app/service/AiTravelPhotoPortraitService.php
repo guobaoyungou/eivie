@@ -108,8 +108,8 @@ class AiTravelPhotoPortraitService
         // ===== 后台提取人脸特征（InsightFace 512维，与特征库维度一致） =====
         $this->extractFaceEmbedding((int)$portrait->id, $portrait->original_url);
         
-        // ===== 自动标签分析（性别、年龄、多人脸、人脸数） =====
-        $this->runAutoTagAnalysis((int)$portrait->id, $portrait->original_url, (int)$params['aid'], (int)$params['bid']);
+        // ===== 生成 NL 描述 + 正则提取全量标签 =====
+        $this->runAutoTagAnalysis((int)$portrait->id);
         
         // ===== 自动触发合成任务（对齐 triggerAsyncTasks 逻辑） =====
         $this->triggerSynthesis((int)$portrait->id, (int)$params['aid'], (int)$params['bid']);
@@ -313,75 +313,39 @@ class AiTravelPhotoPortraitService
     }
 
     /**
-     * 自动标签分析（性别、年龄段、多人脸、人脸数）
+     * 自动标签分析：生成 NL 自然语言描述 + 正则提取全量人物标签
+     *
+     * 替代原 InsightFace 图像分析流程，基于 LLM 视觉模型生成的 nl_description
+     * 文本通过正则提取所有人物标签（性别、年龄、表情、眼镜、胡子、发型等）。
+     * 标签由 PortraitDescriptionService::generateDescription() 内部通过
+     * ImageAnalysisService::extractTagsFromDescription() 一次性完成。
      *
      * @param int $portraitId 人像ID
-     * @param string $originalUrl 原图URL
-     * @param int $aid 平台ID（读阈值用）
-     * @param int $bid 商户ID（读阈值用）
      * @return void
      */
-    private function runAutoTagAnalysis(int $portraitId, string $originalUrl, int $aid, int $bid): void
+    private function runAutoTagAnalysis(int $portraitId): void
     {
         try {
-            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                'auto_tag_status' => 1, 'update_time' => time()
-            ]);
+            // 生成 NL 描述 + 正则提取全量标签（generateDescription 内部调用 extractTagsFromDescription）
+            $descService = new \app\service\PortraitDescriptionService();
+            $result = $descService->generateDescription($portraitId);
 
-            // 从商户设置读取置信度阈值
-            $setting = Db::name('ai_travel_photo_synthesis_setting')
-                ->where('aid', $aid)->where('bid', $bid)->where('portrait_id', 0)
-                ->find();
-            $genderThreshold = $setting ? (float)($setting['gender_confidence_threshold'] ?? 0.65) : 0.65;
-            $ageThreshold = $setting ? (float)($setting['age_confidence_threshold'] ?? 0.55) : 0.55;
-
-            $analysisService = new ImageAnalysisService();
-            $result = $analysisService->analyzeFromUrl($originalUrl);
-            if ($result) {
-                $attr = ImageAnalysisService::extractMainSubject($result, $genderThreshold, $ageThreshold);
-                $gender = $attr['gender'] ?? 'Unknown';
-                $ageGroup = $attr['age_group'] ?? 'Unknown';
-                $faceCount = $attr['face_count'] ?? 0;
-                $genderConf = $attr['gender_confidence'] ?? 0;
-                $ageConf = $attr['age_confidence'] ?? 0;
-                $isLowConf = $attr['is_low_confidence'] ?? false;
-                // 批量上传统一按单人模式处理（仅取前景主体人脸标签）
-                $isMultiFace = 0;
-
-                // 低置信度标记为需人工审核，跳过合成
-                $tagStatus = $isLowConf ? 4 : 2;
-
-                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                    'gender_tag' => $gender,
-                    'age_tag' => $ageGroup,
-                    'gender_confidence' => $genderConf,
-                    'age_confidence' => $ageConf,
-                    'is_multi_face' => $isMultiFace,
-                    'face_count' => $faceCount,
-                    'auto_tag_status' => $tagStatus,
-                    'update_time' => time()
-                ]);
-
-                Log::info('批量上传自动标签分析完成', [
+            if ($result['status']) {
+                Log::info('批量上传自动标签分析完成（NL正则提取）', [
                     'portrait_id' => $portraitId,
-                    'gender' => $gender, 'age_group' => $ageGroup,
-                    'gender_conf' => $genderConf, 'age_conf' => $ageConf,
-                    'is_multi' => $isMultiFace, 'face_count' => $faceCount,
-                    'is_low_confidence' => $isLowConf,
-                    'thresholds' => ['gender' => $genderThreshold, 'age' => $ageThreshold],
                 ]);
             } else {
-                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                    'auto_tag_status' => 3, 'update_time' => time()
+                Log::warning('批量上传自动标签分析失败（NL描述生成失败）', [
+                    'portrait_id' => $portraitId,
+                    'error' => $result['msg'] ?? '未知错误',
                 ]);
-                Log::warning('批量上传自动标签分析失败', ['portrait_id' => $portraitId]);
             }
         } catch (\Exception $e) {
             Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                'auto_tag_status' => 3, 'update_time' => time()
+                'auto_tag_status' => 3, 'update_time' => time(),
             ]);
             Log::error('批量上传自动标签分析异常', [
-                'portrait_id' => $portraitId, 'error' => $e->getMessage()
+                'portrait_id' => $portraitId, 'error' => $e->getMessage(),
             ]);
         }
     }
@@ -407,8 +371,8 @@ class AiTravelPhotoPortraitService
                 return;
             }
 
-            $gender = $portrait['gender_tag'] ?? 'Unknown';
-            $ageGroup = $portrait['age_tag'] ?? 'Unknown';
+            $gender = $portrait['gender_tag'] ?? '';
+            $ageGroup = $portrait['age_tag'] ?? '';
             $isMultiFace = (int)($portrait['is_multi_face'] ?? 0);
 
             // 低置信度标签直接跳过合成，需人工审核

@@ -33,6 +33,23 @@ class ImagePersistService
      */
     public function persistAndCompress(string $tempUrl, int $aid = 0, string $bizType = 'ai_result', int $quality = self::DEFAULT_QUALITY): string
     {
+        // 确保运行环境常量已定义（CLI/队列/Web 上下文可能不同）
+        if (!defined('aid') && $aid > 0) {
+            define('aid', $aid);
+        } elseif (!defined('aid')) {
+            define('aid', 0);
+        }
+        if (!defined('PRE_URL')) {
+            $siteUrl = 'https://' . (gethostname() ?: 'localhost');
+            try {
+                $admin = \think\facade\Db::name('admin')->where('id', 1)->field('domain')->find();
+                if ($admin && !empty($admin['domain'])) {
+                    $siteUrl = 'https://' . $admin['domain'];
+                }
+            } catch (\Throwable $e) {}
+            define('PRE_URL', $siteUrl);
+        }
+
         Log::info('ImagePersistService::persistAndCompress: 开始处理', [
             'tempUrl' => substr($tempUrl, 0, 120),
             'aid' => $aid,
@@ -80,26 +97,38 @@ class ImagePersistService
             }
 
             // 4. WebP 压缩（如果失败，使用原文件）
-            Log::info('ImagePersistService: 步骤4-WebP压缩开始', ['tempFilePath' => $tempFilePath]);
+            //    注意：convertToWebp 成功后会自动删除原文件，所以必须准确跟踪最终有效的文件路径
+            Log::info('ImagePersistService: WebP压缩前 tempFile=' . basename($tempFilePath));
             $uploadFilePath = $tempFilePath;
-            $webpPath = null;
             try {
-                Log::info('ImagePersistService: 调用compressToWebp...');
                 $webpPath = $this->compressToWebp($tempFilePath, $quality);
-                Log::info('ImagePersistService: compressToWebp返回', ['webpPath' => $webpPath ?: 'NULL/false']);
-                
+
+                // 转换成功：原文件已被 convertToWebp 删除，WebP 文件是新的有效文件
                 if ($webpPath !== false && $webpPath !== $tempFilePath && file_exists($webpPath)) {
                     $uploadFilePath = $webpPath;
-                    Log::info('ImagePersistService: WebP压缩成功', ['webpPath' => $webpPath]);
-                } else {
-                    Log::info('ImagePersistService: WebP压缩跳过，使用原文件');
+                    Log::info('ImagePersistService: WebP压缩成功 webpFile=' . basename($webpPath));
                 }
-            } catch (\Exception $e) {
-                Log::warning('ImagePersistService: WebP压缩失败，使用原文件', [
-                    'error' => $e->getMessage(),
-                ]);
+                // 转换跳过（已是 WebP 或转换失败）：原文件仍存在
+                elseif (file_exists($tempFilePath)) {
+                    // 原文件还在，继续使用
+                    Log::info('ImagePersistService: WebP压缩跳过，使用原文件 tempFile=' . basename($tempFilePath) . ' exists=YES');
+                }
+                // 转换失败且原文件已被删除：无可用文件
+                else {
+                    Log::error('ImagePersistService: WebP压缩后无可用文件 tempFile=' . basename($tempFilePath) . ' exists=NO webpPath=' . var_export($webpPath, true));
+                    return $tempUrl;
+                }
+            } catch (\Throwable $e) {
+                // 异常后检查原文件是否存在
+                if (file_exists($tempFilePath)) {
+                    Log::warning('ImagePersistService: WebP压缩异常，使用原文件: ' . get_class($e) . ': ' . $e->getMessage());
+                } else {
+                    Log::error('ImagePersistService: WebP压缩异常且原文件已丢失: ' . get_class($e) . ': ' . $e->getMessage());
+                    return $tempUrl;
+                }
             }
-            Log::info('ImagePersistService: 步骤4完成，即将上传', ['uploadFilePath' => $uploadFilePath]);
+
+            Log::info('ImagePersistService: 准备上传 uploadFile=' . basename($uploadFilePath) . ' exists=' . (file_exists($uploadFilePath) ? 'YES' : 'NO'));
 
             // 5. 上传到云存储
             Log::info('ImagePersistService: 开始上传到云存储', [
@@ -108,12 +137,20 @@ class ImagePersistService
                 'bizType' => $bizType,
             ]);
             $permanentUrl = $this->uploadToPermanentStorage($uploadFilePath, $aid, $bizType);
-            Log::info('ImagePersistService: 上传完成', ['permanentUrl' => substr($permanentUrl, 0, 120) ?: 'EMPTY']);
+            Log::info('ImagePersistService: 上传完成', [
+                'permanentUrl' => substr($permanentUrl, 0, 120) ?: 'EMPTY',
+                'permanentUrl_len' => strlen($permanentUrl ?: ''),
+            ]);
 
-            // 6. 清理临时文件
-            $this->cleanup([$tempFilePath, $webpPath]);
+            // 6. 清理临时文件（包装 try/catch 防止清理异常中断流程）
+            try {
+                $this->cleanup([$tempFilePath, $webpPath]);
+            } catch (\Throwable $cleanupEx) {
+                Log::warning('ImagePersistService: 清理临时文件异常 - ' . $cleanupEx->getMessage());
+            }
 
-            if (!empty($permanentUrl)) {
+            // 7. 判断结果：必须有值且不能是原临时地址
+            if (!empty($permanentUrl) && $permanentUrl !== $tempUrl) {
                 Log::info('ImagePersistService: 转存成功', [
                     'original_url' => substr($tempUrl, 0, 120),
                     'permanent_url' => substr($permanentUrl, 0, 120),
@@ -122,13 +159,17 @@ class ImagePersistService
                 return $permanentUrl;
             }
 
-            // 上传失败，返回原始 URL
-            Log::warning('ImagePersistService: 上传失败，返回原始URL', ['url' => substr($tempUrl, 0, 120)]);
+            // 上传返回了空值或与原始URL相同，视为失败
+            Log::error('ImagePersistService: 持久化未产出有效新URL（结果为空或与原始相同）', [
+                'original' => substr($tempUrl, 0, 120),
+                'result' => substr($permanentUrl ?: '(empty)', 0, 120),
+            ]);
             return $tempUrl;
 
-        } catch (\Exception $e) {
-            Log::error('ImagePersistService: 转存异常 - ' . $e->getMessage(), [
+        } catch (\Throwable $e) {
+            Log::error('ImagePersistService: 转存异常(' . get_class($e) . '): ' . $e->getMessage(), [
                 'url' => substr($tempUrl, 0, 120),
+                'trace' => $e->getTraceAsString(),
             ]);
             return $tempUrl;
         }
@@ -393,6 +434,7 @@ class ImagePersistService
     protected function uploadToPermanentStorage(string $localPath, int $aid = 0, string $bizType = 'ai_result'): string
     {
         if (!file_exists($localPath)) {
+            Log::error('ImagePersistService: uploadToPermanentStorage 源文件不存在', ['path' => $localPath]);
             return '';
         }
 
@@ -430,15 +472,49 @@ class ImagePersistService
         // 复制文件到上传目录
         $targetPath = $targetDir . '/' . $filename;
         if (!copy($localPath, $targetPath)) {
-            Log::error('ImagePersistService: 文件复制失败', ['from' => $localPath, 'to' => $targetPath]);
+            Log::error('ImagePersistService: 文件复制失败', [
+                'from' => $localPath,
+                'from_exists' => file_exists($localPath),
+                'to' => $targetPath,
+                'target_dir' => $targetDir,
+                'target_dir_writable' => is_writable($targetDir),
+            ]);
             return '';
         }
 
         // 构建本地 URL 并调用 Pic::uploadoss 上传到云存储
+        // 确保 PRE_URL 已定义，CLI 环境下可能未设置
+        if (!defined('PRE_URL')) {
+            $siteUrl = 'https://' . (gethostname() ?: 'localhost');
+            try {
+                $admin = \think\facade\Db::name('admin')->where('id', 1)->field('domain')->find();
+                if ($admin && !empty($admin['domain'])) {
+                    $siteUrl = 'https://' . $admin['domain'];
+                }
+            } catch (\Throwable $e) {}
+            define('PRE_URL', $siteUrl);
+        }
         $localUrl = PRE_URL . '/' . $subDir . '/' . $filename;
+        Log::info('ImagePersistService: uploadToPermanentStorage 准备上传到云存储', [
+            'localUrl' => substr($localUrl, 0, 100),
+            'file_size' => file_exists($targetPath) ? filesize($targetPath) : 0,
+        ]);
+
         $ossUrl = Pic::uploadoss($localUrl, false, false); // transcode=false，已自行转 WebP
 
-        return $ossUrl ?: $localUrl;
+        Log::info('ImagePersistService: uploadToPermanentStorage Pic::uploadoss 返回', [
+            'ossUrl' => substr($ossUrl ?: '(empty)', 0, 100),
+            'ossUrl_type' => gettype($ossUrl),
+            'localUrl' => substr($localUrl, 0, 80),
+        ]);
+
+        $result = $ossUrl ?: $localUrl;
+
+        Log::info('ImagePersistService: uploadToPermanentStorage 最终返回', [
+            'result' => substr($result, 0, 100),
+        ]);
+
+        return $result;
     }
 
     /**

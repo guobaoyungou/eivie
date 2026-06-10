@@ -5,17 +5,23 @@
 const XpdApi = {
     /**
      * 获取选片列表数据
-     * @param {Object} params - { aid, bid, mdid, limit }
+     * @param {Object} params - { aid, bid, mdid, limit, load_mode }
      * @returns {Promise<Object>}
      */
     async fetchSelectionList(params) {
+        const requestParams = {
+            aid: params.aid,
+            bid: params.bid,
+            mdid: params.mdid || 0,
+        };
+        if (params.load_mode) {
+            requestParams.load_mode = params.load_mode;
+        }
+        if (params.limit) {
+            requestParams.limit = params.limit;
+        }
         const response = await axios.get('/api/ai-travel-photo/selection-list', {
-            params: {
-                aid: params.aid,
-                bid: params.bid,
-                mdid: params.mdid || 0,
-                limit: params.limit || 15
-            },
+            params: requestParams,
             timeout: 10000
         });
         return response.data;

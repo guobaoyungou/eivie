@@ -14,7 +14,8 @@ const LayoutEngine = {
         modules: [
             { id: 'swiper-main', type: 'swiper', top: '0%', left: '0%', width: '100%', height: '80%', zIndex: 1, visible: true },
             { id: 'avatar-bar',  type: 'avatar', top: '80%', left: '0%', width: '100%', height: '20%', zIndex: 2, visible: true },
-            { id: 'qrcode-box',  type: 'qrcode', top: '62%', left: '84%', width: '15%', height: '16%', zIndex: 10, visible: true },
+            { id: 'qrcode-box',  type: 'qrcode', top: '62%', left: '84%', width: '15%', height: '16%', zIndex: 100, visible: true },
+            { id: 'qrcode-text', type: 'text',   top: '76%', left: '84%', width: '15%', height: '6%',  zIndex: 101, visible: true, text: '微信扫码选片' },
             { id: 'face-status', type: 'face-status', top: '1%', left: '1%', width: 'auto', height: 'auto', zIndex: 20, visible: false }
         ]
     },
@@ -39,6 +40,11 @@ const LayoutEngine = {
 
         // 渲染所有模块DOM
         this._renderModules();
+
+        // 监听布局变化事件，更新 --module-height 供文本模块自适应
+        window.addEventListener('layout-resized', () => {
+            this._updateAllModuleHeightVars();
+        });
     },
 
     /**
@@ -103,6 +109,9 @@ const LayoutEngine = {
             modEl.style.height = mod.height;
             modEl.style.zIndex = mod.zIndex;
 
+            // 设置 --module-height CSS 变量，供文本模块字体自适应
+            this._updateModuleHeightVar(modEl);
+
             if (this.isEditMode) {
                 modEl.classList.add('edit-mode');
                 this._addEditHandles(modEl, mod);
@@ -117,6 +126,28 @@ const LayoutEngine = {
         if (this.isEditMode) {
             this._addEditToolbar();
         }
+    },
+
+    /**
+     * 更新模块的 --module-height CSS 变量
+     * @param {HTMLElement} modEl
+     */
+    _updateModuleHeightVar(modEl) {
+        requestAnimationFrame(() => {
+            const px = modEl.offsetHeight;
+            if (px) {
+                modEl.style.setProperty('--module-height', px + 'px');
+            }
+        });
+    },
+
+    /**
+     * 更新所有模块的 --module-height CSS 变量
+     */
+    _updateAllModuleHeightVars() {
+        this.canvasEl.querySelectorAll('.layout-module').forEach(el => {
+            this._updateModuleHeightVar(el);
+        });
     },
 
     /**
@@ -143,6 +174,27 @@ const LayoutEngine = {
             rh.dataset.resizeDir = dir;
             modEl.appendChild(rh);
         });
+
+        // 幻灯/头像/文本模块：边框上的宽高拖拽输入框（scrubber）
+        if (mod.type === 'swiper' || mod.type === 'avatar' || mod.type === 'text') {
+            // 宽度拖拽输入框 — 底边居中
+            const wScrub = document.createElement('div');
+            wScrub.className = 'size-scrubber size-scrubber-w';
+            wScrub.dataset.scrubProperty = 'width';
+            wScrub.dataset.scrubDir = 'e';
+            wScrub.innerHTML = '<span class="scrub-label">W</span><span class="scrub-value">' + mod.width + '</span>';
+            wScrub.title = '拖拽左右滑动调整宽度';
+            modEl.appendChild(wScrub);
+
+            // 高度拖拽输入框 — 右边居中
+            const hScrub = document.createElement('div');
+            hScrub.className = 'size-scrubber size-scrubber-h';
+            hScrub.dataset.scrubProperty = 'height';
+            hScrub.dataset.scrubDir = 's';
+            hScrub.innerHTML = '<span class="scrub-label">H</span><span class="scrub-value">' + mod.height + '</span>';
+            hScrub.title = '拖拽左右滑动调整高度';
+            modEl.appendChild(hScrub);
+        }
     },
 
     /**
@@ -187,7 +239,7 @@ const LayoutEngine = {
         const modules = [];
         const modEls = this.canvasEl.querySelectorAll('.layout-module');
         modEls.forEach(el => {
-            modules.push({
+            const mod = {
                 id: el.dataset.moduleId,
                 type: el.dataset.moduleType,
                 top: el.style.top,
@@ -196,7 +248,12 @@ const LayoutEngine = {
                 height: el.style.height,
                 zIndex: parseInt(el.style.zIndex) || 1,
                 visible: el.style.display !== 'none'
-            });
+            };
+            // 文本模块：保存文本内容
+            if (el.dataset.moduleType === 'text' && el.dataset.text) {
+                mod.text = el.dataset.text;
+            }
+            modules.push(mod);
         });
         return { modules };
     },

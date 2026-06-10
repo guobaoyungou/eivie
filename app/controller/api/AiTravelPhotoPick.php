@@ -5,6 +5,8 @@ namespace app\controller\api;
 
 use app\BaseController;
 use app\service\AiTravelPhotoPickService;
+use app\service\AiTravelPhotoPortraitService;
+use app\model\AiTravelPhotoPortrait;
 use think\App;
 use think\facade\Session;
 use think\Response;
@@ -86,6 +88,12 @@ class AiTravelPhotoPick extends BaseController
                 ->find();
             $uid = $member ? (int)$member['id'] : 0;
 
+            // 关注状态检测：二级策略
+            $isSubscribed = $this->checkSubscribeStatus($portraitInfo['aid'], $openid, $member);
+
+            // 获取公众号信息（用于未关注引导弹层）
+            $mpInfo = $this->getMpSubscribeInfo($portraitInfo['aid']);
+
             // 查询商家名称
             $businessName = '';
             $faceWatermarkEnabled = 0;
@@ -154,6 +162,10 @@ class AiTravelPhotoPick extends BaseController
                     'store_name' => $storeName,
                     'face_watermark_enabled' => $faceWatermarkEnabled,
                     'mp_nickname' => $mpNickname,
+                    'is_free_pick' => $portraitInfo['is_free_pick'] ?? 0,
+                    'is_subscribed' => $isSubscribed,
+                    'mp_qrcode' => $mpInfo['qrcode'] ?? '',
+                    'mp_nickname_for_subscribe' => $mpInfo['nickname'] ?? '',
                 ],
             ]);
         } catch (\Exception $e) {
@@ -198,6 +210,135 @@ class AiTravelPhotoPick extends BaseController
         Session::delete('pick_openid');
 
         return json(['code' => 200, 'msg' => '已解除关联，请重新扫描您的专属二维码']);
+    }
+
+    /**
+     * "我要重拍" - 用户上传新人像并自动关联合成
+     * POST /api/ai-travel-photo/pick/retake_upload
+     * 
+     * 接收 multipart/form-data 上传的图片文件
+     * 自动创建人像记录、触发合成队列、关联当前用户
+     */
+    public function retake_upload(): Response
+    {
+        $openid = $this->getOpenid();
+        if (empty($openid)) {
+            return json(['code' => 401, 'msg' => '未授权']);
+        }
+
+        // 接收参数
+        $aid = (int)$this->request->post('aid', 0);
+        $bid = (int)$this->request->post('bid', 0);
+        $mdid = (int)$this->request->post('mdid', 0);
+        $oldPortraitId = (int)$this->request->post('portrait_id', 0);
+
+        if ($aid <= 0 || $bid <= 0) {
+            return json(['code' => 400, 'msg' => '缺少平台或商家参数']);
+        }
+
+        // 使用原生 $_FILES 验证上传文件（避免 ThinkPHP file() 方法依赖 finfo 扩展）
+        if (empty($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+            $uploadErrors = [
+                UPLOAD_ERR_INI_SIZE   => '图片大小超过服务器限制',
+                UPLOAD_ERR_FORM_SIZE  => '图片大小超过表单限制',
+                UPLOAD_ERR_PARTIAL    => '图片上传不完整',
+                UPLOAD_ERR_NO_FILE    => '请上传图片文件',
+                UPLOAD_ERR_NO_TMP_DIR => '服务器临时目录不存在',
+                UPLOAD_ERR_CANT_WRITE => '服务器写入失败',
+            ];
+            $errCode = $_FILES['image']['error'] ?? UPLOAD_ERR_NO_FILE;
+            $msg = $uploadErrors[$errCode] ?? '文件上传失败';
+            return json(['code' => 400, 'msg' => $msg]);
+        }
+
+        $tmpName  = $_FILES['image']['tmp_name'];
+        $origName = $_FILES['image']['name'];
+        $fileSize = $_FILES['image']['size'];
+
+        // 验证文件扩展名
+        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png'])) {
+            return json(['code' => 400, 'msg' => '仅支持JPG、PNG格式图片']);
+        }
+
+        // 验证文件大小（最大10MB）
+        if ($fileSize > 10 * 1024 * 1024) {
+            return json(['code' => 400, 'msg' => '图片大小不能超过10MB']);
+        }
+
+        // 验证是否为有效图片文件
+        $imageInfo = @getimagesize($tmpName);
+        if (!$imageInfo) {
+            return json(['code' => 400, 'msg' => '不是有效的图片文件']);
+        }
+
+        try {
+            // 查询上传者信息
+            $member = \think\facade\Db::name('member')
+                ->where('aid', $aid)
+                ->where('mpopenid', $openid)
+                ->find();
+            $memberId   = $member ? (int)$member['id'] : 0;
+            $memberName = $member ? ($member['nickname'] ?: '微信用户') : '微信用户';
+
+            // 构建文件信息
+            $fileInfo = [
+                'name'     => $origName,
+                'tmp_name' => $tmpName,
+                'type'     => $imageInfo['mime'],
+                'size'     => $fileSize,
+            ];
+
+            // 构建上传参数：用户上传类型
+            $params = [
+                'aid'              => $aid,
+                'uid'              => $memberId,
+                'bid'              => $bid,
+                'mdid'             => $mdid,
+                'device_id'        => 0,
+                'type'             => AiTravelPhotoPortrait::TYPE_USER, // 2=用户上传
+                'uploader_account' => $memberName,
+                'desc'             => '用户H5选片重拍',
+                'tags'             => '',
+            ];
+
+            // 调用服务层上传（自动触发完整异步链：抠图→特征→标签→合成→二维码）
+            $portraitService = new AiTravelPhotoPortraitService();
+            $result = $portraitService->uploadPortrait($fileInfo, $params);
+
+            $newPortraitId = (int)$result['portrait_id'];
+
+            // 解除旧人像关联
+            if ($oldPortraitId > 0) {
+                $this->pickService->disassociateUserFromPortrait($oldPortraitId, $openid);
+            }
+
+            // 关联新人像到当前用户
+            $this->pickService->associateUserToPortrait($newPortraitId, $openid);
+
+            \think\facade\Log::info('选片重拍上传成功', [
+                'old_portrait_id' => $oldPortraitId,
+                'new_portrait_id' => $newPortraitId,
+                'openid' => substr($openid, 0, 8) . '***',
+                'status' => $result['status'] ?? 'unknown',
+            ]);
+
+            return json([
+                'code' => 200,
+                'msg' => $result['status'] === 'exists' ? '图片已存在，已关联到您的账号' : '上传成功，正在为您合成新照片...',
+                'data' => [
+                    'portrait_id' => $newPortraitId,
+                    'status' => $result['status'] ?? 'success',
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            \think\facade\Log::error('选片重拍上传异常：' . $e->getMessage());
+            return json([
+                'code' => 500,
+                'msg' => '上传失败：' . $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -356,10 +497,15 @@ class AiTravelPhotoPick extends BaseController
             $aid = $business ? (int)$business['aid'] : 0;
             $faceWatermarkEnabled = $business ? intval($business['ai_pick_face_watermark_enabled'] ?? 0) : 0;
 
-            // 获取门店名称
+            // 获取门店名称和免费选片设置
             $storeName = '';
+            $isFreePick = 0;
             if ($mdid > 0) {
-                $storeName = \think\facade\Db::name('mendian')->where('id', $mdid)->value('name') ?: '';
+                $store = \think\facade\Db::name('mendian')->where('id', $mdid)->field('name,is_free_pick')->find();
+                if ($store) {
+                    $storeName = $store['name'] ?: '';
+                    $isFreePick = (int)($store['is_free_pick'] ?? 0);
+                }
             }
 
             // 获取公众号昵称
@@ -378,6 +524,12 @@ class AiTravelPhotoPick extends BaseController
                 ->find();
             $uid = $member ? (int)$member['id'] : 0;
 
+            // 关注状态检测：二级策略
+            $isSubscribed = $this->checkSubscribeStatus($aid, $openid, $member);
+
+            // 获取公众号信息（用于未关注引导弹层）
+            $mpInfo = $this->getMpSubscribeInfo($aid);
+
             return json([
                 'code' => 200,
                 'msg' => '成功',
@@ -392,6 +544,10 @@ class AiTravelPhotoPick extends BaseController
                     'store_name' => $storeName,
                     'face_watermark_enabled' => $faceWatermarkEnabled,
                     'mp_nickname' => $mpNickname,
+                    'is_free_pick' => $isFreePick,
+                    'is_subscribed' => $isSubscribed,
+                    'mp_qrcode' => $mpInfo['qrcode'] ?? '',
+                    'mp_nickname_for_subscribe' => $mpInfo['nickname'] ?? '',
                     'total_results' => $storeResults['total'],
                 ],
             ]);
@@ -973,6 +1129,105 @@ HTML;
             \think\facade\Log::error('选片支付回调异常：' . $e->getMessage() . ' trace:' . $e->getTraceAsString());
             return response('<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[处理异常]]></return_msg></xml>');
         }
+    }
+
+    /**
+     * 检查用户是否关注公众号
+     * POST /api/ai_travel_photo/pick/check_subscribe
+     * 
+     * 前端「我已关注」按钮调用，重新检测关注状态
+     */
+    public function check_subscribe(): Response
+    {
+        $openid = $this->getOpenid();
+        if (empty($openid)) {
+            return json(['code' => 401, 'msg' => '未授权']);
+        }
+
+        $aid = (int)$this->request->post('aid', 0);
+        if (!$aid) {
+            return json(['code' => 400, 'msg' => '缺少平台参数']);
+        }
+
+        try {
+            // 强制实时检测，不使用缓存
+            $status = \app\common\Wechat::getUserSubscribeStatus($aid, $openid);
+
+            if ($status['subscribe'] == 1) {
+                // 更新 member 表和 Session 缓存
+                \think\facade\Db::name('member')
+                    ->where('aid', $aid)
+                    ->where('mpopenid', $openid)
+                    ->update(['subscribe' => 1, 'subscribe_time' => time()]);
+
+                \think\facade\Session::set('pick_is_subscribed', 1);
+                \think\facade\Session::set('pick_subscribe_checked', 1);
+
+                return json(['code' => 200, 'msg' => '已关注', 'data' => ['is_subscribed' => 1]]);
+            }
+
+            \think\facade\Session::set('pick_is_subscribed', 0);
+            \think\facade\Session::set('pick_subscribe_checked', 1);
+
+            return json(['code' => 200, 'msg' => '暂未检测到关注', 'data' => ['is_subscribed' => 0]]);
+        } catch (\Exception $e) {
+            return json(['code' => 500, 'msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 关注状态二级检测
+     * 
+     * 第一级：读取 member.subscribe 字段（快速路径）
+     * 第二级：调用微信 user/info API（实时准确）
+     * 缓存：Session 存储检测结果，同一次会话复用
+     *
+     * @param int        $aid    公众号ID
+     * @param string     $openid 用户openid
+     * @param array|null $member 会员记录
+     * @return int 1=已关注, 0=未关注
+     */
+    protected function checkSubscribeStatus(int $aid, string $openid, ?array $member): int
+    {
+        // Session 缓存优先（同一次会话复用）
+        $cached = \think\facade\Session::get('pick_subscribe_checked');
+        if ($cached) {
+            return (int)\think\facade\Session::get('pick_is_subscribed', 0);
+        }
+
+        // 第一级：数据库 member.subscribe 字段
+        if ($member && isset($member['subscribe']) && (int)$member['subscribe'] === 1) {
+            \think\facade\Session::set('pick_is_subscribed', 1);
+            \think\facade\Session::set('pick_subscribe_checked', 1);
+            return 1;
+        }
+
+        // 第二级：调用微信 user/info 接口
+        $status = \app\common\Wechat::getUserSubscribeStatus($aid, $openid);
+
+        if ($status['subscribe'] == 1) {
+            // 更新 member 表
+            if ($member) {
+                \think\facade\Db::name('member')
+                    ->where('id', $member['id'])
+                    ->update(['subscribe' => 1, 'subscribe_time' => time()]);
+            }
+            \think\facade\Session::set('pick_is_subscribed', 1);
+            \think\facade\Session::set('pick_subscribe_checked', 1);
+            return 1;
+        }
+
+        \think\facade\Session::set('pick_is_subscribed', 0);
+        \think\facade\Session::set('pick_subscribe_checked', 1);
+        return 0;
+    }
+
+    /**
+     * 获取公众号关注引导信息（二维码 + 昵称）
+     */
+    protected function getMpSubscribeInfo(int $aid): array
+    {
+        return $this->pickService->getMpInfo($aid);
     }
 
     /**

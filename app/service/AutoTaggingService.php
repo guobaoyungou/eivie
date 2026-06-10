@@ -48,8 +48,12 @@ class AutoTaggingService
         $defaults = [
             'fairface_api_url' => 'http://127.0.0.1:8867',
             'fairface_timeout' => 30,
+            'extended_analyze_timeout' => 45,
             'auto_tag_enabled' => false,
-            'auto_tag_confidence_threshold' => 0.7,
+            'extended_tagging_enabled' => false,
+            'auto_tag_confidence_threshold' => 0.55,
+            'gender_flip_confidence_threshold' => 0,
+            'preferred_model' => 'insightface_buffalo_l',
             'auto_tag_queue' => 'auto_image_tagging',
             'auto_tag_max_retry' => 2,
             'auto_tag_retry_delay' => 60,
@@ -76,6 +80,7 @@ class AutoTaggingService
                 '60-69' => '准老年前期',
                 '70+'   => '高龄',
             ],
+            'precise_age_ranges' => $fileConfig['precise_age_ranges'] ?? [],
             'race_map'      => $fileConfig['race_map'] ?? [
                 'East Asian'      => '东亚',
                 'Southeast Asian' => '东南亚',
@@ -91,6 +96,7 @@ class AutoTaggingService
                 'muscular' => '健壮',
                 'heavy'    => '丰满',
             ],
+            'emotion_map'   => $fileConfig['emotion_map'] ?? [],
         ];
     }
 
@@ -297,15 +303,28 @@ class AutoTaggingService
         foreach ($faces as $idx => $face) {
             $entry = [];
 
-            // 性别
+            // 性别：永远 Male/Female，映射为中文
             $entry['gender'] = $face['gender'] ?? '';
             $entry['gender_label'] = $genderMap[$entry['gender']] ?? $entry['gender'];
             $genderConf = floatval($face['gender_confidence'] ?? 0);
 
-            // 年龄分段
+            // 年龄分段（向后兼容）
             $entry['age_group'] = $face['age_group'] ?? '';
             $entry['age_label'] = $ageGroupMap[$entry['age_group']] ?? $entry['age_group'];
             $ageConf = floatval($face['age_confidence'] ?? 0);
+
+            // --- 精确浮点年龄 → 25段精细化区间映射 ---
+            $entry['age'] = isset($face['age']) ? floatval($face['age']) : null;
+            $entry['age_lower'] = isset($face['age_lower']) ? floatval($face['age_lower']) : null;
+            $entry['age_upper'] = isset($face['age_upper']) ? floatval($face['age_upper']) : null;
+            $entry['gender_model'] = $face['gender_model'] ?? ($face['gender'] ?? '');
+
+            // 精确年龄标签：优先使用 ImageAnalysisService 的映射方法
+            $preciseAgeLabel = '';
+            if ($entry['age'] !== null) {
+                $preciseAgeLabel = ImageAnalysisService::mapAgeToPreciseRange($entry['age']);
+            }
+            $entry['precise_age_label'] = $preciseAgeLabel;
 
             // 人种
             $entry['race'] = $face['race'] ?? '';
@@ -323,11 +342,17 @@ class AutoTaggingService
 
             // 仅对第一张脸（主体人物，已按 bbox_area 降序）提取主标签
             if ($idx === 0) {
+                // 性别标签：永远有值（Male/Female），置信度过滤仅用于 primary_tags
                 if ($genderConf >= $threshold && !empty($entry['gender_label'])) {
                     $primaryTags[] = $entry['gender_label'];
                 }
-                if ($ageConf >= $threshold && !empty($entry['age_label'])) {
-                    $primaryTags[] = $entry['age_label'];
+                // 年龄标签：优先用精确区间标签
+                if ($ageConf >= $threshold) {
+                    if (!empty($preciseAgeLabel)) {
+                        $primaryTags[] = $preciseAgeLabel;
+                    } elseif (!empty($entry['age_label']) && $entry['age_label'] !== $entry['age_group']) {
+                        $primaryTags[] = $entry['age_label'];
+                    }
                 }
                 if ($raceConf >= $threshold && !empty($entry['race_label'])) {
                     $primaryTags[] = $entry['race_label'];
@@ -412,10 +437,20 @@ class AutoTaggingService
         // 提取主标签的 gender 和 age_group
         $genderTag = '';
         $ageTag = '';
+        $raceTag = '';
+        $preciseAge = null;
+        $ageLower = null;
+        $ageUpper = null;
+        $genderModel = '';
         if (!empty($tagsData['faces']) && is_array($tagsData['faces'])) {
             $mainFace = $tagsData['faces'][0];
             $genderTag = $mainFace['gender'] ?? '';
-            $ageTag = $mainFace['age_label'] ?? $mainFace['age_group'] ?? '';
+            $ageTag = $mainFace['precise_age_label'] ?? $mainFace['age_label'] ?? $mainFace['age_group'] ?? '';
+            $raceTag = $mainFace['race'] ?? '';
+            $preciseAge = $mainFace['age'] ?? null;
+            $ageLower = $mainFace['age_lower'] ?? null;
+            $ageUpper = $mainFace['age_upper'] ?? null;
+            $genderModel = $mainFace['gender_model'] ?? '';
         }
 
         $updateData = [
@@ -425,10 +460,19 @@ class AutoTaggingService
             'category'           => $mergedCategory,
             'gender_tag'         => $genderTag,
             'age_tag'            => $ageTag,
+            'race_tag'           => $raceTag,
             'is_multi_template'  => $isMultiFace ? 1 : 0,
             'face_count'         => $faceCount,
             'update_time'        => time(),
         ];
+
+        // 精确年龄字段（如果表中有对应列则更新）
+        if ($preciseAge !== null) {
+            $updateData['precise_age'] = $preciseAge;
+            $updateData['precise_age_lower'] = $ageLower;
+            $updateData['precise_age_upper'] = $ageUpper;
+            $updateData['gender_model'] = $genderModel;
+        }
 
         Db::name('generation_scene_template')->where('id', $templateId)->update($updateData);
 
@@ -439,6 +483,31 @@ class AutoTaggingService
         ]);
 
         return true;
+    }
+
+    /**
+     * 将扩展标签写入人像表（ai_travel_photo_portrait）
+     *
+     * @param int   $portraitId 人像ID
+     * @param array $extendedData ImageAnalysisService::parseExtendedAttributes() 返回值
+     * @return bool
+     */
+    public function mergeExtendedTagsToPortrait(int $portraitId, array $extendedData): bool
+    {
+        try {
+            Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update(array_merge(
+                $extendedData,
+                ['update_time' => time()]
+            ));
+
+            Log::info('AutoTagging: 人像 ' . $portraitId . ' 扩展标签写入成功', [
+                'emotion_primary' => $extendedData['emotion_primary'] ?? '',
+            ]);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('AutoTagging: 人像 ' . $portraitId . ' 扩展标签写入失败: ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**

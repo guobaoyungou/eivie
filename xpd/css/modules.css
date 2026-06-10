@@ -44,17 +44,33 @@
     align-items: center;
     justify-content: center;
     padding: 6px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* 头像区域滚动条美化 */
+.module-avatar .avatar-inner::-webkit-scrollbar {
+    width: 4px;
+}
+.module-avatar .avatar-inner::-webkit-scrollbar-track {
+    background: transparent;
+}
+.module-avatar .avatar-inner::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
 }
 
 .module-avatar .avatar-list {
     display: flex;
     align-items: center;
     justify-content: center;
+    align-content: flex-start;
     flex-wrap: wrap;
     gap: 1.5%;
     width: 100%;
-    height: 100%;
-    overflow: hidden;
+    height: auto;
+    overflow: visible;
+    padding: 4px 0;
 }
 
 .module-avatar .avatar-item {
@@ -80,10 +96,14 @@
     border-color: #888;
 }
 
+.module-avatar .avatar-item.highlight {
+    z-index: 5;
+}
+
 .module-avatar .avatar-item.highlight img {
     border: 4px solid #ff6b6b;
     box-shadow: 0 0 20px rgba(255, 107, 107, 0.6);
-    transform: scale(1.08);
+    transform: scale(1.5);
 }
 
 /* ============================================
@@ -100,51 +120,67 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: #fff;
+    background: transparent;
     border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    padding: 5%;
+    padding: 10px;
     box-sizing: border-box;
-}
-
-.module-qrcode .qrcode-inner.highlight {
-    box-shadow: 0 0 30px rgba(255, 107, 107, 0.5);
+    overflow: visible;
 }
 
 .module-qrcode .qrcode-image {
-    width: 80%;
+    width: 100%;
     height: auto;
     max-width: 100%;
-    max-height: 70%;
+    max-height: 100%;
     border-radius: 8px;
     object-fit: contain;
+    margin: 0;
 }
 
 .module-qrcode .qrcode-canvas-wrap {
-    width: 80%;
+    width: 100%;
     flex: 1;
     min-height: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: visible;
 }
 
 .module-qrcode .qrcode-canvas-wrap canvas {
+    width: 100%;
+    height: auto;
     max-width: 100%;
     max-height: 100%;
     border-radius: 8px;
+    object-fit: contain;
 }
 
-.module-qrcode .qrcode-tip {
-    margin-top: 6%;
-    font-size: clamp(8px, 1.2vw, 14px);
-    color: #666;
+/* ============================================
+   Text 文本模块
+   ============================================ */
+.module-text {
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.module-text .text-inner {
+    color: #000;
+    background: #fff;
+    padding: 0.3em 0.8em;
+    border-radius: 0.4em;
+    font-size: calc(0.6 * var(--module-height, 24px));
+    font-weight: 600;
     text-align: center;
-    line-height: 1.4;
+    line-height: 1.3;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 90%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* ============================================

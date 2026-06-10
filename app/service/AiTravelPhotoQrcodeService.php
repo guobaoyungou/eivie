@@ -142,12 +142,16 @@ class AiTravelPhotoQrcodeService
     private function generateQrcodeImage(string $qrcodeStr): string
     {
         // 获取配置
-        $baseUrl = config('ai_travel_photo.qrcode.base_url');
         $size = config('ai_travel_photo.qrcode.size', 300);
         $margin = config('ai_travel_photo.qrcode.margin', 10);
         
-        // 二维码跳转地址
-        $url = $baseUrl . '?qrcode=' . $qrcodeStr;
+        // 二维码跳转地址：完整的 H5 选片页 URL
+        $baseUrl = config('ai_travel_photo.qrcode.base_url');
+        if (!empty($baseUrl)) {
+            $url = rtrim($baseUrl, '/') . '/public/pick/index.html?qr=' . $qrcodeStr;
+        } else {
+            $url = request()->domain() . '/public/pick/index.html?qr=' . $qrcodeStr;
+        }
         
         // 使用第三方库生成二维码（这里使用endroid/qr-code或phpqrcode）
         // 示例使用简单的API方式
@@ -480,27 +484,74 @@ class AiTravelPhotoQrcodeService
      * @param int $bid 商家ID
      * @param int $mdid 门店ID
      * @param int $limit 返回数量上限
+     * @param string $loadMode 加载模式：count按数量/today按当日创建时间
      * @return array
      */
-    public function getSelectionList(int $aid, int $bid, int $mdid = 0, int $limit = 15): array
+    public function getSelectionList(int $aid, int $bid, int $mdid = 0, int $limit = 15, string $loadMode = 'today'): array
     {
         // 查询人像列表，按 create_time 倒序
-        $query = AiTravelPhotoPortrait::where('aid', $aid)
+        $baseQuery = AiTravelPhotoPortrait::where('aid', $aid)
             ->where('status', AiTravelPhotoPortrait::STATUS_NORMAL);
-        
+
         // bid>0 时按商家筛选，否则仅按门店筛选
         if ($bid > 0) {
-            $query->where('bid', $bid);
+            $baseQuery->where('bid', $bid);
         }
         if ($mdid > 0) {
-            $query->where('mdid', $mdid);
+            $baseQuery->where('mdid', $mdid);
         }
+
+        $portraits = null;
         
-        $portraits = $query->order('create_time', 'desc')
-            ->limit($limit)
-            ->select();
-        
-        if ($portraits->isEmpty()) {
+        // 按当日创建时间筛选
+        if ($loadMode === 'today') {
+            $todayStart = date('Y-m-d 00:00:00');
+            $todayTimestamp = strtotime($todayStart);
+            $maxCount = 30; // 始终保持最多30个头像
+            
+            // 1. 先查询当日数据（最多30个）
+            $todayPortraits = (clone $baseQuery)
+                ->where('create_time', '>=', $todayTimestamp)
+                ->order('create_time', 'desc')
+                ->limit($maxCount)
+                ->select();
+            
+            $todayCount = count($todayPortraits);
+            
+            // 2. 如果当日数据不足30个，补充非当日数据
+            if ($todayCount < $maxCount) {
+                $needCount = $maxCount - $todayCount;
+                $excludeIds = $todayPortraits->column('id');
+                
+                $extraQuery = clone $baseQuery;
+                if (!empty($excludeIds)) {
+                    $extraQuery->whereNotIn('id', $excludeIds);
+                }
+                $extraPortraits = $extraQuery
+                    ->where('create_time', '<', $todayTimestamp)
+                    ->order('create_time', 'desc')
+                    ->limit($needCount)
+                    ->select();
+                
+                // 合并数据集：当日数据在前，补充数据在后
+                $portraits = $todayPortraits->merge($extraPortraits);
+                
+                Log::write('[getSelectionList今日补充] bid=' . $bid . ' mdid=' . $mdid 
+                    . ' 当日=' . $todayCount . ' 补充=' . count($extraPortraits) 
+                    . ' 总计=' . count($portraits), 'info');
+            } else {
+                // 当日数据已够30个，只返回当日数据
+                $portraits = $todayPortraits;
+            }
+        } else {
+            // count 模式：按配置的数量限制
+            $portraits = (clone $baseQuery)
+                ->order('create_time', 'desc')
+                ->limit($limit)
+                ->select();
+        }
+
+        if (empty($portraits) || $portraits->isEmpty()) {
             return ['list' => [], 'config' => $this->getXpdConfig($bid, $mdid)];
         }
         
@@ -617,6 +668,9 @@ class AiTravelPhotoQrcodeService
             'layout' => $layout,
             'bg_color' => $mendian['xpd_bg_color'] ?? '#000000',
             'face_detect_enabled' => (bool)($mendian['xpd_face_detect'] ?? true),
+            'load_mode' => $mendian['xpd_load_mode'] ?? 'today',
+            'load_count' => (int)($mendian['xpd_load_count'] ?? 15),
+            'refresh_interval' => (int)($mendian['xpd_refresh_interval'] ?? 10),
             'template' => $mendian['xpd_template'] ?? 'template_1',
             'qrcode_mode' => $mendian['xpd_qrcode_mode'] ?? 'mp',
         ];

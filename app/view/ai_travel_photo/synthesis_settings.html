@@ -88,49 +88,48 @@
         </div>
       </div>
 
-      <!-- AI提示词改写 -->
-      <div class="layui-form-item" style="margin-top:20px;padding-top:20px;border-top:1px dashed #e2e2e2;">
-        <label class="layui-form-label">AI提示词改写</label>
-        <div class="layui-input-block">
-          <input type="checkbox" name="prompt_rewrite_enabled" id="promptRewriteEnabled" lay-skin="switch" lay-text="开启|关闭" value="1" lay-filter="promptRewriteSwitch">
-          <div style="color:#999;font-size:12px;margin-top:5px;">
-            开启后，合成时根据人像标签（性别、年龄、单人/多人）自动改写提示词，生成更符合人设的结果
-          </div>
-        </div>
-      </div>
-
-      <!-- 改写模型选择（开启时显示） -->
-      <div class="layui-form-item" id="promptRewriteConfig" style="display:none;margin-left:50px;">
+      <!-- 改写模型选择 -->
+      <div class="layui-form-item" id="promptRewriteConfig" style="margin-left:50px;">
         <div style="display:flex;gap:15px;align-items:flex-end;flex-wrap:wrap;">
           <!-- 供应商选择 -->
           <div>
-            <label class="layui-form-label" style="width:auto;padding-left:0;">供应商</label>
+            <label class="layui-form-label" style="width:auto;padding-left:0;">改写模型</label>
             <div>
               <select name="prompt_rewrite_provider" id="promptRewriteProvider" lay-filter="promptRewriteProvider" style="min-width:160px;">
                 
                 </select>
+            </div>
           </div>
           <!-- 模型选择 -->
           <div>
-            <label class="layui-form-label" style="width:auto;padding-left:0;">改写模型</label>
+            <label class="layui-form-label" style="width:auto;padding-left:0;">&nbsp;</label>
             <div>
               <select name="prompt_rewrite_model" id="promptRewriteModel" style="min-width:200px;">
                 
                 </select>
+            </div>
           </div>
-        </div>
-        <div style="color:#999;font-size:12px;margin-top:5px;">
-          根据人像特征（性别、年龄、人数）改写提示词，使生成结果更符合人设
         </div>
       </div>
 
-      <!-- 提示词改写模板（开启时显示） -->
-      <div class="layui-form-item" id="promptRewriteTemplateRow" style="display:none;margin-left:50px;">
+      <!-- AI提示词模板输入框 -->
+      <div class="layui-form-item" id="nlPromptTemplateRow" style="margin-left:50px;">
+        <label class="layui-form-label" style="width:auto;">AI提示词模板</label>
+        <div class="layui-input-block">
+          <textarea name="nl_prompt_template" id="nlPromptTemplate" class="layui-textarea" style="min-height:180px;"></textarea>
+          <div style="color:#999;font-size:12px;margin-top:3px;">
+            支持系统变量：<code>{模板提示词}</code>（自动替换为合成模板中的提示词文本） <code>{人像描述}</code>（自动替换为人像的NL描述）
+          </div>
+        </div>
+      </div>
+
+      <!-- 提示词改写模板 -->
+      <div class="layui-form-item" id="promptRewriteTemplateRow" style="margin-left:50px;">
         <label class="layui-form-label" style="width:auto;">改写模板</label>
         <div class="layui-input-block">
-          <textarea name="prompt_rewrite_template" id="promptRewriteTemplate" placeholder="请将以下图生提示词改成适合{自动标签性别}，{自动标签年龄}风格的适合{模板绑定模型}提示词" class="layui-textarea" style="min-height:80px;">请将以下图生提示词改成适合{自动标签性别}，{自动标签年龄}风格的适合{模板绑定模型}提示词</textarea>
+          <textarea name="prompt_rewrite_template" id="promptRewriteTemplate" class="layui-textarea" style="min-height:80px;"></textarea>
           <div style="color:#999;font-size:12px;margin-top:3px;">
-            支持系统变量：<code>{自动标签性别}</code> <code>{自动标签年龄}</code> <code>{模板绑定模型}</code>
+            支持系统变量：<code>{模板提示词}</code> <code>{人像描述}</code> <code>{模板绑定模型}</code>
           </div>
         </div>
       </div>
@@ -415,84 +414,16 @@
     updateSelectedDisplay();
   });
 
-  // 保存设置
-  window.saveSettings = function(callback){
-    if(selectedTemplateIds.length === 0){
-      layer.msg('请关联至少一个合成模板');
-      if(callback) callback({code: 1, msg: '请关联至少一个合成模板'});
-      return;
-    }
-
-    var generateCount = parseInt($('#generateCount').val()) || 4;
-    if(generateCount < 1 || generateCount > 10){
-      layer.msg('合成数量应在1-10之间');
-      if(callback) callback({code: 1, msg: '合成数量应在1-10之间'});
-      return;
-    }
-
-    if(generateCount > selectedTemplateIds.length){
-      // 允许合成数量 > 模板数，系统将循环使用模板
-    }
-
-    $.post('{:url("synthesis_settings_save")}', {
-      portrait_id: portraitId,
-      template_ids: selectedTemplateIds,
-      generate_count: generateCount,
-      generate_mode: $('input[name="generate_mode"]:checked').val()
-    }, function(res){
-      if(callback) callback(res);
-    });
-  };
-
-  // ===== AI提示词改写 =====
+  // ===== 提示词改写配置 =====
   var promptRewriteModels = {$prompt_rewrite_models|json_encode};
-  var promptRewriteLoaded = false;
 
-  // 初始化提示词改写配置
-  function initPromptRewriteConfig() {
-    if (promptRewriteLoaded) return;
-    promptRewriteLoaded = true;
+  // NL提示词模板默认值（特征提取）
+  var defaultNlPromptTemplate = '仔细解析图片里人物全部特征：性别、年龄段、脸型、五官细节、妆容、发型发色、配饰、服装款式颜色、身材体态、表情、画面光影风格，输出结构化信息。并写入"feature_info":人像特征描述,。';
 
-    var setting = {$setting|default=null|json_encode};
-    if (setting) {
-      // 开关状态
-      var enabled = setting.prompt_rewrite_enabled !== undefined ? setting.prompt_rewrite_enabled : 1;
-      $('#promptRewriteEnabled').prop('checked', enabled == 1);
-      layui.form.render('checkbox');
+  // 提示词改写模板默认值（优化提示词）
+  var defaultPromptRewriteTemplate = '请根据{人像描述}中的人物性别和年龄，将以下图生提示词：{模板提示词}改写为匹配该人物性别的版本，确保服装、发型、妆容与人物实际性别严格一致，保持人物特征适合{模板绑定模型}生成一AI绘画正向提示词，用词专业、细节饱满，适配写实人像生成。';
 
-      // 供应商
-      var provider = setting.prompt_rewrite_provider || 'aliyun';
-      $('#promptRewriteProvider').val(provider);
-
-      // 模型
-      var rewriteModel = setting.prompt_rewrite_model || 'qwen-plus';
-      // 先更新模型列表再设置值
-      updateModelSelect(provider, rewriteModel);
-
-      // 显示/隐藏配置区
-      if (enabled == 1) {
-        $('#promptRewriteConfig').show();
-      }
-      layui.form.render('select');
-    }
-  }
-
-  // 开关切换
-  layui.form.on('switch(promptRewriteSwitch)', function(data){
-    if (data.elem.checked) {
-      $('#promptRewriteConfig').slideDown(200);
-      $('#promptRewriteTemplateRow').slideDown(200);
-    } else {
-      $('#promptRewriteConfig').slideUp(200);
-      $('#promptRewriteTemplateRow').slideUp(200);
-    }
-  });
-
-  // 供应商切换时更新模型列表
-  layui.form.on('select(promptRewriteProvider)', function(data){
-    updateModelSelect(data.value);
-  });
-
+  // 初始化模型选择器
   function updateModelSelect(provider, selectedModel) {
     var models = promptRewriteModels[provider] || [];
     var $select = $('#promptRewriteModel');
@@ -506,9 +437,48 @@
     layui.form.render('select');
   }
 
-  // 保存时附带提示词改写配置
-  // 覆盖原来的 saveSettings，在 POST 中加三个字段
-  var _saveSettings = window.saveSettings;
+  // 监听供应商切换
+  layui.form.on('select(promptRewriteProvider)', function(data){
+    updateModelSelect(data.value);
+  });
+
+  // 初始化提示词改写配置
+  function initDescriptionModeConfig() {
+    var setting = {$setting|default=null|json_encode};
+    if (setting) {
+      // 供应商
+      var provider = setting.prompt_rewrite_provider || 'volcengine';
+      $('#promptRewriteProvider').val(provider);
+
+      // 模型
+      var rewriteModel = setting.prompt_rewrite_model || 'doubao-seed-2-0-pro-260215';
+      updateModelSelect(provider, rewriteModel);
+
+      // NL模板
+      if (setting.nl_prompt_template) {
+        $('#nlPromptTemplate').val(setting.nl_prompt_template);
+      } else {
+        $('#nlPromptTemplate').val(defaultNlPromptTemplate);
+      }
+
+      // 改写模板
+      if (setting.prompt_rewrite_template) {
+        $('#promptRewriteTemplate').val(setting.prompt_rewrite_template);
+      } else {
+        $('#promptRewriteTemplate').val(defaultPromptRewriteTemplate);
+      }
+    } else {
+      // 无设置时默认值
+      $('#nlPromptTemplate').val(defaultNlPromptTemplate);
+      $('#promptRewriteTemplate').val(defaultPromptRewriteTemplate);
+      // 默认供应商和模型
+      updateModelSelect('volcengine', 'doubao-seed-2-0-pro-260215');
+      $('#promptRewriteProvider').val('volcengine');
+    }
+    layui.form.render('select');
+  }
+
+  // 统一保存设置
   window.saveSettings = function(callback) {
     if (selectedTemplateIds.length === 0) {
       layer.msg('请关联至少一个合成模板');
@@ -516,9 +486,9 @@
       return;
     }
     var generateCount = parseInt($('#generateCount').val()) || 4;
-    if(generateCount < 1 || generateCount > 10){
+    if (generateCount < 1 || generateCount > 10) {
       layer.msg('合成数量应在1-10之间');
-      if(callback) callback({code: 1, msg: '合成数量应在1-10之间'});
+      if (callback) callback({code: 1, msg: '合成数量应在1-10之间'});
       return;
     }
     var params = {
@@ -527,7 +497,7 @@
       template_source: currentTemplateSource,
       generate_count: generateCount,
       generate_mode: $('input[name="generate_mode"]:checked').val(),
-      prompt_rewrite_enabled: $('#promptRewriteEnabled').is(':checked') ? 1 : 0,
+      nl_prompt_template: $('#nlPromptTemplate').val(),
       prompt_rewrite_provider: $('#promptRewriteProvider').val(),
       prompt_rewrite_model: $('#promptRewriteModel').val(),
       prompt_rewrite_template: $('#promptRewriteTemplate').val()
@@ -537,98 +507,10 @@
     });
   };
 
-
-  // ===== AI提示词改写 JS =====
-  var promptRewriteModels = {$prompt_rewrite_models|json_encode};
-  var promptRewriteLoaded = false;
-
-  function initPromptRewriteConfig() {
-    if (promptRewriteLoaded) return;
-    promptRewriteLoaded = true;
-    var setting = {$setting|default=null|json_encode};
-    if (setting) {
-      var enabled = setting.prompt_rewrite_enabled || 1;
-      $("#promptRewriteEnabled").prop("checked", enabled == 1);
-      layui.form.render("checkbox");
-      var provider = setting.prompt_rewrite_provider || "aliyun";
-      $("#promptRewriteProvider").val(provider);
-      var rewriteModel = setting.prompt_rewrite_model || "qwen-plus";
-      updateModelSelect(provider, rewriteModel);
-      // 加载提示词改写模板
-      if (setting.prompt_rewrite_template) {
-        $("#promptRewriteTemplate").val(setting.prompt_rewrite_template);
-      }
-      if (enabled == 1) {
-        $("#promptRewriteConfig").show();
-        $("#promptRewriteTemplateRow").show();
-      }
-      layui.form.render("select");
-    }
-  }
-
-  layui.form.on("switch(promptRewriteSwitch)", function(data){
-    if (data.elem.checked) {
-      $("#promptRewriteConfig").slideDown(200);
-      $("#promptRewriteTemplateRow").slideDown(200);
-    } else {
-      $("#promptRewriteConfig").slideUp(200);
-      $("#promptRewriteTemplateRow").slideUp(200);
-    }
-  });
-
-  layui.form.on("select(promptRewriteProvider)", function(data){
-    updateModelSelect(data.value);
-  });
-
-  function updateModelSelect(provider, selectedModel) {
-    var models = promptRewriteModels[provider] || [];
-    var $select = $("#promptRewriteModel");
-    $select.empty();
-    models.forEach(function(m) {
-      $select.append("<option value=\"" + m.code + "\">" + m.name + "</option>");
-    });
-    if (selectedModel) {
-      $select.val(selectedModel);
-    }
-    layui.form.render("select");
-  }
-
-  window.saveSettings = function(callback) {
-    if (selectedTemplateIds.length === 0) {
-      layer.msg("请关联至少一个合成模板");
-      if (callback) callback({code: 1, msg: "请关联至少一个合成模板"});
-      return;
-    }
-    var generateCount = parseInt($("#generateCount").val()) || 4;
-    if (generateCount < 1 || generateCount > 10) {
-      layer.msg("合成数量应在1-10之间");
-      if (callback) callback({code: 1, msg: "合成数量应在1-10之间"});
-      return;
-    }
-    var params = {
-      portrait_id: portraitId,
-      template_ids: selectedTemplateIds,
-      template_source: currentTemplateSource,
-      generate_count: generateCount,
-      generate_mode: $("input[name=\"generate_mode\"]:checked").val(),
-      prompt_rewrite_enabled: $("#promptRewriteEnabled").is(":checked") ? 1 : 0,
-      prompt_rewrite_provider: $("#promptRewriteProvider").val(),
-      prompt_rewrite_model: $("#promptRewriteModel").val(),
-      prompt_rewrite_template: $("#promptRewriteTemplate").val()
-    };
-    $.post('{:url("synthesis_settings_save")}', params, function(res) {
-      if (callback) callback(res);
-    });
-  };
-
   // 页面加载时初始化
   $(function() {
     setTimeout(function() {
-      initPromptRewriteConfig();
-      if ($("#promptRewriteEnabled").is(":checked")) {
-        $("#promptRewriteConfig").show();
-        $("#promptRewriteTemplateRow").show();
-      }
+      initDescriptionModeConfig();
     }, 200);
   });
 

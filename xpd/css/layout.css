@@ -38,6 +38,7 @@ html, body {
         linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
     background-size: 20px 20px;
+    overflow: visible;
 }
 
 /* ============================================
@@ -205,6 +206,77 @@ html, body {
 
 .position-tooltip.show {
     display: block;
+}
+
+/* ============================================
+   宽高拖拽数值输入框（Scrubber）— 幻灯/头像模块选中时显示
+   ============================================ */
+.size-scrubber {
+    display: none;
+    position: absolute;
+    z-index: 13;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 11px;
+    background: rgba(20, 20, 50, 0.95);
+    border: 1px solid #4a90d9;
+    color: #fff;
+    font-size: 11px;
+    font-family: monospace;
+    cursor: ew-resize;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    user-select: none;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 0 8px rgba(74, 144, 217, 0.3);
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.size-scrubber:hover {
+    background: rgba(74, 144, 217, 0.85);
+    border-color: #4a90d9;
+}
+
+.size-scrubber:active,
+.size-scrubber.scrubbing {
+    background: rgba(74, 144, 217, 1);
+    border-color: #fff;
+    box-shadow: 0 0 12px rgba(74, 144, 217, 0.5);
+}
+
+/* 编辑模式 hover 或选中时显示 */
+.layout-module.edit-mode:hover .size-scrubber,
+.layout-module.edit-mode.selected .size-scrubber {
+    display: flex;
+}
+
+/* 宽度输入框 — 底边居中，半嵌入模块内部 */
+.size-scrubber-w {
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* 高度输入框 — 右边居中，半嵌入模块内部 */
+.size-scrubber-h {
+    right: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.scrub-label {
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 10px;
+    min-width: 12px;
+}
+
+.scrub-value {
+    font-weight: 700;
+    color: #fff;
+    min-width: 36px;
+    text-align: center;
 }
 
 /* ============================================

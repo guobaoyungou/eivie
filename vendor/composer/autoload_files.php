@@ -94,8 +94,8 @@ return array(
     '263010cc0791a948b93b0451326d8490' => $vendorDir . '/baidu/aip-sdk/AipNlp.php',
     '20465600cdf87e7598e8d3b23e358ef7' => $vendorDir . '/baidu/aip-sdk/AipOcr.php',
     '03d6be5ce0d7e73da2264e6c76dbce69' => $vendorDir . '/baidu/aip-sdk/AipSpeech.php',
+    'cd5441689b14144e5573bf989ee47b34' => $vendorDir . '/qcloud/cos-sdk-v5/src/Common.php',
     '841780ea2e1d6545ea3a253239d59c05' => $vendorDir . '/qiniu/php-sdk/src/Qiniu/functions.php',
     '1cfd2761b63b0a29ed23657ea394cb2d' => $vendorDir . '/topthink/think-captcha/src/helper.php',
     'cc56288302d9df745d97c934d6a6e5f0' => $vendorDir . '/topthink/think-queue/src/common.php',
-    'cd5441689b14144e5573bf989ee47b34' => $vendorDir . '/qcloud/cos-sdk-v5/src/Common.php',
 );

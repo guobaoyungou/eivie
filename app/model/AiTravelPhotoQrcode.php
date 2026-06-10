@@ -44,6 +44,7 @@ class AiTravelPhotoQrcode extends Model
         'create_time' => 'integer',
         'update_time' => 'integer',
         'qrcode_type' => 'integer',
+        'is_free_pick' => 'integer',
     ];
     
     // 状态常量

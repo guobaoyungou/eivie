@@ -8,9 +8,9 @@
     <!-- Swiper CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
     <!-- 布局系统样式 -->
-    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/layout.css?v=20260609c">
     <!-- 模块样式 -->
-    <link rel="stylesheet" href="css/modules.css?v=20260601f">
+    <link rel="stylesheet" href="css/modules.css?v=20260609m">
 </head>
 <body>
 <div id="app">
@@ -47,13 +47,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1/dist/face-api.js"></script>
 
     <!-- 自定义模块 JS -->
-    <script src="js/api.js"></script>
-    <script src="js/modules/swiper-module.js"></script>
-    <script src="js/modules/avatar-module.js"></script>
-    <script src="js/modules/qrcode-module.js?v=20260602c"></script>
-    <script src="js/modules/face-detect-module.js"></script>
-    <script src="js/layout-engine.js"></script>
-    <script src="js/layout-editor.js"></script>
+    <script src="js/api.js?v=20260609d"></script>
+    <script src="js/modules/swiper-module.js?v=20260609b"></script>
+    <script src="js/modules/avatar-module.js?v=20260609d"></script>
+    <script src="js/modules/qrcode-module.js?v=20260609c"></script>
+    <script src="js/modules/text-module.js?v=20260609c"></script>
+    <script src="js/modules/face-detect-module.js?v=20260609b"></script>
+    <script src="js/layout-engine.js?v=20260609b"></script>
+    <script src="js/layout-editor.js?v=20260609b"></script>
 
     <script>
     const { createApp } = Vue;
@@ -75,15 +76,21 @@
                 currentImageIndex: 0,
                 groupStartTime: 0,
                 isPlaying: false,
+                // 头像点击专注播放模式
+                isAvatarClickMode: false,
+                savedGroupIndex: null,
+                savedImageIndex: null,
+                savedGroupDuration: null, // 保存原始 groupDuration，点击头像时临时改为 60s
 
-                // API配置
+                // API配置：默认值，会被服务端配置覆盖
                 config: {
                     imageDuration: 1000,
                     groupDuration: 5000,
-                    refreshInterval: 30000,
+                    refreshInterval: 10000,      // 默认10秒(毫秒)
                     retryCount: 3,
                     retryDelay: 5000,
-                    limit: 15,
+                    loadMode: 'today',            // 默认按当日创建时间
+                    limit: 15,                   // loadMode=count 时生效
                 },
 
                 // 布局配置
@@ -171,6 +178,7 @@
                 // 监听布局变化事件（缩放后重新计算头像等）
                 window.addEventListener('layout-resized', () => {
                     AvatarModule.resize();
+                    LayoutEngine._updateAllModuleHeightVars();
                 });
             },
 
@@ -206,6 +214,7 @@
                         aid: this.aid,
                         bid: this.bid,
                         mdid: this.mdid,
+                        load_mode: this.config.loadMode,
                         limit: this.config.limit
                     });
 
@@ -217,6 +226,9 @@
                         if (cfg.image_duration) this.config.imageDuration = cfg.image_duration;
                         if (cfg.group_duration) this.config.groupDuration = cfg.group_duration;
                         if (cfg.bg_color) this.bgColor = cfg.bg_color;
+                        if (cfg.load_mode) this.config.loadMode = cfg.load_mode;
+                        if (cfg.load_count) this.config.limit = cfg.load_count;
+                        if (cfg.refresh_interval) this.config.refreshInterval = cfg.refresh_interval * 1000; // 秒→毫秒
                         this.faceDetectEnabled = cfg.face_detect_enabled !== undefined
                             ? cfg.face_detect_enabled
                             : true;
@@ -294,20 +306,36 @@
                 if (statusEl && this.faceDetectEnabled) {
                     statusEl.classList.add('active');
                 }
+
+                // 文本模块（如"微信扫码选片"）
+                const textEl = LayoutEngine.getModuleByType('text');
+                if (textEl) {
+                    // 优先从 dataset 读取已保存的文本，其次从 layoutConfig，最后用默认值
+                    const savedText = textEl.dataset.text;
+                    const modConfig = (this.layoutConfig && this.layoutConfig.modules)
+                        ? this.layoutConfig.modules.find(m => m.type === 'text')
+                        : null;
+                    const text = savedText || (modConfig && modConfig.text) || '微信扫码选片';
+                    TextModule.init(textEl, text);
+                }
             },
 
             // ========================================
             // 播放控制
             // ========================================
 
-            startPlay() {
+            startPlay(resetIndex = true) {
                 this.isPlaying = true;
-                this.currentGroupIndex = 0;
-                this.currentImageIndex = 0;
-                this.groupStartTime = Date.now();
-                this.currentMode = 'default';
-
-                SwiperModule.slideTo(0, 0);
+                if (resetIndex) {
+                    this.currentGroupIndex = 0;
+                    this.currentImageIndex = 0;
+                    this.groupStartTime = Date.now();
+                    this.currentMode = 'default';
+                    SwiperModule.slideTo(0, 0);
+                } else {
+                    // 恢复播放时也重置组开始时间，确保 groupDuration 计时正确
+                    this.groupStartTime = Date.now();
+                }
 
                 if (this.playTimer) clearInterval(this.playTimer);
                 this.playTimer = setInterval(() => {
@@ -352,6 +380,18 @@
             },
 
             switchToNextGroup() {
+                // 头像点击专注播放模式：播放完该头像全部内容后切回轮播
+                if (this.isAvatarClickMode) {
+                    this.isAvatarClickMode = false;
+                    // 恢复原始 groupDuration
+                    if (this.savedGroupDuration !== null) {
+                        this.config.groupDuration = this.savedGroupDuration;
+                        this.savedGroupDuration = null;
+                    }
+                    this.switchToDefaultMode();
+                    return;
+                }
+
                 // 人脸匹配模式下，播放完当前组后回退
                 if (this.currentMode === 'faceMatch') {
                     FaceDetectModule.markPlayComplete();
@@ -389,6 +429,19 @@
             handleAvatarClick(groupIndex) {
                 if (groupIndex < 0 || groupIndex >= this.dataList.length) return;
                 this.stopPlay();
+
+                // 保存当前轮播位置和原 groupDuration，播放完毕后恢复
+                this.savedGroupIndex = this.currentGroupIndex;
+                this.savedImageIndex = this.currentImageIndex;
+                // 只在未处于头像点击模式时才保存原始值，防止连续点击被覆盖
+                if (!this.isAvatarClickMode) {
+                    this.savedGroupDuration = this.config.groupDuration;
+                }
+                this.isAvatarClickMode = true;
+
+                // 头像点击后专注播放 60 秒
+                this.config.groupDuration = 60000;
+
                 this.currentGroupIndex = groupIndex;
                 this.currentImageIndex = 0;
                 this.groupStartTime = Date.now();
@@ -403,7 +456,7 @@
                 AvatarModule.highlight(groupIndex);
                 QRCodeModule.update(this.dataList[groupIndex], false);
 
-                setTimeout(() => this.startPlay(), 500);
+                setTimeout(() => this.startPlay(false), 500);
             },
 
             // ========================================
@@ -452,9 +505,27 @@
                 console.log('回到默认轮播');
                 this.currentMode = 'default';
                 this.stopPlay();
-                this.startPlay();
+
+                // 头像点击模式下，恢复保存的轮播位置
+                if (this.savedGroupIndex !== null) {
+                    this.currentGroupIndex = this.savedGroupIndex;
+                    this.currentImageIndex = this.savedImageIndex;
+                    this.savedGroupIndex = null;
+                    this.savedImageIndex = null;
+                    this.isAvatarClickMode = false;
+                }
+
+                let globalIndex = 0;
+                for (let i = 0; i < this.currentGroupIndex; i++) {
+                    globalIndex += this.dataList[i].results.length;
+                }
+                globalIndex += this.currentImageIndex;
+
+                SwiperModule.slideTo(globalIndex, 300);
                 AvatarModule.highlight(this.currentGroupIndex);
                 QRCodeModule.update(this.dataList[this.currentGroupIndex], false);
+
+                this.startPlay(false);
                 this.updateFaceStatus('active', '人脸检测已开启');
             },
 

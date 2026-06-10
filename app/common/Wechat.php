@@ -148,6 +148,52 @@ class Wechat
         return $result;
     }
 
+    /**
+     * 查询用户是否关注公众号（使用公众号全局access_token，不依赖OAuth scope）
+     * 调用 cgi-bin/user/info 接口
+     *
+     * @param int    $aid    公众号ID
+     * @param string $openid 用户openid
+     * @return array ['subscribe' => int, 'nickname' => string, 'error' => string|null]
+     */
+    public static function getUserSubscribeStatus(int $aid, string $openid): array
+    {
+        $result = ['subscribe' => 0, 'nickname' => '', 'error' => null];
+
+        if (empty($openid)) {
+            $result['error'] = 'openid为空';
+            return $result;
+        }
+
+        try {
+            $accessToken = self::access_token($aid, 'mp');
+            if (empty($accessToken)) {
+                $result['error'] = '获取access_token失败';
+                return $result;
+            }
+
+            $url = "https://api.weixin.qq.com/cgi-bin/user/info?access_token={$accessToken}&openid={$openid}&lang=zh_CN";
+            $httpResult = request_get($url);
+            $data = json_decode($httpResult, true);
+
+            if (isset($data['subscribe'])) {
+                $result['subscribe'] = (int)$data['subscribe'];
+                $result['nickname'] = $data['nickname'] ?? '';
+            } elseif (isset($data['errcode']) && $data['errcode'] != 0) {
+                // 用户未关注时微信可能返回 43004，视为未关注而非错误
+                if ($data['errcode'] == 43004) {
+                    $result['subscribe'] = 0;
+                } else {
+                    $result['error'] = '微信接口错误: ' . ($data['errmsg'] ?? '未知');
+                }
+            }
+        } catch (\Exception $e) {
+            $result['error'] = $e->getMessage();
+        }
+
+        return $result;
+    }
+
 	public static function jsapi_ticket($aid){
 		$appinfo = System::appinfo($aid,'mp');
 		$appid = $appinfo['appid'];

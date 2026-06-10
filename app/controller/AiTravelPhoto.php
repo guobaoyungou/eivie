@@ -1375,7 +1375,13 @@ class AiTravelPhoto extends Common
                 . 'shoot_time,`desc`,tags,face_embedding_id,status,create_time,update_time,'
                 . 'synthesis_status,synthesis_count,synthesis_time,synthesis_error,'
                 . 'gender_tag,age_tag,is_multi_face,face_count,'
+                . 'gender_confidence,age_confidence,precise_age,race_tag,'
+                // 扩展标签列（12个，排除大数据JSON列）
+                . 'emotion_primary,glasses_type,eyelid_type,eyebrow_shape,'
+                . 'eyebrow_thickness,lip_type,has_beard,skin_tone,'
+                . 'hair_length,has_bangs,has_mask,has_accessory,'
                 . 'rewritten_prompt,'
+                . 'nl_description,nl_description_status,'
                 . '(CASE WHEN face_embedding IS NOT NULL AND face_embedding != \'\' AND face_embedding != \'[]\' AND LENGTH(face_embedding) > 10 THEN 1 ELSE 0 END) as has_mysql_embedding';
 
             $query = Db::name('ai_travel_photo_portrait')
@@ -1475,66 +1481,117 @@ class AiTravelPhoto extends Common
                 $item['source_type_text'] = $sourceMap[$item['source_type'] ?? 1] ?? '未知';
                 // 上传方式文字映射
                 $item['type_text'] = ($item['type'] == 1) ? '商家上传' : '用户上传';
-                // 自动标签 - 22级精准年龄映射 + 性别中文映射
-                $genderMap = [
-                    '' => '-', 'Male' => '男性', 'Female' => '女性', 'Unknown' => '未知',
-                    '男' => '男性', '女' => '女性'
-                ];
-                // 22级精准年龄段映射（覆盖InsightFace原始值 + 中文已更新值）
-                $ageMap = [
-                    '' => '-',
-                    // InsightFace 原始英文值 → 精准中文
-                    '0-2' => '新生儿/婴儿',
-                    '3-9' => '学步期/幼童',
-                    '10-19' => '青少年',
-                    '20-29' => '职场青年',
-                    '30-39' => '而立青年',
-                    '40-49' => '壮年期',
-                    '50-59' => '中年主力',
-                    '60-69' => '准老年前期',
-                    '70-79' => '低龄活力老人',
-                    '80-100' => '高龄老人',
-                    'Unknown' => '未知',
-                    // 已入库的中文值（直接透传，保持显示一致）
-                    '新生儿婴儿' => '新生儿婴儿',
-                    '学步期' => '学步期',
-                    '低龄幼童' => '低龄幼童',
-                    '小班幼儿' => '小班幼儿',
-                    '中班幼儿' => '中班幼儿',
-                    '大班幼儿' => '大班幼儿',
-                    '小学低龄' => '小学低龄',
-                    '小学高龄' => '小学高龄',
-                    '初中少年' => '初中少年',
-                    '高中青年' => '高中青年',
-                    '校园青年' => '校园青年',
-                    '初入职场' => '初入职场',
-                    '职场青年' => '职场青年',
-                    '而立青年' => '而立青年',
-                    '青中年' => '青中年',
-                    '壮年期' => '壮年期',
-                    '中年主力' => '中年主力',
-                    '中老年前期' => '中老年前期',
-                    '准老年前期' => '准老年前期',
-                    '低龄活力老人' => '低龄活力老人',
-                    '健康老人' => '健康老人',
-                    '中年老人' => '中年老人',
-                    '高龄老人' => '高龄老人',
-                    '超高龄老人' => '超高龄老人',
-                    '长寿老人' => '长寿老人',
-                    '青少年' => '青少年',
-                    '婴幼儿' => '婴幼儿',
-                    '儿童' => '儿童',
-                    '青年' => '青年',
-                    '中青年' => '中青年',
-                    '中年' => '中年',
-                    '中老年' => '中老年',
-                    '老年' => '老年',
-                    '未知' => '未知',
-                ];
-                $item['gender_text'] = $genderMap[$item['gender_tag'] ?? ''] ?? $item['gender_tag'];
-                $item['age_text'] = $ageMap[$item['age_tag'] ?? ''] ?? $item['age_tag'];
+
+                // ===== 自动标签：中文映射显示 =====
+                $tagConfig = \think\facade\Config::get('auto_tagging');
+
+                // 1. 性别 → 男/女
+                $rawGender = $item['gender_tag'] ?? '';
+                $genderMap = $tagConfig['gender_map'] ?? [];
+                $item['gender_text'] = !empty($rawGender) ? ($genderMap[$rawGender] ?? $rawGender) : '-';
+
+                // 2. 年龄 → 精准年龄段中文标签（根据 precise_age 浮点值查表）
+                $preciseAge = $item['precise_age'] ?? null;
+                $ageText = '-';
+                if ($preciseAge !== null && $preciseAge !== '' && (float)$preciseAge >= 0) {
+                    $ageVal = (float)$preciseAge;
+                    $ranges = $tagConfig['precise_age_ranges'] ?? [];
+                    foreach ($ranges as $range) {
+                        if ($ageVal >= $range['min'] && $ageVal <= $range['max']) {
+                            $ageText = $range['label'];
+                            break;
+                        }
+                    }
+                    if ($ageText === '-' && $ageVal > 0) {
+                        $ageText = round($ageVal, 1) . '岁'; // fallback
+                    }
+                } elseif (!empty($item['age_tag']) && $item['age_tag'] !== '-') {
+                    // precise_age 为空，尝试从 age_tag 提取年龄区间并映射
+                    $rawAgeTag = $item['age_tag'];
+                    // 尝试匹配旧格式如 "23～25 岁" 或 "13～15 岁" 提取数字
+                    if (preg_match('/^(\d+(?:\.\d+)?)/', $rawAgeTag, $m)) {
+                        $ageVal = (float)$m[1];
+                        $ranges = $tagConfig['precise_age_ranges'] ?? [];
+                        foreach ($ranges as $range) {
+                            if ($ageVal >= $range['min'] && $ageVal <= $range['max']) {
+                                $ageText = $range['label'];
+                                break;
+                            }
+                        }
+                    }
+                    // 尝试旧 age_group_map 映射（如 "20-29" → "青年"）
+                    if ($ageText === '-') {
+                        $ageGroupMap = $tagConfig['age_group_map'] ?? [];
+                        if (isset($ageGroupMap[$rawAgeTag])) {
+                            $ageText = $ageGroupMap[$rawAgeTag];
+                        } elseif (preg_match('/^(\d+)-(\d+)$/', $rawAgeTag, $m)) {
+                            $ageGroupKey = $m[1] . '-' . $m[2];
+                            $ageText = $ageGroupMap[$ageGroupKey] ?? $rawAgeTag;
+                        }
+                    }
+                    // 若仍无匹配，直接使用原值（已是中文标签如"中年主力"）
+                    if ($ageText === '-') {
+                        $ageText = $rawAgeTag;
+                    }
+                }
+                $item['age_text'] = $ageText;
+
+                // 3. 人种 → 中文映射
+                $rawRace = $item['race_tag'] ?? '';
+                $raceMap = $tagConfig['race_map'] ?? [];
+                $item['race_text'] = !empty($rawRace) ? ($raceMap[$rawRace] ?? $rawRace) : '-';
+
+                // 4. 人脸基本信息
                 $item['is_multi_text'] = ($item['is_multi_face'] ?? 0) == 1 ? '多人' : '单人';
                 $item['face_count_text'] = $item['face_count'] ?? 0;
+
+                // ===== 自然语言描述人像 =====
+                $item['nl_description_text'] = $item['nl_description'] ?? '';
+                $item['nl_description_status'] = (int)($item['nl_description_status'] ?? 0);
+                $item['nl_description_summary'] = '';
+                if (!empty($item['nl_description_text'])) {
+                    $item['nl_description_summary'] = mb_strlen($item['nl_description_text']) > 60
+                        ? mb_substr($item['nl_description_text'], 0, 60) . '...'
+                        : $item['nl_description_text'];
+                }
+
+                // 5. 扩展标签：遍历所有扩展列，组装非空标签列表
+                $extLabels = $tagConfig['extended_label_map'] ?? [];
+                $extendedTags = [];
+
+                // 表情（emotion_primary 已是中文，如"微笑""平静"）
+                $emotion = $item['emotion_primary'] ?? '';
+                if (!empty($emotion)) {
+                    $extendedTags[] = ['text' => $emotion, 'cls' => 'layui-bg-cyan'];
+                }
+
+                // 文本型扩展列 → 英文值映射中文
+                $textCols = [
+                    'glasses_type'      => 'glasses_type',
+                    'eyelid_type'       => 'eyelid_type',
+                    'eyebrow_shape'     => 'eyebrow_shape',
+                    'eyebrow_thickness' => 'eyebrow_thickness',
+                    'lip_type'          => 'lip_type',
+                    'skin_tone'         => 'skin_tone',
+                    'hair_length'       => 'hair_length',
+                ];
+                foreach ($textCols as $col => $mapKey) {
+                    $val = $item[$col] ?? '';
+                    if (!empty($val) && isset($extLabels[$mapKey][$val])) {
+                        $extendedTags[] = ['text' => $extLabels[$mapKey][$val], 'cls' => 'layui-bg-cyan'];
+                    }
+                }
+
+                // 布尔型扩展列 → 仅值为1时显示
+                $boolCols = ['has_beard', 'has_bangs', 'has_mask', 'has_accessory'];
+                foreach ($boolCols as $col) {
+                    $val = $item[$col] ?? 0;
+                    if ((int)$val === 1 && isset($extLabels[$col][1])) {
+                        $extendedTags[] = ['text' => $extLabels[$col][1], 'cls' => 'layui-bg-cyan'];
+                    }
+                }
+
+                $item['extended_tags'] = $extendedTags;
                 // 多用户关联显示
                 $userInfo = $portraitUserMap[$item['id']] ?? null;
                 if ($userInfo && $userInfo['count'] > 0) {
@@ -2292,100 +2349,51 @@ class AiTravelPhoto extends Common
 
             \think\facade\Log::info('抠图任务已推送', ['portrait_id' => $portraitId]);
 
-            // ===== Step 1: 自动标签分析（调用 InsightFace+FairFace API） =====
+            // ===== Step 1: 生成 NL 自然语言描述 + 正则提取全量标签 =====
             $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
             if (!$portrait) {
                 return;
             }
 
-            $gender = 'Unknown';
-            $ageGroup = 'Unknown';
-            $isMultiFace = 0;
-            $faceCount = 0;
-            $genderConf = 0.0;
-            $ageConf = 0.0;
-            $isLowConf = false;
-
-            // 从商户设置读取置信度阈值
-            $setting = Db::name('ai_travel_photo_synthesis_setting')
-                ->where('portrait_id', 0)
-                ->where('aid', $this->aid)
-                ->where('bid', $targetBid)
-                ->find();
-            $genderThreshold = $setting ? (float)($setting['gender_confidence_threshold'] ?? 0.65) : 0.65;
-            $ageThreshold = $setting ? (float)($setting['age_confidence_threshold'] ?? 0.55) : 0.55;
-
             try {
-                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                    'auto_tag_status' => 1, 'update_time' => time()
+                // 先生成 NL 描述（内部调用 extractTagsFromDescription() 一次性完成标签提取）
+                $descService = new \app\service\PortraitDescriptionService();
+                $descResult = $descService->generateDescription($portraitId);
+
+                if (!$descResult['status']) {
+                    \think\facade\Log::warning('triggerAsyncTasks: NL描述生成失败，跳过自动合成', [
+                        'portrait_id' => $portraitId,
+                        'error' => $descResult['msg'] ?? '未知错误',
+                    ]);
+                    return;
+                }
+
+                // 重新读取人像，获取 generateDescription 内部 extractTagsFromDescription 写入的标签
+                $portrait = Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->find();
+                $gender = $portrait['gender_tag'] ?? '';
+                $ageGroup = $portrait['age_tag'] ?? '';
+                $isMultiFace = (int)($portrait['is_multi_face'] ?? 0);
+                $faceCount = (int)($portrait['face_count'] ?? 1);
+
+                \think\facade\Log::info('triggerAsyncTasks: NL描述+标签提取完成', [
+                    'portrait_id' => $portraitId,
+                    'gender' => $gender,
+                    'age_group' => $ageGroup,
+                    'emotion' => $portrait['emotion_primary'] ?? '',
+                    'glasses' => $portrait['glasses_type'] ?? '',
+                    'has_beard' => $portrait['has_beard'] ?? 0,
+                    'face_shape' => $portrait['face_shape'] ?? '',
                 ]);
 
-                $analysisService = new \app\service\ImageAnalysisService();
-                $result = $analysisService->analyzeFromUrl($portrait['original_url']);
-                if ($result) {
-                    $attr = \app\service\ImageAnalysisService::extractMainSubject($result, $genderThreshold, $ageThreshold);
-                    $gender = $attr['gender'] ?? 'Unknown';
-                    $ageGroup = $attr['age_group'] ?? 'Unknown';
-                    $faceCount = $attr['face_count'] ?? 0;
-                    $genderConf = $attr['gender_confidence'] ?? 0;
-                    $ageConf = $attr['age_confidence'] ?? 0;
-                    $isLowConf = $attr['is_low_confidence'] ?? false;
-
-                    // 优化：多人脸场景只用前景最醒目人脸标签，强制按单人模式匹配模板
-                    // 避免因背景人脸导致 is_multi_face=1 而匹配不到合适的合成模板
-                    $rawIsMultiFace = $attr['is_multi_face'] ? 1 : 0;
-                    $isMultiFace = 0;
-
-                    // 低置信度标记为需人工审核；正常则标记为完成
-                    $tagStatus = $isLowConf ? 4 : 2;
-
-                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                        'gender_tag' => $gender,
-                        'age_tag' => $ageGroup,
-                        'gender_confidence' => $genderConf,
-                        'age_confidence' => $ageConf,
-                        'is_multi_face' => $isMultiFace,
-                        'face_count' => $faceCount,
-                        'auto_tag_status' => $tagStatus,
-                        'update_time' => time()
-                    ]);
-
-                    \think\facade\Log::info('自动标签分析完成', [
-                        'portrait_id' => $portraitId,
-                        'gender' => $gender, 'age_group' => $ageGroup,
-                        'gender_conf' => $genderConf, 'age_conf' => $ageConf,
-                        'is_multi' => $isMultiFace, 'face_count' => $faceCount,
-                        'raw_is_multi' => $rawIsMultiFace,
-                        'is_low_confidence' => $isLowConf,
-                        'thresholds' => ['gender' => $genderThreshold, 'age' => $ageThreshold],
-                        'note' => $isLowConf ? '低置信度，需人工审核，跳过合成' : ($rawIsMultiFace ? '多人脸检测到，已强制切为单人模式' : ''),
-                    ]);
-                } else {
-                    Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                        'auto_tag_status' => 3, 'update_time' => time()
-                    ]);
-                    \think\facade\Log::warning('自动标签分析失败', ['portrait_id' => $portraitId]);
-                }
             } catch (\Exception $e) {
                 Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
-                    'auto_tag_status' => 3, 'update_time' => time()
-                ]);
-                \think\facade\Log::error('自动标签分析异常', [
-                    'portrait_id' => $portraitId, 'error' => $e->getMessage()
-                ]);
-            }
-
-            // 低置信度标签：跳过后续合成流程，需管理员人工审核
-            if ($isLowConf) {
-                Db::name('ai_travel_photo_portrait')->where('id', $portraitId)->update([
+                    'auto_tag_status' => 3,
                     'synthesis_status' => 4,
-                    'synthesis_error' => '低置信度标签（性别:' . $gender . ' 年龄:' . $ageGroup . ' 性别置信度:' . $genderConf . ' 年龄置信度:' . $ageConf . '），需人工审核后手动触发合成',
-                    'update_time' => time()
+                    'synthesis_error' => 'NL描述生成异常: ' . mb_substr($e->getMessage(), 0, 200),
+                    'update_time' => time(),
                 ]);
-                \think\facade\Log::info('低置信度标签跳过合成', [
-                    'portrait_id' => $portraitId,
-                    'gender' => $gender, 'age_group' => $ageGroup,
-                    'gender_conf' => $genderConf, 'age_conf' => $ageConf,
+                \think\facade\Log::error('triggerAsyncTasks: NL描述生成异常', [
+                    'portrait_id' => $portraitId, 'error' => $e->getMessage(),
                 ]);
                 return;
             }
@@ -3239,10 +3247,12 @@ class AiTravelPhoto extends Common
             ->each(function ($item) {
                 // 尝试获取场景/模板名称
                 $sceneName = '';
+                // 优先从合成模板表（ai_travel_photo_synthesis_template）获取名称
+                // generation.template_id 引用的是合成模板表的 id
                 if (!empty($item['generation_id']) && $item['generation_id'] > 0 && !empty($item['template_id'])) {
-                    $tpl = Db::name('generation_scene_template')
+                    $tpl = Db::name('ai_travel_photo_synthesis_template')
                         ->where('id', $item['template_id'])
-                        ->value('template_name');
+                        ->value('name');
                     if ($tpl) {
                         $sceneName = $tpl;
                     }
@@ -3252,6 +3262,13 @@ class AiTravelPhoto extends Common
                     $sceneName = $item['desc'];
                 }
                 $item['scene_name'] = $sceneName;
+                // 清理提示词中的换行符（避免 HTML title 属性断裂）
+                if (!empty($item['rewritten_prompt'])) {
+                    $item['rewritten_prompt'] = str_replace(["\r\n", "\r", "\n"], ' ', $item['rewritten_prompt']);
+                }
+                if (!empty($item['generation_prompt'])) {
+                    $item['generation_prompt'] = str_replace(["\r\n", "\r", "\n"], ' ', $item['generation_prompt']);
+                }
                 return $item;
             })
             ->toArray(); // 关键修复：转换为数组，否则模板中array_filter()在PHP 7.4下接收Collection会返回NULL
@@ -3513,7 +3530,7 @@ class AiTravelPhoto extends Common
                     ->leftJoin('ai_travel_photo_portrait p', 'q.portrait_id = p.id')
                     ->leftJoin('mendian m', 'p.mdid = m.id')
                     ->where($where)
-                    ->field('q.*, p.original_url, p.thumbnail_url, p.mdid, m.name as mendian_name')
+                    ->field('q.*, p.original_url, p.thumbnail_url, p.mdid, m.name as mendian_name, q.is_free_pick')
                     ->order('q.id DESC')
                     ->page($page, $limit)
                     ->select();
@@ -6625,17 +6642,16 @@ class AiTravelPhoto extends Common
                 return json(['code' => 1, 'msg' => '请关联至少一个合成模板']);
             }
             
-            // 提示词改写配置
-            $promptRewriteEnabled = input('post.prompt_rewrite_enabled/d', 1);
-            $promptRewriteProvider = input('post.prompt_rewrite_provider/s', 'aliyun');
-            $promptRewriteModel = input('post.prompt_rewrite_model/s', 'qwen-plus');
+            // 提示词改写配置（顺序流水线模式）
+            $nlPromptTemplate = input('post.nl_prompt_template/s', '');
+            $promptRewriteProvider = input('post.prompt_rewrite_provider/s', 'volcengine');
+            $promptRewriteModel = input('post.prompt_rewrite_model/s', 'doubao-seed-2-0-pro-260215');
             
             // 模板来源
             $templateSource = input('post.template_source/d', 1);
             
             // 提示词改写模板
-            $defaultRewriteTemplate = '请将以下图生提示词改成适合{自动标签性别}，{自动标签年龄}风格的适合{模板绑定模型}提示词';
-            $promptRewriteTemplate = input('post.prompt_rewrite_template/s', $defaultRewriteTemplate);
+            $promptRewriteTemplate = input('post.prompt_rewrite_template/s', '');
 
             $data = [
                 'portrait_id' => $portraitId, // 0表示全局设置
@@ -6645,10 +6661,13 @@ class AiTravelPhoto extends Common
                 'generate_count' => $generateCount,
                 'generate_mode' => $generateMode,
                 'template_source' => $templateSource,
-                'prompt_rewrite_enabled' => $promptRewriteEnabled,
+                'description_mode' => 'sequential',
+                'nl_prompt_template' => $nlPromptTemplate,
+                'prompt_rewrite_enabled' => 1,
                 'prompt_rewrite_provider' => $promptRewriteProvider,
                 'prompt_rewrite_model' => $promptRewriteModel,
                 'prompt_rewrite_template' => $promptRewriteTemplate,
+                'nl_description_enabled' => 1,
                 'status' => 1,
                 'update_time' => time()
             ];
@@ -6746,7 +6765,6 @@ class AiTravelPhoto extends Common
 
             // 补充 business_price：通过 scene_template_id 回查，或使用默认值
             foreach ($templates as &$_tpl) {
-                $_tpl['output_quantity'] = 1; // 合成模板固定输出1张
                 $_tpl['business_price'] = 0.50; // 默认值
                 if (!empty($_tpl['scene_template_id'])) {
                     $scenePrice = Db::name('generation_scene_template')->where('id', $_tpl['scene_template_id'])->value('business_price');
@@ -7011,7 +7029,6 @@ class AiTravelPhoto extends Common
 
             // 补充 business_price：通过 scene_template_id 回查，或使用默认值
             foreach ($templates as &$_tpl) {
-                $_tpl['output_quantity'] = 1;
                 $_tpl['business_price'] = 0.50;
                 if (!empty($_tpl['scene_template_id'])) {
                     $scenePrice = Db::name('generation_scene_template')->where('id', $_tpl['scene_template_id'])->value('business_price');
@@ -7315,7 +7332,6 @@ class AiTravelPhoto extends Common
 
             // 补充 business_price：通过 scene_template_id 回查，或使用默认值
             foreach ($templates as &$_tpl) {
-                $_tpl['output_quantity'] = 1;
                 $_tpl['business_price'] = 0.50;
                 if (!empty($_tpl['scene_template_id'])) {
                     $scenePrice = Db::name('generation_scene_template')->where('id', $_tpl['scene_template_id'])->value('business_price');
@@ -7967,6 +7983,117 @@ class AiTravelPhoto extends Common
     }
 
     /**
+     * 人像消费统计（AJAX）
+     * 金额 = (商采价格 × 生成结果数) + (生成结果数 × 0.10元)
+     */
+    public function portrait_cost_list()
+    {
+        if (!request()->isAjax()) {
+            return json(['code' => 1, 'msg' => '非法请求', 'data' => []]);
+        }
+
+        $targetBid = $this->bid;
+        if ($targetBid == 0) {
+            $targetBid = Db::name('business')->where('aid', $this->aid)->value('id');
+        }
+
+        $page = input('page/d', 1);
+        $limit = input('limit/d', 20);
+        $startDate = input('start_date', '');
+        $endDate = input('end_date', '');
+
+        try {
+            // 一条 JOIN 查询搞定：人像 + 生成结果 + 模板 + 场景
+            $baseQuery = Db::name('ai_travel_photo_portrait')
+                ->alias('p')
+                ->join('ai_travel_photo_generation g', 'g.portrait_id = p.id AND g.status IN (2,3)')
+                ->leftJoin('ai_travel_photo_synthesis_template st', 'st.id = g.template_id')
+                ->leftJoin('generation_scene_template sct', 'sct.id = st.scene_template_id')
+                ->where('p.aid', $this->aid)
+                ->where('p.bid', $targetBid);
+            if ($startDate) {
+                $baseQuery->where('g.create_time', '>=', strtotime($startDate));
+            }
+            if ($endDate) {
+                $baseQuery->where('g.create_time', '<=', strtotime($endDate . ' 23:59:59'));
+            }
+
+            // 先查出所有原始数据（按人像分组，取第一条的模板/场景价格）
+            $rawRows = $baseQuery
+                ->field('p.id, p.file_name, p.create_time, g.portrait_id,
+                    COALESCE(sct.business_price, 0.50) as business_price,
+                    sct.name as scene_name')
+                ->order('p.id', 'desc')
+                ->select()
+                ->toArray();
+
+            // PHP 中聚合：按 portrait_id 合并
+            $aggregated = [];
+            foreach ($rawRows as $row) {
+                $pid = $row['portrait_id'];
+                if (!isset($aggregated[$pid])) {
+                    $aggregated[$pid] = [
+                        'id' => $pid,
+                        'file_name' => $row['file_name'] ?? '',
+                        'create_time' => $row['create_time'] ?? 0,
+                        'result_count' => 0,
+                        'business_price' => floatval($row['business_price'] ?? 0.50),
+                        'scene_name' => $row['scene_name'] ?? '-',
+                    ];
+                }
+                $aggregated[$pid]['result_count']++;
+                // 取最高的 business_price
+                $aggregated[$pid]['business_price'] = max($aggregated[$pid]['business_price'], floatval($row['business_price'] ?? 0.50));
+                if (!empty($row['scene_name'])) {
+                    $aggregated[$pid]['scene_name'] = $row['scene_name'];
+                }
+            }
+
+            // 转成索引数组，计算分页
+            $allItems = array_values($aggregated);
+            $count = count($allItems);
+            $offset = ($page - 1) * $limit;
+            $pageItems = array_slice($allItems, $offset, $limit);
+
+            // 构建输出
+            $list = [];
+            $totalSynthesis = 0;
+            $totalRewrite = 0;
+            foreach ($pageItems as $item) {
+                $bp = $item['business_price'];
+                $rc = $item['result_count'];
+                $list[] = [
+                    'id' => $item['id'],
+                    'file_name' => $item['file_name'],
+                    'scene_name' => $item['scene_name'],
+                    'business_price_fmt' => number_format($bp, 2),
+                    'result_count' => $rc,
+                    'synthesis_cost' => number_format($bp * $rc, 2),
+                    'rewrite_cost' => number_format($rc * 0.10, 2),
+                    'total_cost' => number_format(($bp * $rc) + ($rc * 0.10), 2),
+                    'create_time' => $item['create_time'] ? date('Y-m-d H:i:s', $item['create_time']) : '-',
+                ];
+                $totalSynthesis += $bp * $rc;
+                $totalRewrite += $rc * 0.10;
+            }
+
+            return json([
+                'code' => 0, 'msg' => '', 'count' => $count, 'data' => $list,
+                'summary' => [
+                    'portrait_count' => count($list),
+                    'synthesis_total' => number_format($totalSynthesis, 2),
+                    'rewrite_total' => number_format($totalRewrite, 2),
+                    'grand_total' => number_format($totalSynthesis + $totalRewrite, 2),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return json([
+                'code' => 1, 'msg' => $e->getMessage(), 'count' => 0, 'data' => [], 'summary' => [],
+            ]);
+        }
+    }
+
+    /**
      * 支付成功返回页面（支付宝同步回跳）
      */
     public function payReturn()
@@ -8163,7 +8290,7 @@ class AiTravelPhoto extends Common
         }
 
         $mendianList = $mendianQuery
-            ->field('id, name, bid, selfie_enabled')
+            ->field('id, name, bid, selfie_enabled, is_free_pick')
             ->order('id ASC')
             ->select()
             ->toArray();
@@ -8327,6 +8454,39 @@ class AiTravelPhoto extends Common
         Db::name('mendian')->where('id', $mdid)->update(['selfie_enabled' => $enabled]);
 
         return json(['status' => 1, 'msg' => ($enabled ? '已启用' : '已禁用')]);
+    }
+
+    /**
+     * 切换门店免费选片状态
+     * POST (AJAX)
+     * 参数：mdid - 门店ID
+     * 返回：{status: 1, msg: '成功', is_free_pick: 1/0}
+     */
+    public function selfie_toggle_free_pick()
+    {
+        $mdid = input('mdid/d', 0);
+        if (!$mdid) {
+            return json(['status' => 0, 'msg' => '请选择门店']);
+        }
+
+        // 校验门店归属：必须属于当前平台，且商家只能操作自己的门店
+        $mendian = Db::name('mendian')->where('id', $mdid)->where('aid', $this->aid)->find();
+        if (!$mendian) {
+            return json(['status' => 0, 'msg' => '门店不存在']);
+        }
+        if ($this->bid > 0 && $mendian['bid'] != $this->bid) {
+            return json(['status' => 0, 'msg' => '无权操作此门店']);
+        }
+
+        // 切换状态
+        $newStatus = empty($mendian['is_free_pick']) ? 1 : 0;
+        Db::name('mendian')->where('id', $mdid)->update(['is_free_pick' => $newStatus]);
+
+        return json([
+            'status' => 1,
+            'msg' => $newStatus ? '已开启免费选片' : '已关闭免费选片',
+            'is_free_pick' => $newStatus,
+        ]);
     }
 
     // ==================== 合成活动（扫码二维码活动）管理 ====================

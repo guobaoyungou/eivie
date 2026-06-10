@@ -520,13 +520,35 @@
           if(d.rewritten_prompt_used === '是') return '<span class="layui-badge layui-bg-green">是</span>';
           return '<span class="layui-badge" style="background:#aaa;">否</span>';
         }},
-        {field: 'auto_tags', title: '自动标签', width: 170, align: 'center', templet: function(d){
+        {field: 'auto_tags', title: '自动标签', width: 280, align: 'center', templet: function(d){
           var tags = [];
+          // 性别
           if(d.gender_text && d.gender_text !== '-') tags.push('<span class="layui-badge layui-bg-blue">'+d.gender_text+'</span>');
+          // 年龄
           if(d.age_text && d.age_text !== '-') tags.push('<span class="layui-badge layui-bg-green">'+d.age_text+'</span>');
+          // 人种
+          if(d.race_text && d.race_text !== '-') tags.push('<span class="layui-badge layui-bg-orange">'+d.race_text+'</span>');
+          // 扩展标签
+          if(d.extended_tags && d.extended_tags.length > 0){
+            for(var i=0; i<d.extended_tags.length; i++){
+              var et = d.extended_tags[i];
+              tags.push('<span class="layui-badge '+et.cls+'">'+et.text+'</span>');
+            }
+          }
+          // 多人/单人
           tags.push(d.is_multi_text === '多人' ? '<span class="layui-badge layui-bg-orange">多人</span>' : '<span class="layui-badge layui-bg-gray">单人</span>');
           if(d.face_count_text > 0) tags.push('<span style="color:#999;font-size:11px">'+d.face_count_text+'人脸</span>');
           return tags.join(' ');
+        }},
+        {field: 'nl_description_text', title: '人像描述', width: 200, templet: function(d){
+          var status = parseInt(d.nl_description_status) || 0;
+          if (status === 0) return '<span style="color:#ccc">-</span>';
+          if (status === 1) return '<span style="color:#ffb800"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 生成中</span>';
+          if (status === 3) return '<span style="color:#ff5722;cursor:pointer;" title="生成失败">⚠ 失败</span>';
+          var fullText = (d.nl_description_text || '').replace(/"/g, '&quot;');
+          var summary = d.nl_description_summary || fullText;
+          if (!fullText) return '<span style="color:#999">-</span>';
+          return '<span style="cursor:pointer;display:inline-block;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333;" title="'+fullText+'">'+summary+'</span>';
         }},
         {field: 'synthesis_status', title: '合成状态', width: 110, templet: function(d){
           var s = parseInt(d.synthesis_status) || 0;

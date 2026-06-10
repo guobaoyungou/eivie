@@ -58,6 +58,7 @@ class AiTravelPhotoPickService
             'bid' => $portrait->bid,
             'mdid' => $portrait->mdid ?? 0,
             'qrcode_id' => $qrcode->id,
+            'is_free_pick' => (int)($qrcode->is_free_pick ?? 0),
         ];
     }
 
@@ -864,12 +865,33 @@ class AiTravelPhotoPickService
             ], JSON_UNESCAPED_UNICODE);
         }
 
+        // 检测是否开启免费选片（B端选片二维码 或 C端自拍门店二维码）
+        $isFreePick = false;
+        if ($qrcodeId > 0) {
+            $qrcodeRecord = AiTravelPhotoQrcode::find($qrcodeId);
+            $isFreePick = $qrcodeRecord && (int)$qrcodeRecord->is_free_pick === 1;
+        }
+        // 门店模式(C端二维码管理)：检测门店是否开启免费选片
+        if (!$isFreePick) {
+            $mdid = (int)($data['mdid'] ?? 0);
+            if ($mdid > 0) {
+                $mendian = Db::name('mendian')->where('id', $mdid)->find();
+                $isFreePick = $mendian && !empty($mendian['is_free_pick']);
+            }
+        }
+
+        // 免费模式：金额归零
+        if ($isFreePick) {
+            $totalPrice = 0;
+            $actualAmount = 0;
+        }
+
         // 开启事务
         Db::startTrans();
         try {
             $orderNo = AiTravelPhotoOrder::generateOrderNo();
 
-            // 创建订单
+            // 创建订单（免费模式直接标记已支付）
             $order = AiTravelPhotoOrder::create([
                 'aid' => $aid,
                 'order_no' => $orderNo,
@@ -887,10 +909,12 @@ class AiTravelPhotoPickService
                 'total_price' => $totalPrice,
                 'discount_amount' => 0,
                 'actual_amount' => $actualAmount,
-                'status' => AiTravelPhotoOrder::STATUS_UNPAID,
+                'status' => $isFreePick ? AiTravelPhotoOrder::STATUS_PAID : AiTravelPhotoOrder::STATUS_UNPAID,
+                'pay_time' => $isFreePick ? time() : 0,
+                'transaction_id' => $isFreePick ? ('FREE_' . $orderNo) : '',
             ]);
 
-            // 创建订单商品
+            // 创建订单商品（免费模式直接写入下载URL）
             foreach ($validResults as $result) {
                 AiTravelPhotoOrderGoods::create([
                     'aid' => $aid,
@@ -898,14 +922,54 @@ class AiTravelPhotoPickService
                     'result_id' => $result->id,
                     'type' => ($result->type == 19) ? 2 : 1,
                     'goods_image' => $result->watermark_url ?: $result->thumbnail_url,
-                    'price' => ($packageId > 0) ? round($actualAmount / $selectedCount, 2) : $singlePrice,
+                    'price' => $isFreePick ? 0 : (($packageId > 0) ? round($actualAmount / $selectedCount, 2) : $singlePrice),
                     'num' => 1,
-                    'total_price' => ($packageId > 0) ? round($actualAmount / $selectedCount, 2) : $singlePrice,
+                    'total_price' => $isFreePick ? 0 : (($packageId > 0) ? round($actualAmount / $selectedCount, 2) : $singlePrice),
                     'status' => AiTravelPhotoOrderGoods::STATUS_NORMAL,
-                    'is_downloaded' => 0,
-                    'download_url' => null,
-                    'download_time' => 0,
+                    'is_downloaded' => $isFreePick ? 1 : 0,
+                    'download_url' => $isFreePick ? $result->url : null,
+                    'download_time' => $isFreePick ? time() : 0,
                 ]);
+            }
+
+            // 免费模式：执行履约（写入相册、更新统计）
+            if ($isFreePick) {
+                foreach ($validResults as $result) {
+                    // 写入 user_album
+                    AiTravelPhotoUserAlbum::create([
+                        'aid' => $aid,
+                        'uid' => (int)($data['uid'] ?? 0),
+                        'bid' => $bid,
+                        'order_id' => $order->id,
+                        'portrait_id' => $portraitId,
+                        'result_id' => $result->id,
+                        'type' => ($result->type == 19) ? 2 : 1,
+                        'url' => $result->url,
+                        'thumbnail_url' => $result->thumbnail_url,
+                        'status' => 1,
+                    ]);
+
+                    // 更新结果购买次数
+                    \app\model\AiTravelPhotoResult::where('id', $result->id)
+                        ->inc('buy_count', 1)
+                        ->update();
+                }
+
+                // 更新 qrcode 统计
+                if ($qrcodeId > 0) {
+                    Db::name('ai_travel_photo_qrcode')
+                        ->where('id', $qrcodeId)
+                        ->inc('order_count', 1)
+                        ->update();
+                }
+
+                // 更新 package 销量统计
+                if ($packageId > 0) {
+                    Db::name('ai_travel_photo_package')
+                        ->where('id', $packageId)
+                        ->inc('sale_count', 1)
+                        ->update();
+                }
             }
 
             // 套餐购买扣库存
@@ -925,6 +989,7 @@ class AiTravelPhotoPickService
                 'actual_amount' => $actualAmount,
                 'package_name' => $packageName,
                 'selected_count' => $selectedCount,
+                'is_free' => $isFreePick,
             ];
         } catch (\Exception $e) {
             Db::rollback();

@@ -41,11 +41,15 @@ const AvatarModule = {
         const count = dataList.length;
         if (count === 0) return;
 
-        // 根据容器尺寸动态计算每个头像尺寸
+        // 根据容器尺寸动态计算网格布局，自适应行列填满空间
         const containerWidth = this.containerEl.clientWidth;
         const containerHeight = this.containerEl.clientHeight;
-        const maxSize = Math.min(containerHeight * 0.85, (containerWidth - 20) / (count + 1));
-        const avatarSize = Math.max(40, maxSize);
+        // 根据容器宽高比自适应列数
+        const aspect = containerWidth / Math.max(containerHeight, 1);
+        const cols = Math.max(1, Math.ceil(Math.sqrt(count * aspect)));
+        const rows = Math.ceil(count / cols);
+        // 按宽度均分可用空间，高度不限制（超出则滚动）
+        const avatarSize = Math.max(32, Math.floor(containerWidth / cols * 0.88));
 
         dataList.forEach((item, index) => {
             const avatarItem = document.createElement('div');
