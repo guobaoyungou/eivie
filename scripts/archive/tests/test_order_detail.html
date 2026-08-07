@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>订单详情测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        .btn {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e7f3fe;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+        }
+        .error {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>订单详情测试</h1>
+        
+        <div class="section">
+            <h3>测试选片订单详情</h3>
+            <p>订单ID: 22 (AI选片订单)</p>
+            <button class="btn" onclick="testOrder(22)">测试订单22</button>
+            <button class="btn" onclick="testOrder(20)">测试订单20</button>
+        </div>
+        
+        <div class="section">
+            <h3>测试商城订单详情</h3>
+            <p>请输入商城订单ID:</p>
+            <input type="text" id="shopOrderId" placeholder="输入商城订单ID" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <button class="btn" onclick="testShopOrder()">测试商城订单</button>
+        </div>
+        
+        <div id="result" class="result" style="display:none;"></div>
+    </div>
+
+    <script>
+        const BASE_URL = 'https://ai.eivie.cn/?s=/ApiUnifiedOrder';
+        
+        async function testOrder(orderId) {
+            showResult('正在测试订单 ' + orderId + '...', false);
+            
+            try {
+                const response = await fetch(BASE_URL + '/detail?id=' + orderId, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 1 && data.data) {
+                    let html = '<h4>订单详情 (ID: ' + orderId + ')</h4>';
+                    html += '<p><strong>订单号:</strong> ' + data.data.ordernum + '</p>';
+                    html += '<p><strong>状态:</strong> ' + getStatusText(data.data.status) + '</p>';
+                    html += '<p><strong>金额:</strong> ¥' + data.data.totalprice + '</p>';
+                    html += '<p><strong>创建时间:</strong> ' + data.data.createtime + '</p>';
+                    html += '<p><strong>订单类型:</strong> ' + (data.data.order_type || '商城订单') + '</p>';
+                    
+                    if (data.data.prolist && data.data.prolist.length > 0) {
+                        html += '<h5>商品列表:</h5>';
+                        html += '<ul>';
+                        data.data.prolist.forEach(item => {
+                            html += '<li>' + item.name + ' x ' + item.num + ' ¥' + item.sell_price + '</li>';
+                        });
+                        html += '</ul>';
+                    }
+                    
+                    showResult(html, false);
+                } else {
+                    showResult('API返回错误: ' + (data.msg || '未知错误'), true);
+                }
+            } catch (error) {
+                showResult('请求失败: ' + error.message, true);
+            }
+        }
+        
+        async function testShopOrder() {
+            const orderId = document.getElementById('shopOrderId').value;
+            if (!orderId) {
+                alert('请输入商城订单ID');
+                return;
+            }
+            testOrder(orderId);
+        }
+        
+        function getStatusText(status) {
+            const statusMap = {
+                0: '待付款',
+                1: '待发货',
+                2: '待收货',
+                3: '已完成',
+                4: '已取消'
+            };
+            return statusMap[status] || '未知状态';
+        }
+        
+        function showResult(message, isError) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = message;
+            resultDiv.className = isError ? 'result error' : 'result';
+        }
+    </script>
+</body>
+</html>

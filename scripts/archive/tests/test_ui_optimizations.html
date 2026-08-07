@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UI优化功能测试 - 官网模板三</title>
+    <link rel="stylesheet" href="/static/index3/css/theme-light.css?v=2">
+    <link rel="stylesheet" href="/static/index3/css/theme-dark.css?v=2">
+    <link rel="stylesheet" href="/static/index3/css/index.css?v=2">
+    <link rel="stylesheet" href="/static/index3/css/responsive.css?v=2">
+    <style>
+        .test-section {
+            padding: 40px 24px;
+            border-bottom: 2px solid var(--border-light);
+        }
+        .test-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--accent-color);
+        }
+        .test-group {
+            margin-bottom: 24px;
+        }
+        .test-label {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+        .test-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .test-btn {
+            padding: 10px 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: background .2s;
+        }
+        .test-btn:hover {
+            background: var(--hover-bg);
+        }
+        .test-demo-area {
+            margin-top: 16px;
+            padding: 20px;
+            background: var(--bg-input);
+            border-radius: 8px;
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div style="max-width: 1200px; margin: 0 auto; padding: 20px;">
+        <h1 style="text-align: center; margin-bottom: 40px; color: var(--text-primary);">
+            🎨 官网模板三 UI优化功能测试
+        </h1>
+
+        <!-- Toast测试 -->
+        <div class="test-section">
+            <div class="test-title">1. Toast 提示系统</div>
+            <div class="test-group">
+                <div class="test-label">点击按钮测试不同类型的Toast提示：</div>
+                <div class="test-buttons">
+                    <button class="test-btn" onclick="Index3.showToast('操作成功完成！', 'success')">
+                        ✓ Success Toast
+                    </button>
+                    <button class="test-btn" onclick="Index3.showToast('发生错误，请重试', 'error')">
+                        ✗ Error Toast
+                    </button>
+                    <button class="test-btn" onclick="Index3.showToast('这是一条信息提示', 'info')">
+                        ℹ Info Toast
+                    </button>
+                    <button class="test-btn" onclick="Index3.showToast('请注意网络状况', 'warning')">
+                        ⚠ Warning Toast
+                    </button>
+                    <button class="test-btn" onclick="testMultipleToasts()">
+                        📚 堆叠多个Toast
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 骨架屏测试 -->
+        <div class="test-section">
+            <div class="test-title">2. 骨架屏加载效果</div>
+            <div class="test-group">
+                <div class="test-label">查看骨架屏加载动画：</div>
+                <div class="test-buttons">
+                    <button class="test-btn" onclick="showSkeletonDemo()">显示骨架屏</button>
+                    <button class="test-btn" onclick="hideSkeletonDemo()">隐藏骨架屏</button>
+                </div>
+                <div class="test-demo-area" id="skeletonDemo"></div>
+            </div>
+        </div>
+
+        <!-- 模型卡片测试 -->
+        <div class="test-section">
+            <div class="test-title">3. 模型卡片视觉效果</div>
+            <div class="test-group">
+                <div class="test-label">Hover测试（渐变背景、边框高亮、能力标签）：</div>
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px;">
+                    <div class="model-card" tabindex="0" style="flex: 0 0 220px;">
+                        <div class="mc-header">
+                            <div style="width:36px;height:36px;background:var(--accent-light);border-radius:8px;"></div>
+                            <div>
+                                <div class="mc-name">SeeDance 1.0 Pro</div>
+                                <div class="mc-provider">豆包</div>
+                            </div>
+                            <span class="mc-recommend-badge">🔥</span>
+                        </div>
+                        <div class="mc-desc">高质量图片生成，支持文生图和图生图，适合各种创作场景</div>
+                        <div class="mc-capabilities">
+                            <span class="mc-capability-tag">文生图</span>
+                            <span class="mc-capability-tag">图生图</span>
+                            <span class="mc-capability-tag">高清放大</span>
+                        </div>
+                        <div class="mc-footer">
+                            <span class="mc-tag">图片生成</span>
+                            <span class="mc-action">开始创作 →</span>
+                        </div>
+                    </div>
+
+                    <div class="model-card" tabindex="0" style="flex: 0 0 220px;">
+                        <div class="mc-header">
+                            <div style="width:36px;height:36px;background:var(--accent-light);border-radius:8px;"></div>
+                            <div>
+                                <div class="mc-name">WANX 2.0</div>
+                                <div class="mc-provider">阿里云</div>
+                            </div>
+                        </div>
+                        <div class="mc-desc">通义万相，提供丰富的图片生成能力和风格化选项</div>
+                        <div class="mc-capabilities">
+                            <span class="mc-capability-tag">风格化</span>
+                            <span class="mc-capability-tag">参考图</span>
+                        </div>
+                        <div class="mc-footer">
+                            <span class="mc-tag">图片生成</span>
+                            <span class="mc-action">开始创作 →</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 空状态测试 -->
+        <div class="test-section">
+            <div class="test-title">4. 空状态效果</div>
+            <div class="test-group">
+                <div class="test-label">带浮动动画的空状态：</div>
+                <div class="test-demo-area">
+                    <div class="empty-state">
+                        <div class="empty-icon">🤖</div>
+                        <p>暂无数据</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab切换测试 -->
+        <div class="test-section">
+            <div class="test-title">5. Tab切换动画</div>
+            <div class="test-group">
+                <div class="test-label">键盘导航测试（Tab聚焦后，按左右箭头切换）：</div>
+                <div class="model-tab-header" role="tablist">
+                    <button class="model-tab-btn active" data-tab="1" role="tab" tabindex="0">🔥 热门模型</button>
+                    <button class="model-tab-btn" data-tab="2" role="tab" tabindex="0">供应商A</button>
+                    <button class="model-tab-btn" data-tab="3" role="tab" tabindex="0">供应商B</button>
+                    <button class="model-tab-btn" data-tab="4" role="tab" tabindex="0">供应商C</button>
+                </div>
+                <div class="test-demo-area" style="margin-top: 20px;">
+                    <div id="tabContent1" class="active" style="display:block">
+                        <p style="color:var(--text-primary)">✓ 面板切换时有淡入上移动画</p>
+                        <p style="color:var(--text-secondary);margin-top:8px;">✓ Tab底部线条有滑入效果</p>
+                    </div>
+                    <div id="tabContent2" style="display:none">
+                        <p style="color:var(--text-primary)">供应商A的内容</p>
+                    </div>
+                    <div id="tabContent3" style="display:none">
+                        <p style="color:var(--text-primary)">供应商B的内容</p>
+                    </div>
+                    <div id="tabContent4" style="display:none">
+                        <p style="color:var(--text-primary)">供应商C的内容</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 滚动箭头测试 -->
+        <div class="test-section">
+            <div class="test-title">6. 滚动箭头智能禁用</div>
+            <div class="test-group">
+                <div class="test-label">滚动到边界时箭头自动禁用：</div>
+                <div class="model-scroll-wrap" style="position: relative; margin-top: 16px;">
+                    <button class="scroll-arrow left" id="testLeftArrow">‹</button>
+                    <div class="model-scroll" id="testScroll" style="width: 100%; overflow-x: auto;">
+                        <div style="display: flex; gap: 16px;">
+                            <div style="flex: 0 0 200px; height: 120px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-color);"></div>
+                            <div style="flex: 0 0 200px; height: 120px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-color);"></div>
+                            <div style="flex: 0 0 200px; height: 120px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-color);"></div>
+                            <div style="flex: 0 0 200px; height: 120px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-color);"></div>
+                            <div style="flex: 0 0 200px; height: 120px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-color);"></div>
+                            <div style="flex: 0 0 200px; height: 120px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-color);"></div>
+                        </div>
+                    </div>
+                    <button class="scroll-arrow right" id="testRightArrow">›</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 性能优化测试 -->
+        <div class="test-section">
+            <div class="test-title">7. 性能优化验证</div>
+            <div class="test-group">
+                <div class="test-label">检查CSS优化：</div>
+                <div class="test-buttons">
+                    <button class="test-btn" onclick="checkPerformanceOptimizations()">检查性能优化</button>
+                </div>
+                <div class="test-demo-area" id="performanceResult" style="font-family: monospace; font-size: 12px; line-height: 1.6;"></div>
+            </div>
+        </div>
+
+        <!-- 主题切换测试 -->
+        <div class="test-section">
+            <div class="test-title">8. 主题切换</div>
+            <div class="test-group">
+                <div class="test-label">测试浅色/深色主题下的所有效果：</div>
+                <div class="test-buttons">
+                    <button class="test-btn" onclick="document.documentElement.setAttribute('data-theme', 'light')">
+                        ☀ 切换到浅色主题
+                    </button>
+                    <button class="test-btn" onclick="document.documentElement.setAttribute('data-theme', 'dark')">
+                        🌙 切换到深色主题
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="/static/index3/js/api.js?v=2"></script>
+    <script src="/static/index3/js/index.js?v=2"></script>
+    <script>
+        // Toast堆叠测试
+        function testMultipleToasts() {
+            Index3.showToast('第一条消息', 'info');
+            setTimeout(() => Index3.showToast('第二条消息', 'success'), 300);
+            setTimeout(() => Index3.showToast('第三条消息', 'warning'), 600);
+        }
+
+        // 骨架屏测试
+        function showSkeletonDemo() {
+            var demo = document.getElementById('skeletonDemo');
+            demo.innerHTML = `
+                <div class="model-skeleton-grid">
+                    <div class="model-skeleton-card">
+                        <div class="skeleton-header">
+                            <div class="skeleton-avatar"></div>
+                            <div class="skeleton-text">
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line short"></div>
+                            </div>
+                        </div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                    </div>
+                    <div class="model-skeleton-card">
+                        <div class="skeleton-header">
+                            <div class="skeleton-avatar"></div>
+                            <div class="skeleton-text">
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line short"></div>
+                            </div>
+                        </div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                    </div>
+                    <div class="model-skeleton-card">
+                        <div class="skeleton-header">
+                            <div class="skeleton-avatar"></div>
+                            <div class="skeleton-text">
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line short"></div>
+                            </div>
+                        </div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function hideSkeletonDemo() {
+            document.getElementById('skeletonDemo').innerHTML = '';
+        }
+
+        // Tab切换测试
+        document.querySelectorAll('.model-tab-btn[data-tab]').forEach((btn, index, btns) => {
+            btn.addEventListener('click', function() {
+                btns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                var tab = this.getAttribute('data-tab');
+                for(var i = 1; i <= 4; i++) {
+                    var content = document.getElementById('tabContent' + i);
+                    if(content) content.style.display = (i == tab) ? 'block' : 'none';
+                }
+            });
+
+            // 键盘导航
+            btn.addEventListener('keydown', function(e) {
+                if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    var nextIndex = e.key === 'ArrowRight' ? index + 1 : index - 1;
+                    if(nextIndex >= 0 && nextIndex < btns.length) {
+                        btns[nextIndex].focus();
+                        btns[nextIndex].click();
+                    }
+                } else if(e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.click();
+                }
+            });
+        });
+
+        // 滚动箭头测试
+        var testScroll = document.getElementById('testScroll');
+        var testLeftArrow = document.getElementById('testLeftArrow');
+        var testRightArrow = document.getElementById('testRightArrow');
+
+        function updateTestArrows() {
+            var isAtStart = testScroll.scrollLeft <= 0;
+            var isAtEnd = testScroll.scrollLeft + testScroll.clientWidth >= testScroll.scrollWidth - 1;
+            testLeftArrow.disabled = isAtStart;
+            testRightArrow.disabled = isAtEnd;
+        }
+
+        testScroll.addEventListener('scroll', updateTestArrows);
+        updateTestArrows();
+
+        testLeftArrow.addEventListener('click', function() {
+            testScroll.scrollBy({ left: -300, behavior: 'smooth' });
+            setTimeout(updateTestArrows, 350);
+        });
+
+        testRightArrow.addEventListener('click', function() {
+            testScroll.scrollBy({ left: 300, behavior: 'smooth' });
+            setTimeout(updateTestArrows, 350);
+        });
+
+        // 性能优化检查
+        function checkPerformanceOptimizations() {
+            var result = document.getElementById('performanceResult');
+            var checks = [];
+
+            // 检查will-change
+            var modelCard = document.querySelector('.model-card');
+            if(modelCard) {
+                var style = window.getComputedStyle(modelCard);
+                checks.push({
+                    name: 'will-change on .model-card',
+                    passed: style.willChange.includes('transform'),
+                    value: style.willChange || 'auto'
+                });
+            }
+
+            // 检查图片懒加载
+            var lazyImages = document.querySelectorAll('img[loading="lazy"]');
+            checks.push({
+                name: 'Image lazy loading',
+                passed: lazyImages.length > 0,
+                value: `${lazyImages.length} images with loading="lazy"`
+            });
+
+            // 检查ARIA标签
+            var ariaElements = document.querySelectorAll('[role], [aria-label], [aria-selected]');
+            checks.push({
+                name: 'ARIA attributes',
+                passed: ariaElements.length > 0,
+                value: `${ariaElements.length} elements with ARIA`
+            });
+
+            // 检查tabindex
+            var focusableElements = document.querySelectorAll('[tabindex="0"]');
+            checks.push({
+                name: 'Keyboard navigation',
+                passed: focusableElements.length > 0,
+                value: `${focusableElements.length} focusable elements`
+            });
+
+            // 渲染结果
+            var html = '<div style="color:var(--text-primary)">';
+            checks.forEach(check => {
+                var icon = check.passed ? '✓' : '✗';
+                var color = check.passed ? 'var(--accent-color)' : '#e74c3c';
+                html += `<div style="margin-bottom:8px">`;
+                html += `<span style="color:${color};font-weight:bold">${icon}</span> `;
+                html += `<span style="color:var(--text-primary)">${check.name}</span>: `;
+                html += `<span style="color:var(--text-secondary)">${check.value}</span>`;
+                html += `</div>`;
+            });
+            html += '</div>';
+            result.innerHTML = html;
+
+            Index3.showToast('性能检查完成', 'success');
+        }
+    </script>
+</body>
+</html>

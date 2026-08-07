@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试创建订单接口 - session登录状态</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 3px solid #91C2FF; padding-bottom: 10px; }
+        .section { margin: 25px 0; padding: 20px; background: #f9f9f9; border-radius: 8px; }
+        .label { font-weight: bold; color: #555; margin-bottom: 8px; display: block; }
+        input, textarea, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; box-sizing: border-box; }
+        textarea { min-height: 100px; resize: vertical; }
+        button { background: linear-gradient(135deg, #91C2FF, #B5D8FE); color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 15px; }
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #result { margin-top: 25px; padding: 20px; background: #f0f8ff; border-left: 4px solid #91C2FF; border-radius: 5px; white-space: pre-wrap; font-family: monospace; font-size: 13px; max-height: 500px; overflow-y: auto; }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        .info { color: #17a2b8; margin: 10px 0; padding: 10px; background: #e7f6f9; border-radius: 5px; }
+        .step { margin: 15px 0; padding: 15px; background: white; border-radius: 5px; border-left: 3px solid #91C2FF; }
+        .step-title { font-weight: bold; color: #91C2FF; margin-bottom: 8px; }
+        .warning { background: #fff3cd; border-left-color: #ffc107; color: #856404; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 测试创建订单接口 - Session登录状态</h1>
+        
+        <div class="info">
+            <strong>测试目的：</strong>验证修复后的create_generation_order接口能否正确从session获取登录状态
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ 前提条件：</strong>请先在浏览器中登录系统（访问 https://ai.eivie.cn 并完成登录），确保有有效的session_id
+        </div>
+
+        <div class="section">
+            <div class="step">
+                <div class="step-title">步骤1：获取Session ID</div>
+                <label class="label">Session ID（自动从Cookie读取）：</label>
+                <input type="text" id="session_id" readonly>
+                <button onclick="getSessionId()">刷新Session ID</button>
+            </div>
+
+            <div class="step">
+                <div class="step-title">步骤2：配置请求参数</div>
+                <label class="label">模板ID：</label>
+                <input type="number" id="template_id" value="22">
+                
+                <label class="label">生成类型（1=图片，2=视频）：</label>
+                <select id="generation_type">
+                    <option value="1">1 - 图片生成</option>
+                    <option value="2">2 - 视频生成</option>
+                </select>
+                
+                <label class="label">提示词：</label>
+                <textarea id="prompt" placeholder="输入提示词...">测试生成AI内容</textarea>
+                
+                <label class="label">生成数量：</label>
+                <input type="number" id="quantity" value="1" min="1" max="10">
+                
+                <label class="label">比例：</label>
+                <select id="ratio">
+                    <option value="1:1">1:1</option>
+                    <option value="16:9">16:9</option>
+                    <option value="9:16">9:16</option>
+                    <option value="4:3">4:3</option>
+                </select>
+                
+                <label class="label">质量：</label>
+                <select id="quality">
+                    <option value="standard">标准</option>
+                    <option value="hd">高清</option>
+                </select>
+            </div>
+
+            <div class="step">
+                <div class="step-title">步骤3：发送测试请求</div>
+                <button onclick="testCreateOrder()">🚀 测试创建订单（使用Session登录）</button>
+                <button onclick="testWithoutSession()">❌ 测试无Session（应该失败）</button>
+            </div>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // 获取Session ID
+        function getSessionId() {
+            const cookies = document.cookie.split(';');
+            let sessionId = '';
+            
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name.toLowerCase().includes('session') || name === 'PHPSESSID') {
+                    sessionId = value;
+                    break;
+                }
+            }
+            
+            if (!sessionId) {
+                // 尝试从localStorage获取
+                sessionId = localStorage.getItem('session_id') || '';
+            }
+            
+            document.getElementById('session_id').value = sessionId;
+            
+            if (!sessionId) {
+                showResult('⚠️ 未找到Session ID！请先登录系统。', 'error');
+            } else {
+                showResult('✅ Session ID获取成功: ' + sessionId, 'success');
+            }
+            
+            return sessionId;
+        }
+
+        // 测试创建订单（使用Session）
+        async function testCreateOrder() {
+            const sessionId = document.getElementById('session_id').value;
+            if (!sessionId) {
+                showResult('错误：请先获取Session ID！', 'error');
+                return;
+            }
+
+            const templateId = document.getElementById('template_id').value;
+            const generationType = document.getElementById('generation_type').value;
+            const prompt = document.getElementById('prompt').value;
+            const quantity = document.getElementById('quantity').value;
+            const ratio = document.getElementById('ratio').value;
+            const quality = document.getElementById('quality').value;
+
+            if (!prompt || prompt.trim().length < 2) {
+                showResult('错误：提示词至少需要2个字符！', 'error');
+                return;
+            }
+
+            showResult('正在发送请求...\n请求URL: /?s=/ApiAivideo/create_generation_order&aid=1&platform=h5&session_id=' + sessionId + '\n', 'info');
+
+            const formData = new FormData();
+            formData.append('template_id', templateId);
+            formData.append('generation_type', generationType);
+            formData.append('prompt', prompt);
+            formData.append('quantity', quantity);
+            formData.append('ratio', ratio);
+            formData.append('quality', quality);
+            formData.append('bid', 0);
+            formData.append('pid', 0);
+
+            try {
+                const url = `/?s=/ApiAivideo/create_generation_order&aid=1&platform=h5&session_id=${sessionId}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                
+                let resultHtml = '=== 测试结果 ===\n\n';
+                resultHtml += 'HTTP状态码: ' + response.status + '\n\n';
+                resultHtml += '响应数据:\n';
+                resultHtml += JSON.stringify(data, null, 2) + '\n\n';
+
+                if (data.status === 1) {
+                    resultHtml += '✅ 成功！订单创建成功，Session登录状态正常！\n';
+                    resultHtml += '订单信息：\n';
+                    if (data.data) {
+                        resultHtml += '- 订单ID: ' + (data.data.order_id || '未知') + '\n';
+                        resultHtml += '- 订单号: ' + (data.data.ordernum || '未知') + '\n';
+                        resultHtml += '- 是否需要支付: ' + (data.data.need_pay ? '是' : '否') + '\n';
+                    }
+                    showResult(resultHtml, 'success');
+                } else if (data.status === 0 && data.msg === '请先登录') {
+                    resultHtml += '❌ 失败！返回"请先登录"，说明Session未生效或已过期！\n';
+                    resultHtml += '可能原因：\n';
+                    resultHtml += '1. Session ID无效或已过期\n';
+                    resultHtml += '2. 缓存中没有对应的mid\n';
+                    resultHtml += '3. 请先在浏览器中登录系统\n';
+                    showResult(resultHtml, 'error');
+                } else {
+                    resultHtml += '⚠️ 返回了其他错误：' + (data.msg || '未知错误') + '\n';
+                    showResult(resultHtml, 'error');
+                }
+            } catch (error) {
+                showResult('请求失败：\n' + error.message + '\n\n' + error.stack, 'error');
+            }
+        }
+
+        // 测试无Session（应该失败）
+        async function testWithoutSession() {
+            showResult('正在测试无Session情况（应该返回"请先登录"）...\n', 'info');
+
+            const formData = new FormData();
+            formData.append('template_id', document.getElementById('template_id').value);
+            formData.append('generation_type', document.getElementById('generation_type').value);
+            formData.append('prompt', document.getElementById('prompt').value || '测试');
+            formData.append('quantity', 1);
+            formData.append('ratio', '1:1');
+            formData.append('quality', 'standard');
+
+            try {
+                const url = `/?s=/ApiAivideo/create_generation_order&aid=1&platform=h5`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                let resultHtml = '=== 无Session测试结果 ===\n\n';
+                resultHtml += 'HTTP状态码: ' + response.status + '\n\n';
+                resultHtml += '响应数据:\n';
+                resultHtml += JSON.stringify(data, null, 2) + '\n\n';
+
+                if (data.status === 0 && data.msg === '请先登录') {
+                    resultHtml += '✅ 符合预期！未登录状态正确返回"请先登录"\n';
+                    showResult(resultHtml, 'success');
+                } else {
+                    resultHtml += '⚠️ 意外结果！未登录状态没有返回"请先登录"\n';
+                    showResult(resultHtml, 'error');
+                }
+            } catch (error) {
+                showResult('请求失败：\n' + error.message, 'error');
+            }
+        }
+
+        // 显示结果
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.className = type || '';
+        }
+
+        // 页面加载时自动获取Session ID
+        window.onload = function() {
+            getSessionId();
+        };
+    </script>
+</body>
+</html>

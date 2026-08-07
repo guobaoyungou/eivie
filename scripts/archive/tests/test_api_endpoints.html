@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI旅拍API端点测试工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .config-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s;
+            margin-right: 10px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+        .results {
+            margin-top: 30px;
+        }
+        .result-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ddd;
+        }
+        .result-item.success {
+            border-left-color: #28a745;
+            background: #f1f9f3;
+        }
+        .result-item.error {
+            border-left-color: #dc3545;
+            background: #fef5f5;
+        }
+        .endpoint-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .endpoint-url {
+            color: #666;
+            font-family: monospace;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        .response-data {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .status-code {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        .status-200 {
+            background: #28a745;
+            color: white;
+        }
+        .status-error {
+            background: #dc3545;
+            color: white;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+        .summary {
+            background: #fff3cd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #ffc107;
+        }
+        .summary h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        .summary-stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+        }
+        .stat-item {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 AI旅拍系统 - API端点测试工具</h1>
+        <p class="subtitle">快速测试并验证所有API端点的可用性</p>
+        
+        <div class="config-section">
+            <h3 style="margin-bottom: 15px; color: #333;">⚙️ 服务器配置</h3>
+            <div class="form-group">
+                <label for="baseUrl">API基础地址</label>
+                <input type="text" id="baseUrl" value="http://192.168.11.222" placeholder="例如: http://192.168.11.222">
+            </div>
+            <div class="form-group">
+                <label for="testBid">测试商家ID (bid)</label>
+                <input type="number" id="testBid" value="1" placeholder="输入测试用的商家ID">
+            </div>
+            <div class="form-group">
+                <label for="testDeviceCode">测试设备编码</label>
+                <input type="text" id="testDeviceCode" value="TEST_DEVICE_001" placeholder="输入测试设备编码">
+            </div>
+            <button class="btn" onclick="runTests()">🧪 开始测试所有端点</button>
+            <button class="btn" onclick="clearResults()">🗑️ 清空结果</button>
+        </div>
+        
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        // API端点配置
+        const endpoints = [
+            {
+                name: '设备注册',
+                path: '/api/ai_travel_photo/device/register',
+                method: 'POST',
+                requiresAuth: false,
+                data: () => ({
+                    device_code: document.getElementById('testDeviceCode').value,
+                    bid: parseInt(document.getElementById('testBid').value),
+                    device_name: '测试设备',
+                    device_type: 'windows',
+                    mac_address: '00:11:22:33:44:55',
+                    ip_address: '192.168.1.100',
+                    version: '1.0.0'
+                })
+            },
+            {
+                name: '设备心跳',
+                path: '/api/ai_travel_photo/device/heartbeat',
+                method: 'POST',
+                requiresAuth: true,
+                data: () => ({
+                    status: 'online',
+                    cpu_usage: 45.5,
+                    memory_usage: 60.2,
+                    disk_usage: 70.8,
+                    upload_count: 100,
+                    timestamp: Math.floor(Date.now() / 1000)
+                })
+            },
+            {
+                name: '获取设备配置',
+                path: '/api/ai_travel_photo/device/config',
+                method: 'GET',
+                requiresAuth: true
+            },
+            {
+                name: '获取设备信息',
+                path: '/api/ai_travel_photo/device/info',
+                method: 'GET',
+                requiresAuth: true
+            },
+            {
+                name: '二维码生成',
+                path: '/api/ai_travel_photo/qrcode/generate',
+                method: 'POST',
+                requiresAuth: true,
+                data: () => ({
+                    type: 'portrait',
+                    expire_minutes: 30
+                })
+            },
+            {
+                name: '场景列表',
+                path: '/api/ai_travel_photo/scene/list',
+                method: 'GET',
+                requiresAuth: false
+            }
+        ];
+
+        let deviceToken = null;
+        let testResults = [];
+
+        async function testEndpoint(endpoint) {
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const url = baseUrl + endpoint.path;
+            
+            const options = {
+                method: endpoint.method,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            };
+
+            // 如果需要认证且有token
+            if (endpoint.requiresAuth && deviceToken) {
+                options.headers['Device-Token'] = deviceToken;
+            }
+
+            // 添加请求数据
+            if (endpoint.data && endpoint.method !== 'GET') {
+                options.body = JSON.stringify(endpoint.data());
+            }
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch(url, options);
+                const duration = Date.now() - startTime;
+                
+                let responseData;
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('application/json')) {
+                    responseData = await response.json();
+                } else {
+                    responseData = await response.text();
+                }
+
+                // 如果是注册接口且成功，保存token
+                if (endpoint.path.includes('/register') && responseData.code === 200 && responseData.data && responseData.data.token) {
+                    deviceToken = responseData.data.token;
+                }
+
+                return {
+                    success: response.ok,
+                    status: response.status,
+                    duration: duration,
+                    data: responseData
+                };
+            } catch (error) {
+                return {
+                    success: false,
+                    status: 0,
+                    duration: 0,
+                    error: error.message
+                };
+            }
+        }
+
+        function displayResult(endpoint, result, index) {
+            const resultsDiv = document.getElementById('results');
+            const resultClass = result.success ? 'success' : 'error';
+            const statusClass = result.success ? 'status-200' : 'status-error';
+            
+            const html = `
+                <div class="result-item ${resultClass}">
+                    <div class="endpoint-title">
+                        ${index + 1}. ${endpoint.name}
+                        <span class="status-code ${statusClass}">${result.status || 'ERROR'}</span>
+                        ${result.duration ? `<span style="color: #666; font-size: 12px;">${result.duration}ms</span>` : ''}
+                    </div>
+                    <div class="endpoint-url">${endpoint.method} ${endpoint.path}</div>
+                    ${endpoint.requiresAuth ? '<div style="color: #ff9800; font-size: 12px; margin-bottom: 8px;">🔒 需要认证</div>' : ''}
+                    <div class="response-data">${JSON.stringify(result.data || result.error, null, 2)}</div>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML += html;
+        }
+
+        function displaySummary() {
+            const resultsDiv = document.getElementById('results');
+            const total = testResults.length;
+            const success = testResults.filter(r => r.success).length;
+            const failed = total - success;
+            
+            const html = `
+                <div class="summary">
+                    <h3>📊 测试总结</h3>
+                    <div class="summary-stats">
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #667eea;">${total}</div>
+                            <div class="stat-label">总测试数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #28a745;">${success}</div>
+                            <div class="stat-label">成功</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #dc3545;">${failed}</div>
+                            <div class="stat-label">失败</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #ffc107;">${Math.round(success/total*100)}%</div>
+                            <div class="stat-label">成功率</div>
+                        </div>
+                    </div>
+                    ${deviceToken ? `<div style="margin-top: 15px; padding: 10px; background: #e8f5e9; border-radius: 4px;">
+                        <strong>✅ 设备Token已获取：</strong><br>
+                        <code style="font-size: 11px; word-break: break-all;">${deviceToken}</code>
+                    </div>` : ''}
+                </div>
+            `;
+            
+            resultsDiv.innerHTML += html;
+        }
+
+        async function runTests() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">⏳ 正在测试API端点，请稍候...</div>';
+            
+            testResults = [];
+            deviceToken = null;
+
+            for (let i = 0; i < endpoints.length; i++) {
+                const endpoint = endpoints[i];
+                
+                // 如果需要认证但没有token，跳过
+                if (endpoint.requiresAuth && !deviceToken) {
+                    continue;
+                }
+                
+                const result = await testEndpoint(endpoint);
+                testResults.push(result);
+                
+                if (i === 0) {
+                    resultsDiv.innerHTML = '';
+                }
+                
+                displayResult(endpoint, result, i);
+                
+                // 等待一小段时间再测试下一个
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+
+            displaySummary();
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            testResults = [];
+            deviceToken = null;
+        }
+
+        // 页面加载时的提示
+        window.onload = function() {
+            document.getElementById('results').innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #666;">
+                    <h3 style="margin-bottom: 10px;">👋 欢迎使用API测试工具</h3>
+                    <p>请确认服务器配置后，点击"开始测试"按钮</p>
+                </div>
+            `;
+        };
+    </script>
+</body>
+</html>

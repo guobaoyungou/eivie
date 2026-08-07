@@ -68,3 +68,12 @@ uinapp202603/
 deploy/venv/
 deploy/models/
 deploy/*.whl
+
+# 大文件/压缩包不入库
+*.tar.gz
+eivie muisc.zip
+eivie muisc/
+uniapp_*.tar.gz
+mp-weixin_*.tar.gz
+h520260327/
+sjkhd/
